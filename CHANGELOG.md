@@ -7,6 +7,19 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-28
+
+- Decode SILK pitch, five-tap LTP coefficients, scaling and excitation seed for
+  8/12/16 kHz and 10/20 ms internal frames.
+- Support conditional lag history, absolute lag escapes and independent coding
+  with or without transmitted LTP scaling. Reset history on rate changes.
+- Preserve entropy and pitch history together on errors; clamp reconstructed
+  sample lags and bound malformed conditional chains.
+- Match 3618 upstream reference steps, covering every pitch contour and LTP
+  codebook entry; exercise all two-byte inputs across 18 configurations.
+
+Excitation decoding, post-loss processing and PCM synthesis remain unimplemented.
+
 ## [0.1.1] - 2026-10-28
 
 - Add fixed-point NLSF-to-LPC conversion for both SILK filter orders and frame

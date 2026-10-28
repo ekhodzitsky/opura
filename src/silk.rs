@@ -7,6 +7,7 @@
 pub mod gains;
 pub mod lpc;
 pub mod nlsf;
+pub mod pitch;
 
 use crate::{
     Mode, Packet,

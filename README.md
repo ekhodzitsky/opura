@@ -1,7 +1,7 @@
 # opura
 
 Opura is a pure Rust, zero-dependency Opus implementation under development.
-**Packet framing, range decoding, SILK headers, gain, NLSF and LPC reconstruction are
+**Packet framing, range decoding, SILK headers, gain, NLSF, LPC and pitch/LTP reconstruction are
 implemented.** It does not encode or decode audio yet. The accepted direction is a complete decoder
 first, then an encoder, prioritizing speed and reliability. See the
 [decoder-first decision](docs/decisions/0002-decoder-first.md) for evaluation
@@ -178,7 +178,7 @@ python3 tools/silk_gain_fixtures.py target/reference/opus --dequant > /tmp/opura
 diff -u tests/silk-gain-dequant-fixtures.txt /tmp/opura-dequant.txt
 ```
 
-These are synthetic primitive tests. Pitch, excitation, stereo
+These are synthetic primitive tests. Excitation, stereo
 reconstruction and PCM output remain unimplemented; no full decoder or
 performance claims follow from matching these segments.
 
@@ -240,7 +240,7 @@ interpolation is disabled, both filters are identical.
 Q12 coefficients and Q30 inverse gains, including clustered and boundary
 spectra. Integration tests also check both returned filters for every accepted
 NLSF reference step. This does not yet implement post-loss bandwidth expansion,
-pitch/excitation decoding or PCM synthesis.
+excitation decoding or PCM synthesis.
 
 Optional regeneration uses the same clean upstream checkout:
 
@@ -250,4 +250,40 @@ diff -u tests/silk-lpc-fixtures.txt /tmp/opura-lpc.txt
 python3 tools/silk_lpc_fixtures.py target/reference/opus --table > /tmp/opura-lpc-table.rs
 rustfmt --edition 2024 /tmp/opura-lpc-table.rs
 diff -u src/silk/lpc_table.rs /tmp/opura-lpc-table.rs
+```
+
+## SILK pitch and long-term prediction
+
+`opura::silk::pitch::PitchState` consumes the side information immediately after
+NLSF symbols: pitch lag and contour, LTP periodicity and vector indices, scaling,
+and the excitation seed. `FramePitch` exposes sample lags and five signed Q14
+LTP coefficients per 5 ms subframe. `SilkRate` selects the internal 8/12/16 kHz
+rate; `FrameDuration` selects a 10/20 ms internal frame.
+
+`PitchCoding` distinguishes independent coding, independent coding without LTP
+scaling, and conditional coding. Conditional lags use previous voiced history;
+without it, lags are absolute. Inactive/unvoiced frames consume only the seed,
+produce zero pitch/LTP parameters, and clear voiced history. Sampling-rate
+changes reset history automatically. Implicit scale index zero on a voiced
+frame means Q14 scale 15565, not zero.
+
+Entropy and history commit together only on success. As with the other
+primitives, the future full-frame decoder must defer history commits until all
+excitation data succeeds. Malformed delta chains preserve the reference's signed
+16-bit raw index behavior while reconstructed sample lags clamp to 2–18 ms.
+No excitation samples, concealment or PCM are produced yet.
+
+[3618 reference steps](tests/silk-pitch-fixtures.txt) use the actual pinned
+upstream index-decoding suffix, parameter reconstruction and pitch decoder.
+Coverage assertions require every pitch contour, every LTP codebook vector,
+all scale indices and all seed values. Tests also exercise all two-byte inputs
+across 18 rate/duration/coding combinations, unvoiced one-byte frames, rate
+changes, and long malformed delta chains.
+
+```sh
+python3 tools/silk_pitch_fixtures.py target/reference/opus > /tmp/opura-pitch.txt
+diff -u tests/silk-pitch-fixtures.txt /tmp/opura-pitch.txt
+python3 tools/silk_pitch_fixtures.py target/reference/opus --tables > /tmp/opura-pitch-tables.rs
+rustfmt --edition 2024 /tmp/opura-pitch-tables.rs
+diff -u src/silk/pitch_tables.rs /tmp/opura-pitch-tables.rs
 ```
