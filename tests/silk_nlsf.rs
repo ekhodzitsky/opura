@@ -6,6 +6,23 @@ use opura::silk::nlsf::{NlsfError, NlsfOrder, NlsfState};
 #[test]
 fn upstream_sequences_match_spectrum_interpolation_and_entropy()
 -> Result<(), Box<dyn std::error::Error>> {
+    let mut filters = std::collections::BTreeMap::new();
+    for line in include_str!("silk-lpc-fixtures.txt")
+        .lines()
+        .filter(|s| !s.starts_with('#'))
+    {
+        let values: Vec<i32> = line
+            .split_whitespace()
+            .map(str::parse)
+            .collect::<Result<_, _>>()?;
+        let count = values[0] as usize;
+        let spectrum: Vec<i16> = values[1..=count].iter().map(|&v| v as i16).collect();
+        let coefficients: Vec<i16> = values[count + 1..=2 * count]
+            .iter()
+            .map(|&v| v as i16)
+            .collect();
+        filters.insert(spectrum, coefficients);
+    }
     let mut input = Vec::new();
     let mut decoder = RangeDecoder::new(&[]);
     let mut state = NlsfState::default();
@@ -79,6 +96,15 @@ fn upstream_sequences_match_spectrum_interpolation_and_entropy()
             i64::from(decoder.tell_frac()),
         ]);
         assert_eq!(values, expected, "fixture line {}", line_number + 1);
+        let lpc = actual.to_lpc();
+        assert_eq!(
+            Some(lpc.current_q12()),
+            filters.get(actual.current_q15()).map(Vec::as_slice)
+        );
+        assert_eq!(
+            Some(lpc.first_half_q12()),
+            filters.get(actual.first_half_q15()).map(Vec::as_slice)
+        );
         assert_eq!(state.previous_q15(), Some(actual.current_q15()));
         assert_eq!(actual.current_q15().len(), count);
         assert!(actual.current_q15().windows(2).all(|w| w[0] < w[1]));
@@ -163,6 +189,9 @@ fn every_two_byte_input_is_bounded_and_preserves_state_on_failure() {
                     match state.decode(&mut decoder, order, duration, signal) {
                         Ok(frame) => {
                             assert!(decoder.tell() <= 16);
+                            let lpc = frame.to_lpc();
+                            assert_eq!(lpc.current_q12().len(), frame.current_q15().len());
+                            assert_eq!(lpc.first_half_q12().len(), frame.first_half_q15().len());
                             assert!(frame.current_q15().windows(2).all(|w| w[0] < w[1]));
                         }
                         Err(error) => {

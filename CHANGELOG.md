@@ -7,6 +7,17 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-28
+
+- Add fixed-point NLSF-to-LPC conversion for both SILK filter orders and frame
+  halves, including coefficient fitting and bounded stability correction.
+- Expose prediction filters through `FrameNlsf::to_lpc()` and `FrameLpc`.
+- Verify exact coefficients and inverse prediction gains against 2281 spectra
+  from Opus 1.6.1, plus integration with the NLSF decoding reference sequences.
+- Preserve zero dependencies and allocation-free decoder primitives.
+
+PCM synthesis and post-loss bandwidth expansion remain unimplemented.
+
 ## [0.1.0] - 2026-10-28
 
 Initial development baseline, not yet an audio decoder.

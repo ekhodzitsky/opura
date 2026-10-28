@@ -1,7 +1,8 @@
 //! SILK normalized line spectral frequencies (RFC 6716 section 4.2.7.5).
 //!
 //! Consumes NLSF symbols after the gains; produces stabilized Q15 frequencies,
-//! not LPC coefficients or PCM. All storage is fixed and decoding is transactional.
+//! convertible to LPC coefficients via [`FrameNlsf::to_lpc`]. No PCM is produced.
+//! All storage is fixed and decoding is transactional.
 //! Adapted from Opus v1.6.1; see THIRD_PARTY_NOTICES.md.
 use super::gains::{FrameDuration, SignalType};
 use crate::range::{RangeDecoder, RangeError};
@@ -138,7 +139,7 @@ impl NlsfState {
     /// A new order disables interpolation for this frame automatically. Both
     /// history and entropy are unchanged on error. For rollback of a whole
     /// frame, decode into cloned states until all remaining fields succeed.
-    /// Packet-loss concealment and LPC conversion are not implemented here.
+    /// Packet-loss concealment is not implemented here; LPC conversion is separate.
     pub fn decode(
         &mut self,
         decoder: &mut RangeDecoder<'_>,

@@ -44,7 +44,9 @@ above. The gain reconstruction and probability tables are adapted under the
 same notices below. NLSF codebooks, reconstruction and stabilization are adapted
 from `silk/tables_NLSF_CB_NB_MB.c`, `silk/tables_NLSF_CB_WB.c`,
 `silk/NLSF_unpack.c`, `silk/NLSF_decode.c`, `silk/NLSF_stabilize.c` and
-`silk/decode_parameters.c`, under the same notices.
+`silk/decode_parameters.c`, under the same notices. LPC conversion and its
+cosine table follow `silk/NLSF2A.c`, `silk/table_LSF_cos.c`, `silk/LPC_fit.c`,
+`silk/LPC_inv_pred_gain.c`, `silk/bwexpander_32.c` and `silk/Inlines.h`.
 
 ```text
 /***********************************************************************

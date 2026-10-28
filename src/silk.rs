@@ -5,6 +5,7 @@
 //! Stereo channel zero is mid and channel one is side (not left/right).
 
 pub mod gains;
+pub mod lpc;
 pub mod nlsf;
 
 use crate::{

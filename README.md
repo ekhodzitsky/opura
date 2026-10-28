@@ -1,7 +1,7 @@
 # opura
 
 Opura is a pure Rust, zero-dependency Opus implementation under development.
-**Packet framing, range decoding, SILK headers, gain and NLSF reconstruction are
+**Packet framing, range decoding, SILK headers, gain, NLSF and LPC reconstruction are
 implemented.** It does not encode or decode audio yet. The accepted direction is a complete decoder
 first, then an encoder, prioritizing speed and reliability. See the
 [decoder-first decision](docs/decisions/0002-decoder-first.md) for evaluation
@@ -178,7 +178,7 @@ python3 tools/silk_gain_fixtures.py target/reference/opus --dequant > /tmp/opura
 diff -u tests/silk-gain-dequant-fixtures.txt /tmp/opura-dequant.txt
 ```
 
-These are synthetic primitive tests. LPC conversion, pitch, excitation, stereo
+These are synthetic primitive tests. Pitch, excitation, stereo
 reconstruction and PCM output remain unimplemented; no full decoder or
 performance claims follow from matching these segments.
 
@@ -190,7 +190,7 @@ Hybrid), reconstructs stabilized Q15 spectral frequencies, and interpolates
 the first half of 20 ms frames using per-channel history. Ten-millisecond
 frames do not interpolate. Default/reset and order changes disable interpolation
 for the first frame. The caller must also reset on sample-rate changes that
-preserve order, such as 8↔12 kHz. This stage does not produce LPC coefficients.
+preserve order, such as 8↔12 kHz. Use `FrameNlsf::to_lpc()` for the subsequent LPC conversion.
 
 The decoder uses fixed storage without allocation. Failure leaves spectral
 history and entropy unchanged. Like gains, this primitive must participate in
@@ -226,3 +226,28 @@ use annotated `vX.Y.Z` Git tags, with matching Cargo package versions. Before
 1.0, incompatible API changes increment the minor version; compatible additions
 and fixes increment the patch version. Tags record tested development milestones,
 not crates.io publication or full codec conformance.
+
+## SILK prediction filters
+
+`FrameNlsf::to_lpc()` returns `FrameLpc` with Q12 prediction coefficients for
+both halves of the frame. It uses the fixed-point cosine table and polynomial
+ordering, coefficient fitting, and inverse-prediction-gain stability correction
+from Opus 1.6.1. Conversion uses fixed storage and bounded loops. It consumes no
+entropy and does not alter spectral history. For 10 ms frames, or when
+interpolation is disabled, both filters are identical.
+
+[2281 independent reference spectra](tests/silk-lpc-fixtures.txt) verify exact
+Q12 coefficients and Q30 inverse gains, including clustered and boundary
+spectra. Integration tests also check both returned filters for every accepted
+NLSF reference step. This does not yet implement post-loss bandwidth expansion,
+pitch/excitation decoding or PCM synthesis.
+
+Optional regeneration uses the same clean upstream checkout:
+
+```sh
+python3 tools/silk_lpc_fixtures.py target/reference/opus > /tmp/opura-lpc.txt
+diff -u tests/silk-lpc-fixtures.txt /tmp/opura-lpc.txt
+python3 tools/silk_lpc_fixtures.py target/reference/opus --table > /tmp/opura-lpc-table.rs
+rustfmt --edition 2024 /tmp/opura-lpc-table.rs
+diff -u src/silk/lpc_table.rs /tmp/opura-lpc-table.rs
+```
