@@ -287,3 +287,10 @@ python3 tools/silk_pitch_fixtures.py target/reference/opus --tables > /tmp/opura
 rustfmt --edition 2024 /tmp/opura-pitch-tables.rs
 diff -u src/silk/pitch_tables.rs /tmp/opura-pitch-tables.rs
 ```
+
+## Comparison goals
+
+The [competitive landscape and benchmark contract](docs/benchmarks/competitive-landscape.md)
+records the GitHub comparison set, pinned evidence and measurable performance,
+quality, reliability and usability targets. Competitor claims have not yet been
+reproduced by Opura; no overall leadership is claimed.
