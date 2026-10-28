@@ -1,0 +1,27 @@
+# Local agent state, private task data, and environment files
+.grok
+.serena
+.claude
+.codex
+.cursor
+.kimi
+.kimi-code
+.agents
+.aider
+.aider.*
+.claude-memory-compiler
+.codebase-memory
+.codebase-memory-*
+.mcp.json
+.omc
+.omx
+.superpowers
+.gstack
+backlog
+.backlog
+backlog.config.yml
+.env
+.env.*
+
+# Rust build artifacts
+/target/

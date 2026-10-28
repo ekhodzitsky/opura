@@ -1,0 +1,16 @@
+[package]
+name = "opura"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.87"
+description = "A pure Rust, zero-dependency Opus implementation (framing, entropy decoding, SILK primitives)"
+publish = false
+
+[lints.rust]
+unsafe_code = "forbid"
+unused_must_use = "deny"
+missing_docs = "warn"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
