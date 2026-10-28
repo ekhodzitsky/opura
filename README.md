@@ -1,8 +1,9 @@
 # opura
 
 Opura is a pure Rust, zero-dependency Opus implementation under development.
-**Packet framing, range decoding, SILK headers, gain, NLSF, LPC, pitch/LTP and excitation reconstruction are
-implemented.** It does not encode or decode audio yet. The accepted direction is a complete decoder
+**Packet framing, range decoding, SILK headers, gain, NLSF, LPC, pitch/LTP, excitation and
+loss-free single-channel synthesis are implemented.** Complete Opus packet-to-PCM
+decoding and encoding are not available yet. The accepted direction is a complete decoder
 first, then an encoder, prioritizing speed and reliability. See the
 [decoder-first decision](docs/decisions/0002-decoder-first.md) for evaluation
 requirements; SOTA performance is an ambition, not a current claim.
@@ -73,7 +74,7 @@ identical bytes, and commas concatenate hex chunks. The generator reports the
 reference version. Review differences before replacing fixtures.
 
 See the [pure Rust decision](docs/decisions/0001-pure-rust-zero-dependencies.md)
-for project constraints. Audio-layer decoding remains future work; no audio compatibility or performance
+for project constraints. Complete audio-layer decoding remains future work; no audio compatibility or performance
 claims are made by the current primitives.
 
 ## Range decoding
@@ -179,9 +180,8 @@ python3 tools/silk_gain_fixtures.py target/reference/opus --dequant > /tmp/opura
 diff -u tests/silk-gain-dequant-fixtures.txt /tmp/opura-dequant.txt
 ```
 
-These are synthetic primitive tests. LTP/LPC synthesis, stereo
-reconstruction and PCM output remain unimplemented; no full decoder or
-performance claims follow from matching these segments.
+These are synthetic primitive tests. They do not establish full decoder
+conformance or performance; stereo and frame orchestration remain incomplete.
 
 ## SILK spectral parameters
 
@@ -240,8 +240,8 @@ interpolation is disabled, both filters are identical.
 [2281 independent reference spectra](tests/silk-lpc-fixtures.txt) verify exact
 Q12 coefficients and Q30 inverse gains, including clustered and boundary
 spectra. Integration tests also check both returned filters for every accepted
-NLSF reference step. This does not yet implement post-loss bandwidth expansion,
-LTP/LPC synthesis or PCM output.
+NLSF reference step. Post-loss bandwidth expansion remains unimplemented.
+The separate synthesis stage below consumes these filters to produce internal-rate PCM.
 
 Optional regeneration uses the same clean upstream checkout:
 
@@ -332,4 +332,45 @@ diff -u src/silk/excitation_tables.rs /tmp/opura-excitation-tables.rs
 ```
 
 This is excitation before LTP/LPC filtering and gain scaling, not PCM. Full-frame
-state commits, synthesis, stereo processing and resampling still need integration.
+state commits, stereo processing and resampling still need integration.
+
+
+## SILK synthesis
+
+`opura::silk::synthesis::SynthesisState::synthesize` consumes the rate and
+existing `FrameGains`, `FrameNlsf`, `FramePitch` and `FrameExcitation` for one
+channel of the same internal frame. It converts NLSFs to LPC coefficients,
+rewhitens pitch history, applies five-tap LTP and 10/16-tap LPC prediction,
+adjusts history for gain changes, and returns signed 16-bit `PcmFrame` samples.
+Supported internal rates are 8/12/16 kHz and durations 10/20 ms. Buffers are
+fixed-size; no allocation, dependency or unsafe Rust is introduced.
+
+State persists between frames. `reset()` clears all history. A rate change
+clears PCM/LPC history while preserving the previous gain, matching the reference
+rate-switch behavior. Geometry and voiced-pitch mismatches return a typed error
+without changing synthesis state. Parameter provenance remains the caller's
+responsibility: shape validation cannot establish that all components came from
+the same entropy stream. Full decoding must additionally transact the entropy,
+gain, NLSF and pitch states around synthesis.
+
+[192 independent reference frames](tests/silk-synthesis-fixtures.txt) contain
+literal excitation, PCM and persistent histories from pinned Opus 1.6.1
+`silk_decode_core`, with the normal `decode_frame` history update. Tests compare
+every PCM sample and all retained LPC/PCM state values, not just hashes. The
+sequences cover both durations, all three rates, reset/rate changes, voiced and
+unvoiced transitions, interpolation, pitch extremes, constant/changing gains,
+quiet/strong excitation and clipping. Separate integration tests feed 192 sets
+of decoded typed parameters and verify reset/error behavior. Targeted mutation
+checks detect ordinary division replacing reference gain refinement, missing
+mid-frame rewhitening, reversed LTP taps and incorrect saturating shifts.
+
+```sh
+python3 tools/silk_synthesis_fixtures.py target/reference/opus > /tmp/opura-synthesis.txt
+diff -u tests/silk-synthesis-fixtures.txt /tmp/opura-synthesis.txt
+```
+
+This produces **loss-free internal-channel PCM**, before CNG, PLC glue, stereo
+reconstruction, output-rate resampling and CELT/Hybrid mixing. It is not a
+complete Opus decoder, does not handle packet loss, and does not establish audio
+quality or performance superiority over competitors. Packet-to-frame entropy
+orchestration remains the next integration requirement.

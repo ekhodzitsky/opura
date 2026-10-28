@@ -1,8 +1,8 @@
 //! Pure Rust Opus packet framing, entropy decoding and SILK primitives.
-//! No dependencies or allocation; audio synthesis is not implemented yet.
+//! No dependencies or allocation; complete Opus decoding is not implemented yet.
 //!
 //! This validates RFC 6716 section 3 framing, not compressed audio contents.
-//! Audio decoding, containers, multistream and self-delimiting framing are
+//! Complete audio decoding, containers, multistream and self-delimiting framing are
 //! not implemented. Pass exactly one packet, with its transport headers removed.
 //!
 //! ```

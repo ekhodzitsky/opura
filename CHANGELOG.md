@@ -7,6 +7,20 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-10-29
+
+- Add loss-free one-channel SILK PCM synthesis at 8/12/16 kHz for 10/20 ms
+  internal frames, consuming existing decoded gains, NLSFs, pitch and excitation.
+- Apply reference fixed-point gain adjustment, LTP rewhitening/prediction, LPC
+  filtering and signed-16 saturation with persistent histories and reset support.
+- Reject incompatible geometry or voiced pitch before mutating state; define
+  rate-switch history clearing and preserve allocation-free, safe Rust behavior.
+- Match every PCM sample and persistent LPC/PCM history value across 192 pinned
+  Opus 1.6.1 reference frames; exercise typed integration and state rollback.
+
+Full frame orchestration, stereo, CNG/PLC, resampling and CELT/Hybrid mixing are
+still absent. This milestone does not establish full-codec conformance or speed.
+
 ## [0.1.5] - 2026-10-29
 
 - Share the validated one/two-frame paths across all packet codes, including

@@ -52,6 +52,8 @@ Pitch/LTP reconstruction and tables additionally follow `silk/decode_pitch.c`,
 Pulse/excitation decoding additionally follows `silk/decode_pulses.c`,
 `silk/shell_coder.c`, `silk/code_signs.c`, `silk/tables_pulses_per_block.c`,
 `silk/decode_core.c` and the PRNG constants in `silk/SigProc_FIX.h`.
+Loss-free synthesis also adapts `silk/LPC_analysis_filter.c`, the history update
+in `silk/decode_frame.c`, and fixed-point gain refinement in `silk/Inlines.h`.
 
 ```text
 /***********************************************************************

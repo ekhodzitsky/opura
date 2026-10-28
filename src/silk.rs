@@ -1,4 +1,4 @@
-//! SILK-layer headers, gains and spectral side information, not yet audio synthesis.
+//! SILK headers, side information, excitation and single-channel synthesis.
 //!
 //! Implements RFC 6716 sections 4.2.3–4.2.4 for SILK and Hybrid frames.
 //! Flags describe internal 10/20 ms SILK frames, not Opus packet frame count.
@@ -9,6 +9,7 @@ pub mod gains;
 pub mod lpc;
 pub mod nlsf;
 pub mod pitch;
+pub mod synthesis;
 
 use crate::{
     Mode, Packet,
