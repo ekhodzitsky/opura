@@ -7,6 +7,19 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-10-29
+
+- Share the validated one/two-frame paths across all packet codes, including
+  padding; avoid the general length buffer for these cases.
+- Build multi-frame CBR views without an intermediate length array. Store VBR
+  lengths in u16 only after validating the final frame size; retain usize sums.
+- Add eight-frame inline storage to reduce initialization/copying for shorter
+  multi-frame packets, preserving the public API, no allocation and safe Rust.
+- Expand exact-span regression coverage to all counts 1–48, CBR/VBR, padding
+  and frame-length boundaries, including oversized lengths that could truncate.
+- Record fresh paired benchmarks against the unchanged corpus and thresholds.
+  Full packet and full-codec superiority remain unachieved; see the results.
+
 ## [0.1.4] - 2026-10-29
 
 - Reduce packet parsing overhead with one/two-frame storage, short-form fast

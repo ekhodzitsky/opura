@@ -1,4 +1,7 @@
-# Local competitive measurements
+# Local competitive measurements (0.1.4)
+
+Latest follow-up: [0.1.5 measurements](packet-0.1.5.md). This report retains the
+historical 0.1.4 results and comparison protocol.
 
 Measured 2026-10-29, Opura 0.1.4 working tree. This is a packet-framing
 microbenchmark, **not an audio-decoder benchmark or overall leadership claim**.

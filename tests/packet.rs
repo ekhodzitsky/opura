@@ -290,3 +290,72 @@ fn arbitrary_input_has_bounded_valid_views_or_errors() {
     padded.pop();
     assert!(Packet::parse(&padded).is_err());
 }
+
+#[test]
+fn multi_frame_views_cover_boundaries_with_and_without_padding() -> Result<(), PacketError> {
+    for count in 1usize..=48 {
+        for length in [0usize, 1, 251, 252, 1275] {
+            for vbr in [false, true] {
+                for padded in [false, true] {
+                    let lengths: Vec<_> = (0..count)
+                        .map(|i| {
+                            if vbr && i % 2 != 0 {
+                                length / 2
+                            } else {
+                                length
+                            }
+                        })
+                        .collect();
+                    let mut input = vec![
+                        0x83,
+                        count as u8 | (u8::from(vbr) * 128) | (u8::from(padded) * 64),
+                    ];
+                    if padded {
+                        input.push(3);
+                    }
+                    if vbr {
+                        for &size in &lengths[..count - 1] {
+                            if size < 252 {
+                                input.push(size as u8);
+                            } else {
+                                input.push((252 + size % 4) as u8);
+                                input.push(((size - 252) / 4) as u8);
+                            }
+                        }
+                    }
+                    let mut offset = input.len();
+                    for (i, &size) in lengths.iter().enumerate() {
+                        input.extend(std::iter::repeat_n(i as u8, size));
+                    }
+                    if padded {
+                        input.extend([91, 92, 93]);
+                    }
+                    let packet = Packet::parse(&input)?;
+                    assert_eq!(packet.frames().len(), count);
+                    assert_eq!(packet.duration_samples(), count as u16 * 120);
+                    for (frame, &size) in packet.frames().iter().zip(&lengths) {
+                        assert_eq!(frame.as_ptr() as usize - input.as_ptr() as usize, offset);
+                        assert_eq!(*frame, &input[offset..offset + size]);
+                        offset += size;
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn oversized_multi_frame_lengths_never_narrow_before_validation() {
+    for count in [1usize, 2, 3, 48] {
+        for size in [1276usize, 65536] {
+            let mut cbr = vec![0x83, count as u8];
+            cbr.resize(2 + size * count, 42);
+            assert_eq!(Packet::parse(&cbr).err(), Some(PacketError::FrameTooLarge));
+            let mut vbr = vec![0x83, count as u8 | 128];
+            vbr.resize(2 + count - 1, 0); // Empty preceding frames, oversized last frame.
+            vbr.resize(vbr.len() + size, 42);
+            assert_eq!(Packet::parse(&vbr).err(), Some(PacketError::FrameTooLarge));
+        }
+    }
+}

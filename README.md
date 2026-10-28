@@ -296,7 +296,7 @@ records the GitHub comparison set, pinned evidence and measurable performance,
 quality, reliability and usability targets. Competitor claims have not yet been
 reproduced by Opura; no overall leadership is claimed.
 
-[Local measurements and gates](docs/benchmarks/local-results.md) record the first
+[Local measurements and gates](docs/benchmarks/packet-0.1.5.md) record the first
 packet-framing comparison with libopus, before/after raw samples and remaining
 failures. The full-codec competitive target is not met.
 

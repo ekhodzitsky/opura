@@ -86,7 +86,7 @@ pub struct Packet<'a> {
     frames: Frames<'a>,
 }
 
-// Common one- and two-frame packets need not initialize 48 slice pointers.
+// Smaller inline variants avoid initializing 48 slice pointers for short packets.
 #[derive(Debug)]
 #[allow(
     clippy::large_enum_variant,
@@ -95,6 +95,10 @@ pub struct Packet<'a> {
 enum Frames<'a> {
     One([&'a [u8]; 1]),
     Two([&'a [u8]; 2]),
+    Few {
+        frames: [&'a [u8]; 8],
+        count: usize,
+    },
     Many {
         frames: [&'a [u8]; 48],
         count: usize,
@@ -111,7 +115,36 @@ impl<'a> Packet<'a> {
     pub fn parse(input: &'a [u8]) -> Result<Self, PacketError> {
         let (&toc, mut payload) = input.split_first().ok_or(PacketError::EmptyPacket)?;
         let code = toc & 3;
-        if code == 0 {
+        let (count, vbr) = if code == 3 {
+            let header = read_byte(&mut payload)?;
+            let count = usize::from(header & 63);
+            let vbr = header & 128 != 0;
+            if count == 0 || count > 48 {
+                return Err(PacketError::InvalidFrameCount);
+            }
+            if header & 64 != 0 {
+                loop {
+                    let byte = read_byte(&mut payload)?;
+                    let padding = if byte == 255 { 254 } else { usize::from(byte) };
+                    // Bound padding arithmetic by the remaining input length.
+                    let end = payload
+                        .len()
+                        .checked_sub(padding)
+                        .ok_or(PacketError::TruncatedPacket)?;
+                    payload = &payload[..end];
+                    if byte != 255 {
+                        break;
+                    }
+                }
+            }
+            if u32::from(frame_samples(toc)) * count as u32 > 5760 {
+                return Err(PacketError::DurationTooLong);
+            }
+            (count, vbr)
+        } else {
+            (if code == 0 { 1 } else { 2 }, code == 2)
+        };
+        if count == 1 {
             if payload.len() > 1275 {
                 return Err(PacketError::FrameTooLarge);
             }
@@ -120,8 +153,8 @@ impl<'a> Packet<'a> {
                 frames: Frames::One([payload]),
             });
         }
-        if code == 1 || code == 2 {
-            let first_length = if code == 1 {
+        if count == 2 {
+            let first_length = if !vbr {
                 if payload.len() % 2 != 0 {
                     return Err(PacketError::InvalidFrameLength);
                 }
@@ -147,86 +180,66 @@ impl<'a> Packet<'a> {
                 frames: Frames::Two([first, second]),
             });
         }
-        let header = read_byte(&mut payload)?;
-        let count = usize::from(header & 63);
-        let vbr = header & 128 != 0;
-        if count == 0 || count > 48 {
-            return Err(PacketError::InvalidFrameCount);
-        }
-        if header & 64 != 0 {
-            loop {
-                let byte = read_byte(&mut payload)?;
-                let padding = if byte == 255 { 254 } else { usize::from(byte) };
-                // Bound padding arithmetic by the remaining input length.
-                let end = payload
-                    .len()
-                    .checked_sub(padding)
-                    .ok_or(PacketError::TruncatedPacket)?;
-                payload = &payload[..end];
-                if byte != 255 {
-                    break;
-                }
-            }
-        }
-        if u32::from(frame_samples(toc)) * count as u32 > 5760 {
-            return Err(PacketError::DurationTooLong);
-        }
-        if count == 1 {
-            if payload.len() > 1275 {
-                return Err(PacketError::FrameTooLarge);
-            }
-            return Ok(Self {
-                toc,
-                frames: Frames::One([payload]),
-            });
-        }
-        let mut lengths = [0usize; 48];
-        if vbr {
-            let mut total = 0;
-            for length in &mut lengths[..count - 1] {
-                let first = usize::from(read_byte(&mut payload)?);
-                *length = if first < 252 {
-                    first
-                } else {
-                    first + 4 * usize::from(read_byte(&mut payload)?)
-                };
-                // At most 47 lengths, each at most 1275: cannot overflow usize.
-                total += *length;
-            }
-            lengths[count - 1] = payload
-                .len()
-                .checked_sub(total)
-                .ok_or(PacketError::TruncatedPacket)?;
-        } else {
+        if !vbr {
             if payload.len() % count != 0 {
                 return Err(PacketError::InvalidFrameLength);
             }
-            lengths[..count].fill(payload.len() / count);
-        }
-        if count == 2 {
-            if lengths[0] > 1275 || lengths[1] > 1275 {
+            let length = payload.len() / count;
+            if length > 1275 {
                 return Err(PacketError::FrameTooLarge);
             }
-            let (first, second) = payload.split_at(lengths[0]);
+            if count <= 8 {
+                return Ok(Self {
+                    toc,
+                    frames: Frames::Few {
+                        frames: cbr_frame_views(payload, count, length),
+                        count,
+                    },
+                });
+            }
             return Ok(Self {
                 toc,
-                frames: Frames::Two([first, second]),
+                frames: Frames::Many {
+                    frames: cbr_frame_views(payload, count, length),
+                    count,
+                },
             });
         }
-        let mut frames = [&[][..]; 48];
-        for (frame, length) in frames[..count].iter_mut().zip(&lengths[..count]) {
-            if *length > 1275 {
-                return Err(PacketError::FrameTooLarge);
-            }
-            let (head, tail) = payload
-                .split_at_checked(*length)
-                .ok_or(PacketError::TruncatedPacket)?;
-            *frame = head;
-            payload = tail;
+        let mut lengths = [0u16; 48];
+        let mut total = 0;
+        for length in &mut lengths[..count - 1] {
+            let first = u16::from(read_byte(&mut payload)?);
+            *length = if first < 252 {
+                first
+            } else {
+                first + 4 * u16::from(read_byte(&mut payload)?)
+            };
+            // At most 47 lengths, each at most 1275: cannot overflow usize.
+            total += usize::from(*length);
+        }
+        let last_length = payload
+            .len()
+            .checked_sub(total)
+            .ok_or(PacketError::TruncatedPacket)?;
+        if last_length > 1275 {
+            return Err(PacketError::FrameTooLarge);
+        }
+        lengths[count - 1] = last_length as u16;
+        if count <= 8 {
+            return Ok(Self {
+                toc,
+                frames: Frames::Few {
+                    frames: frame_views(payload, &lengths[..count]),
+                    count,
+                },
+            });
         }
         Ok(Self {
             toc,
-            frames: Frames::Many { frames, count },
+            frames: Frames::Many {
+                frames: frame_views(payload, &lengths[..count]),
+                count,
+            },
         })
     }
 
@@ -277,6 +290,7 @@ impl<'a> Packet<'a> {
         match &self.frames {
             Frames::One(frames) => frames,
             Frames::Two(frames) => frames,
+            Frames::Few { frames, count } => &frames[..*count],
             Frames::Many { frames, count } => &frames[..*count],
         }
     }
@@ -300,4 +314,29 @@ fn frame_samples(toc: u8) -> u16 {
         12..=15 => 480 << (config & 1),
         _ => 120 << (config & 3),
     }
+}
+
+// Callers bound the count by N and validate the sum of lengths against payload.
+// Inline to avoid copying the fixed array across a helper call boundary.
+#[inline(always)]
+fn frame_views<'a, const N: usize>(mut payload: &'a [u8], lengths: &[u16]) -> [&'a [u8]; N] {
+    let mut frames = [&[][..]; N];
+    for (frame, &length) in frames[..lengths.len()].iter_mut().zip(lengths) {
+        let (head, tail) = payload.split_at(usize::from(length));
+        *frame = head;
+        payload = tail;
+    }
+    frames
+}
+
+// Count and frame length are validated before slicing or constructing views.
+#[inline(always)]
+fn cbr_frame_views<const N: usize>(mut payload: &[u8], count: usize, length: usize) -> [&[u8]; N] {
+    let mut frames = [&[][..]; N];
+    for frame in &mut frames[..count] {
+        let (head, tail) = payload.split_at(length);
+        *frame = head;
+        payload = tail;
+    }
+    frames
 }
