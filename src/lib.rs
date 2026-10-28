@@ -83,8 +83,22 @@ impl std::error::Error for PacketError {}
 #[derive(Debug)]
 pub struct Packet<'a> {
     toc: u8,
-    frames: [&'a [u8]; 48],
-    count: usize,
+    frames: Frames<'a>,
+}
+
+// Common one- and two-frame packets need not initialize 48 slice pointers.
+#[derive(Debug)]
+#[allow(
+    clippy::large_enum_variant,
+    reason = "Keep fixed, allocation-free storage; small variants avoid initializing unused frame views"
+)]
+enum Frames<'a> {
+    One([&'a [u8]; 1]),
+    Two([&'a [u8]; 2]),
+    Many {
+        frames: [&'a [u8]; 48],
+        count: usize,
+    },
 }
 
 impl<'a> Packet<'a> {
@@ -93,42 +107,78 @@ impl<'a> Packet<'a> {
     /// Uses fixed storage and no heap allocation. Work is bounded by 48 frame
     /// headers plus the padding-length header (linear in its encoded length).
     /// Padding contents are ignored, including nonzero bytes.
+    #[inline]
     pub fn parse(input: &'a [u8]) -> Result<Self, PacketError> {
         let (&toc, mut payload) = input.split_first().ok_or(PacketError::EmptyPacket)?;
         let code = toc & 3;
-        let mut count = if code == 0 { 1 } else { 2 };
-        let mut vbr = code == 2;
-        if code == 3 {
-            let header = read_byte(&mut payload)?;
-            count = usize::from(header & 63);
-            vbr = header & 128 != 0;
-            if count == 0 || count > 48 {
-                return Err(PacketError::InvalidFrameCount);
+        if code == 0 {
+            if payload.len() > 1275 {
+                return Err(PacketError::FrameTooLarge);
             }
-            if header & 64 != 0 {
-                loop {
-                    let byte = read_byte(&mut payload)?;
-                    let padding = if byte == 255 { 254 } else { usize::from(byte) };
-                    // Remove padding from the end as each header byte is read.
-                    // This bounds arithmetic by the remaining input length.
-                    let end = payload
-                        .len()
-                        .checked_sub(padding)
-                        .ok_or(PacketError::TruncatedPacket)?;
-                    payload = &payload[..end];
-                    if byte != 255 {
-                        break;
-                    }
+            return Ok(Self {
+                toc,
+                frames: Frames::One([payload]),
+            });
+        }
+        if code == 1 || code == 2 {
+            let first_length = if code == 1 {
+                if payload.len() % 2 != 0 {
+                    return Err(PacketError::InvalidFrameLength);
+                }
+                payload.len() / 2
+            } else {
+                let first = usize::from(read_byte(&mut payload)?);
+                if first < 252 {
+                    first
+                } else {
+                    first + 4 * usize::from(read_byte(&mut payload)?)
+                }
+            };
+            let second_length = payload
+                .len()
+                .checked_sub(first_length)
+                .ok_or(PacketError::TruncatedPacket)?;
+            if first_length > 1275 || second_length > 1275 {
+                return Err(PacketError::FrameTooLarge);
+            }
+            let (first, second) = payload.split_at(first_length);
+            return Ok(Self {
+                toc,
+                frames: Frames::Two([first, second]),
+            });
+        }
+        let header = read_byte(&mut payload)?;
+        let count = usize::from(header & 63);
+        let vbr = header & 128 != 0;
+        if count == 0 || count > 48 {
+            return Err(PacketError::InvalidFrameCount);
+        }
+        if header & 64 != 0 {
+            loop {
+                let byte = read_byte(&mut payload)?;
+                let padding = if byte == 255 { 254 } else { usize::from(byte) };
+                // Bound padding arithmetic by the remaining input length.
+                let end = payload
+                    .len()
+                    .checked_sub(padding)
+                    .ok_or(PacketError::TruncatedPacket)?;
+                payload = &payload[..end];
+                if byte != 255 {
+                    break;
                 }
             }
         }
-        let mut packet = Self {
-            toc,
-            frames: [&[]; 48],
-            count,
-        };
-        if u32::from(packet.frame_samples()) * count as u32 > 5760 {
+        if u32::from(frame_samples(toc)) * count as u32 > 5760 {
             return Err(PacketError::DurationTooLong);
+        }
+        if count == 1 {
+            if payload.len() > 1275 {
+                return Err(PacketError::FrameTooLarge);
+            }
+            return Ok(Self {
+                toc,
+                frames: Frames::One([payload]),
+            });
         }
         let mut lengths = [0usize; 48];
         if vbr {
@@ -153,7 +203,18 @@ impl<'a> Packet<'a> {
             }
             lengths[..count].fill(payload.len() / count);
         }
-        for (frame, length) in packet.frames[..count].iter_mut().zip(&lengths[..count]) {
+        if count == 2 {
+            if lengths[0] > 1275 || lengths[1] > 1275 {
+                return Err(PacketError::FrameTooLarge);
+            }
+            let (first, second) = payload.split_at(lengths[0]);
+            return Ok(Self {
+                toc,
+                frames: Frames::Two([first, second]),
+            });
+        }
+        let mut frames = [&[][..]; 48];
+        for (frame, length) in frames[..count].iter_mut().zip(&lengths[..count]) {
             if *length > 1275 {
                 return Err(PacketError::FrameTooLarge);
             }
@@ -163,7 +224,10 @@ impl<'a> Packet<'a> {
             *frame = head;
             payload = tail;
         }
-        Ok(packet)
+        Ok(Self {
+            toc,
+            frames: Frames::Many { frames, count },
+        })
     }
 
     /// Configuration number (0 through 31) from RFC 6716 Table 2.
@@ -198,28 +262,23 @@ impl<'a> Packet<'a> {
 
     /// Samples per channel in each frame, expressed on a 48 kHz clock.
     pub fn frame_samples(&self) -> u16 {
-        let config = self.configuration();
-        match config {
-            0..=11 => match config & 3 {
-                0 => 480,
-                1 => 960,
-                2 => 1920,
-                _ => 2880,
-            },
-            12..=15 => 480 << (config & 1),
-            _ => 120 << (config & 3),
-        }
+        frame_samples(self.toc)
     }
 
     /// Total samples per channel on a 48 kHz clock, at most 5760 (120 ms).
     pub fn duration_samples(&self) -> u16 {
         // parse() validates the product in u32 before constructing a public packet.
-        self.frame_samples() * self.count as u16
+        self.frame_samples() * self.frames().len() as u16
     }
 
     /// Compressed frames in transmission order; zero-length frames are valid.
+    #[inline]
     pub fn frames(&self) -> &[&'a [u8]] {
-        &self.frames[..self.count]
+        match &self.frames {
+            Frames::One(frames) => frames,
+            Frames::Two(frames) => frames,
+            Frames::Many { frames, count } => &frames[..*count],
+        }
     }
 }
 
@@ -227,4 +286,18 @@ fn read_byte(input: &mut &[u8]) -> Result<u8, PacketError> {
     let (&byte, rest) = input.split_first().ok_or(PacketError::TruncatedPacket)?;
     *input = rest;
     Ok(byte)
+}
+
+fn frame_samples(toc: u8) -> u16 {
+    let config = toc >> 3;
+    match config {
+        0..=11 => match config & 3 {
+            0 => 480,
+            1 => 960,
+            2 => 1920,
+            _ => 2880,
+        },
+        12..=15 => 480 << (config & 1),
+        _ => 120 << (config & 3),
+    }
 }

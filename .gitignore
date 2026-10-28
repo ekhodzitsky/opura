@@ -25,3 +25,6 @@ backlog.config.yml
 
 # Rust build artifacts
 /target/
+
+# Optional Python developer-tool bytecode
+/tools/__pycache__/

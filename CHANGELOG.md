@@ -7,6 +7,19 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-10-29
+
+- Reduce packet parsing overhead with one/two-frame storage, short-form fast
+  paths and cross-crate inlining, preserving the public API and validation.
+- Add a machine-readable registry of 25 pinned competitor repositories and an
+  offline packet-framing benchmark against an explicitly supplied libopus.
+- Record paired distributions, corpus and binary hashes, compiler/CPU details,
+  and before/after measurements; keep full-codec comparisons visibly missing.
+- Add a competitive gate requiring a 10% aggregate win and no >5% critical-case
+  regression at the bootstrap upper bound, plus negative tests for false wins.
+  The current full packet gate still FAILS; PCM superiority is unestablished.
+- Preserve local-only development until the owner resumes GitHub activity.
+
 ## [0.1.3] - 2026-10-28
 
 - Decode SILK pulse rate levels, bounded LSB escapes, shell trees and signs,

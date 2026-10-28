@@ -13,7 +13,9 @@ Rows below summarize **maintainer claims and repository contents**, not benchmar
 independently reproduced by Opura. Source links pin reviewed README revisions.
 Selected Rust manifests were also inspected at those revisions. No competitor
 was built or timed for this survey. Every comparative performance result is
-currently **unmeasured**.
+**unmeasured at the survey snapshot**. Subsequent
+[local packet-framing measurements](local-results.md) are recorded separately;
+they do not establish full-codec performance.
 
 Opura 0.1.2 implements framing, range decoding and SILK side-information
 primitives, not a complete PCM decoder. Several competitors already advertise

@@ -17,3 +17,4 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
       - run: python3 tools/check_dependencies.py
+      - run: python3 -m unittest discover -s tools -p 'test_*.py'

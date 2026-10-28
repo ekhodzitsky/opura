@@ -1,0 +1,185 @@
+{
+  "schema": 1,
+  "snapshot": "2026-10-28",
+  "scope": "25 discovered public repositories; not an exhaustive census",
+  "competitors": [
+    {
+      "repository": "xiph/opus",
+      "revision": "a8b2545eec71e0f53ecead2d583e7b6baa42684d",
+      "role": "Core reference",
+      "evidence": "C codec and compatibility/performance baseline; benchmark both the pinned 1.6.1 oracle and current stable release.",
+      "measurement": "unmeasured"
+    },
+    {
+      "repository": "Remade-With-Rust/rusty-opus",
+      "revision": "bccc3a5e7829ad89526c45affd8b74cccda255b2",
+      "role": "Direct / highest priority",
+      "evidence": "Claims complete Rust codec, conformance and SIMD speedups; runtime zero-dependency claim does not include its dev dependencies.",
+      "measurement": "unmeasured"
+    },
+    {
+      "repository": "stephenberry/opus-pure",
+      "revision": "cf954a76381ae8968b2bc35bb5d578b3a2311d53",
+      "role": "Direct / highest priority",
+      "evidence": "Claims complete codec plus Ogg and zero dependencies; inspected manifest has empty normal/dev dependency sections. Strong installation and file-workflow baseline.",
+      "measurement": "unmeasured"
+    },
+    {
+      "repository": "dignifiedquire/opurs",
+      "revision": "f0f8941dcc1836a4564cb12f0d3fbe4c0b0c5a6a",
+      "role": "Direct / highest priority",
+      "evidence": "Claims bit-exact full codec, SIMD, multistream and projection; manifest includes several normal dependencies and optional C comparison tooling.",
+      "measurement": "unmeasured"
+    },
+    {
+      "repository": "restsend/opus-rs",
+      "revision": "7ad96ec77df7ab7db6d5156b888988dea1d03833",
+      "role": "Direct / highest priority",
+      "evidence": "Claims full codec and heap-free no_std option; default runtime footprint differs from optional libm/portable-atomic and test dependencies.",
+      "measurement": "unmeasured"
+    },
+    {
+      "repository": "jmg049/ruopus",
+      "revision": "23166c3c961519349c6c0fc93664c2ed1fc8cc30",
+      "role": "Direct / highest priority",
+      "evidence": "Claims conformant decoder, compatible encoder, Ogg and Python integration; no_std decoder uses alloc. Good API and packaging comparison.",
+      "measurement": "unmeasured"
+    },
+    {
+      "repository": "0x4D44/ropus",
+      "revision": "23a8b2885a01f1ce3e656249f3db0416fa904f30",
+      "role": "Direct / highest priority",
+      "evidence": "Fixed-point Rust port with comparison harness, codec modules, four CLIs, C ABI and player integration. Important fixed-point and tooling baseline.",
+      "measurement": "unmeasured"
+    },
+    {
+      "repository": "RealEffect/opus1",
+      "revision": "c5e607b7f117568d7c5d0a41f0962ca8968b77d0",
+      "role": "Direct",
+      "evidence": "Fork of opus-rs with codec controls, multichannel and performance claims. Keep lineage visible rather than count shared code as independent evidence.",
+      "measurement": "unmeasured"
+    },
+    {
+      "repository": "TadeuszWolfGang/Rusopus",
+      "revision": "ecb22cf694314eb09384de32a9b9a68059b6ff54",
+      "role": "Direct decoder",
+      "evidence": "Published as opus-decoder; claims all modes, all output rates, 12 conformance vectors and no unsafe/FFI. Closest safety-oriented decoder baseline.",
+      "measurement": "unmeasured"
+    },
+    {
+      "repository": "safewords/rivet-opus",
+      "revision": "67f5278e78c2a385e278f6e5b2d5b3014817457c",
+      "role": "Direct",
+      "evidence": "Claims RFC-based full decoder/encoder and exact final ranges on all official vectors; one thiserror dependency. Final-range parity alone is not PCM parity.",
+      "measurement": "unmeasured"
+    },
+    {
+      "repository": "thesyncim/gopus",
+      "revision": "88e87250952ee5cc363fc57f9368258804e2fda5",
+      "role": "Portable / high priority",
+      "evidence": "Pure-Go codec with caller-buffer APIs, Ogg, multistream, ambisonics and RTP RED; explicit matched-workload benchmarks and scalar/SIMD distinctions.",
+      "measurement": "unmeasured"
+    },
+    {
+      "repository": "tphakala/go-opus",
+      "revision": "94499993126288e971b59dcec02b0a6808b7eafb",
+      "role": "Portable",
+      "evidence": "Pure-Go port with separate SIMD dependency; claims complete decoder and reference parity. Compare exact advertised encoder modes separately.",
+      "measurement": "unmeasured"
+    },
+    {
+      "repository": "pion/opus",
+      "revision": "e7b8aa55508cfd30a968dbc695d4272a8e04f2f2",
+      "role": "Portable / ecosystem",
+      "evidence": "Pure-Go codec in the Pion ecosystem; API readability and WebRTC integration baseline. README alone does not establish complete encoder support.",
+      "measurement": "unmeasured"
+    },
+    {
+      "repository": "lostromb/concentus",
+      "revision": "3885c4e46513ef0fc81fca100189e54f1714c6ca",
+      "role": "Portable",
+      "evidence": "C#/Java/Go ports based on older fixed-point libopus; useful portability/API baseline, not the sole modern speed or quality reference.",
+      "measurement": "unmeasured"
+    },
+    {
+      "repository": "darui3018823/opus",
+      "revision": "7a9eebe76f646d5cc8d04fb7e7efd48b396a3bc3",
+      "role": "Portable",
+      "evidence": "Claims full decoder conformance and standards-compatible encoder, with documented exclusions. Do not infer byte-exact encoder parity.",
+      "measurement": "unmeasured"
+    },
+    {
+      "repository": "skrashevich/go-opus",
+      "revision": "8c776dbf081651aa45f2c41180fc5e6065f8b3ea",
+      "role": "Portable",
+      "evidence": "Transpiled Go implementation; compare compiler/runtime overhead separately from hand-written portable implementations.",
+      "measurement": "unmeasured"
+    },
+    {
+      "repository": "SpaceManiac/opus-rs",
+      "revision": "31e8ba1ae8abfa31bbe37817dbf0a8ebdeffc31c",
+      "role": "Rust FFI / API",
+      "evidence": "Safe bindings to libopus (crate opus), requiring C build tooling by default. Not an independent codec; useful Rust ergonomics and FFI-overhead baseline.",
+      "measurement": "unmeasured"
+    },
+    {
+      "repository": "Lakelezz/audiopus",
+      "revision": "701dbf9c07afba9f39e8944c9acdad46b5f921e1",
+      "role": "Rust FFI / API",
+      "evidence": "High-level libopus binding; useful integration baseline. Record the linked libopus version rather than attribute its performance to a separate codec.",
+      "measurement": "unmeasured"
+    },
+    {
+      "repository": "xiph/opus-tools",
+      "revision": "5f894e95a50b2004d8c8171082a5fd7327f93653",
+      "role": "CLI",
+      "evidence": "Encode, inspect and decode file workflows; baseline for eventual Opura CLI behavior and output correctness.",
+      "measurement": "unmeasured"
+    },
+    {
+      "repository": "xiph/opusfile",
+      "revision": "6dfd29e7adb87f2e193575fc3fa88cbf1a0b27df",
+      "role": "File API",
+      "evidence": "Ogg Opus decoding and seeking API; baseline for pre-skip, gain, seeking, duration and chained-file behavior.",
+      "measurement": "unmeasured"
+    },
+    {
+      "repository": "FFmpeg/FFmpeg",
+      "revision": "28fda48e0bf6d9b47d450250f769a58998f0491f",
+      "role": "Tool ecosystem",
+      "evidence": "Multimedia CLI and library workflows; isolate codec work from demux, resampling, process startup and I/O in performance comparisons.",
+      "measurement": "unmeasured"
+    },
+    {
+      "repository": "pathscale/ps-rusty-opus",
+      "revision": "61be54065d88f464f6b9927a8c861ab46d2b8131",
+      "role": "Related fork",
+      "evidence": "Synchronous rusty-opus fork; track API/packaging differences without treating inherited benchmarks as independent measurements.",
+      "measurement": "unmeasured"
+    },
+    {
+      "repository": "OxideAV/oxideav-opus",
+      "revision": "aaa19fe2bf96ee2f7daf878a01201c5e0cd1bc68",
+      "role": "Watchlist",
+      "evidence": "Current README describes a clean-room rebuild with SILK PCM work. Search snippets describe an older state; assess each current mode independently.",
+      "measurement": "unmeasured"
+    },
+    {
+      "repository": "hasenbanck/opus-native",
+      "revision": "4ba35348da10381d73b76ac8e64b498d1c83db3c",
+      "role": "Historical/watchlist",
+      "evidence": "README explicitly says most functionality is not working; not a full-codec performance baseline.",
+      "measurement": "unmeasured"
+    },
+    {
+      "repository": "lu-zero/opus",
+      "revision": "152f1312432da63bfcd836b2bbb641d2a81aa693",
+      "role": "Historical/watchlist",
+      "evidence": "Pure-Rust decoder project; brief README provides too little evidence to rank current conformance or speed.",
+      "measurement": "unmeasured"
+    }
+  ],
+  "unresolved": [
+    "cijiugechu/mousiki"
+  ]
+}

@@ -44,6 +44,7 @@ Run before marking code work complete:
 - `cargo clippy --offline --locked --all-targets -- -D warnings`
 - `RUSTDOCFLAGS="-D warnings" cargo doc --offline --locked --no-deps`
 - `python3 tools/check_dependencies.py`
+- `python3 -m unittest discover -s tools -p 'test_*.py'`
 
 The toolchain file pins the minimum supported Rust version. CI runs the same
 checks. Optional fixture regeneration requires an external libopus; ordinary
@@ -56,6 +57,8 @@ Maintain `CHANGELOG.md` with user-visible changes and relevant validation.
 Use SemVer: before 1.0, incompatible API changes increment the minor version;
 compatible additions and fixes increment the patch version. Keep Cargo.toml
 and Cargo.lock synchronized. Commit completed, verified changes with descriptive
-English messages and push them to origin as requested by the repository owner.
+English messages. Work locally: the owner has suspended GitHub activity because
+of service limits. Do not push, call the GitHub API, or trigger remote CI until
+the owner explicitly resumes remote work.
 Tag versioned milestones with annotated `vX.Y.Z` tags; never move published tags.
 Keep local Backlog records and machine-specific state out of commits.
