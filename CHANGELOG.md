@@ -7,6 +7,21 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-10-28
+
+- Decode SILK pulse rate levels, bounded LSB escapes, shell trees and signs,
+  including the padded 120-sample internal frame.
+- Reconstruct deterministic Q14 excitation from pulses, quantization offset
+  and seed; reject invalid context and preserve entropy on failure.
+- Match upstream pulse/excitation fingerprints and entropy counters across
+  1584 rate/duration/signal/offset/seed cases; test malformed inputs and four
+  targeted arithmetic, padding and state mutations.
+- Document 25 GitHub comparison baselines with pinned evidence and measurable
+  compatibility, speed, memory, audio-quality and usability targets. No
+  comparative performance or overall leadership claim is made.
+
+LTP/LPC synthesis, complete frame orchestration and PCM output remain unimplemented.
+
 ## [0.1.2] - 2026-10-28
 
 - Decode SILK pitch, five-tap LTP coefficients, scaling and excitation seed for

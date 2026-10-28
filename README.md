@@ -1,7 +1,7 @@
 # opura
 
 Opura is a pure Rust, zero-dependency Opus implementation under development.
-**Packet framing, range decoding, SILK headers, gain, NLSF, LPC and pitch/LTP reconstruction are
+**Packet framing, range decoding, SILK headers, gain, NLSF, LPC, pitch/LTP and excitation reconstruction are
 implemented.** It does not encode or decode audio yet. The accepted direction is a complete decoder
 first, then an encoder, prioritizing speed and reliability. See the
 [decoder-first decision](docs/decisions/0002-decoder-first.md) for evaluation
@@ -178,7 +178,7 @@ python3 tools/silk_gain_fixtures.py target/reference/opus --dequant > /tmp/opura
 diff -u tests/silk-gain-dequant-fixtures.txt /tmp/opura-dequant.txt
 ```
 
-These are synthetic primitive tests. Excitation, stereo
+These are synthetic primitive tests. LTP/LPC synthesis, stereo
 reconstruction and PCM output remain unimplemented; no full decoder or
 performance claims follow from matching these segments.
 
@@ -240,7 +240,7 @@ interpolation is disabled, both filters are identical.
 Q12 coefficients and Q30 inverse gains, including clustered and boundary
 spectra. Integration tests also check both returned filters for every accepted
 NLSF reference step. This does not yet implement post-loss bandwidth expansion,
-excitation decoding or PCM synthesis.
+LTP/LPC synthesis or PCM output.
 
 Optional regeneration uses the same clean upstream checkout:
 
@@ -271,7 +271,7 @@ Entropy and history commit together only on success. As with the other
 primitives, the future full-frame decoder must defer history commits until all
 excitation data succeeds. Malformed delta chains preserve the reference's signed
 16-bit raw index behavior while reconstructed sample lags clamp to 2–18 ms.
-No excitation samples, concealment or PCM are produced yet.
+This stage stops before excitation samples; concealment and PCM remain future work.
 
 [3618 reference steps](tests/silk-pitch-fixtures.txt) use the actual pinned
 upstream index-decoding suffix, parameter reconstruction and pitch decoder.
@@ -294,3 +294,37 @@ The [competitive landscape and benchmark contract](docs/benchmarks/competitive-l
 records the GitHub comparison set, pinned evidence and measurable performance,
 quality, reliability and usability targets. Competitor claims have not yet been
 reproduced by Opura; no overall leadership is claimed.
+
+## SILK excitation
+
+`opura::silk::excitation::decode_excitation` reads from the cursor after the
+pitch/LTP seed field. Pass the signal type and offset selector from gains and
+the seed from pitch. It decodes the rate level, pulse sums, shell splits,
+LSB extensions and signs, then reconstructs the Q14 excitation with the
+reference quantization offsets and wrapping pseudo-random generator.
+
+The result contains signed pulses and excitation for 80, 120, 160, 240 or 320
+samples. A 120-sample frame consumes the entire 128-sample shell representation,
+including padding bits and signs, but does not expose the padding as audio.
+Escape chains stop at ten LSBs. Output uses fixed buffers and all work is
+bounded; errors leave the caller's entropy unchanged. Offset selectors outside
+0..=1 and seeds outside 0..=3 are rejected before reading entropy.
+
+[Independent reference fingerprints](tests/silk-excitation-fixtures.txt) cover
+1320 unique length/context cases, exercised through 1584 rate/duration
+configurations. They compare signed pulses, Q14 samples and entropy counters.
+FNV-1a over little-endian signed-sample bit patterns keeps the corpus compact;
+these fingerprints are regression evidence, not cryptographic proofs. Tests
+also cover 46080 short/seeded input cases and detect changes to escape limits,
+padded-block consumption, PRNG pulse feedback and error transactions.
+
+```sh
+python3 tools/silk_excitation_fixtures.py target/reference/opus > /tmp/opura-excitation.txt
+diff -u tests/silk-excitation-fixtures.txt /tmp/opura-excitation.txt
+python3 tools/silk_excitation_fixtures.py target/reference/opus --tables > /tmp/opura-excitation-tables.rs
+rustfmt --edition 2024 /tmp/opura-excitation-tables.rs
+diff -u src/silk/excitation_tables.rs /tmp/opura-excitation-tables.rs
+```
+
+This is excitation before LTP/LPC filtering and gain scaling, not PCM. Full-frame
+state commits, synthesis, stereo processing and resampling still need integration.

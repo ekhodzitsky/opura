@@ -49,6 +49,9 @@ cosine table follow `silk/NLSF2A.c`, `silk/table_LSF_cos.c`, `silk/LPC_fit.c`,
 `silk/LPC_inv_pred_gain.c`, `silk/bwexpander_32.c` and `silk/Inlines.h`.
 Pitch/LTP reconstruction and tables additionally follow `silk/decode_pitch.c`,
 `silk/tables_pitch_lag.c`, `silk/pitch_est_tables.c` and `silk/tables_LTP.c`.
+Pulse/excitation decoding additionally follows `silk/decode_pulses.c`,
+`silk/shell_coder.c`, `silk/code_signs.c`, `silk/tables_pulses_per_block.c`,
+`silk/decode_core.c` and the PRNG constants in `silk/SigProc_FIX.h`.
 
 ```text
 /***********************************************************************

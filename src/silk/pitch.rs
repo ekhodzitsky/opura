@@ -21,7 +21,7 @@ pub enum SilkRate {
     Khz16,
 }
 impl SilkRate {
-    fn khz(self) -> i32 {
+    pub(super) fn khz(self) -> i32 {
         match self {
             Self::Khz8 => 8,
             Self::Khz12 => 12,
