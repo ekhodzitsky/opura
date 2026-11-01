@@ -1280,3 +1280,13 @@ range XOR follow `src/opus_decoder.c`; storage behavior follows `celt/entdec.c`
 and window/fixed-point arithmetic follows the CELT sources identified above.
 The original Xiph.Org Foundation/Skype Limited/Arm Limited packet integration
 notice and all SILK/CELT component notices and terms are retained above.
+
+
+# Optional official conformance validation
+
+The RFC8251 vector archive is an external validation input, verified against
+its official file hashes and a pinned archive SHA256. It is not redistributed
+in the repository or fetched by Cargo. The optional runner compiles the
+unchanged external `src/opus_compare.c` at the pinned Opus revision; its original
+Xiph.Org Foundation/Mozilla Corporation notice and BSD terms remain in that
+external source. No comparator or reference codec is linked into Opura.

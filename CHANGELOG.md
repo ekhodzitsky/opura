@@ -7,6 +7,22 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.40] - 2026-11-02
+
+- Validate the unified decoder against all120 official RFC8251 combinations:
+  12 streams at five output rates and mono/stereo,200750 decoded packets and
+  exact nonzero encoded final ranges, with original PCM conformance metrics.
+- Add optional bounded vector-file decoding, archive/RFC file-hash verification,
+  unchanged external comparator integration and atomic sanitized JSON reports.
+- Reproduce complete PCM fingerprints/counts/metrics in two full runs. Prove live
+  gates reject a corrupted range and zeroed PCM; add framing/endian/range/output
+  and archive/metric/report fault tests. No decoder DSP fix was required.
+- Record reproducible conformance evidence and update decoder capability docs;
+  all mandatory offline gates and example/tool checks pass without Cargo deps.
+
+Decoder performance validation and encoding remain pending; conformance does
+not establish SOTA speed or encoder quality.
+
 ## [0.1.39] - 2026-11-02
 
 - Add a transactional fixed-storage unified Opus decoder with shared SILK/CELT

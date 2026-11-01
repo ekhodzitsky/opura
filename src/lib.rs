@@ -1,8 +1,8 @@
 //! Pure Rust standard Opus packet decoding with no dependencies or allocation.
 //!
 //! [`decoder::OpusDecoder`] combines SILK/CELT/Hybrid PCM, loss/DTX, FEC and mode
-//! transitions. Official conformance and end-to-end performance validation are
-//! pending; encoding is not implemented. Component APIs are also available in
+//! transitions. All120 official RFC8251 vector/rate/channel cases pass.
+//! End-to-end performance validation and encoding remain pending. Component APIs are in
 //! [`silk::decoder`], [`celt::decoder`] and [`hybrid`].
 //!
 //! Pass exactly one externally delimited packet with transport headers removed.

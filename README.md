@@ -4,8 +4,8 @@ Opura is a pure Rust, zero-dependency Opus implementation under development.
 **The unified decoder supports SILK, CELT and Hybrid PCM, loss/DTX, in-band FEC
 and mode transitions with redundant CELT tails at all five standard output rates.**
 The separate SILK/CELT/Hybrid APIs and their component stages remain available.
-Official conformance, end-to-end performance validation and encoding remain under
-development. The accepted direction is a complete decoder first, then an encoder,
+**The decoder passes all120 official RFC8251 vector/rate/channel cases.**
+End-to-end performance validation and encoding remain under development. The accepted direction is a complete decoder first, then an encoder,
 prioritizing speed and reliability. See the
 [decoder-first decision](docs/decisions/0002-decoder-first.md) for evaluation
 requirements; SOTA performance is an ambition, not a current claim.
@@ -1745,6 +1745,22 @@ python3 tools/celt_packet_fixtures.py /path/to/opus-v1.6.1 --mixed > tests/opus-
 The optional oracle builds external unchanged scalar fixed-point DSP routines
 in a temporary directory. Read-only observers capture state and transition
 branches; no reference implementation is linked by Cargo. These sampled exact
-results precede official conformance and full decoder benchmarks. Containers,
+results are complemented by the official conformance result below; full decoder
+benchmarks follow separately. Containers,
 multistream/self-delimiting framing, QEXT, neural/deep PLC and encoding are not
 implemented by this API.
+
+
+## Official decoder conformance
+
+Opura0.1.40 passes all120 official RFC8251 combinations:12 streams at all five
+standard rates with mono/stereo output,200750 packet decodes and200750 exact
+encoded final-range checks. The unchanged original `opus_compare` accepts an
+official PCM reference for every case. Two complete runs reproduced identical
+PCM hashes and metric results; corrupted-range and zero-PCM probes are rejected.
+
+See the [validation report](docs/validation/decoder-0.1.40.md), its checked JSON
+results and reproduction command. This conformance result does not establish
+performance or encoder-quality leadership. Containers, multistream and encoding
+remain separate work. The optional runner uses only Python/Rust standard
+libraries and an external original comparator; Cargo still has zero dependencies.
