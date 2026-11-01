@@ -7,6 +7,22 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.11] - 2026-11-01
+
+- Add `MonoDecoder::conceal(duration_ms)` for explicit missing intervals of
+  10–120 ms in 10 ms steps at the last successfully decoded SILK rate.
+- Match upstream loss scheduling after 10 ms and longer Opus frames; apply
+  channel PLC/CNG/recovery bookkeeping and report final range zero. Invalid
+  durations and missing stream history preserve all state.
+- Verify 288 real encoded packet-stream steps, including 120 scheduled losses
+  covering every supported duration, burst loss, silence, FEC-bearing packets
+  and recovery, against completed original decode_frame PCM and public final range.
+- Retain the existing default raw-core fixture output unchanged; add an optional
+  loss oracle mode, transactional error/reset tests and scheduling/history mutations.
+
+PCM still precedes mono buffering/resampling. Empty/one-byte DTX packets require
+explicit handling, and FEC recovery, stereo and CELT/Hybrid remain future work.
+
 ## [0.1.10] - 2026-11-01
 
 - Add bounded internal-channel loss concealment with reference fixed-point

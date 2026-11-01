@@ -3,7 +3,8 @@
 
 Optional developer oracle: compiles the external reference into a temporary
 library. The only instrumentation copies decode_core output after the original
-routine returns, and observes each frame's transition-redundancy decision;
+routine returns, optionally copies completed decode_frame output, and observes
+each frame's transition-redundancy decision;
 opus_decode still runs the complete upstream decoder and its
 public OPUS_GET_FINAL_RANGE result is recorded independently.
 """
@@ -17,6 +18,7 @@ import tempfile
 REVISION = '22244de5a79bd1d6d623c32e72bf1954b56235be'
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('source', type=Path)
+parser.add_argument('--loss', action='store_true', help='Emit loss/recovery streams with completed decode_frame PCM')
 args = parser.parse_args()
 source = args.source.resolve()
 if subprocess.check_output(['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip() != REVISION:
@@ -40,6 +42,20 @@ wrapper = r'''
 static opus_int16 captured[1920];
 static int captured_length, captured_rate;
 static int transition_seen;
+static opus_int16 finished[1920];
+static int finished_length;
+int reference_decode_frame(silk_decoder_state *, ec_dec *, opus_int16 *, opus_int32 *, int, int, int);
+int silk_decode_frame(silk_decoder_state *state, ec_dec *decoder, opus_int16 *pcm,
+                      opus_int32 *length, int lost, int coding, int arch) {
+    int result = reference_decode_frame(state, decoder, pcm, length, lost, coding, arch);
+    if (result == 0) {
+        if (finished_length + *length > 1920) abort();
+        memcpy(finished + finished_length, pcm, *length * sizeof(*pcm));
+        finished_length += *length;
+        captured_rate = state->fs_kHz;
+    }
+    return result;
+}
 void record_transition(int present) { transition_seen |= present; }
 void reference_decode_core(silk_decoder_state *, silk_decoder_control *, opus_int16 *, const opus_int16 *, int);
 void silk_decode_core(silk_decoder_state *state, silk_decoder_control *control,
@@ -121,11 +137,27 @@ int decode(OpusDecoder *decoder, const unsigned char *packet, int len,
            opus_int16 *raw, opus_uint32 *out) {
     opus_int16 pcm[5760];
     captured_length = 0;
+    finished_length = 0;
     transition_seen = 0;
     int result = opus_decode(decoder, packet, len, pcm, 5760, 0);
     if (result < 0) return result;
     memcpy(raw, captured, captured_length * sizeof(*raw));
     out[0] = captured_length;
+    out[1] = captured_rate;
+    if (opus_decoder_ctl(decoder, OPUS_GET_FINAL_RANGE(out + 2)) != OPUS_OK) abort();
+    out[3] = transition_seen;
+    return result;
+ }
+int decode_complete(OpusDecoder *decoder, const unsigned char *packet, int len, int frame_samples,
+                    opus_int16 *raw, opus_uint32 *out) {
+    opus_int16 pcm[5760];
+    captured_length = 0;
+    finished_length = 0;
+    transition_seen = 0;
+    int result = opus_decode(decoder, packet, len, pcm, frame_samples, 0);
+    if (result < 0) return result;
+    memcpy(raw, finished, finished_length * sizeof(*raw));
+    out[0] = finished_length;
     out[1] = captured_rate;
     if (opus_decoder_ctl(decoder, OPUS_GET_FINAL_RANGE(out + 2)) != OPUS_OK) abort();
     out[3] = transition_seen;
@@ -144,6 +176,10 @@ with tempfile.TemporaryDirectory(prefix='opura-packet-reference-') as temp:
     if core.count('void silk_decode_core(') != 1:
         raise SystemExit('Unexpected reference decode_core signature')
     (path / 'core.c').write_text(core.replace('void silk_decode_core(', 'void reference_decode_core('))
+    frame_source = (source / 'silk/decode_frame.c').read_text()
+    if frame_source.count('opus_int silk_decode_frame(') != 1:
+        raise SystemExit('Unexpected reference decode_frame signature')
+    (path / 'frame.c').write_text(frame_source.replace('opus_int silk_decode_frame(', 'opus_int reference_decode_frame('))
     (path / 'probe.c').write_text(wrapper)
     decoder_source = (source / 'src/opus_decoder.c').read_text()
     anchor = '   if (mode != MODE_CELT_ONLY)\n      start_band = 17;'
@@ -156,8 +192,8 @@ with tempfile.TemporaryDirectory(prefix='opura-packet-reference-') as temp:
     subprocess.run(['cc', '-shared', '-fPIC', '-O2', '-fwrapv', '-DVAR_ARRAYS',
                     '-DOPUS_BUILD', '-DFIXED_POINT', '-DDISABLE_FLOAT_API',
                     *['-I' + str(source / p) for p in ['include', 'celt', 'silk', 'silk/fixed', 'src']],
-                    str(path / 'probe.c'), str(path / 'core.c'), str(path / 'decoder.c'),
-                    *[str(source / f) for f in files if f not in ['silk/decode_core.c', 'src/opus_decoder.c']],
+                    str(path / 'probe.c'), str(path / 'core.c'), str(path / 'decoder.c'), str(path / 'frame.c'),
+                    *[str(source / f) for f in files if f not in ['silk/decode_core.c', 'src/opus_decoder.c', 'silk/decode_frame.c']],
                     '-lm', '-o', str(path / 'probe.so')], check=True)
     lib = c.CDLL(str(path / 'probe.so'))
     pointer, i16, u8, u32 = c.c_void_p, c.POINTER(c.c_int16), c.POINTER(c.c_ubyte), c.POINTER(c.c_uint32)
@@ -169,10 +205,58 @@ with tempfile.TemporaryDirectory(prefix='opura-packet-reference-') as temp:
         ('symbols', [c.c_int, c.c_int, c.c_int, u8], c.c_int),
         ('opus_encode', [pointer, i16, c.c_int, u8, c.c_int], c.c_int),
         ('decode', [pointer, u8, c.c_int, i16, u32], c.c_int),
+        ('decode_complete', [pointer, u8, c.c_int, c.c_int, i16, u32], c.c_int),
         ('repack', [u8, c.POINTER(c.c_int), c.c_int, u8], c.c_int),
     ]:
         function = getattr(lib, name)
         function.argtypes, function.restype = types, result
+    if args.loss:
+        print('# Pinned Opus v1.6.1 real mono SILK loss/recovery, completed decode_frame PCM:', REVISION)
+        print('# KIND RESET DURATION_MS HEX RATE_KHZ FINAL_RANGE PCM[duration_ms*rate]')
+        error = c.c_int()
+        for sequence in range(6):
+            encoder = lib.opus_encoder_create(48000, 1, 2048, c.byref(error))
+            if not encoder or error.value: raise SystemExit('Encoder initialization failed')
+            decoder = lib.opus_decoder_create(48000, 1, c.byref(error))
+            if not decoder or error.value: raise SystemExit('Decoder initialization failed')
+            phase, random = 0, 0x6c6f7373 + sequence
+            has_history, reset_next = False, True
+            try:
+                for index in range(48):
+                    if lib.configure(encoder, 1101 + sequence // 2, sequence % 2):
+                        raise SystemExit('Encoder configuration failed')
+                    duration = [10, 20, 40, 60][index // 12]
+                    samples = []
+                    for _ in range(48 * duration):
+                        phase = (phase + 1) % 240
+                        random ^= (random << 13) & 0xffffffff
+                        random ^= random >> 17
+                        random ^= (random << 5) & 0xffffffff
+                        value = ((phase if phase < 120 else 239 - phase) - 60) * 160
+                        samples.append(0 if index % 16 >= 10 else value + random % 1024 - 512)
+                    data = (c.c_ubyte * 1276)()
+                    size = lib.opus_encode(encoder, (c.c_int16 * len(samples))(*samples), len(samples), data, 1276)
+                    if size <= 1: raise SystemExit('Reference audio encoding failed')
+                    packet = bytes(data[:size])
+                    if packet[0] >> 3 >= 12: raise SystemExit('Expected SILK mono')
+                    lost = has_history and index % 12 in [2, 3, 4, 7, 10]
+                    if lost: duration = 10 * (1 + (index + sequence) % 12)
+                    pcm, out = (c.c_int16 * 1920)(), (c.c_uint32 * 4)()
+                    result = lib.decode_complete(decoder, None if lost else data, 0 if lost else size,
+                                                 48 * duration, pcm, out)
+                    if result != 48 * duration or not out[0]: raise SystemExit('Reference loss/recovery decode failed')
+                    kind = 'transition' if out[3] else 'loss' if lost else 'packet'
+                    print(kind, int(reset_next), duration, '-' if lost else packet.hex(), out[1], out[2], *pcm[:out[0]])
+                    reset_next = bool(out[3])
+                    has_history = not reset_next
+                    if reset_next:
+                        lib.opus_decoder_destroy(decoder)
+                        decoder = lib.opus_decoder_create(48000, 1, c.byref(error))
+                        if not decoder or error.value: raise SystemExit('Decoder reset failed')
+            finally:
+                lib.opus_encoder_destroy(encoder)
+                lib.opus_decoder_destroy(decoder)
+        raise SystemExit(0)
     print('# Opus v1.6.1 fixed-point real mono audio packets:', REVISION)
     print('# Scalar fixed-point -O2 -fwrapv, no deep PLC/OSCE; integer deterministic source at 48 kHz.')
     print('# KIND RESET HEX RATE_KHZ FINAL_RANGE PCM[duration_ms*rate]; raw decode_core output before mono buffering/resampling.')

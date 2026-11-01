@@ -3,7 +3,7 @@
 Opura is a pure Rust, zero-dependency Opus implementation under development.
 **Loss-free mono SILK packets can be decoded to raw internal-rate PCM.**
 Packet framing, range decoding and the SILK channel primitives are also available.
-Stereo, loss/DTX handling, output-rate resampling, CELT/Hybrid decoding and encoding
+Stereo, implicit DTX handling, output-rate resampling, CELT/Hybrid decoding and encoding
 are not implemented. The accepted direction is a complete decoder first, then
 an encoder, prioritizing speed and reliability. See the
 [decoder-first decision](docs/decisions/0002-decoder-first.md) for evaluation
@@ -504,8 +504,8 @@ diff -u tests/silk-cng-fixtures.txt /tmp/opura-cng.txt
 ```
 
 This stage does not itself supply PLC; the channel loss engine below combines
-it with concealment. The packet API still rejects loss/DTX input until loss
-scheduling is integrated. Complete Opus compatibility and competitive performance remain
+it with concealment. The packet API requires explicit loss requests, as described below, and rejects
+implicit DTX payloads. Complete Opus compatibility and competitive performance remain
 unestablished.
 
 ## SILK channel loss concealment
@@ -539,7 +539,38 @@ python3 tools/silk_plc_fixtures.py target/reference/opus > /tmp/opura-plc.txt
 diff -u tests/silk-plc-fixtures.txt /tmp/opura-plc.txt
 ```
 
-The mono packet API still rejects empty/one-byte loss or DTX payloads; scheduling
-loss from packet duration and FEC recovery are separate integration work. Channel
+The mono packet API rejects empty/one-byte loss or DTX payloads; use the explicit
+packet-stream loss method below. FEC recovery remains separate work. Channel
 PCM precedes mono buffering/resampling and stereo. Full Opus conformance and
 competitive performance remain unestablished.
+
+## Mono packet-stream loss handling
+
+After a successful packet, `MonoDecoder::conceal(duration_ms)` fills an explicitly
+missing interval. Durations are 10..=120 ms in multiples of 10; the last good packet
+establishes the rate. It schedules 10 ms internal frames after a 10 ms Opus frame,
+or 20 ms frames plus a final 10 ms remainder after longer Opus frames, matching
+libopus. Output includes PLC/CNG and loss-energy bookkeeping, with final range
+zero. All histories and samples commit as one transaction. Invalid durations or
+missing stream history return typed errors without changing state. `reset()` also
+clears the last-rate/duration history.
+
+[288 real packet-stream reference steps](tests/silk-packet-loss-fixtures.txt)
+include 120 scheduled losses across every supported duration, burst losses,
+silence, FEC-bearing packets and subsequent good audio at all three SILK rates.
+Observational hooks copy the completed original `silk_decode_frame` output after
+PLC/CNG/glue; tests compare every internal PCM sample and public final range.
+The default packet fixture mode remains byte-identical. Additional tests cover
+invalid requests, reset, failed recovery rollback/retry, and mutations of loss
+scheduling and history advancement.
+
+```sh
+python3 tools/silk_packet_fixtures.py target/reference/opus --loss > /tmp/opura-packet-loss.txt
+diff -u tests/silk-packet-loss-fixtures.txt /tmp/opura-packet-loss.txt
+```
+
+Missing intervals must be explicit; `decode` still rejects empty/one-byte DTX or
+loss payloads. In-band FEC is consumed during normal decoding but is not yet used
+for recovery. PCM remains before mono delay buffering/resampling, with stereo and
+CELT/Hybrid still unimplemented. Full Opus conformance and competitive performance
+remain unestablished.

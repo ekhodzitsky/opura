@@ -1,7 +1,7 @@
-//! Loss-free mono SILK packets to raw internal-rate PCM.
+//! Mono SILK packets and explicit packet loss to internal-rate PCM.
 //!
 //! Handles framing, headers, skipped LBRR and internal-frame scheduling. Output
-//! precedes mono delay buffering and resampling. No loss/DTX, stereo, Hybrid,
+//! precedes mono delay buffering and resampling. No implicit DTX, stereo, Hybrid,
 //! CELT transition redundancy or FEC recovery is implemented.
 use super::{
     SilkError,
@@ -27,6 +27,10 @@ pub enum MonoError {
     UnsupportedChannels,
     /// An empty or one-byte compressed frame needs loss/DTX handling.
     MissingPayload,
+    /// No successfully decoded SILK packet establishes the internal rate yet.
+    MissingHistory,
+    /// Loss duration must be 10..=120 ms in multiples of 10 ms.
+    InvalidLossDuration,
     /// SILK header decoding failed.
     Header(SilkError),
     /// An internal regular or redundant channel frame failed.
@@ -40,6 +44,10 @@ impl fmt::Display for MonoError {
             Self::Framing(e) => write!(f, "mono SILK packet framing: {e}"),
             Self::UnsupportedMode => f.write_str("mono decoder requires SILK-only mode"),
             Self::UnsupportedChannels => f.write_str("mono decoder requires one encoded channel"),
+            Self::MissingHistory => f.write_str("mono SILK concealment needs a preceding packet"),
+            Self::InvalidLossDuration => {
+                f.write_str("mono SILK loss duration must be 10..120 ms in 10 ms steps")
+            }
             Self::MissingPayload => f.write_str("mono SILK loss/DTX decoding is not implemented"),
             Self::Header(e) => write!(f, "mono SILK header: {e}"),
             Self::Channel(e) => write!(f, "mono SILK packet: {e}"),
@@ -69,7 +77,7 @@ impl From<ChannelError> for MonoError {
 ///
 /// Samples are raw channel synthesis, before the mono delay buffer and
 /// output-rate resampler used by the Opus API. They are not aligned with that
-/// API's output samples. No post-loss CNG/PLC processing is performed.
+/// API's output samples. Explicit losses and recovery include PLC/CNG glue.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MonoPcm {
     samples: [i16; 1920],
@@ -95,15 +103,60 @@ impl MonoPcm {
     }
 }
 
-/// Persistent, allocation-free decoder for loss-free mono SILK-only packets.
+/// Persistent, allocation-free mono SILK packet decoder with explicit loss handling.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct MonoDecoder {
     channel: ChannelState,
+    last_frame: Option<(SilkRate, FrameDuration)>,
 }
 impl MonoDecoder {
     /// Forget all state before starting a new independent stream.
     pub fn reset(&mut self) {
         *self = Self::default();
+    }
+
+    /// Conceal a missing interval at the last successfully decoded SILK rate.
+    ///
+    /// `duration_ms` must be 10..=120 in 10 ms steps. Scheduling matches Opus:
+    /// after a 10 ms Opus frame, each concealed frame is 10 ms; otherwise use
+    /// 20 ms frames followed by 10 ms if needed. The result includes PLC/CNG
+    /// and recovery bookkeeping, with final range zero. No FEC is decoded.
+    ///
+    /// A preceding successful packet must establish the internal rate and
+    /// frame duration. Invalid duration or missing history leaves state unchanged.
+    /// All output and state commit together. Output still precedes mono delay
+    /// buffering and resampling, like [`Self::decode`].
+    pub fn conceal(&mut self, duration_ms: u16) -> Result<MonoPcm, MonoError> {
+        if !(10..=120).contains(&duration_ms) || duration_ms % 10 != 0 {
+            return Err(MonoError::InvalidLossDuration);
+        }
+        let (rate, last_duration) = self.last_frame.ok_or(MonoError::MissingHistory)?;
+        let mut next = self.clone();
+        let mut output = MonoPcm {
+            samples: [0; 1920],
+            length: 0,
+            rate,
+            final_range: 0,
+        };
+        let mut remaining = duration_ms;
+        while remaining != 0 {
+            let duration = if last_duration == FrameDuration::Ms10 || remaining == 10 {
+                FrameDuration::Ms10
+            } else {
+                FrameDuration::Ms20
+            };
+            let pcm = next.channel.conceal(rate, duration)?;
+            let end = output.length + pcm.samples().len();
+            output.samples[output.length..end].copy_from_slice(pcm.samples());
+            output.length = end;
+            remaining -= if duration == FrameDuration::Ms10 {
+                10
+            } else {
+                20
+            };
+        }
+        *self = next;
+        Ok(output)
     }
 
     /// Decode exactly one externally delimited Opus packet, without I/O.
@@ -184,6 +237,14 @@ impl MonoDecoder {
             }
             output.final_range = entropy.range();
         }
+        next.last_frame = Some((
+            rate,
+            if packet.frame_samples() == 480 {
+                FrameDuration::Ms10
+            } else {
+                FrameDuration::Ms20
+            },
+        ));
         *self = next;
         Ok(output)
     }
