@@ -1186,3 +1186,46 @@ The oracle extracts original prefix/spread decision blocks and `tf_decode`
 unchanged, with original entropy/coarse-energy routines and tables. These stages
 are not full compressed CELT or Hybrid decoding; allocation, recursive bands,
 loss recovery and official complete Opus conformance remain incomplete.
+
+
+## CELT bit allocation
+
+`opura::celt::allocation::decode_allocation(entropy, size, layout, transient)`
+runs after spreading and before fine-energy/shape decoding. The validated
+`BandLayout` must select at least one band; payloads contain 2..1275 bytes and
+an already over-budget cursor rejects. Standard caps, dynamic boosts, trim,
+anti-collapse reservation, six-step curve interpolation, skipped bands,
+intensity/dual stereo and fine/PVQ/excess redistribution follow original rate.c.
+Every operation uses fixed storage and commits entropy only after success.
+
+The immutable `Allocation` retains frame/layout/transient context. Getters expose
+all 21 caps/boost offsets, PVQ budgets in **eighth bits** (not pulse counts),
+fine bits/priorities, trim, intensity boundary, dual flag, carry balance and the
+exclusive coded-band endpoint. `fine_bits()` and `fine_priority()` feed existing
+energy refinement APIs. `anti_collapse_reserved()` marks the one raw bit to read
+after shapes. Selected-band outputs are zero outside the interval; standard caps
+are defined for all bands. Fine energy is zero through eight bits per channel.
+
+[16296 original allocation cases](tests/celt-allocation-fixtures.txt) match every
+array/scalar plus range/tell/tell_frac, and the following original fine-energy
+values/counters. They cover all rates' shared internal frame models, encoded
+channels, transient/long contexts, 2..1275-byte budgets, fresh/positioned cursors,
+boosted/skipped/capped bands, every trim and stereo mode. Full-prefix cases first
+traverse original prefix/coarse/TF/spread. Additional cases exhaust all 231
+nonempty band intervals at each LM/channel/transient context. Tests independently
+check budget conservation and fine limits, malformed rollback and 512 bounded
+adversarial intervals. Six mutations detect boost quantum, protected skip band,
+dual-bit refund, two-coefficient fine offset, balance and anti-collapse reserve.
+
+```sh
+python3 tools/celt_allocation_fixtures.py target/reference/opus > /tmp/opura-celt-allocation.txt
+diff -u tests/celt-allocation-fixtures.txt /tmp/opura-celt-allocation.txt
+python3 tools/celt_allocation_fixtures.py target/reference/opus --tables > /tmp/opura-celt-allocation-tables.rs
+rustfmt --edition 2024 /tmp/opura-celt-allocation-tables.rs
+diff -u src/celt/allocation_tables.rs /tmp/opura-celt-allocation-tables.rs
+```
+
+The optional oracle uses the unchanged decoder allocation block, init_caps,
+rate.c, entropy and fine-energy routines with the pinned original standard mode.
+Recursive spectral partitions/folding/stereo assembly, anti-collapse and complete
+compressed CELT/Hybrid decoding remain future work.

@@ -7,6 +7,21 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.27] - 2026-11-01
+
+- Add bounded transactional classic CELT allocation: caps, dynamic boosts, trim,
+  anti-collapse reservation, interpolated curves, skip/intensity/dual fields,
+  PVQ eighth-bit budgets, fine-energy bits/priorities and excess balancing.
+- Preserve encoded frame/layout/transient context in immutable allocation results
+  and expose fine arrays directly to existing energy stages.
+- Match every result/entropy field and following fine-energy output on 16296
+  original cases, including every nonempty band interval at every LM/channel.
+- Verify budget conservation, malformed rollback and 512 deterministic adversarial
+  cases; six mutations are detected. Tables/fixtures reproduce and all gates pass.
+
+Recursive CELT band/shape decoding is still required to feed compressed audio
+through the verified synthesis backend; full Opus remains incomplete.
+
 ## [0.1.26] - 2026-11-01
 
 - Add transactional CELT control prefix decoding with typed silence/postfilter/
