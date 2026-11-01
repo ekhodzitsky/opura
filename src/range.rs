@@ -262,6 +262,18 @@ impl<'a> RangeDecoder<'a> {
         self.budget_bytes = 1275;
     }
 
+    // Transition redundancy occupies a suffix of the original frame. Preserve
+    // range/raw lookahead exactly as ec_dec.storage shrink does, while future
+    // reads and CELT budgets see only the primary layer bytes.
+    pub(crate) fn shrink_storage(&mut self, bytes: usize) -> Result<(), RangeError> {
+        if bytes > self.input.len() {
+            return Err(RangeError::RawBitsExhausted);
+        }
+        self.input = &self.input[..bytes];
+        self.budget_bytes = bytes;
+        Ok(())
+    }
+
     // Physical CELT budgets exclude SILK's virtual zero-trimmed-frame allowance.
     pub(crate) fn storage_bits(&self) -> u32 {
         self.input.len().saturating_mul(8).min(u32::MAX as usize) as u32

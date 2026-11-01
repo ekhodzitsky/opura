@@ -1,10 +1,13 @@
-//! Pure Rust Opus framing, entropy, SILK/CELT output and normal Hybrid output.
-//! No dependencies or allocation; complete Opus decoding is not implemented yet.
+//! Pure Rust standard Opus packet decoding with no dependencies or allocation.
 //!
-//! This validates RFC 6716 section 3 framing, not compressed audio contents.
-//! Full Opus audio decoding, containers, multistream and self-delimiting framing
-//! are not implemented; see [`silk::decoder`], [`celt::decoder`] and [`hybrid`] for supported
-//! audio subsets. Pass exactly one packet, with its transport headers removed.
+//! [`decoder::OpusDecoder`] combines SILK/CELT/Hybrid PCM, loss/DTX, FEC and mode
+//! transitions. Official conformance and end-to-end performance validation are
+//! pending; encoding is not implemented. Component APIs are also available in
+//! [`silk::decoder`], [`celt::decoder`] and [`hybrid`].
+//!
+//! Pass exactly one externally delimited packet with transport headers removed.
+//! [`Packet`] validates RFC6716 section3 framing separately from compressed audio.
+//! Containers, multistream and self-delimiting framing are not implemented.
 //!
 //! ```
 //! let packet = opura::Packet::parse(&[0x98, 0x12, 0x34])?;
@@ -14,6 +17,7 @@
 //! ```
 
 pub mod celt;
+pub mod decoder;
 pub mod hybrid;
 pub mod range;
 pub mod silk;

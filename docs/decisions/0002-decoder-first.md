@@ -25,9 +25,10 @@ Encoder quality comparisons require a complete encoder, specified bitrates,
 latency constraints and a representative corpus. Those comparisons are later
 work and must not be inferred from decoder correctness.
 
-## Current boundary
+## Boundary when accepted
 
-Packet framing and entropy decoding are available. SILK, CELT, Hybrid synthesis,
-packet loss concealment, full conformance and a user-facing audio tool still
-require implementation and validation. Do not advertise audio support until
-an end-to-end decoded PCM path has been verified.
+At acceptance, packet framing and entropy decoding were available. SILK, CELT,
+Hybrid synthesis, loss concealment, full conformance and an audio tool still
+required implementation and validation. Audio support must only be advertised
+after an end-to-end decoded PCM path is verified. See README.md and CHANGELOG.md
+for subsequent implementation milestones.

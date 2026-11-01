@@ -54,3 +54,8 @@ impl FrameSize {
         }
     }
 }
+
+// Canonical Opus2.5ms transition window, shared with the decoder orchestrator.
+pub(crate) fn transition_window() -> &'static [i16; 120] {
+    &mdct_tables::WINDOW
+}

@@ -1,13 +1,12 @@
 # opura
 
 Opura is a pure Rust, zero-dependency Opus implementation under development.
-**Mono/stereo SILK packets support final PCM output, explicit loss concealment and in-band FEC.**
-Packet framing, range decoding and the SILK channel primitives are also available.
-**CELT-only normal/loss/DTX packets also decode to final mono/stereo PCM at all five rates.**
-**Hybrid packets also support final PCM, loss/DTX and in-band FEC.**
-CELT transition tails, cross-mode transitions, standalone SILK
-implicit DTX, full conformance and encoding remain under development. The accepted direction is a complete decoder first, then
-an encoder, prioritizing speed and reliability. See the
+**The unified decoder supports SILK, CELT and Hybrid PCM, loss/DTX, in-band FEC
+and mode transitions with redundant CELT tails at all five standard output rates.**
+The separate SILK/CELT/Hybrid APIs and their component stages remain available.
+Official conformance, end-to-end performance validation and encoding remain under
+development. The accepted direction is a complete decoder first, then an encoder,
+prioritizing speed and reliability. See the
 [decoder-first decision](docs/decisions/0002-decoder-first.md) for evaluation
 requirements; SOTA performance is an ambition, not a current claim.
 
@@ -1691,3 +1690,61 @@ Thirteen targeted mutations are detected. Additional tests cover128 corrupt
 normal/FEC/loss/recovery sequences, invalid
 loss durations, reset/initial-silence state and first-frame-only FEC. Complete
 Opus mode orchestration, official conformance and encoding still follow.
+
+
+## Unified Opus decoder
+
+`decoder::OpusDecoder` owns one shared SILK/CELT stream state across all standard
+coding modes. Output rate and channel count stay fixed; encoded bandwidth,
+channels, mode and frame duration can change on each packet. The implementation
+uses safe Rust and fixed storage, with no heap allocation or Cargo dependencies.
+
+```rust
+use opura::{decoder::OpusDecoder, silk::{decoder::PcmChannels, resampler::OutputRate}};
+let mut decoder = OpusDecoder::new(OutputRate::Khz48, PcmChannels::Stereo)?;
+// let pcm = decoder.decode(transport_packet)?;
+let missing = decoder.conceal_samples(960)?; //20ms on the48kHz clock
+assert_eq!(missing.samples_per_channel(), 960);
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+`decode(packet)` accepts externally delimited packets up to120ms, including
+empty/one-byte compressed frames (PLC/DTX). `conceal_samples(duration)` accepts
+120..5760 samples in120-sample steps on a48kHz clock, independent of output rate.
+`decode_fec(packet, duration)` recovers the requested missing interval: earlier
+samples use PLC, then the first compressed frame supplies available LBRR; CELT
+or unavailable/too-short FEC falls back to PLC. Decode the received packet
+normally afterwards for its primary audio. Every complete operation rolls back
+both layer histories, packet configuration and diagnostics on errors.
+
+Transition handling includes both5ms CELT redundancy directions, physical
+primary entropy-storage shrinking, native mode-dependent reset ordering,
+previous-mode PLC,2.5ms squared-window fades, Hybrid-to-SILK high-band fade-out
+and signed16 saturating layer accumulation. PLC follows the last packet clock;
+SILK sub-10ms requests advance10ms of state and return only the needed prefix.
+Final range uses the last frame plus redundant-tail XOR, reports persistent CELT
+RNG during Hybrid FEC and zero for data loss. Read-only methods expose CELT
+histories, previous mode/redundancy and last duration; native reset retains CELT
+band limits and output geometry.
+
+`tests/opus-packet-fixtures.txt` records2440 public pinned libopus PCM/range
+results with complete independent CELT synthesis/PLC state and outer context.
+It covers all three modes, standard frame/bandwidth and wire/API channel
+combinations at8/12/16/24/48kHz, both redundancy directions (including stale tails),
+transitions without redundancy, mixed empty/one-byte frames, irregular losses,
+FEC prefixes/fallback, reset and packets up to48 frames/120ms. The same unified
+API also matches the prior3002 CELT/Hybrid PLC/FEC cases unchanged. Retained deep
+and late corrupt-frame failures verify rollback after a mode transition and
+FEC prefix PLC;512 deterministic corrupt sequences exercise bounds and atomicity.
+Twenty-two targeted mutations are detected.
+
+```sh
+python3 tools/celt_packet_fixtures.py /path/to/opus-v1.6.1 --mixed > tests/opus-packet-fixtures.txt
+```
+
+The optional oracle builds external unchanged scalar fixed-point DSP routines
+in a temporary directory. Read-only observers capture state and transition
+branches; no reference implementation is linked by Cargo. These sampled exact
+results precede official conformance and full decoder benchmarks. Containers,
+multistream/self-delimiting framing, QEXT, neural/deep PLC and encoding are not
+implemented by this API.

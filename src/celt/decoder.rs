@@ -1,6 +1,6 @@
 //! Stateful CELT-only normal/loss/DTX decoding to final signed-16 PCM.
 //! Frame/loss ordering and histories follow pinned celt_decoder.c; Hybrid and
-//! cross-mode transitions are separate.
+//! cross-mode transitions use [`crate::decoder::OpusDecoder`].
 //! Copyright (c) 2007-2008 CSIRO; 2007-2010 Xiph.Org Foundation;
 //! 2008 Gregory Maxwell. See THIRD_PARTY_NOTICES.md.
 use super::{

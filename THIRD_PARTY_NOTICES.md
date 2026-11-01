@@ -1270,3 +1270,13 @@ SILK-frame advancement and LBRR gaps follow `silk/dec_API.c`. The original
 signed16 `SMULBB` LTP normalization behavior follows `silk/PLC.c`; the extended
 positive signed16 comfort-noise scale context follows `silk/CNG.c`. Their
 original copyright notices and redistribution terms are retained above.
+
+
+# Unified Opus decoder attribution
+
+All-mode packet/loss/FEC orchestration, primary entropy-storage shrinking,
+redundant CELT-tail ordering, mode resets, squared-window PCM fades and final
+range XOR follow `src/opus_decoder.c`; storage behavior follows `celt/entdec.c`
+and window/fixed-point arithmetic follows the CELT sources identified above.
+The original Xiph.Org Foundation/Skype Limited/Arm Limited packet integration
+notice and all SILK/CELT component notices and terms are retained above.

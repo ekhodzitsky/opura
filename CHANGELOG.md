@@ -7,6 +7,25 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.39] - 2026-11-02
+
+- Add a transactional fixed-storage unified Opus decoder with shared SILK/CELT
+  histories across all standard modes, rates and encoded/output channel layouts.
+- Reconstruct both5ms redundant CELT tail directions, shrink primary entropy
+  storage, apply native mode resets and2.5ms fades, and retain final-range XOR.
+- Orchestrate all-mode explicit/implicit loss/DTX and requested FEC intervals,
+  including initial silence, short SILK state advancement, prefix PLC/fallback,
+  Hybrid-to-SILK fade-out, resets and native diagnostics.
+- Match2440 public libopus PCM/range and independent complete CELT/PLC/context
+  snapshots, including stale tails and48-frame/120ms packets. The unified API
+  also matches3002 previous CELT/Hybrid loss/FEC cases unchanged.
+- Verify512 corrupt mixed-mode sequences, retained deep/late transition failures,
+  FEC-prefix rollback and22 detected mutations. Optional corpora reproduce and all
+  mandatory offline checks pass.
+
+Official conformance, full decoder performance validation and encoding remain
+pending; SOTA performance is not yet established.
+
 ## [0.1.38] - 2026-11-01
 
 - Add transactional Hybrid explicit/implicit loss, DTX, initial silence and

@@ -1,7 +1,7 @@
 //! Hybrid packets, loss/DTX and FEC through shared SILK/CELT synthesis.
 //!
 //! Output is canonical signed16 PCM. Cross-mode transitions and redundant CELT
-//! transition tails are not yet supported here.
+//! transition tails use [`crate::decoder::OpusDecoder`] instead of this subset API.
 //! Copyright (c) 2010 Xiph.Org Foundation, Skype Limited; 2024 Arm Limited.
 //! Written by Jean-Marc Valin and Koen Vos. See THIRD_PARTY_NOTICES.md.
 use crate::{

@@ -336,6 +336,23 @@ impl CeltDecoder {
         }
         Ok(())
     }
+    // SILK-only frames may retain start17 above their end band without invoking
+    // CELT synthesis. Configuration lives before the native reset boundary.
+    pub(crate) fn configure_bands(&mut self, start: usize, end: usize) -> Result<(), DecoderError> {
+        if !matches!(start, 0 | 17) || !matches!(end, 13 | 17 | 19 | 21) {
+            return Err(DecoderError::InvalidConfiguration);
+        }
+        self.loss.start = start;
+        self.loss.end = end;
+        Ok(())
+    }
+    pub(crate) fn conceal_configured(&mut self, size: FrameSize) -> Result<PcmFrame, DecoderError> {
+        if self.loss.start >= self.loss.end {
+            return Err(DecoderError::InvalidConfiguration);
+        }
+        self.loss.initialized = true;
+        Ok(self.loss_frame(size)?)
+    }
     // A configured outer Hybrid frame calls the native CELT loss path even on
     // first-packet FEC; initial Opus no-mode silence is handled by the caller.
     pub(crate) fn conceal_layer(
