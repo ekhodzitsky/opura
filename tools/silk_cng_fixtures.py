@@ -9,6 +9,7 @@ import tempfile
 REVISION = '22244de5a79bd1d6d623c32e72bf1954b56235be'
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('source', type=Path)
+parser.add_argument('--wide-scale',action='store_true',help='Exercise positive signed16 PLC noise scales above unity')
 args = parser.parse_args()
 source = args.source.resolve()
 if subprocess.check_output(['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip() != REVISION:
@@ -74,6 +75,7 @@ with tempfile.TemporaryDirectory(prefix='opura-cng-reference-') as temp:
         lost = int(phase >= 2 and phase <= 4 or reset)
         signal = 0 if phase <= 1 else (1 + (case // 6) % 2)
         scale = [0, 16384, 8192, 2048, 0, 16384][phase]
+        if args.wide_scale:scale=[0,0,32767,16385,24576,0][phase]
         previous = [65536, 131072, 2097152, 8388608, 1686110208][case % 5]
         gains = [[65536, 2097152, 8388608, 1686110208][(case + k) % 4] for k in range(count)]
         if case % 5 == 0: gains = [gains[0]] * count

@@ -1263,3 +1263,10 @@ continues to apply. The packet integration source carries the following notice:
    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 ```
+
+
+Hybrid loss/FEC scheduling additionally follows `src/opus_decoder.c`; short
+SILK-frame advancement and LBRR gaps follow `silk/dec_API.c`. The original
+signed16 `SMULBB` LTP normalization behavior follows `silk/PLC.c`; the extended
+positive signed16 comfort-noise scale context follows `silk/CNG.c`. Their
+original copyright notices and redistribution terms are retained above.

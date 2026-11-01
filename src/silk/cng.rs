@@ -18,7 +18,7 @@ use std::fmt;
 pub enum CngError {
     /// Rate, LPC order, excitation length or gain geometry disagree.
     IncompatibleFrame,
-    /// PLC noise scale must be 0..=16384 and previous Q16 gain positive.
+    /// PLC noise scale must be 0..=32767 and previous Q16 gain positive.
     InvalidNoiseContext,
 }
 impl fmt::Display for CngError {
@@ -98,7 +98,7 @@ impl CngState {
     /// Mix CNG into one 10/20 ms frame already produced by PLC, in place.
     ///
     /// `noise_scale_q14` and `previous_gain_q16` are the PLC random-noise scale
-    /// after concealment and its last good subframe gain. They are not user
+    /// after concealment (0..=32767) and its last good subframe gain. They are not user
     /// volume controls. This stage subtracts the noise energy already supplied
     /// by PLC from the estimated background energy, filters random samples from
     /// its excitation bank, and adds with signed-16 saturation.
@@ -123,7 +123,7 @@ impl CngState {
         if pcm.len() != length {
             return Err(CngError::IncompatibleFrame);
         }
-        if noise_scale_q14 > 16384 || previous_gain_q16 <= 0 {
+        if noise_scale_q14 > 32767 || previous_gain_q16 <= 0 {
             return Err(CngError::InvalidNoiseContext);
         }
         self.prepare(rate);

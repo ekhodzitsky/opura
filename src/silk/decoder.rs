@@ -224,7 +224,7 @@ impl SilkDecoder {
         if !(10..=120).contains(&duration_ms) || duration_ms % 10 != 0 {
             return Err(DecoderError::InvalidLossDuration);
         }
-        let rate = self.rate.ok_or(DecoderError::MissingHistory)?;
+        self.rate.ok_or(DecoderError::MissingHistory)?;
         let mut next = self.clone();
         let mut result = self.empty_output();
         let mut remaining = duration_ms;
@@ -234,22 +234,10 @@ impl SilkDecoder {
             } else {
                 FrameDuration::Ms20
             };
-            let channels = next.internal_channels;
-            let collapse = next.enter_frame(channels, rate);
-            let plan = FramePlan {
-                kind: Kind::Loss,
-                rate,
-                duration,
-                channels,
-                index: 0,
-                vad: [false; 2],
-                redundant: [false; 2],
-                previous_redundant: [false; 2],
-                prediction: next.stereo.previous_prediction(),
-                mid_only: false,
-                collapse,
-            };
-            next.frame(None, plan, &mut result)?;
+            let frame = next.conceal_layer(duration)?;
+            let end = result.length + frame.samples().len();
+            result.samples[result.length..end].copy_from_slice(frame.samples());
+            result.length = end;
             remaining -= if duration == FrameDuration::Ms10 {
                 10
             } else {
@@ -260,6 +248,32 @@ impl SilkDecoder {
         Ok(result)
     }
 
+    // One native SILK PLC interval, including10ms state advancement when an
+    // outer Hybrid request needs fewer output samples. Caller owns transaction.
+    pub(crate) fn conceal_layer(
+        &mut self,
+        duration: FrameDuration,
+    ) -> Result<DecodedPcm, DecoderError> {
+        let rate = self.rate.ok_or(DecoderError::MissingHistory)?;
+        let mut output = self.empty_output();
+        let channels = self.internal_channels;
+        let collapse = self.enter_frame(channels, rate);
+        let plan = FramePlan {
+            kind: Kind::Loss,
+            rate,
+            duration,
+            channels,
+            index: 0,
+            vad: [false; 2],
+            redundant: [false; 2],
+            previous_redundant: [false; 2],
+            prediction: self.stereo.previous_prediction(),
+            mid_only: false,
+            collapse,
+        };
+        self.frame(None, plan, &mut output)?;
+        Ok(output)
+    }
     fn empty_output(&self) -> DecodedPcm {
         DecodedPcm {
             samples: [0; 11520],

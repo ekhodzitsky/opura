@@ -106,14 +106,19 @@ impl PlcState {
             }
             self.ltp = [0, 0, ltp_gain as i16, 0, 0];
             if ltp_gain < 11469 {
+                // silk_SMULBB truncates the normalization scale to signed16.
+                // Tiny positive LTP gains can wrap it negative; PLC preserves
+                // that coefficient and its resulting noise/excitation balance.
                 let scale = (11469 << 10) / ltp_gain.max(1);
                 for coefficient in &mut self.ltp {
-                    *coefficient = ((i32::from(*coefficient) * scale) >> 10) as i16;
+                    *coefficient =
+                        ((i32::from(*coefficient) * i32::from(scale as i16)) >> 10) as i16;
                 }
             } else if ltp_gain > 15565 {
                 let scale = (15565 << 14) / ltp_gain;
                 for coefficient in &mut self.ltp {
-                    *coefficient = ((i32::from(*coefficient) * scale) >> 14) as i16;
+                    *coefficient =
+                        ((i32::from(*coefficient) * i32::from(scale as i16)) >> 14) as i16;
                 }
             }
         } else {

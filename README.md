@@ -4,8 +4,8 @@ Opura is a pure Rust, zero-dependency Opus implementation under development.
 **Mono/stereo SILK packets support final PCM output, explicit loss concealment and in-band FEC.**
 Packet framing, range decoding and the SILK channel primitives are also available.
 **CELT-only normal/loss/DTX packets also decode to final mono/stereo PCM at all five rates.**
-**Normal Hybrid packets also decode to final PCM through shared SILK/CELT entropy.**
-Hybrid loss/FEC, CELT transition tails, cross-mode transitions, standalone SILK
+**Hybrid packets also support final PCM, loss/DTX and in-band FEC.**
+CELT transition tails, cross-mode transitions, standalone SILK
 implicit DTX, full conformance and encoding remain under development. The accepted direction is a complete decoder first, then
 an encoder, prioritizing speed and reliability. See the
 [decoder-first decision](docs/decisions/0002-decoder-first.md) for evaluation
@@ -1630,8 +1630,8 @@ Signed16 output follows the reference's canonical fixed-point `SIG2RES` then
 `ADD_RES`: CELT rounds/saturates to signed16 before the layer sum saturates.
 Read-only `celt()` exposes energies, overlap, postfilter and de-emphasis histories.
 `reset()` retains output geometry and native CELT start/end configuration.
-This API currently rejects empty/one-byte loss/DTX frames and redundant CELT
-transition tails; Hybrid loss/FEC and unified cross-mode orchestration follow.
+Empty/one-byte loss/DTX frames, explicit loss and FEC are also supported below.
+Redundant CELT transition tails still require unified transition reconstruction.
 
 `tests/hybrid-packet-fixtures.txt` contains960 public fixed-point libopus packet
 results and independent complete CELT snapshots. It covers all output rates,
@@ -1652,3 +1652,42 @@ rapid encoder20→10ms change emits its one-byte budget-fallback PLC frame; this
 corpus records normal packets only. PCM/range and state come from unchanged
 original decoding routines. These subset results do not establish full Opus
 conformance or competitive end-to-end performance.
+
+
+## Hybrid loss, DTX and FEC
+
+`HybridDecoder::conceal_samples(duration)` accepts120..5760 samples in120-sample
+steps on a48kHz clock. Before the first audio frame, output is silent and layer
+histories remain untouched. Empty/one-byte frames use the current TOC clock and
+previous bandwidth/channel configuration. Explicit loss follows the last packet
+clock, splitting irregular intervals into20/10/5/2.5ms pieces. SILK always advances
+at least10ms per piece; its output is truncated for shorter intervals while CELT
+conceals the exact high-band duration using background noise. Normal recovery
+retains both layers' concealment/energy/resampler histories.
+
+`decode_fec(packet)` reconstructs the preceding interval of the first compressed
+frame only. SILK decodes available LBRR or conceals gaps; CELT conceals high bands
+at the received bandwidth. The received primary packet can then be decoded with
+`decode(packet)`. FEC final range reports the persistent CELT noise RNG, whereas
+explicit/implicit loss reports zero. Whole packet, FEC and explicit loss calls
+preserve all state on errors. Cross-mode FEC/transition tails remain pending.
+
+`tests/hybrid-loss-fixtures.txt` matches2130 original public PCM/range results
+and full CELT synthesis/PLC snapshots across all rates/channels, short/long
+bursts, initial FEC, LBRR gaps, irregular duration, reset and normal recovery.
+It retains a stereo PLC regression: original SILK `SMULBB` truncates tiny-gain
+LTP normalization scales to signed16. Negative central coefficients and the
+resulting noise balance are intentional reference arithmetic. CNG now accepts
+its full nonnegative signed16 PLC noise-scale domain (0..32767);192 additional
+original CNG PCM/full-state cases cover above-unity scales, leaving the previous
+192-case corpus unchanged.
+
+```sh
+python3 tools/celt_packet_fixtures.py /path/to/opus-v1.6.1 --hybrid --loss > tests/hybrid-loss-fixtures.txt
+python3 tools/silk_cng_fixtures.py /path/to/opus-v1.6.1 --wide-scale > tests/silk-cng-wide-fixtures.txt
+```
+
+Thirteen targeted mutations are detected. Additional tests cover128 corrupt
+normal/FEC/loss/recovery sequences, invalid
+loss durations, reset/initial-silence state and first-frame-only FEC. Complete
+Opus mode orchestration, official conformance and encoding still follow.

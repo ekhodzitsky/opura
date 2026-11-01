@@ -336,6 +336,21 @@ impl CeltDecoder {
         }
         Ok(())
     }
+    // A configured outer Hybrid frame calls the native CELT loss path even on
+    // first-packet FEC; initial Opus no-mode silence is handled by the caller.
+    pub(crate) fn conceal_layer(
+        &mut self,
+        size: FrameSize,
+        end: usize,
+    ) -> Result<PcmFrame, DecoderError> {
+        if !matches!(end, 19 | 21) {
+            return Err(DecoderError::InvalidConfiguration);
+        }
+        self.loss.start = 17;
+        self.loss.end = end;
+        self.loss.initialized = true;
+        Ok(self.loss_frame(size)?)
+    }
     fn loss_frame(&mut self, size: FrameSize) -> Result<PcmFrame, ConcealmentError> {
         if !self.loss.initialized {
             self.range = 0;

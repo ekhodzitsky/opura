@@ -1,11 +1,11 @@
-//! Normal Hybrid packets: shared SILK low-band and CELT high-band entropy.
+//! Hybrid packets, loss/DTX and FEC through shared SILK/CELT synthesis.
 //!
-//! Output is canonical signed16 PCM. Cross-mode transitions, CELT redundancy
-//! tails, loss/DTX and FEC are handled separately and are not yet supported here.
+//! Output is canonical signed16 PCM. Cross-mode transitions and redundant CELT
+//! transition tails are not yet supported here.
 //! Copyright (c) 2010 Xiph.Org Foundation, Skype Limited; 2024 Arm Limited.
 //! Written by Jean-Marc Valin and Koen Vos. See THIRD_PARTY_NOTICES.md.
 use crate::{
-    Mode, Packet, PacketError,
+    Bandwidth, Mode, Packet, PacketError,
     celt::{
         FrameSize,
         decoder::{CeltDecoder, DecoderError as CeltError, FrameConfig},
@@ -15,6 +15,7 @@ use crate::{
     silk::{
         self,
         decoder::{DecoderError as SilkError, PcmChannels, SilkDecoder},
+        gains::FrameDuration,
         pitch::SilkRate,
         resampler::OutputRate,
     },
@@ -29,8 +30,10 @@ pub enum DecoderError {
     Framing(PacketError),
     /// This decoder accepts Hybrid packets only.
     UnsupportedMode,
-    /// Empty/one-byte payload needs loss/DTX orchestration.
+    /// Legacy missing-payload diagnostic; empty/one-byte frames now invoke PLC.
     MissingPayload,
+    /// Loss duration must be120..5760 samples on a48kHz clock, in120-sample steps.
+    InvalidLossDuration,
     /// A redundant CELT transition tail requires transition reconstruction.
     UnsupportedTransition,
     /// SILK header parsing failed.
@@ -49,7 +52,10 @@ impl fmt::Display for DecoderError {
         match self {
             Self::Framing(e) => write!(f, "Hybrid framing: {e}"),
             Self::UnsupportedMode => f.write_str("Hybrid packets required"),
-            Self::MissingPayload => f.write_str("Hybrid loss/DTX orchestration is not implemented"),
+            Self::MissingPayload => f.write_str("missing Hybrid payload"),
+            Self::InvalidLossDuration => {
+                f.write_str("Hybrid loss duration must be120..5760 samples in120-sample steps")
+            }
             Self::UnsupportedTransition => {
                 f.write_str("Hybrid CELT transition tail is not implemented")
             }
@@ -106,11 +112,14 @@ impl DecodedPcm {
     }
 }
 
-/// Fixed-storage normal Hybrid decoder; every complete packet is transactional.
+/// Fixed-storage Hybrid decoder; packet, loss and FEC calls are transactional.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HybridDecoder {
     silk: SilkDecoder,
     celt: CeltDecoder,
+    initialized: bool,
+    last_size: FrameSize,
+    range: u32,
 }
 impl HybridDecoder {
     /// Start a stream at any standard Opus PCM rate and one/two output channels.
@@ -124,6 +133,9 @@ impl HybridDecoder {
         };
         Ok(Self {
             silk: SilkDecoder::new(rate, channels),
+            initialized: false,
+            last_size: FrameSize::Ms2_5,
+            range: 0,
             celt: CeltDecoder::new(decimation, channels.count()).map_err(DecoderError::Celt)?,
         })
     }
@@ -143,13 +155,112 @@ impl HybridDecoder {
     pub fn reset(&mut self) {
         self.silk.reset();
         self.celt.reset();
+        self.initialized = false;
+        self.last_size = FrameSize::Ms2_5;
+        self.range = 0;
     }
     /// Last successfully decoded frame's public final-range diagnostic.
     pub fn final_range(&self) -> u32 {
-        self.celt.final_range()
+        self.range
     }
-    /// Decode normal Hybrid audio. Transition tails and loss/DTX return errors.
+    /// Decode normal Hybrid audio or implicit empty/one-byte loss/DTX frames.
+    /// CELT transition tails still require unified transition reconstruction.
     pub fn decode(&mut self, data: &[u8]) -> Result<DecodedPcm, DecoderError> {
+        self.packet(data, false)
+    }
+    /// Recover the preceding first Opus-frame interval from in-band FEC.
+    /// Missing LBRR uses SILK PLC/CNG; high bands always use CELT noise PLC.
+    /// Decode the received packet normally afterwards to obtain primary audio.
+    pub fn decode_fec(&mut self, data: &[u8]) -> Result<DecodedPcm, DecoderError> {
+        self.packet(data, true)
+    }
+    /// Conceal120..5760 samples on a48kHz clock, in120-sample steps.
+    /// Scheduling follows the last packet clock; initial loss produces silence.
+    /// Sub-10ms intervals advance a full10ms SILK frame and truncate its output.
+    pub fn conceal_samples(&mut self, duration: u16) -> Result<DecodedPcm, DecoderError> {
+        if !(120..=5760).contains(&duration) || duration % 120 != 0 {
+            return Err(DecoderError::InvalidLossDuration);
+        }
+        let mut next = self.clone();
+        let mut output = self.empty_output();
+        let mut remaining = usize::from(duration);
+        while remaining > 0 {
+            let limit = remaining.min(next.last_size.samples()).min(960);
+            let size = if limit >= 960 {
+                FrameSize::Ms20
+            } else if limit >= 480 {
+                FrameSize::Ms10
+            } else if limit >= 240 {
+                FrameSize::Ms5
+            } else {
+                FrameSize::Ms2_5
+            };
+            next.loss_interval(size, &mut output)?;
+            remaining -= size.samples();
+        }
+        *self = next;
+        Ok(output)
+    }
+    fn empty_output(&self) -> DecodedPcm {
+        DecodedPcm {
+            values: [0; 11520],
+            length: 0,
+            rate: self.output_rate(),
+            channels: self.output_channels(),
+            range: 0,
+        }
+    }
+    fn accumulate(output: &mut DecodedPcm, low: &[i16], high: &[i16]) -> Result<(), DecoderError> {
+        let end = output.length + high.len();
+        if low.len() < high.len() || end > output.values.len() {
+            return Err(DecoderError::InvalidOutput);
+        }
+        // Canonical FIXED_POINT without RES24 applies SIG2RES (round and
+        // saturate CELT to signed16) before ADD_RES saturates the layer sum.
+        for (target, (&low, &high)) in output.values[output.length..end]
+            .iter_mut()
+            .zip(low.iter().zip(high))
+        {
+            *target = (i32::from(low) + i32::from(high)).clamp(-32768, 32767) as i16;
+        }
+        output.length = end;
+        Ok(())
+    }
+    fn loss_interval(
+        &mut self,
+        size: FrameSize,
+        output: &mut DecodedPcm,
+    ) -> Result<(), DecoderError> {
+        if !self.initialized {
+            let count = size.samples() * self.output_rate().hz() as usize / 48000
+                * self.output_channels().count();
+            let end = output.length + count;
+            if end > output.values.len() {
+                return Err(DecoderError::InvalidOutput);
+            }
+            output.values[output.length..end].fill(0);
+            output.length = end;
+        } else {
+            let duration = if size == FrameSize::Ms20 {
+                FrameDuration::Ms20
+            } else {
+                FrameDuration::Ms10
+            };
+            let low = self
+                .silk
+                .conceal_layer(duration)
+                .map_err(DecoderError::Silk)?;
+            let high = self
+                .celt
+                .conceal_layer(size, self.celt.concealment().end_band())
+                .map_err(DecoderError::Celt)?;
+            Self::accumulate(output, low.samples(), high.samples())?;
+        }
+        self.range = 0;
+        output.range = 0;
+        Ok(())
+    }
+    fn packet(&mut self, data: &[u8], fec: bool) -> Result<DecodedPcm, DecoderError> {
         let packet = Packet::parse(data).map_err(DecoderError::Framing)?;
         if packet.mode() != Mode::Hybrid {
             return Err(DecoderError::UnsupportedMode);
@@ -165,49 +276,53 @@ impl HybridDecoder {
             bandwidth: packet.bandwidth(),
         };
         let mut next = self.clone();
-        let mut output = DecodedPcm {
-            values: [0; 11520],
-            length: 0,
-            rate: self.output_rate(),
-            channels: self.output_channels(),
-            range: 0,
-        };
-        for (index, payload) in packet.frames().iter().enumerate() {
+        let mut output = self.empty_output();
+        next.last_size = size;
+        let count = if fec { 1 } else { packet.frames().len() };
+        for (index, payload) in packet.frames()[..count].iter().enumerate() {
             if payload.len() <= 1 {
-                return Err(DecoderError::MissingPayload);
+                next.loss_interval(size, &mut output)?;
+                continue;
             }
             let (header, mut entropy) =
                 silk::decode_header(&packet, index).map_err(DecoderError::Header)?;
             let low = next
                 .silk
-                .decode_layer(&header, &mut entropy, SilkRate::Khz16, false)
+                .decode_layer(&header, &mut entropy, SilkRate::Khz16, fec)
                 .map_err(DecoderError::Silk)?;
-            // Hybrid reserves a presence bit only with room for the complete
-            // transition syntax. Keep the same precondition as opus_decode_frame.
-            if entropy.tell() + 37 <= payload.len() as u32 * 8
-                && entropy.decode_bit_logp(12).map_err(DecoderError::Entropy)?
-            {
-                return Err(DecoderError::UnsupportedTransition);
-            }
-            let high = next
-                .celt
-                .decode_layer(&mut entropy, config, 17)
-                .map_err(DecoderError::Celt)?;
-            let end = output.length + low.samples().len();
-            if low.samples().len() != high.samples().len() || end > output.values.len() {
-                return Err(DecoderError::InvalidOutput);
-            }
-            // Canonical FIXED_POINT without RES24 applies SIG2RES (round and
-            // saturate CELT to signed16) before ADD_RES saturates the layer sum.
-            for (target, (&low, &high)) in output.values[output.length..end]
-                .iter_mut()
-                .zip(low.samples().iter().zip(high.samples()))
-            {
-                *target = (i32::from(low) + i32::from(high)).clamp(-32768, 32767) as i16;
-            }
-            output.length = end;
+            let high = if fec {
+                let end = if config.bandwidth == Bandwidth::SuperWideband {
+                    19
+                } else {
+                    21
+                };
+                let high = next
+                    .celt
+                    .conceal_layer(size, end)
+                    .map_err(DecoderError::Celt)?;
+                // Native GET_FINAL_RANGE returns persistent CELT RNG for FEC,
+                // while explicit/implicit data loss reports public range zero.
+                next.range = next.celt.rng_state();
+                high
+            } else {
+                // Reserve the transition presence bit only with room for its
+                // complete syntax, as opus_decode_frame does.
+                if entropy.tell() + 37 <= payload.len() as u32 * 8
+                    && entropy.decode_bit_logp(12).map_err(DecoderError::Entropy)?
+                {
+                    return Err(DecoderError::UnsupportedTransition);
+                }
+                let high = next
+                    .celt
+                    .decode_layer(&mut entropy, config, 17)
+                    .map_err(DecoderError::Celt)?;
+                next.range = next.celt.final_range();
+                high
+            };
+            Self::accumulate(&mut output, low.samples(), high.samples())?;
+            next.initialized = true;
         }
-        output.range = next.final_range();
+        output.range = next.range;
         *self = next;
         Ok(output)
     }

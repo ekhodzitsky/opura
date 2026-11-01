@@ -203,14 +203,7 @@ fn invalid_and_late_packet_failures_preserve_both_layers() -> Result<(), Box<dyn
     let mut decoder = HybridDecoder::new(OutputRate::Khz48, PcmChannels::Stereo)?;
     decoder.decode(&data)?;
     let before = decoder.clone();
-    for bad in [
-        &[][..],
-        &[0][..],
-        &[0xf8, 0xff, 0xff][..],
-        &[0x60][..],
-        &[0x60, 0][..],
-        &[0x63, 0][..],
-    ] {
+    for bad in [&[][..], &[0][..], &[0xf8, 0xff, 0xff][..], &[0x63, 0][..]] {
         assert!(decoder.decode(bad).is_err());
         assert_eq!(decoder, before);
     }
@@ -220,8 +213,8 @@ fn invalid_and_late_packet_failures_preserve_both_layers() -> Result<(), Box<dyn
     let mut changed = decoder.clone();
     changed.decode(&data)?;
     assert_ne!(changed, before, "first frame must advance histories");
-    // A valid first frame commits internally before the one-byte second frame
-    // fails. The complete packet must still preserve both layer histories.
+    // A valid first frame advances both layers before the retained malformed
+    // second frame fails; rollback covers the whole packet.
     let mut late = vec![(data[0] & 0xfc) | 2];
     if first.len() < 252 {
         late.push(first.len() as u8);
@@ -230,9 +223,6 @@ fn invalid_and_late_packet_failures_preserve_both_layers() -> Result<(), Box<dyn
         late.push(((first.len() - 252) / 4) as u8);
     }
     late.extend_from_slice(first);
-    late.push(0);
-    assert_eq!(decoder.decode(&late), Err(DecoderError::MissingPayload));
-    assert_eq!(decoder, before);
     // Retained xorshift malformed payload reaches the CELT pulse decoder after
     // SILK has already advanced channel, stereo and resampler state.
     let deep = unhex(concat!(
@@ -251,7 +241,6 @@ fn invalid_and_late_packet_failures_preserve_both_layers() -> Result<(), Box<dyn
     ));
     assert_eq!(decoder.decode(&deep), Err(expected));
     assert_eq!(decoder, before);
-    late.pop();
     late.extend_from_slice(&deep[1..]);
     assert!(matches!(decoder.decode(&late), Err(DecoderError::Celt(_))));
     assert_eq!(decoder, before);

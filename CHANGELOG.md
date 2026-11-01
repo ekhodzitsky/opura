@@ -7,6 +7,25 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.38] - 2026-11-01
+
+- Add transactional Hybrid explicit/implicit loss, DTX, initial silence and
+  first-frame in-band FEC with exact SILK/CELT concealment and recovery.
+- Schedule120..5760 samples in2.5ms steps on the last packet clock; advance full
+  SILK10ms state for shorter output and preserve Hybrid high-band noise context.
+  Distinguish FEC persistent RNG diagnostics from zero loss final range.
+- Fix SILK PLC tiny-gain LTP normalization: preserve original signed16 scale
+  truncation and negative coefficients. Accept CNG's positive signed16 noise
+  scale domain through32767; match192 additional original PCM/full-state cases.
+- Match2130 public libopus PCM/range and independent complete CELT/PLC snapshots,
+  including initial FEC, LBRR gaps, irregular losses, channel/bandwidth changes
+  and resets. Verify128 corrupt mixed sequences, duration rollback and FEC
+  first-frame behavior; thirteen targeted mutations are caught.
+- Existing corpora remain unchanged and reproduce; all mandatory offline gates pass.
+
+CELT transition tails, unified cross-mode orchestration, standalone SILK implicit
+DTX, full conformance and encoding remain pending.
+
 ## [0.1.37] - 2026-11-01
 
 - Add transactional fixed-storage normal Hybrid decoding: shared SILK/CELT

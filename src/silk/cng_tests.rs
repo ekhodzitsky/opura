@@ -14,6 +14,7 @@ fn reference_pcm_and_complete_cng_history_match() -> Result<(), Box<dyn std::err
     let mut mixed = 0;
     for line in include_str!("../../tests/silk-cng-fixtures.txt")
         .lines()
+        .chain(include_str!("../../tests/silk-cng-wide-fixtures.txt").lines())
         .filter(|l| !l.starts_with('#'))
     {
         let row: Vec<i64> = line
@@ -99,7 +100,7 @@ fn reference_pcm_and_complete_cng_history_match() -> Result<(), Box<dyn std::err
         mixed += pcm.iter().zip(initial).filter(|(a, b)| **a != *b).count();
         cases += 1;
     }
-    assert_eq!(cases, 192);
+    assert_eq!(cases, 384);
     assert!(clipped > 0);
     assert!(mixed > 1000);
     Ok(())
@@ -138,7 +139,7 @@ fn invalid_loss_inputs_preserve_history_and_samples() -> Result<(), CngError> {
         (
             SilkRate::Khz8,
             FrameDuration::Ms20,
-            16385,
+            32768,
             65536,
             160,
             CngError::InvalidNoiseContext,
