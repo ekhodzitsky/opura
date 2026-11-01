@@ -7,6 +7,20 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.23] - 2026-11-01
+
+- Add fixed-storage CELT spectral denormalization using Q24 band/mean energies,
+  reference mantissa rounding/gain caps, selected bands, silence and rate cutoff.
+- Add canonical per-channel output de-emphasis and signed-16 PCM conversion at
+  8/12/16/24/48 kHz. Filter every internal sample before decimation, retain both
+  memories across layout/rate changes and validate geometry before mutation.
+- Match every scaled spectrum on 640 original cases and PCM/memories on 384
+  chained de-emphasis cases across all frame/rate/channel combinations.
+- Check malformed rollback/reset, five detected mutations and byte-identical
+  table/fixture regeneration; all mandatory offline checks pass.
+
+Comb postfilter, CELT recursive bands/allocation and complete packet output remain incomplete.
+
 ## [0.1.22] - 2026-11-01
 
 - Add per-channel inverse CELT MDCT and standard 120-sample TDAC window with

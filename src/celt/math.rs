@@ -162,15 +162,22 @@ pub fn exp2(x: i16) -> i32 {
     if integer < -15 {
         return 0;
     }
-    let frac = ((i32::from(x) - (integer << 10)) << 4) as i16 as i32;
-    let polynomial = add16(
+    vshift(
+        exp2_frac((i32::from(x) - (integer << 10)) as i16),
+        -integer - 2,
+    )
+}
+
+// Classic Q10 fractional exponent polynomial, including rounded endpoint 1024.
+pub(super) fn exp2_frac(x: i16) -> i32 {
+    let frac = (i32::from(x) << 4) as i16 as i32;
+    add16(
         16383,
         mul_q15(
             frac,
             add16(22804, mul_q15(frac, add16(14819, mul_q15(10204, frac)))),
         ),
-    );
-    vshift(polynomial, -integer - 2)
+    )
 }
 
 /// Approximate reciprocal: positive Q15 input to Q16 output.

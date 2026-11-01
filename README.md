@@ -1009,3 +1009,49 @@ diff -u src/celt/mdct_tables.rs /tmp/opura-celt-mdct-tables.rs
 These are internal transform outputs. CELT allocation/recursive band assembly,
 postfiltering, de-emphasis, full packet decoding and complete conformance remain
 incomplete; no end-to-end CELT audio or competitive performance claim is made.
+
+
+## CELT spectral scaling and output de-emphasis
+
+`opura::celt::output::denormalize(size, input, energies, bands, rate, silence)`
+converts one normalized Q24 spectrum using 21 Q24 log energies plus the standard
+band means. `Spectrum::values()` supplies reference-scale inverse-MDCT input.
+The validated band range lies within 0..21, and the input exactly matches frame
+size. Silence zeros the whole spectrum. Bins below selected bands and above the
+output-rate cutoff are zeroed; reference gain underflow, caps, fractional energy
+rounding and signed wrapping are preserved. The shared fractional exponent
+polynomial includes the rounded Q10 endpoint needed by Q24 energies.
+
+`Decimation::{By1, By2, By3, By4, By6}` selects 48/24/16/12/8 kHz respectively;
+`factor()` and `sample_rate()` report its geometry. `DeemphasisState::process`
+accepts a 120/240/480/960-sample 48 kHz left signal, an optional equal-length right
+signal and decimation. It filters all internal samples before selecting output,
+then rounds/saturates to signed-16 mono or interleaved stereo `PcmFrame` samples.
+The frame reports channels, rate and samples per channel with at most 1920 values.
+
+Feedback uses the canonical coefficient and clipping. Inactive right-channel
+memory and both memories across rate changes are retained; `memory()` inspects
+them and `reset()` clears them. Invalid signals leave both memories unchanged.
+Comb postfiltering, when enabled, must precede de-emphasis. This API does not
+perform Hybrid accumulation or supply a complete CELT packet decoder.
+
+[Reference evidence](tests/celt-output-fixtures.txt) contains 640 original
+spectral-scaling cases and 384 chained original de-emphasis calls, comparing
+all spectra/PCM/memory values across sizes, rates, channel changes, bands,
+silence, clipping, signed extremes and fractional energy boundaries. The
+optional oracle extracts the original function bodies verbatim into a temporary
+probe with original headers/constants; it does not substitute implementations.
+Five mutations detect wrong mean-energy format, mantissa rounding, rate cutoff,
+feedback gain and PCM rounding. Invalid geometry and reset preserve contracts.
+
+```sh
+python3 tools/celt_output_fixtures.py target/reference/opus > /tmp/opura-celt-output.txt
+diff -u tests/celt-output-fixtures.txt /tmp/opura-celt-output.txt
+python3 tools/celt_output_fixtures.py target/reference/opus --tables > /tmp/opura-celt-output-tables.rs
+rustfmt --edition 2024 /tmp/opura-celt-output-tables.rs
+diff -u src/celt/output_tables.rs /tmp/opura-celt-output-tables.rs
+```
+
+Comb postfiltering, recursive CELT bands/allocation, Hybrid and complete Opus
+packet output remain future work. Stage equality does not establish complete
+conformance or SOTA performance.
