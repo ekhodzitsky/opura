@@ -2,7 +2,7 @@
 
 Opura is a pure Rust, zero-dependency Opus implementation under development.
 **Packet framing, range decoding, SILK headers, gain, NLSF, LPC, pitch/LTP, excitation and
-loss-free single-channel synthesis are implemented.** Complete Opus packet-to-PCM
+loss-free single-channel synthesis and transactional channel integration are implemented.** Complete Opus packet-to-PCM
 decoding and encoding are not available yet. The accepted direction is a complete decoder
 first, then an encoder, prioritizing speed and reliability. See the
 [decoder-first decision](docs/decisions/0002-decoder-first.md) for evaluation
@@ -350,7 +350,7 @@ clears PCM/LPC history while preserving the previous gain, matching the referenc
 rate-switch behavior. Geometry and voiced-pitch mismatches return a typed error
 without changing synthesis state. Parameter provenance remains the caller's
 responsibility: shape validation cannot establish that all components came from
-the same entropy stream. Full decoding must additionally transact the entropy,
+the same entropy stream. The channel integration below transacts the entropy,
 gain, NLSF and pitch states around synthesis.
 
 [192 independent reference frames](tests/silk-synthesis-fixtures.txt) contain
@@ -374,3 +374,41 @@ reconstruction, output-rate resampling and CELT/Hybrid mixing. It is not a
 complete Opus decoder, does not handle packet loss, and does not establish audio
 quality or performance superiority over competitors. Packet-to-frame entropy
 orchestration remains the next integration requirement.
+
+## SILK channel integration
+
+`opura::silk::channel::ChannelState::decode` combines gains, NLSF, pitch/LTP,
+excitation and synthesis into one transaction for a 10/20 ms internal channel
+frame at 8/12/16 kHz. It takes a range cursor positioned at signal-type symbols,
+plus rate, duration, activity and `PitchCoding`. Both independent coding modes
+use absolute first gains; conditional coding needs prior history at the same
+rate. The caller must first consume headers, any LBRR payload ordering and
+stereo fields. This API does not parse packets or perform those steps.
+
+Success commits entropy and all histories together and returns `PcmFrame`.
+Failure returns a stage-specific `ChannelError` and preserves every history
+and the entropy cursor for retry. `reset()` clears all history. Rate changes
+clear gain, NLSF and pitch history, including 8↔12 kHz switches with unchanged
+LPC order. Synthesis clears PCM/LPC history but retains its previous linear
+gain, as upstream does. Duration changes retain history. Separate channels
+need separate state instances.
+
+[Independent reference sequences](tests/silk-channel-fixtures.txt) compare
+all PCM samples and range/tell/tell_frac after 144 consecutive compressed
+internal frames, using the complete pinned upstream index, pulse, parameter
+and core synthesis routines. They cover both durations, all rates, all
+activity and coding modes, interpolation, reset and rate changes. Separate
+tests truncate inputs to provoke failure at each entropy stage, verify full
+rollback and successful retry, and reject conditional starts after reset or
+rate change. Targeted mutation checks detect missing spectral-history reset
+and premature history commits before excitation validation. The synthetic
+inputs are not complete Opus conformance vectors;
+output precedes CNG/PLC glue, stereo conversion and resampling. Complete
+packet-to-PCM decoding and competitive PCM performance remain future work.
+
+Optional fixture regeneration uses the same clean pinned reference checkout:
+
+```sh
+python3 tools/silk_channel_fixtures.py target/reference/opus > /tmp/opura-channel.txt
+diff -u tests/silk-channel-fixtures.txt /tmp/opura-channel.txt
+```

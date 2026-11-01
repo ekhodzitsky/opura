@@ -4,6 +4,7 @@
 //! Flags describe internal 10/20 ms SILK frames, not Opus packet frame count.
 //! Stereo channel zero is mid and channel one is side (not left/right).
 
+pub mod channel;
 pub mod excitation;
 pub mod gains;
 pub mod lpc;

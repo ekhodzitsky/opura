@@ -7,6 +7,21 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-11-01
+
+- Add transactional single-channel SILK decoding from signal-type symbols through
+  gains, NLSF, pitch/LTP, excitation and raw internal-rate PCM synthesis.
+- Commit entropy and all channel histories together; failed frames leave them
+  unchanged. Support reset, 10/20 ms duration changes and 8/12/16 kHz rate changes,
+  including spectral-history reset for 8↔12 kHz and conditional-start rejection.
+- Match every PCM sample and final range/tell/tell_frac across 144 consecutive
+  synthetic upstream-reference frames, including all activity/coding modes.
+- Verify rollback at each entropy stage, retry recovery, reset and rate changes;
+  detect missing spectral resets and premature commits with targeted mutations.
+
+This is a positioned-cursor channel API, before CNG/PLC, stereo and resampling;
+complete Opus packet-to-PCM decoding and full-codec performance remain unverified.
+
 ## [0.1.6] - 2026-10-29
 
 - Add loss-free one-channel SILK PCM synthesis at 8/12/16 kHz for 10/20 ms
