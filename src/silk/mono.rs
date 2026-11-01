@@ -2,7 +2,7 @@
 //!
 //! Handles framing, headers, skipped LBRR and internal-frame scheduling. Output
 //! precedes mono delay buffering and resampling. No implicit DTX, stereo, Hybrid,
-//! CELT transition redundancy or FEC recovery is implemented.
+//! or CELT transition reconstruction is implemented.
 use super::{
     SilkError,
     channel::{ChannelError, ChannelState},
@@ -94,9 +94,10 @@ impl MonoPcm {
     pub fn sample_rate(&self) -> u32 {
         self.rate.khz() as u32 * 1000
     }
-    /// Final entropy range of the last compressed Opus frame in this packet.
+    /// Final entropy range for this result, matching OPUS_GET_FINAL_RANGE.
     ///
-    /// Matches OPUS_GET_FINAL_RANGE for supported packets. This is a
+    /// Normal decoding uses the last compressed frame's range; FEC uses the
+    /// first frame's redundant prefix; explicit concealment returns zero. This is a
     /// conformance diagnostic, not an integrity check on untrusted audio.
     pub fn final_range(&self) -> u32 {
         self.final_range
@@ -159,6 +160,68 @@ impl MonoDecoder {
         Ok(output)
     }
 
+    /// Recover the preceding interval using in-band FEC from this packet.
+    ///
+    /// Like Opus with `decode_fec = 1` and a buffer of one Opus frame's duration,
+    /// this method recovers the interval represented by the first compressed
+    /// frame, even in a multi-frame packet. Present LBRR frames are decoded;
+    /// absent ones use PLC/CNG. The remaining primary audio and later compressed
+    /// frames are not consumed. Call [`Self::decode`] on the same packet next
+    /// to obtain its current audio and advance the recovered state normally.
+    ///
+    /// A fresh decoder can use the rate signaled by this packet; missing LBRR
+    /// then produces cold concealment. Missing FEC is not a decoding error.
+    /// All state/output commit atomically. The returned final range describes
+    /// the FEC entropy prefix, matching the upstream FEC call. CELT transition
+    /// tails are not interpreted in FEC mode. Stereo, Hybrid, CELT and empty or
+    /// one-byte first payloads are rejected. Output precedes mono resampling.
+    pub fn decode_fec(&mut self, data: &[u8]) -> Result<MonoPcm, MonoError> {
+        let packet = Packet::parse(data).map_err(MonoError::Framing)?;
+        let rate = packet_rate(&packet)?;
+        if packet.frames()[0].len() <= 1 {
+            return Err(MonoError::MissingPayload);
+        }
+        let (header, mut entropy) = decode_header(&packet, 0).map_err(MonoError::Header)?;
+        entropy.allow_silk_zero_extension();
+        let duration = if header.frame_duration_ms() == 10 {
+            FrameDuration::Ms10
+        } else {
+            FrameDuration::Ms20
+        };
+        let flags = header.redundancy(0).ok_or(MonoError::UnsupportedChannels)?;
+        let mut next = self.clone();
+        let mut output = MonoPcm {
+            samples: [0; 1920],
+            length: 0,
+            rate,
+            final_range: 0,
+        };
+        for (index, &present) in flags.iter().enumerate() {
+            let pcm = if present {
+                next.channel.decode(
+                    &mut entropy,
+                    rate,
+                    duration,
+                    FrameActivity::Redundant,
+                    if index > 0 && flags[index - 1] {
+                        PitchCoding::Conditional
+                    } else {
+                        PitchCoding::Independent
+                    },
+                )?
+            } else {
+                next.channel.conceal_fec_gap(rate, duration)?
+            };
+            let end = output.length + pcm.samples().len();
+            output.samples[output.length..end].copy_from_slice(pcm.samples());
+            output.length = end;
+        }
+        output.final_range = entropy.range();
+        next.last_frame = Some((rate, duration));
+        *self = next;
+        Ok(output)
+    }
+
     /// Decode exactly one externally delimited Opus packet, without I/O.
     ///
     /// Supports 10/20/40/60 ms SILK Opus frames and multi-frame packets up to
@@ -173,20 +236,10 @@ impl MonoDecoder {
     /// through CELT/Hybrid. Successful decoding is not an integrity guarantee.
     pub fn decode(&mut self, data: &[u8]) -> Result<MonoPcm, MonoError> {
         let packet = Packet::parse(data).map_err(MonoError::Framing)?;
-        if packet.mode() != Mode::Silk {
-            return Err(MonoError::UnsupportedMode);
-        }
-        if packet.channels() != 1 {
-            return Err(MonoError::UnsupportedChannels);
-        }
+        let rate = packet_rate(&packet)?;
         if packet.frames().iter().any(|frame| frame.len() <= 1) {
             return Err(MonoError::MissingPayload);
         }
-        let rate = match packet.bandwidth() {
-            Bandwidth::Narrowband => SilkRate::Khz8,
-            Bandwidth::Mediumband => SilkRate::Khz12,
-            _ => SilkRate::Khz16, // SILK-only TOCs have at most wideband bandwidth.
-        };
         let mut next = self.clone();
         let mut output = MonoPcm {
             samples: [0; 1920],
@@ -248,6 +301,20 @@ impl MonoDecoder {
         *self = next;
         Ok(output)
     }
+}
+
+fn packet_rate(packet: &Packet<'_>) -> Result<SilkRate, MonoError> {
+    if packet.mode() != Mode::Silk {
+        return Err(MonoError::UnsupportedMode);
+    }
+    if packet.channels() != 1 {
+        return Err(MonoError::UnsupportedChannels);
+    }
+    Ok(match packet.bandwidth() {
+        Bandwidth::Narrowband => SilkRate::Khz8,
+        Bandwidth::Mediumband => SilkRate::Khz12,
+        _ => SilkRate::Khz16, // SILK-only TOCs have at most wideband bandwidth.
+    })
 }
 
 // Normal dec_API skips LBRR indices/pulses only: never dequantize them into

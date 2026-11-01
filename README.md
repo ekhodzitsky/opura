@@ -437,8 +437,7 @@ rate-switch behavior. `reset()` starts a fresh stream.
 The entire packet is a transaction: any `MonoError` discards all output and
 history updates, including earlier successfully decoded frames. Empty/one-byte
 loss or DTX frames, stereo, CELT, Hybrid and SILK/CELT transition redundancy
-return explicit errors. LBRR is skipped for normal playback; FEC recovery is
-not implemented. Transport/container parsing remains the caller's responsibility.
+return explicit errors. LBRR is skipped for normal playback; use `decode_fec` below for recovery. Transport/container parsing remains the caller's responsibility.
 
 SILK encoders may strip trailing zero bytes. Packet entropy therefore uses zero
 extension with a virtual budget of 1275 bytes, the maximum original Opus frame
@@ -570,7 +569,42 @@ diff -u tests/silk-packet-loss-fixtures.txt /tmp/opura-packet-loss.txt
 ```
 
 Missing intervals must be explicit; `decode` still rejects empty/one-byte DTX or
-loss payloads. In-band FEC is consumed during normal decoding but is not yet used
-for recovery. PCM remains before mono delay buffering/resampling, with stereo and
+loss payloads. In-band FEC is consumed during normal decoding and can be used through
+the explicit recovery method below. PCM remains before mono delay buffering/resampling, with stereo and
 CELT/Hybrid still unimplemented. Full Opus conformance and competitive performance
 remain unestablished.
+
+## Mono in-band FEC recovery
+
+`MonoDecoder::decode_fec(&received_packet)` recovers the preceding interval from
+LBRR in the first compressed Opus frame, matching `opus_decode` with FEC enabled
+and a buffer of that frame's duration. In multi-frame packets it recovers only
+the first frame interval. Decode the same received packet normally afterwards
+to obtain its primary audio and continue with the recovered histories. Earlier
+missing intervals can be filled explicitly with `conceal` before FEC recovery.
+
+Present LBRR frames use their active probability context and conditional coding
+only after an adjacent present frame. Gaps use PLC/CNG without the gain reset
+performed for explicit packet loss. A fresh decoder takes its configuration from
+the received packet; absent FEC then produces cold concealment rather than an
+error. FEC does not consume primary audio or interpret a CELT transition tail.
+Its final range describes the redundant entropy prefix; all state/output commit
+atomically. Unsupported modes/channels and missing first payloads return errors.
+
+[328 FEC/reference regression cases](tests/silk-fec-fixtures.txt) include 111 FEC
+and 215 normal PCM results from the complete original decoder, a real unsupported
+primary transition, and an encoded over-budget prefix that fails after an earlier
+internal frame. They cover real encoder FEC/no-FEC streams, silence, rate changes,
+subsequent primary decoding and synthetic packets for every sparse LBRR mask.
+Tests compare all PCM samples and public final range, and verify multi-frame
+first-frame semantics, reset, unsupported input and late-error rollback. Targeted
+mutations detect incorrect sparse coding, premature commits and FEC gain reset.
+
+```sh
+python3 tools/silk_packet_fixtures.py target/reference/opus --fec > /tmp/opura-fec.txt
+diff -u tests/silk-fec-fixtures.txt /tmp/opura-fec.txt
+```
+
+As with normal and loss decoding, output precedes mono delay buffering/resampling.
+Stereo, CELT/Hybrid and implicit DTX still require implementation; no full-codec
+conformance or competitive performance claim follows from these stage checks.

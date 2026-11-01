@@ -7,6 +7,24 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.12] - 2026-11-01
+
+- Add transactional mono in-band FEC recovery with `MonoDecoder::decode_fec`,
+  recovering the preceding interval represented by the first Opus frame and
+  leaving primary audio for a subsequent normal decode of the same packet.
+- Decode LBRR in temporal order, using conditional coding only for adjacent
+  redundant frames and PLC/CNG for gaps. Preserve reference gain history for
+  FEC gaps, which differs from explicit packet-loss gain reset.
+- Verify 111 FEC results and 215 subsequent/regular PCM results against the
+  complete pinned upstream decoder, plus a rejected real transition and a
+  late over-budget FEC regression; cover all LBRR masks, rates and durations.
+- Test multi-frame first-frame semantics, reset, unsupported/malformed input and
+  atomic failure recovery. Mutations detect gapped-context coding, premature
+  commits and incorrect FEC gain reset. Earlier packet/loss fixtures are unchanged.
+
+Output remains before mono buffering/resampling. CELT/Hybrid, stereo and implicit
+DTX handling remain future work; full-codec conformance/performance are unestablished.
+
 ## [0.1.11] - 2026-11-01
 
 - Add `MonoDecoder::conceal(duration_ms)` for explicit missing intervals of

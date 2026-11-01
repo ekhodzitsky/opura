@@ -19,7 +19,9 @@ REVISION = '22244de5a79bd1d6d623c32e72bf1954b56235be'
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('source', type=Path)
 parser.add_argument('--loss', action='store_true', help='Emit loss/recovery streams with completed decode_frame PCM')
+parser.add_argument('--fec', action='store_true', help='Emit FEC and subsequent primary decoding streams')
 args = parser.parse_args()
+if args.loss and args.fec: parser.error('--loss and --fec are mutually exclusive')
 source = args.source.resolve()
 if subprocess.check_output(['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip() != REVISION:
     raise SystemExit('Expected Opus v1.6.1 at ' + REVISION)
@@ -110,6 +112,46 @@ int symbols(int rate, int duration, int mask, unsigned char *packet) {
     packet[0] = ((rate == 8 ? 0 : rate == 12 ? 4 : 8) + (duration == 10 ? 0 : duration == 20 ? 1 : duration == 40 ? 2 : 3)) << 3;
     return bytes + 1;
 }
+/* Deliberately over-budget FEC prefix: an earlier internal frame fits,
+   but later symbols exceed the original 1275-byte entropy ceiling. */
+int budget_packet(unsigned char *packet) {
+    unsigned char buffer[16384];
+    silk_encoder_state state = {0};
+    ec_enc ec;
+    state.fs_kHz = 16;
+    state.nb_subfr = 4;
+    state.predictLPCOrder = 16;
+    state.psNLSF_CB = &silk_NLSF_CB_WB;
+    ec_enc_init(&ec, buffer, sizeof(buffer));
+    for (int i=0; i<4; i++) ec_enc_bit_logp(&ec, 1, 1);
+    ec_enc_icdf(&ec, 6, silk_LBRR_flags_iCDF_ptr[1], 8);
+    for (int frame=0; frame<3; frame++) {
+        SideInfoIndices *indices = &state.indices_LBRR[frame];
+        indices->signalType = TYPE_UNVOICED;
+        indices->GainsIndices[0] = frame ? 4 : 42;
+        for (int i=1; i<4; i++) indices->GainsIndices[i] = 4;
+        indices->NLSFIndices[0] = 17;
+        indices->NLSFInterpCoef_Q2 = 4;
+        silk_encode_indices(&state, &ec, frame, 1, frame ? CODE_CONDITIONALLY : CODE_INDEPENDENTLY);
+        ec_enc_icdf(&ec, 8, silk_rate_levels_iCDF[0], 8);
+        for (int block=0; block<20; block++) {
+            ec_enc_icdf(&ec, 17, silk_pulses_per_block_iCDF[8], 8);
+            for (int shift=1; shift<10; shift++) ec_enc_icdf(&ec, 17, silk_pulses_per_block_iCDF[9], 8);
+            ec_enc_icdf(&ec, 0, silk_pulses_per_block_iCDF[9] + 1, 8);
+        }
+        for (int sample=0; sample<320; sample++) {
+            for (int bit=0; bit<10; bit++) ec_enc_icdf(&ec, 1, silk_lsb_iCDF, 8);
+        }
+        unsigned char signs[2] = {silk_sign_iCDF[14], 0};
+        for (int sample=0; sample<320; sample++) ec_enc_icdf(&ec, 1, signs, 8);
+    }
+    if (ec_tell(&ec) <= 1275*8) abort();
+    ec_enc_done(&ec);
+    if (ec_get_error(&ec)) abort();
+    packet[0] = 0x58;
+    memcpy(packet + 1, buffer, 1275);
+    return 1276;
+}
 int configure(OpusEncoder *encoder, int bandwidth, int fec) {
     int ret = 0;
     ret |= opus_encoder_ctl(encoder, OPUS_SET_FORCE_MODE(MODE_SILK_ONLY));
@@ -148,13 +190,13 @@ int decode(OpusDecoder *decoder, const unsigned char *packet, int len,
     out[3] = transition_seen;
     return result;
  }
-int decode_complete(OpusDecoder *decoder, const unsigned char *packet, int len, int frame_samples,
+int decode_complete(OpusDecoder *decoder, const unsigned char *packet, int len, int frame_samples, int decode_fec,
                     opus_int16 *raw, opus_uint32 *out) {
     opus_int16 pcm[5760];
     captured_length = 0;
     finished_length = 0;
     transition_seen = 0;
-    int result = opus_decode(decoder, packet, len, pcm, frame_samples, 0);
+    int result = opus_decode(decoder, packet, len, pcm, frame_samples, decode_fec);
     if (result < 0) return result;
     memcpy(raw, finished, finished_length * sizeof(*raw));
     out[0] = finished_length;
@@ -203,13 +245,83 @@ with tempfile.TemporaryDirectory(prefix='opura-packet-reference-') as temp:
         ('opus_encoder_destroy', [pointer], None), ('opus_decoder_destroy', [pointer], None),
         ('configure', [pointer, c.c_int, c.c_int], c.c_int),
         ('symbols', [c.c_int, c.c_int, c.c_int, u8], c.c_int),
+        ('budget_packet', [u8], c.c_int),
         ('opus_encode', [pointer, i16, c.c_int, u8, c.c_int], c.c_int),
         ('decode', [pointer, u8, c.c_int, i16, u32], c.c_int),
-        ('decode_complete', [pointer, u8, c.c_int, c.c_int, i16, u32], c.c_int),
+        ('decode_complete', [pointer, u8, c.c_int, c.c_int, c.c_int, i16, u32], c.c_int),
         ('repack', [u8, c.POINTER(c.c_int), c.c_int, u8], c.c_int),
     ]:
         function = getattr(lib, name)
         function.argtypes, function.restype = types, result
+    if args.fec:
+        print('# Pinned Opus v1.6.1 mono FEC and subsequent primary decode_frame PCM:', REVISION)
+        print('# KIND RESET HEX RATE_KHZ FINAL_RANGE PCM[frame_duration_ms*rate]')
+        error = c.c_int()
+        for sequence in range(7):
+            encoder = lib.opus_encoder_create(48000, 1, 2048, c.byref(error))
+            if not encoder or error.value: raise SystemExit('Encoder initialization failed')
+            decoder = lib.opus_decoder_create(48000, 1, c.byref(error))
+            if not decoder or error.value: raise SystemExit('Decoder initialization failed')
+            phase, random, reset_next = 0, 0x66656321 + sequence, True
+            try:
+                for index in range(32):
+                    band = sequence // 2 if sequence < 6 else [0, 1, 2, 1][index // 8]
+                    if lib.configure(encoder, 1101 + band, sequence % 2 if sequence < 6 else 1):
+                        raise SystemExit('Encoder configuration failed')
+                    duration = [10, 20, 40, 60][index // 8]
+                    samples = []
+                    for _ in range(48 * duration):
+                        phase = (phase + 1) % 240
+                        random ^= (random << 13) & 0xffffffff
+                        random ^= random >> 17
+                        random ^= (random << 5) & 0xffffffff
+                        value = ((phase if phase < 120 else 239 - phase) - 60) * 160
+                        samples.append(0 if index % 16 >= 12 else value + random % 1024 - 512)
+                    data = (c.c_ubyte * 1276)()
+                    size = lib.opus_encode(encoder, (c.c_int16 * len(samples))(*samples), len(samples), data, 1276)
+                    if size <= 1: raise SystemExit('Reference audio encoding failed')
+                    packet = bytes(data[:size])
+                    if packet[0] >> 3 >= 12: raise SystemExit('Expected SILK mono')
+                    # Omit one encoded packet, then recover its interval using
+                    # FEC from the next packet before decoding current audio.
+                    if index % 4 == 1: continue
+                    modes = [1, 0] if index % 4 == 2 or index == 0 else [0]
+                    for fec in modes:
+                        pcm, out = (c.c_int16 * 1920)(), (c.c_uint32 * 4)()
+                        if lib.decode_complete(decoder, data, size, 48 * duration, fec, pcm, out) != 48 * duration or not out[0]:
+                            raise SystemExit('Reference FEC decode failed')
+                        kind = 'transition' if out[3] else 'fec' if fec else 'packet'
+                        print(kind, int(reset_next), packet.hex(), out[1], out[2], *pcm[:out[0]])
+                        reset_next = bool(out[3])
+                        if reset_next:
+                            lib.opus_decoder_destroy(decoder)
+                            decoder = lib.opus_decoder_create(48000, 1, c.byref(error))
+                            if not decoder or error.value: raise SystemExit('Decoder reset failed')
+            finally:
+                lib.opus_encoder_destroy(encoder)
+                lib.opus_decoder_destroy(decoder)
+        print('# Synthetic voiced symbol packets: FEC then primary for every LBRR mask.')
+        for rate in [8, 12, 16]:
+            for duration in [10, 20, 40, 60]:
+                for mask in range(1 << (1 if duration <= 20 else duration // 20)):
+                    data = (c.c_ubyte * 1276)()
+                    size = lib.symbols(rate, duration, mask, data)
+                    if size <= 1: raise SystemExit('Reference symbol encoding failed')
+                    decoder = lib.opus_decoder_create(48000, 1, c.byref(error))
+                    if not decoder or error.value: raise SystemExit('Decoder initialization failed')
+                    try:
+                        for fec in [1, 0]:
+                            pcm, out = (c.c_int16 * 1920)(), (c.c_uint32 * 4)()
+                            if lib.decode_complete(decoder, data, size, 48 * duration, fec, pcm, out) != 48 * duration or out[3]:
+                                raise SystemExit('Reference symbol FEC decode failed')
+                            print('fec' if fec else 'packet', fec, bytes(data[:size]).hex(), out[1], out[2], *pcm[:out[0]])
+                    finally:
+                        lib.opus_decoder_destroy(decoder)
+        data = (c.c_ubyte * 1276)()
+        size = lib.budget_packet(data)
+        print('# Deliberately over-budget/truncated LBRR prefix; atomic resource-error regression.')
+        print('budget', 1, bytes(data[:size]).hex(), 16, 0)
+        raise SystemExit(0)
     if args.loss:
         print('# Pinned Opus v1.6.1 real mono SILK loss/recovery, completed decode_frame PCM:', REVISION)
         print('# KIND RESET DURATION_MS HEX RATE_KHZ FINAL_RANGE PCM[duration_ms*rate]')
@@ -243,7 +355,7 @@ with tempfile.TemporaryDirectory(prefix='opura-packet-reference-') as temp:
                     if lost: duration = 10 * (1 + (index + sequence) % 12)
                     pcm, out = (c.c_int16 * 1920)(), (c.c_uint32 * 4)()
                     result = lib.decode_complete(decoder, None if lost else data, 0 if lost else size,
-                                                 48 * duration, pcm, out)
+                                                 48 * duration, 0, pcm, out)
                     if result != 48 * duration or not out[0]: raise SystemExit('Reference loss/recovery decode failed')
                     kind = 'transition' if out[3] else 'loss' if lost else 'packet'
                     print(kind, int(reset_next), duration, '-' if lost else packet.hex(), out[1], out[2], *pcm[:out[0]])

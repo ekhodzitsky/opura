@@ -88,6 +88,25 @@ impl ChannelState {
         rate: SilkRate,
         duration: FrameDuration,
     ) -> Result<PcmFrame, ChannelError> {
+        self.conceal_frame(rate, duration, true)
+    }
+
+    // dec_API does not reset LastGainIndex for missing internal LBRR frames:
+    // FLAG_DECODE_LBRR remains distinct from an explicit FLAG_PACKET_LOST call.
+    pub(super) fn conceal_fec_gap(
+        &mut self,
+        rate: SilkRate,
+        duration: FrameDuration,
+    ) -> Result<PcmFrame, ChannelError> {
+        self.conceal_frame(rate, duration, false)
+    }
+
+    fn conceal_frame(
+        &mut self,
+        rate: SilkRate,
+        duration: FrameDuration,
+        reset_gain: bool,
+    ) -> Result<PcmFrame, ChannelError> {
         let mut next = self.clone();
         if next.rate != Some(rate) {
             next.gains.reset();
@@ -106,7 +125,9 @@ impl ChannelState {
             )
             .map_err(ChannelError::Cng)?;
         next.plc.glue(&mut pcm.samples[..pcm.length]);
-        next.gains.after_loss();
+        if reset_gain {
+            next.gains.after_loss();
+        }
         *self = next;
         Ok(pcm)
     }
