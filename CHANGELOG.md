@@ -7,6 +7,20 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.17] - 2026-11-01
+
+- Start CELT with allocation-free fixed-point scalar math: exact integer square
+  root, approximate square root/normalized reciprocal square root, periodic
+  cosine, log2/exp2, reciprocal and fractional Q29/saturated-Q31 division.
+- Expose Q formats, reference clamp/sentinel behavior and typed domain errors.
+- Match 638975 exhaustively hashed results and 29164 scalar reference cases,
+  including full normalized reciprocal-root, exponent and two cosine periods.
+  Independently bracket every 16-bit square and 65536 deterministic wide inputs.
+- Detect five rounding/refinement/normalization mutations; regenerate fixtures
+  byte-identically and pass all mandatory offline checks without dependencies.
+
+These are scalar primitives; CELT/Hybrid audio decoding remains incomplete.
+
 ## [0.1.16] - 2026-11-01
 
 - Add bounded, atomic `SilkDecoder` for encoded mono/stereo and mono/interleaved

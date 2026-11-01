@@ -12,6 +12,7 @@
 //! # Ok::<(), opura::PacketError>(())
 //! ```
 
+pub mod celt;
 pub mod range;
 pub mod silk;
 

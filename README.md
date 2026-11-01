@@ -764,3 +764,39 @@ replacing reference decoding algorithms. Ordinary builds/tests need no C or
 libopus. CELT/Hybrid, CELT transition tails and implicit empty-payload DTX remain
 unsupported and reject transactionally. Complete official Opus conformance and
 competitive performance are not established.
+
+
+## CELT fixed-point math
+
+`opura::celt::math` supplies the scalar math needed for forthcoming CELT energy,
+PVQ and loss reconstruction. `integer_sqrt(u32)` returns the exact floor of the
+root (including zero) in at most 16 steps. Other functions reproduce the pinned
+reference's integer approximations, rather than correctly rounded real math:
+`sqrt`, `rsqrt_normalized`, `cos_norm`, `log2`, `exp2`, `reciprocal`,
+`fractional_divide_q29` and saturated-Q31 `fractional_divide`.
+
+Rustdoc specifies Q formats, saturation, zero sentinels and valid input domains.
+Invalid inputs return `MathError` before arithmetic. Fractional division accepts
+positive denominators with numerator magnitude no greater than the denominator;
+negative Q31 saturation uses -2147483647. All operations use bounded fixed-width
+integer arithmetic without allocation or dependencies. Arithmetic follows the
+reference scalar fast-64-bit multiplication path on every Rust target.
+
+[Reference evidence](tests/celt-math-fixtures.txt) includes 624 FNV-1a blocks
+covering 638975 individual results and 29164 boundary/wide/division cases.
+Exhaustive blocks include signed Q10 exponents, normalized Q16 reciprocal roots,
+two Q15 cosine periods and small integer sqrt/log/reciprocal domains. Each hash
+covers four little-endian bytes per signed result. Separate tests independently
+check integer-sqrt inequalities around every square up to 65535² and 65536 wide
+values. Five mutations detect rounding, normalization and Newton corrections.
+
+Optional regeneration compiles original external reference routines into a
+temporary library, requiring the same clean pinned source, Python and C compiler:
+
+```sh
+python3 tools/celt_math_fixtures.py target/reference/opus > /tmp/opura-celt-math.txt
+diff -u tests/celt-math-fixtures.txt /tmp/opura-celt-math.txt
+```
+
+These primitives do not yet decode CELT/Hybrid packets or establish full-codec
+conformance/performance. CELT transform and band decoding are the next stages.
