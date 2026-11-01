@@ -5,7 +5,8 @@ Opura is a pure Rust, zero-dependency Opus implementation under development.
 and mode transitions with redundant CELT tails at all five standard output rates.**
 The separate SILK/CELT/Hybrid APIs and their component stages remain available.
 **The decoder passes all120 official RFC8251 vector/rate/channel cases.**
-End-to-end performance validation and encoding remain under development. The accepted direction is a complete decoder first, then an encoder,
+The first complete-decoder benchmark is recorded: Opura trails the pinned scalar
+libopus reference in all ten configurations; encoding remains under development. The accepted direction is a complete decoder first, then an encoder,
 prioritizing speed and reliability. See the
 [decoder-first decision](docs/decisions/0002-decoder-first.md) for evaluation
 requirements; SOTA performance is an ambition, not a current claim.
@@ -1746,7 +1747,7 @@ The optional oracle builds external unchanged scalar fixed-point DSP routines
 in a temporary directory. Read-only observers capture state and transition
 branches; no reference implementation is linked by Cargo. These sampled exact
 results are complemented by the official conformance result below; full decoder
-benchmarks follow separately. Containers,
+[benchmark results are recorded separately](docs/benchmarks/decoder-0.1.41.md). Containers,
 multistream/self-delimiting framing, QEXT, neural/deep PLC and encoding are not
 implemented by this API.
 
@@ -1764,3 +1765,12 @@ results and reproduction command. This conformance result does not establish
 performance or encoder-quality leadership. Containers, multistream and encoding
 remain separate work. The optional runner uses only Python/Rust standard
 libraries and an external original comparator; Cargo still has zero dependencies.
+
+## Complete decoder performance baseline
+
+The [0.1.41 benchmark](docs/benchmarks/decoder-0.1.41.md) compares public packet-to-PCM
+decoding with pinned scalar fixed-point libopus over all official streams and
+all ten rate/channel configurations. All PCM/range checks agree. Opura takes
+about 1.54–1.80 times the reference time and uses more decoder state; the speed
+target fails. The report preserves every result and reproduction command.
+SIMD builds, other competitors and encoder quality remain unmeasured.

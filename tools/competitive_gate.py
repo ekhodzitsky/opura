@@ -25,7 +25,7 @@ def upper_bound(a, b, rng):
 
 def evaluate(report, scope='packet'):
     if scope != 'packet':
-        return ['Full-codec superiority is unestablished: PCM decoder, conformance, '
+        return ['Full-codec superiority is unestablished by this framing track: '
                 'all required competitors, quality, memory and usability measurements are missing.']
     if not isinstance(report, dict):
         return ['Report must be an object.']

@@ -7,6 +7,19 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.41] - 2026-11-02
+
+- Add matched optional Rust/C complete-decoder replay benchmarks over all twelve
+  official streams and all ten output configurations, with no Cargo dependency.
+- Verify all 120 accepted PCM SHA256 hashes and full PCM/range fingerprints
+  before 15 randomized CPU-pinned paired rounds; retain throughput, latency,
+  decoder-state sizes and source/compiler/corpus provenance in a versioned report.
+- Record every measured loss: Opura takes about 1.54–1.80 times the pinned scalar
+  reference time and uses more decoder state. The scalar speed target fails;
+  SIMD, other competitors, explicit PLC/FEC speed and encoder quality are unmeasured.
+- Add fail-closed report/protocol/correctness fault tests and update stale
+  full-codec gate diagnostics. All seven mandatory offline gates pass.
+
 ## [0.1.40] - 2026-11-02
 
 - Validate the unified decoder against all120 official RFC8251 combinations:
