@@ -7,6 +7,8 @@ pub mod pvq;
 
 pub mod energy;
 mod energy_tables;
+pub mod fft;
+mod fft_tables;
 
 /// Classic CELT transform duration at the 48 kHz internal clock.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

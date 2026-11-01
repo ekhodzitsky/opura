@@ -928,3 +928,44 @@ diff -u tests/celt-pvq-fixtures.txt /tmp/opura-celt-pvq.txt
 
 This is a normalized-band primitive, not CELT packet or audio output. Allocation,
 recursive bands, transform synthesis, Hybrid and full conformance remain future work.
+
+
+## Standard CELT complex FFT
+
+`opura::celt::fft::FftPlan::new(FrameSize)` selects the standard 60/120/240/480
+complex-point FFT used by a 120/240/480/960-sample CELT frame. `Complex` has signed
+32-bit `real` and `imag` coordinates; callers choose signal scale/headroom.
+`points()` reports the exact input length. Output needs at least that many
+entries; longer output tails stay unchanged. Invalid geometry or downshift
+returns `FftError` without modifying any output.
+
+`forward(input, output, downshift)` transforms natural input to natural output
+order with a negative exponent and no initial scale, distributing a 0..31-bit
+shift across the reference radix stages. `forward_scaled(input, output)` matches
+`opus_fft_c`, approximately dividing by N. `inverse(input, output)` matches the
+unscaled positive-exponent `opus_ifft_c`. Arithmetic intentionally wraps at
+signed-32 boundaries, matching the canonical scalar reference; avoid clipping by
+providing suitable headroom/downshift. Stage rounding means these integer
+transforms are not correctly rounded real DFTs or exact floating inverses.
+
+Plans, shared Q15 twiddles, factors and bit-reversal permutations are static.
+Radix 2/3/4/5 butterflies and downshift scheduling need no allocation or runtime
+planning. The [1632 original FFT cases](tests/celt-fft-fixtures.txt) compare every
+complex output for all sizes, all 32 shifts, canonical wrappers, impulses,
+DC/Nyquist inputs, full-range signed extremes and deterministic arrays. Separate
+floating DFT checks verify sign and natural frequency ordering at low amplitude;
+exact impulse tests independently verify unscaled and 1/N forward amplitudes.
+Five mutations detect bit reversal, plan twiddle stride, radix-3 sign, radix-5
+coefficient and one-bit rounding errors.
+
+```sh
+python3 tools/celt_fft_fixtures.py target/reference/opus > /tmp/opura-celt-fft.txt
+diff -u tests/celt-fft-fixtures.txt /tmp/opura-celt-fft.txt
+python3 tools/celt_fft_fixtures.py target/reference/opus --tables > /tmp/opura-celt-fft-tables.rs
+rustfmt --edition 2024 /tmp/opura-celt-fft-tables.rs
+diff -u src/celt/fft_tables.rs /tmp/opura-celt-fft-tables.rs
+```
+
+The optional oracle observes original standard plans and scalar routines. FFT
+alone does not synthesize CELT audio; inverse MDCT/window overlap, recursive
+bands, allocation and full packet orchestration remain incomplete.

@@ -7,6 +7,19 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.21] - 2026-11-01
+
+- Add allocation-free standard CELT complex FFT plans for 60/120/240/480 points,
+  with exact radix 2/3/4/5 arithmetic, bit reversal and shared Q15 twiddles.
+- Expose forward transforms with 0..31 per-stage downshifts, canonical scaled
+  forward and unscaled inverse wrappers. Validate buffers before any write and
+  preserve output tails; intentional reference wrapping is explicit.
+- Match every complex output on 1632 original FFT results across all plans,
+  shifts, impulses, DC/Nyquist tones, full-range extremes and deterministic input.
+  Independently check order/sign by DFT and 1/N scaling with exact impulses.
+- Detect five mutations; extracted plans and fixtures regenerate identically.
+  All mandatory offline gates pass; transform synthesis still needs inverse MDCT.
+
 ## [0.1.20] - 2026-11-01
 
 - Add atomic normalized CELT PVQ bands from positive-pulse codebooks: Q31 gain,
