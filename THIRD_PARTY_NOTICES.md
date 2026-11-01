@@ -1333,3 +1333,11 @@ classic fixed-point signed16 domain, without QEXT, RES24 or custom modes.
    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 ```
+
+
+# CELT channel/subframe analysis attribution
+
+Long/short MDCT orchestration, stereo-to-mono rounding and low-rate spectral
+scaling/cutoff follow `celt/celt_encoder.c::compute_mdcts` at the pinned revision.
+The CELT encoder notices and terms retained in the preceding input section apply;
+individual transforms retain the forward/inverse MDCT and KISS FFT notices above.

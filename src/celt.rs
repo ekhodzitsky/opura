@@ -2,7 +2,7 @@
 //!
 //! See [`decoder`] for stateful CELT PCM output and concealment.
 //! [`crate::decoder::OpusDecoder`] handles shared Hybrid/mode-transition histories.
-//! [`input`] and forward [`mdct`] analysis are encoder foundations; complete audio
+//! [`input`], forward [`mdct`] and channel/subframe [`analysis`] are encoder foundations; complete audio
 //! encoding remains under development.
 pub mod input;
 pub mod lpc;
@@ -15,6 +15,7 @@ pub mod pvq;
 
 pub mod allocation;
 mod allocation_tables;
+pub mod analysis;
 mod band_tables;
 pub mod bands;
 pub mod control;

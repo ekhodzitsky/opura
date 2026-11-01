@@ -1890,3 +1890,34 @@ diff -u tests/celt-input-fixtures.txt /tmp/celt-input-fixtures.txt
 This primitive does not retain MDCT overlap or perform pitch prefiltering. Low-rate
 spectra still need native scaling/cutoff after transformation. Those stages,
 encoder analysis/quantization and complete packet encoding remain work.
+
+## CELT channel and subframe analysis
+
+`opura::celt::analysis::analyze_frame` wraps the forward transform for complete
+channel contexts. Input is exactly one or two planar channels, each containing
+`size.samples() + 120` pre-emphasized/prefiltered values with caller-supplied
+history. A frame can use one long transform or `2^LM` interleaved 120-sample
+short transforms. Stereo input can produce stereo or mono coded spectra;
+mono input produces mono. The fixed `SpectralFrame` exposes planar bins and
+bounded per-channel views without allocation or input mutation.
+
+Stereo-to-mono mixing halves each channel separately before addition, retaining
+native negative/odd rounding. For low-rate input, bins below
+`size.samples()/rate.factor()` receive the native gain and higher bins become
+zero. The sequence is transform, channel mixing, then rate scaling/cutoff.
+Extreme synthetic signals use explicit signed wrapping, matching the reference.
+
+All complete spectra match 1,080 independent original `compute_mdcts` cases
+across four durations, five input rates, three input/coded channel layouts and
+both long/short modes. Signed extremes, low-amplitude rounding and random scales
+are retained. PCM preprocessing/context/transform composition and malformed
+geometry tests pass; all ten targeted mutations are detected. Optional oracle:
+
+```sh
+python3 tools/celt_analysis_fixtures.py /path/to/opus-v1.6.1 > /tmp/celt-analysis-fixtures.txt
+diff -u tests/celt-analysis-fixtures.txt /tmp/celt-analysis-fixtures.txt
+```
+
+The caller selects the block mode and supplies the complete signal context.
+Transient detection, pitch-prefilter/overlap orchestration, band analysis,
+quantization and complete audio packet encoding remain under development.

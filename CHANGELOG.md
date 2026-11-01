@@ -7,6 +7,21 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.45] - 2026-11-02
+
+- Add fixed-storage CELT frame analysis over validated planar channel contexts,
+  orchestrating long or interleaved short MDCTs and exposing bounded coded spectra.
+- Match native stereo-to-mono separate-half rounding and low-rate spectral gain/
+  cutoff at all four durations, five input rates and three channel layouts.
+  Preserve input and return no partial output on invalid contexts.
+- Match1080 independent original complete spectra, verify PCM/context/transform
+  composition and malformed domains, and detect ten targeted mutations. New and
+  previous input/transform corpora reproduce; all seven mandatory offline gates
+  pass with no dependencies or unsafe code.
+
+Transient/pitch-prefilter decisions, band analysis/quantization and complete audio
+encoding remain under development.
+
 ## [0.1.44] - 2026-11-02
 
 - Add safe allocation-free CELT signed16 input pre-emphasis at all five standard
