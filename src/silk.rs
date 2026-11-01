@@ -1,4 +1,4 @@
-//! SILK headers, side information, excitation and single-channel synthesis.
+//! SILK headers, channel synthesis and mono/stereo packet output.
 //!
 //! Implements RFC 6716 sections 4.2.3–4.2.4 for SILK and Hybrid frames.
 //! Flags describe internal 10/20 ms SILK frames, not Opus packet frame count.
@@ -6,6 +6,7 @@
 
 pub mod channel;
 pub mod cng;
+pub mod decoder;
 pub mod excitation;
 pub mod gains;
 pub mod lpc;

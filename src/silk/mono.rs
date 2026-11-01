@@ -325,21 +325,22 @@ fn packet_rate(packet: &Packet<'_>) -> Result<SilkRate, MonoError> {
 // Normal dec_API skips LBRR indices/pulses only: never dequantize them into
 // the regular decoder's gain/NLSF/synthesis history. Scratch parameter states
 // let the existing primitives consume exactly those symbols without synthesis.
-fn skip_redundancy(
-    entropy: &mut RangeDecoder<'_>,
-    rate: SilkRate,
-    duration: FrameDuration,
-    flags: &[bool],
-) -> Result<(), ChannelError> {
-    let mut gains = GainState::default();
-    let mut nlsf = NlsfState::default();
-    let mut pitch = PitchState::default();
-    for (index, &present) in flags.iter().enumerate() {
-        if !present {
-            continue;
-        }
-        let conditional = index > 0 && flags[index - 1];
-        let gain = gains
+#[derive(Default)]
+pub(super) struct RedundancyState {
+    gains: GainState,
+    nlsf: NlsfState,
+    pitch: PitchState,
+}
+impl RedundancyState {
+    pub(super) fn consume(
+        &mut self,
+        entropy: &mut RangeDecoder<'_>,
+        rate: SilkRate,
+        duration: FrameDuration,
+        conditional: bool,
+    ) -> Result<(), ChannelError> {
+        let gain = self
+            .gains
             .decode(
                 entropy,
                 duration,
@@ -351,18 +352,20 @@ fn skip_redundancy(
                 },
             )
             .map_err(ChannelError::Gains)?;
-        nlsf.decode(
-            entropy,
-            if rate == SilkRate::Khz16 {
-                NlsfOrder::Order16
-            } else {
-                NlsfOrder::Order10
-            },
-            duration,
-            gain.signal_type(),
-        )
-        .map_err(ChannelError::Nlsf)?;
-        let prediction = pitch
+        self.nlsf
+            .decode(
+                entropy,
+                if rate == SilkRate::Khz16 {
+                    NlsfOrder::Order16
+                } else {
+                    NlsfOrder::Order10
+                },
+                duration,
+                gain.signal_type(),
+            )
+            .map_err(ChannelError::Nlsf)?;
+        let prediction = self
+            .pitch
             .decode(
                 entropy,
                 rate,
@@ -384,6 +387,20 @@ fn skip_redundancy(
             prediction.seed(),
         )
         .map_err(ChannelError::Excitation)?;
+        Ok(())
+    }
+}
+fn skip_redundancy(
+    entropy: &mut RangeDecoder<'_>,
+    rate: SilkRate,
+    duration: FrameDuration,
+    flags: &[bool],
+) -> Result<(), ChannelError> {
+    let mut state = RedundancyState::default();
+    for (index, &present) in flags.iter().enumerate() {
+        if present {
+            state.consume(entropy, rate, duration, index > 0 && flags[index - 1])?;
+        }
     }
     Ok(())
 }

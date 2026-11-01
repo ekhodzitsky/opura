@@ -1,9 +1,9 @@
 # opura
 
 Opura is a pure Rust, zero-dependency Opus implementation under development.
-**Mono SILK packets support final PCM output, explicit loss concealment and in-band FEC.**
+**Mono/stereo SILK packets support final PCM output, explicit loss concealment and in-band FEC.**
 Packet framing, range decoding and the SILK channel primitives are also available.
-Stereo, implicit DTX handling, CELT/Hybrid decoding and encoding
+Implicit DTX handling, CELT/Hybrid decoding and encoding
 are not implemented. The accepted direction is a complete decoder first, then
 an encoder, prioritizing speed and reliability. See the
 [decoder-first decision](docs/decisions/0002-decoder-first.md) for evaluation
@@ -182,7 +182,7 @@ diff -u tests/silk-gain-dequant-fixtures.txt /tmp/opura-dequant.txt
 ```
 
 These are synthetic primitive tests. They do not establish full decoder
-conformance or performance; stereo and full Opus orchestration remain incomplete.
+conformance or performance; full Opus orchestration remains incomplete.
 
 ## SILK spectral parameters
 
@@ -335,7 +335,7 @@ diff -u src/silk/excitation_tables.rs /tmp/opura-excitation-tables.rs
 
 This is excitation before LTP/LPC filtering and gain scaling, not PCM.
 `ChannelState` below supplies the enclosing state transaction and synthesis;
-stereo processing and resampling remain future work.
+stereo processing and resampling are separate stages below.
 
 
 ## SILK synthesis
@@ -448,8 +448,8 @@ an integrity guarantee. All decoding loops and output sizes remain bounded.
 
 These are **raw internal-channel samples** from loss-free synthesis, before
 Opus mono delay buffering and output-rate resampling. They are not sample-aligned
-with `opus_decode` output. CNG/PLC state and recovery after loss, stereo and
-CELT/Hybrid mixing remain future work. This API establishes a limited packet-to-PCM
+with `opus_decode` output. CNG/PLC and stereo output are described below.
+CELT/Hybrid mixing remains future work. This API establishes a limited packet-to-PCM
 path, not complete Opus conformance or competitive audio performance.
 
 [Audio packet fixtures](tests/silk-packet-fixtures.txt) come from the pinned
@@ -570,8 +570,8 @@ diff -u tests/silk-packet-loss-fixtures.txt /tmp/opura-packet-loss.txt
 
 Missing intervals must be explicit; `decode` still rejects empty/one-byte DTX or
 loss payloads. In-band FEC is consumed during normal decoding and can be used through
-the explicit recovery method below. PCM remains before mono delay buffering/resampling, with stereo and
-CELT/Hybrid still unimplemented. Full Opus conformance and competitive performance
+the explicit recovery method below. PCM remains before mono delay buffering/resampling.
+Stereo output uses the channel-general API below; CELT/Hybrid remain unimplemented. Full Opus conformance and competitive performance
 remain unestablished.
 
 ## Mono in-band FEC recovery
@@ -606,7 +606,7 @@ diff -u tests/silk-fec-fixtures.txt /tmp/opura-fec.txt
 ```
 
 As with normal and loss decoding, output precedes mono delay buffering/resampling.
-Stereo, CELT/Hybrid and implicit DTX still require implementation; no full-codec
+CELT/Hybrid and implicit DTX still require implementation; no full-codec
 conformance or competitive performance claim follows from these stage checks.
 
 ## SILK output resampler
@@ -642,7 +642,7 @@ diff -u src/silk/resampler_tables.rs /tmp/opura-resampler-tables.rs
 ```
 
 Packet output integration and direct public-Opus PCM comparisons are described below.
-Stereo and CELT/Hybrid remain incomplete; no competitive performance claim is made.
+CELT/Hybrid remain incomplete; no competitive performance claim is made.
 
 ## Final-rate mono SILK PCM
 
@@ -719,6 +719,48 @@ rustfmt --edition 2024 /tmp/opura-stereo-tables.rs
 diff -u src/silk/stereo_tables.rs /tmp/opura-stereo-tables.rs
 ```
 
-These primitives do not yet supply stereo packet ordering, side-channel restarts
-or mono/stereo stream transitions. The packet output API still accepts mono only;
-full stereo, CELT/Hybrid and complete Opus conformance remain future work.
+The channel-general packet API below composes these primitives with side-channel
+restarts and mono/stereo stream transitions. CELT/Hybrid and complete Opus
+conformance remain future work.
+
+
+## Final-rate mono/stereo SILK PCM
+
+`opura::silk::decoder::SilkDecoder::new(OutputRate, PcmChannels)` accepts either
+encoded channel count and produces one mono or two interleaved output channels
+at 8/12/16/24/48 kHz. Output geometry is fixed for a stream. Encoded stereo to
+mono uses the decoded mid channel; mono to stereo duplicates output after the
+reference transition filtering. `decode(packet)`, `conceal(duration_ms)` and
+`decode_fec(packet)` follow the scheduling described above. Decode a received
+packet normally after recovering its preceding first-frame interval with FEC.
+
+`DecodedPcm` exposes samples, rate, channel count, samples per channel and final
+range. Storage is bounded to 11520 interleaved samples (120 ms at 48 kHz stereo).
+Operations commit both channel, stereo, resampler and configuration histories
+together. Reset retains output geometry. Mid-only side suppression, side restart,
+independent/conditional side coding, stereo predictor reuse during loss/FEC,
+LBRR ordering, internal-rate and mono/stereo transitions follow pinned dec_API.
+
+[1768 public reference cases](tests/silk-decoder-fixtures.txt) compare every final
+PCM sample and public final range: 1194 normal, 464 FEC and 80 loss results,
+plus 30 rejected transition packets. They cover all 15 rate pairs, both output
+layouts and encoded channel counts, 10–120 ms intervals, repacketized frames,
+mid-only/side return (including within a payload), silence, loss recovery and
+all 64 independent mid/side LBRR mask pairs at each internal rate/output layout.
+Reference observation flags verify side restart/suppression and resampler
+transition branches were exercised. Additional tests retain all 260 earlier
+mono results, check reset, malformed input, late internal/Opus-frame rollback
+and 1024 bounded adversarial decode/FEC calls. Six mutations detect wrong side
+coding, FEC side presence, side-state reset, omitted stereo LBRR fields and
+incorrect resampler history on both directions of channel transition.
+
+```sh
+python3 tools/silk_packet_fixtures.py target/reference/opus --stereo-output > /tmp/opura-decoder.txt
+diff -u tests/silk-decoder-fixtures.txt /tmp/opura-decoder.txt
+```
+
+The optional oracle observes original functions and public output without
+replacing reference decoding algorithms. Ordinary builds/tests need no C or
+libopus. CELT/Hybrid, CELT transition tails and implicit empty-payload DTX remain
+unsupported and reject transactionally. Complete official Opus conformance and
+competitive performance are not established.

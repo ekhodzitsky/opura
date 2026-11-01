@@ -71,6 +71,20 @@ pub struct ChannelState {
     plc: PlcState,
 }
 impl ChannelState {
+    pub(super) fn restart_side(&mut self) {
+        self.gains.after_loss();
+        self.nlsf.reset();
+        self.pitch.reset();
+        self.synthesis.lpc.fill(0);
+        self.synthesis.history.fill(0);
+        self.synthesis.recovery_lag = None;
+        self.plc.restart_side();
+    }
+
+    pub(super) fn clear_loss_gain_clamp(&mut self) {
+        self.gains.after_loss();
+    }
+
     /// Forget every history, including the prior synthesis gain and rate.
     pub fn reset(&mut self) {
         *self = Self::default();

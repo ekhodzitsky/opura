@@ -1,9 +1,9 @@
-//! Pure Rust Opus packet framing, entropy decoding and SILK primitives.
+//! Pure Rust Opus packet framing, entropy decoding and mono/stereo SILK output.
 //! No dependencies or allocation; complete Opus decoding is not implemented yet.
 //!
 //! This validates RFC 6716 section 3 framing, not compressed audio contents.
-//! Complete audio decoding, containers, multistream and self-delimiting framing are
-//! not implemented. Pass exactly one packet, with its transport headers removed.
+//! Full Opus audio decoding, containers, multistream and self-delimiting framing
+//! are not implemented; see [`silk::decoder`] for supported SILK output. Pass exactly one packet, with its transport headers removed.
 //!
 //! ```
 //! let packet = opura::Packet::parse(&[0x98, 0x12, 0x34])?;

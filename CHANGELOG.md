@@ -7,6 +7,23 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.16] - 2026-11-01
+
+- Add bounded, atomic `SilkDecoder` for encoded mono/stereo and mono/interleaved
+  stereo final PCM at every standard output rate, including loss and in-band FEC.
+- Integrate stereo/LBRR field ordering, mid-only side suppression and restart,
+  channel/rate transitions and separate left/right resampler histories.
+- Match every PCM sample and public final range on 1738 normal/FEC/loss results
+  plus 30 transactional transition rejections. Cover all 64 mid/side LBRR mask
+  pairs per internal rate/output layout, all 15 rate pairs and 120 ms output.
+- Retain 260 earlier mono oracle cases; verify reset, malformed requests, late
+  internal/Opus-frame rollback and 1024 adversarial calls. Six targeted mutations
+  fail the oracle tests; the new reference corpus regenerates byte-identically.
+- Run all mandatory offline debug/release, lint, docs and dependency/tool checks.
+
+CELT/Hybrid, implicit DTX and transition reconstruction remain incomplete.
+Full Opus conformance and SOTA performance are not yet established.
+
 ## [0.1.15] - 2026-11-01
 
 - Add transactional SILK stereo predictor and optional mid-only entropy decoding,

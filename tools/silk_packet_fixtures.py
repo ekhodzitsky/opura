@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Generate real mono SILK packets and internal PCM using pinned fixed-point Opus.
+"""Generate SILK packets and internal/final PCM using pinned fixed-point Opus.
 
 Optional developer oracle: compiles the external reference into a temporary
 library. The only instrumentation copies decode_core output after the original
 routine returns, optionally copies completed decode_frame output, and observes
-each frame's transition-redundancy decision;
+each frame's transition-redundancy and stereo-layout decisions;
 opus_decode still runs the complete upstream decoder and its
 public OPUS_GET_FINAL_RANGE result is recorded independently.
 """
@@ -21,8 +21,9 @@ parser.add_argument('source', type=Path)
 parser.add_argument('--loss', action='store_true', help='Emit loss/recovery streams with completed decode_frame PCM')
 parser.add_argument('--fec', action='store_true', help='Emit FEC and subsequent primary decoding streams')
 parser.add_argument('--public-output', action='store_true', help='Emit actual public opus_decode PCM at every output rate')
+parser.add_argument('--stereo-output', action='store_true', help='Emit public PCM for encoded/API channel transitions')
 args = parser.parse_args()
-if sum([args.loss, args.fec, args.public_output]) > 1: parser.error('Choose one fixture output mode')
+if sum([args.loss, args.fec, args.public_output, args.stereo_output]) > 1: parser.error('Choose one fixture output mode')
 source = args.source.resolve()
 if subprocess.check_output(['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip() != REVISION:
     raise SystemExit('Expected Opus v1.6.1 at ' + REVISION)
@@ -42,17 +43,29 @@ wrapper = r'''
 #include "main.h"
 #include "opus.h"
 #include "opus_private.h"
-static opus_int16 captured[1920];
+static opus_int16 captured[3840];
 static int captured_length, captured_rate;
 static int transition_seen;
-static opus_int16 finished[1920];
+static unsigned layout_flags;
+void record_stereo_entry(void) { layout_flags |= 64; }
+void record_layout(int channels, int mid_only, int has_side, int previous_mid_only, int collapse, int index) {
+    layout_flags |= channels == 1 ? 1 : 2;
+    if (mid_only) layout_flags |= 4;
+    if (!has_side) layout_flags |= 32;
+    if (channels == 2 && !mid_only && previous_mid_only) {
+        layout_flags |= 8;
+        if (index > 0) layout_flags |= 128;
+    }
+    if (collapse) layout_flags |= 16;
+}
+static opus_int16 finished[3840];
 static int finished_length;
 int reference_decode_frame(silk_decoder_state *, ec_dec *, opus_int16 *, opus_int32 *, int, int, int);
 int silk_decode_frame(silk_decoder_state *state, ec_dec *decoder, opus_int16 *pcm,
                       opus_int32 *length, int lost, int coding, int arch) {
     int result = reference_decode_frame(state, decoder, pcm, length, lost, coding, arch);
     if (result == 0) {
-        if (finished_length + *length > 1920) abort();
+        if (finished_length + *length > 3840) abort();
         memcpy(finished + finished_length, pcm, *length * sizeof(*pcm));
         finished_length += *length;
         captured_rate = state->fs_kHz;
@@ -64,7 +77,7 @@ void reference_decode_core(silk_decoder_state *, silk_decoder_control *, opus_in
 void silk_decode_core(silk_decoder_state *state, silk_decoder_control *control,
                       opus_int16 *pcm, const opus_int16 *pulses, int arch) {
     reference_decode_core(state, control, pcm, pulses, arch);
-    if (captured_length + state->frame_length > 1920) abort();
+    if (captured_length + state->frame_length > 3840) abort();
     memcpy(captured + captured_length, pcm, state->frame_length * sizeof(*pcm));
     captured_length += state->frame_length;
     captured_rate = state->fs_kHz;
@@ -112,6 +125,66 @@ int symbols(int rate, int duration, int mask, unsigned char *packet) {
     if (ec_get_error(&ec)) return OPUS_INTERNAL_ERROR;
     packet[0] = ((rate == 8 ? 0 : rate == 12 ? 4 : 8) + (duration == 10 ? 0 : duration == 20 ? 1 : duration == 40 ? 2 : 3)) << 3;
     return bytes + 1;
+}
+/* Independent stereo LBRR masks, including side-only redundancy and
+   primary side restart inside a 60 ms payload. */
+int stereo_symbols(int rate, int mid_mask, int side_mask, unsigned char *packet) {
+    silk_encoder_state state[2] = {{0}};
+    ec_enc ec;
+    for (int ch=0; ch<2; ch++) {
+        state[ch].fs_kHz = rate;
+        state[ch].nb_subfr = 4;
+        state[ch].frame_length = rate * 20;
+        state[ch].predictLPCOrder = rate == 16 ? 16 : 10;
+        state[ch].psNLSF_CB = rate == 16 ? &silk_NLSF_CB_WB : &silk_NLSF_CB_NB_MB;
+        state[ch].pitch_lag_low_bits_iCDF = rate == 8 ? silk_uniform4_iCDF : rate == 12 ? silk_uniform6_iCDF : silk_uniform8_iCDF;
+        state[ch].pitch_contour_iCDF = rate == 8 ? silk_pitch_contour_NB_iCDF : silk_pitch_contour_iCDF;
+    }
+    int masks[2] = {mid_mask, side_mask};
+    ec_enc_init(&ec, packet + 1, 1275);
+    for (int ch=0; ch<2; ch++) {
+        for (int i=0; i<3; i++) ec_enc_bit_logp(&ec, ch == 0 || i != 0, 1);
+        ec_enc_bit_logp(&ec, masks[ch] != 0, 1);
+    }
+    for (int ch=0; ch<2; ch++)
+        if (masks[ch]) ec_enc_icdf(&ec, masks[ch]-1, silk_LBRR_flags_iCDF_ptr[1], 8);
+    for (int redundant=1; redundant>=0; redundant--) {
+        for (int i=0; i<3; i++) {
+            int present[2] = { !redundant || (mid_mask & (1<<i)),
+                              redundant ? (side_mask & (1<<i)) : i != 0 };
+            if (present[0]) {
+                opus_int8 ix[2][3] = {{1,2,2},{1,2,2}};
+                silk_stereo_encode_pred(&ec, ix);
+                if (redundant ? !present[1] : i == 0)
+                    silk_stereo_encode_mid_only(&ec, redundant ? (i != 1) : 1);
+            }
+            for (int ch=0; ch<2; ch++) {
+                if (!present[ch]) continue;
+                int coding = i == 0 ? CODE_INDEPENDENTLY
+                    : redundant ? (masks[ch] & (1<<(i-1)) ? CODE_CONDITIONALLY : CODE_INDEPENDENTLY)
+                    : ch == 1 && i == 1 ? CODE_INDEPENDENTLY_NO_LTP_SCALING : CODE_CONDITIONALLY;
+                SideInfoIndices *indices = redundant ? &state[ch].indices_LBRR[i] : &state[ch].indices;
+                memset(indices, 0, sizeof(*indices));
+                indices->signalType = TYPE_VOICED;
+                indices->GainsIndices[0] = coding == CODE_CONDITIONALLY ? 4 : redundant ? 42 : 10;
+                for (int k=1; k<4; k++) indices->GainsIndices[k] = 4;
+                indices->NLSFIndices[0] = redundant ? 17 : 0;
+                indices->NLSFInterpCoef_Q2 = 2;
+                indices->lagIndex = 20;
+                indices->Seed = i;
+                silk_encode_indices(&state[ch], &ec, i, redundant, coding);
+                opus_int8 pulses[320] = {0};
+                for (int k=ch; k<rate*20; k+=7) pulses[k] = k%2 ? 1 : -1;
+                silk_encode_pulses(&ec, indices->signalType, 0, pulses, rate*20);
+            }
+        }
+    }
+    int bytes = (ec_tell(&ec)+7)/8;
+    ec_enc_shrink(&ec, bytes);
+    ec_enc_done(&ec);
+    if (ec_get_error(&ec)) return OPUS_INTERNAL_ERROR;
+    packet[0] = (((rate == 8 ? 0 : rate == 12 ? 4 : 8) + 3)<<3) | 4;
+    return bytes+1;
 }
 /* Deliberately over-budget FEC prefix: an earlier internal frame fits,
    but later symbols exceed the original 1275-byte entropy ceiling. */
@@ -182,6 +255,7 @@ int decode(OpusDecoder *decoder, const unsigned char *packet, int len,
     captured_length = 0;
     finished_length = 0;
     transition_seen = 0;
+    layout_flags = 0;
     int result = opus_decode(decoder, packet, len, pcm, 5760, 0);
     if (result < 0) return result;
     memcpy(raw, captured, captured_length * sizeof(*raw));
@@ -197,6 +271,7 @@ int decode_complete(OpusDecoder *decoder, const unsigned char *packet, int len, 
     captured_length = 0;
     finished_length = 0;
     transition_seen = 0;
+    layout_flags = 0;
     int result = opus_decode(decoder, packet, len, pcm, frame_samples, decode_fec);
     if (result < 0) return result;
     memcpy(raw, finished, finished_length * sizeof(*raw));
@@ -211,12 +286,25 @@ int decode_public(OpusDecoder *decoder, const unsigned char *packet, int len, in
     captured_length = 0;
     finished_length = 0;
     transition_seen = 0;
+    layout_flags = 0;
     int result = opus_decode(decoder, packet, len, pcm, frame_samples, fec);
     if (result < 0) return result;
     out[0] = result;
     out[1] = captured_rate;
     if (opus_decoder_ctl(decoder, OPUS_GET_FINAL_RANGE(out + 2)) != OPUS_OK) abort();
     out[3] = transition_seen;
+    return result;
+ }
+int configure_stereo(OpusEncoder *encoder, int bandwidth, int force_channels) {
+    int ret = configure(encoder, bandwidth, 1);
+    ret |= opus_encoder_ctl(encoder, OPUS_SET_BITRATE(30000));
+    ret |= opus_encoder_ctl(encoder, OPUS_SET_FORCE_CHANNELS(force_channels));
+    return ret;
+}
+int decode_layout(OpusDecoder *decoder, const unsigned char *packet, int len, int frame_samples, int fec,
+                  opus_int16 *pcm, opus_uint32 *out) {
+    int result = decode_public(decoder, packet, len, frame_samples, fec, pcm, out);
+    out[4] = layout_flags;
     return result;
 }
 '''
@@ -245,11 +333,22 @@ with tempfile.TemporaryDirectory(prefix='opura-packet-reference-') as temp:
         '#include "opus_private.h"\nextern void record_transition(int);')
     (path / 'decoder.c').write_text(decoder_source.replace(anchor,
         '   record_transition(redundancy);\n' + anchor))
+    api_source = (source / 'silk/dec_API.c').read_text()
+    api_source = api_source.replace('#include "main.h"',
+        '#include "main.h"\nextern void record_layout(int,int,int,int,int,int);\nextern void record_stereo_entry(void);')
+    layout_site = '    channel_state[ 0 ].sPLC.enable_deep_plc = decControl->enable_deep_plc;'
+    if api_source.count(layout_site) != 1: raise SystemExit('Unexpected stereo layout site')
+    api_source = api_source.replace(layout_site,
+        '    record_layout(decControl->nChannelsInternal, decode_only_middle, has_side, psDec->prev_decode_only_middle, stereo_to_mono, channel_state[0].nFramesDecoded);\n' + layout_site)
+    entry_site = '        silk_memcpy( &channel_state[ 1 ].resampler_state, &channel_state[ 0 ].resampler_state, sizeof( silk_resampler_state_struct ) );'
+    if api_source.count(entry_site) != 1: raise SystemExit('Unexpected stereo resampler entry site')
+    api_source = api_source.replace(entry_site, '        record_stereo_entry();\n' + entry_site)
+    (path / 'api.c').write_text(api_source)
     subprocess.run(['cc', '-shared', '-fPIC', '-O2', '-fwrapv', '-DVAR_ARRAYS',
                     '-DOPUS_BUILD', '-DFIXED_POINT', '-DDISABLE_FLOAT_API',
                     *['-I' + str(source / p) for p in ['include', 'celt', 'silk', 'silk/fixed', 'src']],
-                    str(path / 'probe.c'), str(path / 'core.c'), str(path / 'decoder.c'), str(path / 'frame.c'),
-                    *[str(source / f) for f in files if f not in ['silk/decode_core.c', 'src/opus_decoder.c', 'silk/decode_frame.c']],
+                    str(path / 'probe.c'), str(path / 'core.c'), str(path / 'decoder.c'), str(path / 'frame.c'), str(path / 'api.c'),
+                    *[str(source / f) for f in files if f not in ['silk/decode_core.c', 'src/opus_decoder.c', 'silk/decode_frame.c', 'silk/dec_API.c']],
                     '-lm', '-o', str(path / 'probe.so')], check=True)
     lib = c.CDLL(str(path / 'probe.so'))
     pointer, i16, u8, u32 = c.c_void_p, c.POINTER(c.c_int16), c.POINTER(c.c_ubyte), c.POINTER(c.c_uint32)
@@ -258,16 +357,103 @@ with tempfile.TemporaryDirectory(prefix='opura-packet-reference-') as temp:
         ('opus_decoder_create', [c.c_int, c.c_int, c.POINTER(c.c_int)], pointer),
         ('opus_encoder_destroy', [pointer], None), ('opus_decoder_destroy', [pointer], None),
         ('configure', [pointer, c.c_int, c.c_int], c.c_int),
+        ('configure_stereo', [pointer, c.c_int, c.c_int], c.c_int),
+        ('stereo_symbols', [c.c_int, c.c_int, c.c_int, u8], c.c_int),
         ('symbols', [c.c_int, c.c_int, c.c_int, u8], c.c_int),
         ('budget_packet', [u8], c.c_int),
         ('opus_encode', [pointer, i16, c.c_int, u8, c.c_int], c.c_int),
         ('decode', [pointer, u8, c.c_int, i16, u32], c.c_int),
         ('decode_complete', [pointer, u8, c.c_int, c.c_int, c.c_int, i16, u32], c.c_int),
         ('decode_public', [pointer, u8, c.c_int, c.c_int, c.c_int, i16, u32], c.c_int),
+        ('decode_layout', [pointer, u8, c.c_int, c.c_int, c.c_int, i16, u32], c.c_int),
         ('repack', [u8, c.POINTER(c.c_int), c.c_int, u8], c.c_int),
     ]:
         function = getattr(lib, name)
         function.argtypes, function.restype = types, result
+    if args.stereo_output:
+        print('# Actual public fixed-point opus_decode mono/stereo PCM and final range:', REVISION)
+        print('# KIND RESET OUTPUT_HZ API_CHANNELS INPUT_KHZ DURATION_MS HEX RANGE LAYOUT_FLAGS PCM[duration*output_hz/1000*channels]')
+        error = c.c_int()
+        for output_khz in [8, 12, 16, 24, 48]:
+            for api_channels in [1, 2]:
+                for sequence in range(4):
+                    encoder = lib.opus_encoder_create(48000, 2, 2048, c.byref(error))
+                    if not encoder or error.value: raise SystemExit('Encoder initialization failed')
+                    decoder = lib.opus_decoder_create(output_khz * 1000, api_channels, c.byref(error))
+                    if not decoder or error.value: raise SystemExit('Decoder initialization failed')
+                    phase, other_phase, random, reset_next = 0, 0, 0x4c525354 + sequence, True
+                    history = []
+                    try:
+                        def emit_stereo(kind, packet, duration):
+                            global decoder, reset_next
+                            data = (c.c_ubyte * len(packet))(*packet) if packet else None
+                            pcm, out = (c.c_int16 * 11520)(), (c.c_uint32 * 5)()
+                            length = duration * output_khz
+                            result = lib.decode_layout(decoder, data, len(packet), length, int(kind == 'fec'), pcm, out)
+                            if result != length: raise SystemExit('Stereo public reference decode failed')
+                            actual_kind = 'transition' if out[3] else kind
+                            print(actual_kind, int(reset_next), output_khz*1000, api_channels, out[1], duration,
+                                  packet.hex() if packet else '-', out[2], out[4], *pcm[:result*api_channels])
+                            reset_next = bool(out[3])
+                            if reset_next:
+                                lib.opus_decoder_destroy(decoder)
+                                decoder = lib.opus_decoder_create(output_khz * 1000, api_channels, c.byref(error))
+                                if not decoder or error.value: raise SystemExit('Decoder reset failed')
+                        for index in range(24):
+                            band = sequence if sequence < 3 else [0, 1, 2][index // 8]
+                            force_channels = 1 if 6 <= index <= 9 or 18 <= index <= 20 else 2
+                            if lib.configure_stereo(encoder, 1101 + band, force_channels): raise SystemExit('Stereo encoder configuration failed')
+                            duration = [10, 20, 40, 60][index // 6]
+                            samples = []
+                            for i in range(48 * duration):
+                                phase = (phase + 1) % 240
+                                other_phase = (other_phase + 1) % 173
+                                random ^= (random << 13) & 0xffffffff
+                                random ^= random >> 17
+                                random ^= (random << 5) & 0xffffffff
+                                left = ((phase if phase < 120 else 239 - phase) - 60) * 160 + random % 512 - 256
+                                right = ((other_phase if other_phase < 86 else 172 - other_phase) - 43) * 190
+                                if index <= 3 or 10 <= index <= 12 or (index in [13, 14] and i < 960): right = left
+                                if index == 11: left = right = 0
+                                samples.extend([left, right])
+                            data = (c.c_ubyte * 1276)()
+                            size = lib.opus_encode(encoder, (c.c_int16 * len(samples))(*samples), 48 * duration, data, 1276)
+                            if size <= 1: raise SystemExit('Stereo audio encoding failed')
+                            packet = bytes(data[:size])
+                            if packet[0] >> 3 >= 12: raise SystemExit('Expected SILK mode')
+                            history.append(packet)
+                            if index in [3, 13, 15, 19]: continue
+                            if index in [4, 16]: emit_stereo('loss', b'', 120 if index == 4 else 30)
+                            if index in [14, 20]: emit_stereo('fec', packet, duration)
+                            emit_stereo('packet', packet, duration)
+                        group = history[-2:]
+                        if group[0][0] != group[1][0]: raise SystemExit('Expected matching final stereo frame configurations')
+                        combined = b''.join(group)
+                        size = lib.repack((c.c_ubyte * len(combined))(*combined), (c.c_int * 2)(*[len(p) for p in group]), 2, data)
+                        if size <= 0: raise SystemExit('Stereo repacketization failed')
+                        emit_stereo('packet', bytes(data[:size]), 120)
+                    finally:
+                        lib.opus_encoder_destroy(encoder)
+                        lib.opus_decoder_destroy(decoder)
+        output_khz = 48
+        # Exhaust all 64 independent mid/side redundancy masks per rate/API layout.
+        for api_channels in [1, 2]:
+            for input_khz in [8, 12, 16]:
+                for mid_mask in range(8):
+                    for side_mask in range(8):
+                        decoder = lib.opus_decoder_create(48000, api_channels, c.byref(error))
+                        if not decoder or error.value: raise SystemExit('Synthetic decoder initialization failed')
+                        reset_next = True
+                        try:
+                            data = (c.c_ubyte * 1276)()
+                            size = lib.stereo_symbols(input_khz, mid_mask, side_mask, data)
+                            if size <= 1: raise SystemExit('Synthetic stereo encoding failed')
+                            packet = bytes(data[:size])
+                            emit_stereo('fec', packet, 60)
+                            emit_stereo('packet', packet, 60)
+                        finally:
+                            lib.opus_decoder_destroy(decoder)
+        raise SystemExit(0)
     if args.public_output:
         print('# Actual public fixed-point opus_decode PCM and final range:', REVISION)
         print('# KIND RESET OUTPUT_HZ INPUT_KHZ DURATION_MS HEX FINAL_RANGE PCM[duration_ms*output_hz/1000]')

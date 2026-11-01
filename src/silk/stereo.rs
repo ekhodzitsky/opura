@@ -134,6 +134,20 @@ pub struct StereoState {
     side: [i16; 2],
 }
 impl StereoState {
+    pub(super) fn enter_stereo(&mut self) {
+        self.prediction = StereoPrediction::default();
+        self.side.fill(0);
+    }
+
+    // mono buffering shares the raw mid history used by MS_to_LR.
+    pub(super) fn buffer_mono(&mut self, input: &[i16]) -> [i16; 320] {
+        let mut output = [0; 320];
+        output[0] = self.mid[1];
+        output[1..input.len()].copy_from_slice(&input[..input.len() - 1]);
+        self.mid.copy_from_slice(&input[input.len() - 2..]);
+        output
+    }
+
     /// Clear predictor and buffered mid/side samples before a new stream.
     pub fn reset(&mut self) {
         *self = Self::default();

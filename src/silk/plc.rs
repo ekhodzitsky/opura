@@ -58,6 +58,11 @@ impl Default for PlcState {
     }
 }
 impl PlcState {
+    pub(super) fn restart_side(&mut self) {
+        self.signal = SignalType::Inactive;
+        self.first = true;
+    }
+
     fn prepare(&mut self, rate: SilkRate, length: usize) {
         if self.rate != Some(rate) {
             self.pitch_q8 = (length as i32) << 7;
