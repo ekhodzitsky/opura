@@ -1,9 +1,9 @@
 [package]
 name = "opura"
-version = "0.1.32"
+version = "0.1.33"
 edition = "2024"
 rust-version = "1.87"
-description = "A pure Rust, zero-dependency Opus implementation (framing, entropy decoding, SILK primitives)"
+description = "A pure Rust, zero-dependency Opus implementation (framing, SILK and normal CELT decoding)"
 publish = false
 
 [lints.rust]

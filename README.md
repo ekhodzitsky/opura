@@ -3,10 +3,9 @@
 Opura is a pure Rust, zero-dependency Opus implementation under development.
 **Mono/stereo SILK packets support final PCM output, explicit loss concealment and in-band FEC.**
 Packet framing, range decoding and the SILK channel primitives are also available.
-CELT synthesis from decoded spectra is verified; its compressed-frame path remains
-under development.
-Implicit DTX handling, CELT/Hybrid decoding and encoding
-are not implemented. The accepted direction is a complete decoder first, then
+**CELT-only normal packets also decode to final mono/stereo PCM at all five rates.**
+CELT loss/DTX, Hybrid, cross-mode transitions, full conformance and encoding
+remain under development. The accepted direction is a complete decoder first, then
 an encoder, prioritizing speed and reliability. See the
 [decoder-first decision](docs/decisions/0002-decoder-first.md) for evaluation
 requirements; SOTA performance is an ambition, not a current claim.
@@ -1430,3 +1429,54 @@ diff -u tests/celt-anti-collapse-fixtures.txt /tmp/opura-celt-anti.txt
 
 The spectral pipeline now includes optional anti-collapse. Stateful compressed
 CELT PCM packets, CELT loss recovery, Hybrid and full conformance remain pending.
+
+
+## Normal CELT packets to final PCM
+
+`opura::celt::decoder::CeltDecoder::new(Decimation, output_channels)` selects
+fixed 8/12/16/24/48kHz output and one/two interleaved channels. `decode(packet)`
+accepts a complete CELT-only normal packet; `decode_frame(payload, FrameConfig)`
+accepts one explicit 2.5/5/10/20ms payload and NB/WB/SWB/FB encoded context.
+Encoded channel count may change independently of API channels. Empty/one-byte
+frames require future loss/DTX handling; SILK/Hybrid and mediumband CELT contexts
+reject. Packet framing supports up to 48 frames/120ms and padding.
+
+The decoder connects prefix, mono energy-history merging, coarse/TF/spreading,
+allocation/fine, recursive all-band reconstruction, reserved control/final energy,
+anti-collapse, silence and final PCM synthesis. It retains both channels' normal/
+transient/background energy histories, final entropy RNG, MDCT overlap,
+postfilter and de-emphasis across valid frame/channel/bandwidth changes. Default
+inversion policy follows current scalar reference (disabled for mono API).
+Every failure rolls back the complete frame or multi-frame packet. `reset()`
+clears all history while retaining output geometry. Output exposes PCM geometry
+and the last frame's public final-range diagnostic; history getters support audits.
+
+```rust
+use opura::celt::{decoder::CeltDecoder, output::Decimation};
+let mut decoder = CeltDecoder::new(Decimation::By1, 2)?;
+let pcm = decoder.decode(&[0xf8, 0xff, 0xff])?; // full-band 20ms silence
+assert_eq!(pcm.samples_per_channel(), 960);
+assert_eq!(pcm.channels(), 2);
+# Ok::<(), opura::celt::decoder::DecoderError>(())
+```
+
+[960 real encoder packets](tests/celt-packet-fixtures.txt) match public pinned
+scalar fixed-point `opus_decode` PCM and `OPUS_GET_FINAL_RANGE` exactly across
+all rates, API/encoded channels, bandwidths, frame sizes, silence/impulses/noise,
+configuration changes, resets, VBR/CBR, padding and 2..48-frame packets up to120ms.
+Read-only observers appended to original source also compare every energy/log/
+background value, de-emphasis memory, filter parameter, overlap and 1026-sample
+filter history. Original decoding statements stay unchanged. Tests independently
+compare packet versus individual-frame decoding, check late-frame failure/reset
+and 512 bounded adversarial payloads, and catch eight history/RNG/inversion
+integration mutations. All builds/tests remain pure Rust and dependency-free.
+
+```sh
+python3 tools/celt_packet_fixtures.py target/reference/opus > /tmp/opura-celt-packets.txt
+diff -u tests/celt-packet-fixtures.txt /tmp/opura-celt-packets.txt
+```
+
+Optional regeneration compiles external pinned libopus into a temporary library,
+uses its real encoder/repacketizer/public decoder, and records independent state
+snapshots. Normal CELT support is now end-to-end; CELT PLC/DTX, Hybrid, mode
+transitions, official full conformance, encoder and competitive evaluation remain.

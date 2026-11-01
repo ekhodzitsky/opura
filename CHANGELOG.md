@@ -7,6 +7,23 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.33] - 2026-11-01
+
+- Add stateful allocation-free normal CELT-only frame/packet decoding to final
+  mono/stereo signed-16 PCM at 8/12/16/24/48kHz, including silence, all encoded
+  frame sizes/bandwidths and multi-frame packets up to 48 frames/120ms.
+- Connect every verified entropy/spectral/anti-collapse/synthesis stage, preserve
+  mono/stereo energy/log/background/RNG and synthesis histories, and apply
+  current reference mono-API inversion policy. Frame/packet errors roll back.
+- Match public pinned opus_decode PCM/final range and complete independently
+  observed energy/filter/overlap/de-emphasis state on 960 real encoder packets.
+- Verify packet/frame equivalence, reset, late-frame rollback, 512 adversarial
+  payloads and eight integration mutations. Optional full-reference corpus
+  reproduces; all mandatory offline checks pass.
+
+CELT PLC/DTX, Hybrid, cross-mode transitions, full conformance and encoding remain
+pending. End-to-end normal CELT evidence does not establish SOTA performance.
+
 ## [0.1.32] - 2026-11-01
 
 - Add atomic transient anti-collapse on normalized spectra: bit-depth thresholds,

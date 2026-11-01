@@ -83,6 +83,13 @@ pub struct EnergyState {
     values: [[i32; 21]; 2],
 }
 impl EnergyState {
+    pub(crate) fn values(&self) -> &[[i32; 21]; 2] {
+        &self.values
+    }
+    pub(crate) fn values_mut(&mut self) -> &mut [[i32; 21]; 2] {
+        &mut self.values
+    }
+
     /// Inspect all 21 Q24 band energies for a channel, including inactive bands.
     pub fn channel(&self, index: usize) -> Option<&[i32; 21]> {
         self.values.get(index)

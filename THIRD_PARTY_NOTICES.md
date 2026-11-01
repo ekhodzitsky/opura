@@ -1158,3 +1158,14 @@ Bit-depth/energy attenuation, mono history merging, short-block noise and
 renormalization scheduling follow `anti_collapse` in `celt/bands.c` at the pinned
 revision above, under the retained CSIRO/Xiph.Org/Gregory Maxwell notices and
 redistribution terms. Existing scalar math and vector normalization notices apply.
+
+
+# Normal CELT decoder integration attribution
+
+Normal-frame stage ordering, channel/energy/history/RNG and silence policy follow
+`celt/celt_decoder.c`; bandwidth/final-range packet behavior follows
+`src/opus_decoder.c` at the pinned revision above. Existing original retained
+CSIRO/Xiph.Org/Gregory Maxwell decoder notices and component terms apply.
+The optional complete-packet oracle appends read-only snapshot functions to
+original external decoder files, preserving all original arithmetic statements
+and notices. No reference C implementation is linked into Cargo.

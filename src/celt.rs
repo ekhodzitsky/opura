@@ -1,6 +1,7 @@
-//! CELT transform-layer primitives under development.
+//! Normal CELT-only packet decoding and classic transform-layer primitives.
 //!
-//! These primitives do not yet decode CELT or Hybrid audio packets.
+//! See [`decoder`] for stateful normal CELT PCM output. CELT loss/DTX and
+//! Hybrid packet synthesis remain under development.
 pub mod math;
 pub mod partition;
 mod partition_tables;
@@ -13,6 +14,7 @@ mod band_tables;
 pub mod bands;
 pub mod control;
 mod control_tables;
+pub mod decoder;
 pub mod energy;
 mod energy_tables;
 pub mod fft;
