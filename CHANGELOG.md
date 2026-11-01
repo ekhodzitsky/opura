@@ -7,6 +7,21 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.29] - 2026-11-01
+
+- Add transactional classic CELT mono partition decoding: standard pulse-cache
+  lookup, uniform/triangular theta, recursive gains/transient allocation and
+  rebalancing, pulse budget fallback, deterministic noise/folding and masks.
+- Support sixteen blocks internally with a u16 partition mask, preserving the
+  existing public eight-block PVQ contract. Bound recursion to four split levels.
+- Match complete coordinates, masks, seed/budget and entropy on 9409 original
+  cases covering every valid standard geometry and fresh/positioned cursors;
+  reject 29 corrupt uniform cases atomically. Check malformed domains, negative
+  budget continuation and eight targeted mutations.
+- Reference tables/fixtures reproduce; all mandatory offline checks pass.
+
+Time-frequency/stereo band orchestration and complete CELT/Hybrid remain pending.
+
 ## [0.1.28] - 2026-11-01
 
 - Add bounded allocation-free CELT coded-theta gains/log2tan, Haar and

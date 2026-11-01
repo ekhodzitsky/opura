@@ -1126,3 +1126,11 @@ Coded theta/log2tan, Haar, Hadamard ordering and stereo merge follow
 revision above. Their original CSIRO/Xiph.Org/Gregory Maxwell notices and
 redistribution terms are retained above. The optional oracle extracts these
 functions unchanged into temporary developer probes; no C is linked into Cargo.
+
+
+# CELT recursive partition attribution
+
+Theta resolution/entropy, recursive partition/gain/bit balancing and noise/folding
+follow `celt/bands.c`; pulse mapping follows `celt/rate.h` and standard cache
+indices/bits follow `celt/static_modes_fixed.h` at the pinned revision above.
+Their original CSIRO/Xiph.Org/Gregory Maxwell notices and terms are retained above.

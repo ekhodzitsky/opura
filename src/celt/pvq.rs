@@ -74,7 +74,7 @@ impl From<math::MathError> for PvqError {
 pub struct NormalizedBand {
     values: [i32; 176],
     length: usize,
-    collapse: u8,
+    collapse: u16,
 }
 impl NormalizedBand {
     /// Normalized Q24 spectral coordinates after inverse spreading.
@@ -84,6 +84,9 @@ impl NormalizedBand {
     /// Bit i is set when raw pulse block i contains at least one pulse.
     /// This mask precedes spreading and is independent of output gain.
     pub fn collapse_mask(&self) -> u8 {
+        self.collapse as u8
+    }
+    pub(crate) fn wide_collapse_mask(&self) -> u16 {
         self.collapse
     }
 }
@@ -98,11 +101,23 @@ pub fn decode_band(
     blocks: usize,
     gain: i32,
 ) -> Result<NormalizedBand, PvqError> {
+    if !matches!(blocks, 1 | 2 | 4 | 8) {
+        return Err(PvqError::InvalidBlocks);
+    }
+    decode_partition_band(entropy, codebook, spread, blocks, gain)
+}
+pub(crate) fn decode_partition_band(
+    entropy: &mut RangeDecoder<'_>,
+    codebook: PulseCodebook,
+    spread: Spread,
+    blocks: usize,
+    gain: i32,
+) -> Result<NormalizedBand, PvqError> {
     if codebook.pulses() == 0 {
         return Err(PvqError::NoPulses);
     }
     let n = codebook.dimensions();
-    if !matches!(blocks, 1 | 2 | 4 | 8) || n % blocks != 0 {
+    if !matches!(blocks, 1 | 2 | 4 | 8 | 16) || n % blocks != 0 {
         return Err(PvqError::InvalidBlocks);
     }
     if gain < 0 {

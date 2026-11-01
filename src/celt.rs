@@ -2,6 +2,8 @@
 //!
 //! These primitives do not yet decode CELT or Hybrid audio packets.
 pub mod math;
+pub mod partition;
+mod partition_tables;
 pub mod pulses;
 pub mod pvq;
 

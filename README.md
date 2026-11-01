@@ -1267,3 +1267,50 @@ diff -u src/celt/band_tables.rs /tmp/opura-celt-band-tables.rs
 The optional oracle extracts the original band/vq functions unchanged and uses
 pinned original scalar math. Recursive partition entropy, folding/stereo band
 assembly, anti-collapse, complete CELT/Hybrid decoding and conformance follow.
+
+
+## CELT recursive mono partitions
+
+`opura::celt::partition::decode_partition(entropy, state, controls, fold)` decodes
+a standard mono spectral partition with fixed storage and transactional entropy
+and state. `PartitionControls` supplies standard band index, LM -1..3, block
+count 1/2/4/8/16, eighth-bit budget 0..81600, nonnegative Q31 gain, spreading and
+fill mask. Dimension is derived from band/LM and must be 2..176, divisible by
+blocks. One-coordinate bands belong to later band orchestration. Payloads must
+contain 2..1275 bytes; already over-budget cursors reject.
+
+`PartitionState::new(remaining_bits, seed)` supplies a separate bounded shape
+budget and folding seed; returned state exposes both. Theta can overrun this
+budget on malformed input, preserving reference behavior for this primitive;
+a subsequent call rejects a negative budget. The surrounding frame decoder must
+check final entropy/budget. Fold input must match dimension and have rounded Q14
+coordinates/energy fitting signed scalar arithmetic, including a conservative
+four-unit coordinate dither margin. Failure preserves entropy and shared state.
+`Partition::values()` returns Q24 time-block coefficients and `collapse_mask()`
+returns u16 flags. Existing public PVQ still accepts at most eight blocks/u8 masks.
+
+Standard pulse-cache selection, theta resolution/model, split gains, transient
+allocation, larger-half-first decoding, three-bit redistribution reserve and
+remaining-budget pulse reduction follow original `quant_partition`. Empty shapes
+use original LCG noise or dithered folding plus legacy normalization. LM decreases
+to -1, bounding recursive decoding to four split levels (31 nodes).
+
+[9438 reference cases](tests/celt-partition-fixtures.txt) cover every supported
+band/LM/block geometry, all spreading policies, low/max gains, folded/noise/zero
+fills, exhausted budgets and fresh/range/raw-positioned cursors. 9409 cases match
+all coefficients, masks, remaining budget, seed and range/tell/tell_frac; 29 corrupt
+uniform cases reject atomically. Invalid domains and negative-budget continuation
+also roll back. Eight mutations detect split threshold, cache tie, theta cost,
+transient delta, rebalancing, LCG, dither and sixteen-block mask errors.
+
+```sh
+python3 tools/celt_partition_fixtures.py target/reference/opus > /tmp/opura-celt-partition.txt
+diff -u tests/celt-partition-fixtures.txt /tmp/opura-celt-partition.txt
+python3 tools/celt_partition_fixtures.py target/reference/opus --tables > /tmp/opura-celt-partition-tables.rs
+rustfmt --edition 2024 /tmp/opura-celt-partition-tables.rs
+diff -u src/celt/partition_tables.rs /tmp/opura-celt-partition-tables.rs
+```
+
+The optional oracle uses unchanged original theta/partition functions with pinned
+standard mode, generic CWRS, vq and entropy. TF/stereo band orchestration,
+anti-collapse, complete CELT/Hybrid packets and official conformance follow.
