@@ -142,6 +142,48 @@ impl<'a> RangeDecoder<'a> {
         })
     }
 
+    /// Decode the classic CELT two-sided Laplace energy-delta distribution.
+    ///
+    /// Zero frequency is 1..=32736 out of 32768; decay is 0..=11456 in Q14.
+    /// The tail has unit frequencies and the search is bounded. Like other
+    /// range operations this can exceed physical input; callers check budgets.
+    /// Invalid models and accounting failures leave entropy unchanged.
+    pub fn decode_laplace(&mut self, zero_frequency: u16, decay: u16) -> Result<i32, RangeError> {
+        if !(1..=32736).contains(&zero_frequency) || decay > 11456 {
+            return Err(RangeError::InvalidDistribution);
+        }
+        self.transaction(|d| {
+            // ec_decode_bin uses range >> 15, which differs from generic
+            // division only in expression, not value, for this power of two.
+            let frequency = d.frequency(32768);
+            let mut low = 0;
+            let mut width = u32::from(zero_frequency);
+            let mut value = 0i32;
+            if frequency >= width {
+                value = 1;
+                low = width;
+                width = (((32768 - 32 - width) * (16384 - u32::from(decay))) >> 15) + 1;
+                while width > 1 && frequency >= low + 2 * width {
+                    low += 2 * width;
+                    width = (((2 * width - 2) * u32::from(decay)) >> 15) + 1;
+                    value += 1;
+                }
+                if width <= 1 {
+                    let tail = (frequency - low) >> 1;
+                    value += tail as i32;
+                    low += 2 * tail;
+                }
+                if frequency < low + width {
+                    value = -value;
+                } else {
+                    low += width;
+                }
+            }
+            d.update(low, (low + width).min(32768), 32768);
+            Ok(value)
+        })
+    }
+
     /// Decode a bit whose probability of being one is 1 / 2^logp.
     /// Supported logp values are 1..=15.
     pub fn decode_bit_logp(&mut self, logp: u32) -> Result<bool, RangeError> {
@@ -218,6 +260,11 @@ impl<'a> RangeDecoder<'a> {
     // only for the packet SILK path. Public primitive callers keep strict budgets.
     pub(crate) fn allow_silk_zero_extension(&mut self) {
         self.budget_bytes = 1275;
+    }
+
+    // Physical CELT budgets exclude SILK's virtual zero-trimmed-frame allowance.
+    pub(crate) fn storage_bits(&self) -> u32 {
+        self.input.len().saturating_mul(8).min(u32::MAX as usize) as u32
     }
 
     // Compare rounded-up byte usage to avoid multiplying an arbitrary slice length.

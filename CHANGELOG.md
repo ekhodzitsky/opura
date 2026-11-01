@@ -7,6 +7,21 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.18] - 2026-11-01
+
+- Add transactional CELT Laplace range symbols and persistent Q24 band-energy
+  reconstruction for one/two channels, all four frame sizes and selected bands.
+- Decode separate coarse, fine and final refinements, with exact budget
+  fallbacks, priority ordering, inter-frame/inter-band prediction and clamps.
+  Preserve reference signed-32 truncation before coarse energy saturation.
+- Match all 42 energies and range/tell/tell_frac after each stage in 768 chained
+  reference frames, plus 2688 standalone Laplace symbols. Exercise every two-byte
+  prefix with three boundary Laplace models and verify late refinement rollback.
+- Five mutations are detected; model tables and fixtures regenerate identically.
+  All mandatory offline checks pass; no third-party dependencies are added.
+
+CELT shape decoding/transforms, Hybrid and full Opus orchestration remain future work.
+
 ## [0.1.17] - 2026-11-01
 
 - Start CELT with allocation-free fixed-point scalar math: exact integer square

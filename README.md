@@ -800,3 +800,53 @@ diff -u tests/celt-math-fixtures.txt /tmp/opura-celt-math.txt
 
 These primitives do not yet decode CELT/Hybrid packets or establish full-codec
 conformance/performance. CELT transform and band decoding are the next stages.
+
+
+## CELT band energies
+
+`opura::celt::energy::EnergyState` retains 21 Q24 log-energy values per channel.
+`BandLayout::new(channels, start, end)` validates one/two encoded channels and a
+half-open interval within 0..21 (including empty intervals). Unselected bands
+and channels retain their histories. `FrameSize` selects 2.5/5/10/20 ms at the
+internal 48 kHz clock; its `samples()` reports 120/240/480/960 respectively.
+
+Call `coarse(entropy, layout, size, intra)` after reading the intra flag. It uses
+Laplace, three-symbol, one-bit or no-bit delta fallbacks according to remaining
+physical bits, then applies temporal/inter-band prediction and reference clamps.
+`fine(entropy, layout, bits)` reads zero through eight raw refinement bits per
+band, skipping a whole band when insufficient bits remain. After shape decoding,
+`finalise(entropy, layout, bits, priorities, bits_left)` refines eligible bands in
+priority order and returns unused bits. Its budget cannot exceed the remaining
+physical input. These stages must be positioned around allocation/PVQ by the
+future packet decoder; this API does not consume a complete CELT frame itself.
+
+All operations commit energies and entropy together. Invalid layouts/quantizers,
+invalid final budgets and arithmetic overflow reject without changing history.
+`reset()` zeros both channel histories; `channel(index)` inspects all 21 energies.
+The classic Opus path is supported; QEXT/RES24 refinement is excluded.
+
+`RangeDecoder::decode_laplace(zero_frequency, decay)` exposes the bounded classic
+CELT entropy distribution with validated Q15 zero frequency 1..32736 and Q14
+decay 0..11456. Like other range primitives it zero-extends compressed input;
+the energy stages handle physical budgets. Invalid models leave entropy unchanged.
+
+[Reference sequences](tests/celt-energy-fixtures.txt) use original pinned
+`unquant_coarse_energy`, `unquant_fine_energy`, `unquant_energy_finalise` and
+`ec_laplace_decode`, recording all energies and entropy diagnostics after each
+stage. Tests cover 768 chained frames across all LM/channel/intra contexts,
+selected/empty intervals and 0–200 byte payloads, plus 2688 standalone symbols.
+Every two-byte prefix is checked with three boundary Laplace models. Injected
+second-channel refinement overflow verifies rollback after earlier samples and
+raw bits have advanced. Five mutations detect accumulator truncation, temporal
+clamp, inter-band prediction, fine midpoint and final priority errors.
+
+```sh
+python3 tools/celt_energy_fixtures.py target/reference/opus > /tmp/opura-celt-energy.txt
+diff -u tests/celt-energy-fixtures.txt /tmp/opura-celt-energy.txt
+python3 tools/celt_energy_fixtures.py target/reference/opus --tables > /tmp/opura-celt-energy-tables.rs
+rustfmt --edition 2024 /tmp/opura-celt-energy-tables.rs
+diff -u src/celt/energy_tables.rs /tmp/opura-celt-energy-tables.rs
+```
+
+CELT shape decoding, transform synthesis and complete Opus conformance remain
+incomplete. No end-to-end CELT audio or performance claim follows from these tests.
