@@ -1142,3 +1142,11 @@ TF/Haar/Hadamard scheduling, folding output, one-coordinate signs and stereo
 angle/intensity/inversion/N2/merge scheduling follow `celt/bands.c` at the pinned
 revision above. Original CSIRO/Xiph.Org/Gregory Maxwell notices and redistribution
 terms are retained above; existing scalar/PVQ/transform notices also apply.
+
+
+# CELT all-band spectral assembly attribution
+
+Cross-band balance, folding selection/masks, special Hybrid folding and
+stereo-mode transitions follow `quant_all_bands` / `special_hybrid_folding` in
+`celt/bands.c` at the pinned revision above, under the retained original
+CSIRO/Xiph.Org/Gregory Maxwell notices and redistribution terms.

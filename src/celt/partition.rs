@@ -13,7 +13,9 @@ use crate::range::{RangeDecoder, RangeError};
 use std::fmt;
 
 mod band;
+mod spectrum;
 pub use band::{Band, BandControls, StereoControls, decode_band};
+pub use spectrum::{Spectrum, decode_spectrum};
 
 /// Invalid geometry/budget/vector or spectral entropy.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

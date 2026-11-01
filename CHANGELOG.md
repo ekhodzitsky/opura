@@ -7,6 +7,23 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.31] - 2026-11-01
+
+- Assemble complete normalized CELT mono/stereo spectra from immutable
+  allocation/TF contexts, with all-band budget carry, folding-source/mask
+  selection, Hybrid fold tails and dual-to-intensity folding conversion.
+- Return fixed-storage Q24 spectra, channel masks and folding seed; inactive
+  channels/bins stay zero and failures preserve entropy. Accept real CELT/Hybrid
+  starts 0/17 and validate the TF/frame context and physical payload budget.
+- Match selected spectra, masks, seed and entropy on 3779 original full-stage
+  sequences from coarse energy through all bands, including 1008 prefix cases;
+  reject 253 corrupt streams atomically across 4032 total cases.
+- Verify invalid TF/start/payload/cursor rollback and eight mutations. Reference
+  regeneration and all mandatory offline gates pass.
+
+Anti-collapse, frame energy history and compressed CELT PCM integration remain
+pending; Hybrid and complete Opus conformance still require further work.
+
 ## [0.1.30] - 2026-11-01
 
 - Add transactional mono/stereo CELT band decoding over recursive partitions:

@@ -155,7 +155,7 @@ impl Decoder<'_, '_> {
         }
         Ok(1)
     }
-    fn band(
+    pub(super) fn band(
         &mut self,
         x: &mut [i32],
         fold: Option<&[i32]>,
@@ -245,7 +245,7 @@ impl Decoder<'_, '_> {
         }
         Ok(cm & ((1 << blocks) - 1))
     }
-    fn stereo_band(
+    pub(super) fn stereo_band(
         &mut self,
         x: &mut [i32],
         y: &mut [i32],

@@ -1354,3 +1354,44 @@ The optional oracle extends the unchanged original partition/theta functions
 with original quant_band/quant_band_stereo and Haar/Hadamard/stereo helpers.
 All-band folding/budget orchestration, anti-collapse and complete CELT/Hybrid
 packet decoding are still needed; this evidence does not establish a full codec.
+
+
+## CELT all-band normalized spectra
+
+`opura::celt::partition::decode_spectrum(entropy, allocation, tf, spread, seed,
+disable_inversion)` assembles all selected bands after fine energy. Immutable
+allocation supplies frame size, encoded channels, bands, PVQ budgets, balance,
+anti-collapse reservation and stereo context. TF values must match the standard
+long/transient mapping. Physical payload is 2..1275 bytes with a cursor within its
+budget. All-band starts are restricted to real packet modes 0 (CELT) and 17
+(Hybrid). Generic allocation-only intervals remain available separately.
+
+All-band decoding follows original balance distribution, fold position freeze,
+source collapse-mask aggregation, aggressive-spread folding rules, special
+Hybrid second-band tail and dual-to-intensity folding conversion. Each band uses
+the verified sign/TF/stereo/partition core. `Spectrum` exposes frame/layout,
+channel Q24 values, 21 per-channel collapse masks and final folding seed.
+Unselected bins/inactive channels stay zero; every error preserves entropy.
+The returned spectrum still needs reserved anti-collapse control, final energy
+refinement and optional anti-collapse before the synthesis backend.
+
+[4032 complete-stage cases](tests/celt-spectrum-fixtures.txt) traverse original
+coarse energy, TF, spreading, allocation and fine energy before quant_all_bands;
+1008 also traverse the original prefix. They cover every frame/channel, nine
+CELT/Hybrid intervals, intra/transient models, fresh/positioned cursors and
+2..1275-byte zero/FF/random payloads. 3779 match all selected coordinates, masks,
+seed and range/tell/tell_frac, while 253 corrupt streams reject atomically.
+Original quant_all_bands borrows the unselected highest band as internal scratch;
+comparisons exclude that private scratch and independently require our unused
+output bins to be zero. Invalid starts/TF/payloads/over-budget cursors roll back.
+Eight mutations detect reserved budget, balance divisor, Hybrid offset/tail,
+dual averaging/budget, collapse-mask combination and fold-position freeze.
+
+```sh
+python3 tools/celt_partition_fixtures.py target/reference/opus --spectra > /tmp/opura-celt-spectrum.txt
+diff -u tests/celt-spectrum-fixtures.txt /tmp/opura-celt-spectrum.txt
+```
+
+The optional oracle uses unchanged original quant_all_bands and preceding stage
+blocks/functions with pinned scalar code. It does not yet validate anti-collapse,
+stateful CELT PCM packets, Hybrid synthesis or official complete Opus conformance.
