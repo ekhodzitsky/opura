@@ -1,30 +1,33 @@
-//! Standard CELT inverse MDCT and 120-sample TDAC synthesis window.
-//! Returns signed-32 internal signal, before CELT postfilter/de-emphasis/PCM.
+//! Standard CELT forward/inverse MDCT and 120-sample analysis/TDAC windows.
+//! Analyzes pre-emphasized signed-32 input or synthesizes internal signal before
+//! CELT postfilter/de-emphasis/PCM.
 //! Algorithms and Q15 coefficients follow pinned Opus mdct.c/static modes.
 //! Copyright (c) 2007-2008 CSIRO; 2007-2009 Xiph.Org Foundation.
 //! See THIRD_PARTY_NOTICES.md.
 use super::{
     FrameSize,
     fft::{Complex, FftError, FftPlan},
+    fft_tables::{SCALE, SCALE_SHIFT},
     mdct_tables::{TRIG, WINDOW},
 };
 use std::fmt;
 
-/// Invalid inverse-MDCT geometry or FFT operation.
+/// Invalid MDCT geometry or FFT operation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum MdctError {
-    /// Stride must be 1/2/4/8, select at most 960 bins, and input must contain
-    /// every selected value within a buffer of at most 960 entries.
+    /// Stride must be 1/2/4/8 and select at most 960 spectral bins. Analysis
+    /// needs exactly frame-size plus120 time samples; synthesis needs every
+    /// selected spectral input. Spectral buffers cannot exceed960 entries.
     InvalidGeometry,
-    /// FFT validation failed; no overlap is committed.
+    /// FFT validation failed; no output or overlap is committed.
     Fft(FftError),
 }
 impl fmt::Display for MdctError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvalidGeometry => f.write_str("invalid CELT inverse MDCT spectral geometry"),
-            Self::Fft(e) => write!(f, "CELT inverse MDCT: {e}"),
+            Self::InvalidGeometry => f.write_str("invalid CELT MDCT buffer geometry"),
+            Self::Fft(e) => write!(f, "CELT MDCT: {e}"),
         }
     }
 }
@@ -40,6 +43,104 @@ impl From<FftError> for MdctError {
     fn from(e: FftError) -> Self {
         Self::Fft(e)
     }
+}
+
+/// Analyze one pre-emphasized internal-rate block with the standard120-sample window.
+///
+/// Input must contain exactly `size.samples() + 120` signed-32 samples at the
+/// caller's signal scale, including overlap context. Input is never modified.
+/// Output bin i is written at `output[i*stride]`; other entries are preserved.
+/// Stride is1/2/4/8, `size.samples()*stride` cannot exceed960, and output must
+/// contain every selected bin within at most960 entries. All output is committed
+/// together; invalid geometry or FFT errors leave the whole buffer unchanged.
+/// This transform alone does not pre-emphasize, quantize or encode audio.
+pub fn analyze(
+    size: FrameSize,
+    input: &[i32],
+    output: &mut [i32],
+    stride: usize,
+) -> Result<(), MdctError> {
+    analyze_inner(size, input, output, stride).map(|_| ())
+}
+fn analyze_inner(
+    size: FrameSize,
+    input: &[i32],
+    output: &mut [i32],
+    stride: usize,
+) -> Result<u8, MdctError> {
+    let n = size.samples();
+    let half = n / 2;
+    if input.len() != n + 120
+        || !matches!(stride, 1 | 2 | 4 | 8)
+        || n * stride > 960
+        || output.len() > 960
+        || output.len() < (n - 1) * stride + 1
+    {
+        return Err(MdctError::InvalidGeometry);
+    }
+    let trig = &TRIG[1920 - 2 * n..1920 - n];
+    let mut folded = [0i32; 960];
+    for i in 0..half {
+        let left = 60 + 2 * i;
+        let right = n - 1 + 60 - 2 * i;
+        let (real, imag) = if i < 30 {
+            let w1 = 60 + 2 * i;
+            let w2 = 59 - 2 * i;
+            (
+                mul(input[left + n], WINDOW[w2]).wrapping_add(mul(input[right], WINDOW[w1])),
+                mul(input[left], WINDOW[w1]).wrapping_sub(mul(input[right - n], WINDOW[w2])),
+            )
+        } else if i < half - 30 {
+            (input[right], input[left])
+        } else {
+            let w1 = 2 * (i - (half - 30));
+            let w2 = 119 - w1;
+            (
+                mul(input[left - n], WINDOW[w1])
+                    .wrapping_neg()
+                    .wrapping_add(mul(input[right], WINDOW[w2])),
+                mul(input[left], WINDOW[w2]).wrapping_add(mul(input[right + n], WINDOW[w1])),
+            )
+        };
+        folded[2 * i] = real;
+        folded[2 * i + 1] = imag;
+    }
+    let mut spectrum = [Complex::default(); 480];
+    let scale = SCALE[size.lm()];
+    let scale_shift = SCALE_SHIFT[size.lm()] - 1;
+    let mut maximum = 1i32;
+    for i in 0..half {
+        let real = folded[2 * i];
+        let imag = folded[2 * i + 1];
+        let yr = mul(real, trig[i]).wrapping_sub(mul(imag, trig[half + i]));
+        let yi = mul(imag, trig[i]).wrapping_add(mul(real, trig[half + i]));
+        let real = ((i64::from(yr) * i64::from(scale)) >> 16) as i32;
+        let imag = ((i64::from(yi) * i64::from(scale)) >> 16) as i32;
+        maximum = maximum.max(real.wrapping_abs()).max(imag.wrapping_abs());
+        spectrum[i] = Complex { real, imag };
+    }
+    let headroom = (28 - zlog(maximum)).clamp(0, i32::from(scale_shift)) as u8;
+    let mut transformed = [Complex::default(); 480];
+    FftPlan::new(size).forward(
+        &spectrum[..half],
+        &mut transformed[..half],
+        scale_shift - headroom,
+    )?;
+    let mut bins = [0i32; 960];
+    for (i, value) in transformed[..half].iter().enumerate() {
+        bins[2 * i] = round(
+            mul(value.imag, trig[half + i]).wrapping_sub(mul(value.real, trig[i])),
+            u32::from(headroom),
+        );
+        bins[n - 1 - 2 * i] = round(
+            mul(value.real, trig[half + i]).wrapping_add(mul(value.imag, trig[i])),
+            u32::from(headroom),
+        );
+    }
+    for i in 0..n {
+        output[i * stride] = bins[i];
+    }
+    Ok(headroom)
 }
 
 /// One windowed internal signal frame, not final signed-16 PCM.
@@ -177,5 +278,61 @@ fn zlog(x: i32) -> i32 {
         0
     } else {
         31 - x.leading_zeros() as i32
+    }
+}
+
+#[cfg(test)]
+mod forward_tests {
+    use super::*;
+
+    #[test]
+    fn original_forward_spectra_headroom_and_untouched_slots_match()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let mut rows = 0;
+        let mut geometries = [[false; 4]; 4];
+        let mut shifts = [false; 8];
+        for (index, line) in include_str!("../../tests/celt-forward-mdct-fixtures.txt")
+            .lines()
+            .enumerate()
+        {
+            if line.starts_with('#') {
+                continue;
+            }
+            let columns: Vec<_> = line.split_whitespace().collect();
+            assert_eq!(columns[0], "frame");
+            let lm = columns[1].parse::<usize>()?;
+            let size = [
+                FrameSize::Ms2_5,
+                FrameSize::Ms5,
+                FrameSize::Ms10,
+                FrameSize::Ms20,
+            ][lm];
+            let stride = columns[2].parse::<usize>()?;
+            let length = columns[3].parse::<usize>()?;
+            let expected_headroom = columns[4].parse::<u8>()?;
+            let count = columns[5].parse::<usize>()?;
+            let input: Vec<i32> = columns[6..6 + count]
+                .iter()
+                .map(|x| x.parse())
+                .collect::<Result<_, _>>()?;
+            let expected: Vec<i32> = columns[6 + count..]
+                .iter()
+                .map(|x| x.parse())
+                .collect::<Result<_, _>>()?;
+            assert_eq!(expected.len(), length);
+            let before = input.clone();
+            let mut output = vec![19088743; length];
+            let headroom = analyze_inner(size, &input, &mut output, stride)?;
+            assert_eq!(output, expected, "spectrum at row{index}");
+            assert_eq!(headroom, expected_headroom, "headroom at row{index}");
+            assert_eq!(input, before);
+            geometries[lm][stride.trailing_zeros() as usize] = true;
+            shifts[headroom as usize] = true;
+            rows += 1;
+        }
+        assert_eq!(rows, 304);
+        assert_eq!(geometries.iter().flatten().filter(|&&v| v).count(), 10);
+        assert!(shifts.iter().all(|&v| v));
+        Ok(())
     }
 }

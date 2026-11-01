@@ -7,6 +7,20 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.43] - 2026-11-02
+
+- Add safe allocation-free standard CELT forward MDCT analysis for all four
+  block sizes and ten valid interleaved size/stride combinations.
+- Match original window/folding, pre-rotation/Q16 scale, signal headroom,
+  staged FFT downshift and rounded spectral post-rotation using existing tables.
+  Preserve input, ignored output slots and complete output on geometry errors.
+- Match304 independent original spectra and observed headroom decisions, including
+  signed extremes, impulses, random scales and sequential short blocks; cover
+  headroom0..7 and detect eleven targeted mutations. Forward and prior inverse
+  corpora reproduce; all seven mandatory offline checks pass with zero dependencies.
+
+Complete audio encoding remains under development.
+
 ## [0.1.42] - 2026-11-02
 
 - Add a safe fixed-capacity Opus range encoder: CDF/ICDF, probability bits,

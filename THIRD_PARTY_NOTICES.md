@@ -909,9 +909,10 @@ void opus_ifft_c(const kiss_fft_state *st,const kiss_fft_cpx *fin,kiss_fft_cpx *
 }
 ```
 
-# CELT inverse MDCT attribution
+# CELT forward/inverse MDCT attribution
 
-Inverse rotations/headroom control, TDAC synthesis and the standard trig/window
+Forward window/folding, scaling, rotations/headroom control, inverse rotations,
+TDAC synthesis and the standard trig/window
 tables follow `celt/mdct.c` and `celt/static_modes_fixed.h` at the pinned revision.
 The scalar FFT retains the separate KISS FFT notices above.
 

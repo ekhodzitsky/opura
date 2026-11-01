@@ -1827,3 +1827,28 @@ diff -u tests/range-encoder-fixtures.txt /tmp/range-encoder-fixtures.txt
 
 The optional oracle compiles unchanged external entropy sources temporarily;
 normal Cargo builds/tests use the retained fixtures and have no foreign dependency.
+
+## CELT forward transform foundation
+
+`opura::celt::mdct::analyze` converts a pre-emphasized internal-rate signal
+block to standard CELT MDCT bins using the canonical 120-sample window. It
+supports all four block sizes and the ten valid size/stride combinations.
+Input contains exactly `size.samples() + 120` signed-32 values, including
+context, and remains unchanged. Output bin i is written at i*stride; all other
+entries remain intact. Invalid input/output geometry preserves the whole output.
+The transform uses fixed storage, safe Rust and the existing canonical FFT.
+
+Window/folding, Q16 scale, signal-dependent headroom, FFT stage downshift and
+rounded post-rotation match the pinned scalar fixed-point reference. The
+independent corpus retains complete spectra and observed headroom for 304 cases:
+silence, boundary impulses, full signed extremes, random scales and interleaved
+short blocks. It covers every headroom value from zero through seven. Eleven
+targeted mutations are detected; existing inverse fixtures reproduce unchanged.
+
+```sh
+python3 tools/celt_mdct_fixtures.py /path/to/opus-v1.6.1 --forward > /tmp/celt-forward-mdct-fixtures.txt
+diff -u tests/celt-forward-mdct-fixtures.txt /tmp/celt-forward-mdct-fixtures.txt
+```
+
+This is transform analysis, not a complete audio encoder. Pre-emphasis, encoder
+band analysis/quantization and packet orchestration remain under development.
