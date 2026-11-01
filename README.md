@@ -1921,3 +1921,44 @@ diff -u tests/celt-analysis-fixtures.txt /tmp/celt-analysis-fixtures.txt
 The caller selects the block mode and supplies the complete signal context.
 Transient detection, pitch-prefilter/overlap orchestration, band analysis,
 quantization and complete audio packet encoding remain under development.
+
+## CELT band analysis foundation
+
+`opura::celt::analysis::analyze_bands` measures and normalizes a planar mono/stereo
+spectrum at any standard CELT block size. `BandAnalysis` owns fixed normalized
+Q24 channel vectors, native amplitudes and mean-adjusted Q24 log energies.
+Band ends satisfy `1 <= effective_end <= end <= 21`: measured bands end at
+`effective_end`, later log energies through `end` are -14, and inactive storage
+is zero. Bounded per-channel views expose each result without allocation.
+
+Headroom depends on native canonical band widths. Energy uses the refined
+square-root estimate and maximum-coefficient floor; normalization applies the
+native extra unit for amplitudes below ten and a refined reciprocal. The math
+module now exposes `sqrt_extended` (QX to Q(X/2+16), zero/clamp semantics) and
+`reciprocal_normalized_q31` (normalized [2^30,2^31) to Q30). Existing reciprocal
+results remain unchanged after sharing its Q15 initialization.
+
+Input is never modified. Only active coefficients are inspected; unused bins
+may contain arbitrary values. Active `i32::MIN`, unrepresentable headroom sums
+and overflowing signed32 squared-energy accumulations return
+`AnalysisError::ArithmeticOverflow`, with no partial result. This explicitly
+bounds the reference's implicit arithmetic domain. Ordinary signed16 PCM paths
+through preprocessing and long/short/channel/rate transforms pass these checks.
+The primitive does not quantize energies or normalized shapes.
+
+All amplitudes, normalized samples and log energies match 640 independent
+original cases. Scalar evidence covers 69,834 wide-square-root and 34,877
+normalized-reciprocal inputs through dense hashes and boundary cases. Tests
+include silence, tiny-energy protection, active-end tails, wide bands, random
+scales, PCM composition and rejected extreme energy domains. Fourteen targeted
+mutations are detected; earlier scalar math results reproduce unchanged.
+
+```sh
+python3 tools/celt_band_analysis_fixtures.py /path/to/opus-v1.6.1 > /tmp/celt-band-analysis-fixtures.txt
+python3 tools/celt_band_analysis_fixtures.py /path/to/opus-v1.6.1 --math > /tmp/celt-analysis-math-fixtures.txt
+diff -u tests/celt-band-analysis-fixtures.txt /tmp/celt-band-analysis-fixtures.txt
+diff -u tests/celt-analysis-math-fixtures.txt /tmp/celt-analysis-math-fixtures.txt
+```
+
+Transient/pitch-prefilter decisions, quantization and complete audio packet
+encoding remain under development.

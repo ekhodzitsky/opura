@@ -15,7 +15,7 @@ pub enum MathError {
     NegativeInput,
     /// Reciprocal/division denominator must be positive.
     InvalidDenominator,
-    /// Reciprocal square root requires normalized input in [0.25, 1).
+    /// Input lies outside the operation-specific normalized range.
     NotNormalized,
     /// Fractional division requires numerator magnitude no greater than denominator.
     NotFractional,
@@ -25,9 +25,7 @@ impl fmt::Display for MathError {
         f.write_str(match self {
             Self::NegativeInput => "CELT square root/logarithm input must be nonnegative",
             Self::InvalidDenominator => "CELT reciprocal/division denominator must be positive",
-            Self::NotNormalized => {
-                "CELT reciprocal square root input must be normalized to [0.25, 1)"
-            }
+            Self::NotNormalized => "CELT input lies outside the required normalized range",
             Self::NotFractional => "CELT fractional numerator magnitude exceeds denominator",
         })
     }
@@ -190,10 +188,45 @@ pub fn reciprocal(x: i32) -> Result<i32, MathError> {
 fn reciprocal_positive(x: i32) -> i32 {
     let i = ilog(x);
     let n = (vshift(x, i - 15) - 32768) as i16 as i32;
+    vshift(reciprocal_normalized_q15(n), i - 16)
+}
+fn reciprocal_normalized_q15(n: i32) -> i32 {
     let mut r = add16(30840, mul_q15(-15420, n));
     r = (r - mul_q15(r, add16(mul_q15(r, n), add16(r, -32768)))) as i16 as i32;
-    r = (r - add16(1, mul_q15(r, add16(mul_q15(r, n), add16(r, -32768))))) as i16 as i32;
-    vshift(r, i - 16)
+    (r - add16(1, mul_q15(r, add16(mul_q15(r, n), add16(r, -32768))))) as i16 as i32
+}
+
+/// Refined reference square root: QX input to Q(X/2 + 16) output.
+/// Returns zero for zero, rejects negatives and clamps inputs >=2^30 to i32::MAX.
+pub fn sqrt_extended(x: i32) -> Result<i32, MathError> {
+    if x < 0 {
+        return Err(MathError::NegativeInput);
+    }
+    if x == 0 {
+        return Ok(0);
+    }
+    if x >= 1 << 30 {
+        return Ok(i32::MAX);
+    }
+    let k = ilog(x) >> 1;
+    let normalized = vshift(x, 2 * (k - 14) - 1);
+    let root = mul_q31(rsqrt_normalized_q31(normalized)?, normalized);
+    Ok(if k < 12 {
+        root.wrapping_add(1 << (11 - k)) >> (12 - k)
+    } else {
+        root.wrapping_shl((k - 12) as u32)
+    })
+}
+
+/// Refined reciprocal: normalized Q31 [2^30,2^31) input to Q30 output.
+/// Preserves native Q15 initialization and the full-width Newton correction.
+pub fn reciprocal_normalized_q31(x: i32) -> Result<i32, MathError> {
+    if x < 1 << 30 {
+        return Err(MathError::NotNormalized);
+    }
+    let estimate = reciprocal_normalized_q15((x >> 15) - 32768) << 16;
+    let error = mul_q31(estimate, x).wrapping_sub(1 << 30);
+    Ok(estimate.wrapping_sub(mul_q31(error, estimate).wrapping_shl(1).wrapping_add(1)))
 }
 
 /// Approximate a/b in Q29, for b>0 and -b<=a<=b.

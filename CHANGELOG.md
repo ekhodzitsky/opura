@@ -7,6 +7,21 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.46] - 2026-11-02
+
+- Add safe fixed-storage CELT band analysis: native amplitudes, normalized Q24
+  vectors and mean-adjusted Q24 log energies for all sizes and mono/stereo.
+- Match canonical headroom, refined square root/reciprocal, maximum-coefficient
+  floor, low-energy protection and effective-end tails; expose bounded views.
+  Reject unrepresentable active arithmetic explicitly without changing input.
+- Add refined wide square-root and normalized Q31 reciprocal APIs while retaining
+  old scalar results. Match640 independent original complete band results and
+  104711 refined scalar inputs; verify PCM composition, invalid/overflow domains
+  and fourteen detected mutations. New and previous scalar/analysis evidence
+  reproduce; all seven mandatory offline gates pass with zero dependencies.
+
+Complete audio quantization and packet encoding remain under development.
+
 ## [0.1.45] - 2026-11-02
 
 - Add fixed-storage CELT frame analysis over validated planar channel contexts,

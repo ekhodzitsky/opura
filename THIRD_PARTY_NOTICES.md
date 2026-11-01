@@ -1341,3 +1341,14 @@ Long/short MDCT orchestration, stereo-to-mono rounding and low-rate spectral
 scaling/cutoff follow `celt/celt_encoder.c::compute_mdcts` at the pinned revision.
 The CELT encoder notices and terms retained in the preceding input section apply;
 individual transforms retain the forward/inverse MDCT and KISS FFT notices above.
+
+
+# CELT encoder band analysis attribution
+
+Band amplitudes and normalization follow `celt/bands.c::compute_band_energies`
+and `normalise_bands`; mean-adjusted log energies follow
+`celt/quant_bands.c::amp2Log2`. Refined square root and normalized reciprocal
+follow `celt/mathops.c::celt_sqrt32`, `celt_rcp_norm16` and `celt_rcp_norm32`.
+All use the pinned revision above, with their CELT band/scalar notices and terms
+already retained here. Canonical band edges, log widths and means keep their
+existing mode/table attribution. Active-domain overflow validation is added in Rust.
