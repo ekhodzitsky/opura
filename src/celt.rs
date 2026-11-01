@@ -1,7 +1,7 @@
-//! Normal CELT-only packet decoding and classic transform-layer primitives.
+//! CELT-only normal/loss/DTX decoding and classic transform-layer primitives.
 //!
-//! See [`decoder`] for stateful normal CELT PCM output. CELT loss/DTX and
-//! Hybrid packet synthesis remain under development.
+//! See [`decoder`] for stateful CELT PCM output and concealment.
+//! Hybrid packet synthesis and cross-mode transitions remain under development.
 pub mod lpc;
 pub mod math;
 pub mod partition;

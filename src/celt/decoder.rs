@@ -1,5 +1,6 @@
-//! Stateful normal CELT-only packet decoding to final signed-16 PCM.
-//! Frame ordering/history follow pinned celt_decoder.c; loss/Hybrid are separate.
+//! Stateful CELT-only normal/loss/DTX decoding to final signed-16 PCM.
+//! Frame/loss ordering and histories follow pinned celt_decoder.c; Hybrid and
+//! cross-mode transitions are separate.
 //! Copyright (c) 2007-2008 CSIRO; 2007-2010 Xiph.Org Foundation;
 //! 2008 Gregory Maxwell. See THIRD_PARTY_NOTICES.md.
 use super::{
@@ -17,17 +18,20 @@ use crate::{
 };
 use std::fmt;
 
+mod loss;
+pub use loss::{ConcealmentError, ConcealmentMode, ConcealmentState};
+
 /// CELT packet/frame failure; all decoder state is preserved on any error.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum DecoderError {
     /// Invalid externally delimited packet framing.
     Framing(PacketError),
-    /// Only CELT-only normal packets are currently supported.
+    /// Only CELT-only packets are supported by this decoder.
     UnsupportedMode,
     /// Encoded channels must be one/two and bandwidth a CELT mode.
     InvalidConfiguration,
-    /// Empty/one-byte frames require loss/DTX support, not normal decoding.
+    /// A normal frame payload exceeds the 1275-byte limit.
     MissingPayload,
     /// Entropy tell exceeds the physical frame budget.
     BitBudgetExceeded,
@@ -45,14 +49,16 @@ pub enum DecoderError {
     Synthesis(SynthesisError),
     /// Entropy failed.
     Entropy(RangeError),
+    /// Loss scheduling or concealment failed.
+    Concealment(ConcealmentError),
 }
 impl fmt::Display for DecoderError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Framing(e) => write!(f, "CELT framing: {e}"),
-            Self::UnsupportedMode => f.write_str("CELT-only normal packets required"),
+            Self::UnsupportedMode => f.write_str("CELT-only packets required"),
             Self::InvalidConfiguration => f.write_str("invalid CELT frame configuration"),
-            Self::MissingPayload => f.write_str("CELT normal frames require 2..1275 bytes"),
+            Self::MissingPayload => f.write_str("CELT normal frame payload exceeds 1275 bytes"),
             Self::BitBudgetExceeded => f.write_str("CELT entropy exceeds physical frame budget"),
             Self::Control(e) => write!(f, "CELT control: {e}"),
             Self::Energy(e) => write!(f, "CELT energy: {e}"),
@@ -61,6 +67,7 @@ impl fmt::Display for DecoderError {
             Self::AntiCollapse(e) => write!(f, "CELT anti-collapse: {e}"),
             Self::Synthesis(e) => write!(f, "CELT synthesis: {e}"),
             Self::Entropy(e) => write!(f, "CELT entropy: {e}"),
+            Self::Concealment(e) => write!(f, "CELT loss: {e}"),
         }
     }
 }
@@ -75,6 +82,7 @@ impl std::error::Error for DecoderError {
             Self::AntiCollapse(e) => Some(e),
             Self::Synthesis(e) => Some(e),
             Self::Entropy(e) => Some(e),
+            Self::Concealment(e) => Some(e),
             _ => None,
         }
     }
@@ -120,6 +128,12 @@ impl From<RangeError> for DecoderError {
     }
 }
 
+impl From<ConcealmentError> for DecoderError {
+    fn from(e: ConcealmentError) -> Self {
+        Self::Concealment(e)
+    }
+}
+
 /// Encoded CELT frame geometry, independent of fixed output channels/rate.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct FrameConfig {
@@ -156,13 +170,14 @@ impl DecodedPcm {
     pub fn samples_per_channel(&self) -> usize {
         self.length / self.channels
     }
-    /// Last compressed frame's public Opus final-range diagnostic.
+    /// Last frame's public Opus final-range diagnostic, zero for loss/DTX.
     pub fn final_range(&self) -> u32 {
         self.range
     }
 }
-/// Fixed-output pure Rust normal CELT decoder, with allocation-free transactions.
-/// Loss/DTX, Hybrid and cross-mode transition handling are not implemented here.
+/// Fixed-output pure Rust CELT decoder, with allocation-free transactions.
+/// Normal frames, periodic/noise loss, DTX and recovery are supported. Hybrid and
+/// cross-mode transition mixing belong to a separate layer.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CeltDecoder {
     backend: CeltSynthesis,
@@ -171,6 +186,8 @@ pub struct CeltDecoder {
     previous2: [[i32; 21]; 2],
     background: [[i32; 21]; 2],
     rng: u32,
+    range: u32,
+    loss: ConcealmentState,
     rate: Decimation,
 }
 impl CeltDecoder {
@@ -183,6 +200,8 @@ impl CeltDecoder {
             previous2: [[-(28 << 24); 21]; 2],
             background: [[0; 21]; 2],
             rng: 0,
+            range: 0,
+            loss: ConcealmentState::default(),
             rate,
         })
     }
@@ -194,7 +213,8 @@ impl CeltDecoder {
     pub fn sample_rate(&self) -> u32 {
         self.rate.sample_rate()
     }
-    /// Clear every history and diagnostic, retaining output geometry.
+    /// Clear histories/diagnostics, retaining output geometry and the internal
+    /// bandwidth limit, as native OPUS_RESET_STATE does.
     pub fn reset(&mut self) {
         self.backend.reset();
         self.energy.reset();
@@ -202,10 +222,12 @@ impl CeltDecoder {
         self.previous2 = self.previous;
         self.background = [[0; 21]; 2];
         self.rng = 0;
+        self.range = 0;
+        self.loss.reset();
     }
-    /// Last successfully decoded frame's normalized entropy range.
+    /// Last frame's public final-range diagnostic, zero for loss/DTX.
     pub fn final_range(&self) -> u32 {
-        self.rng
+        self.range
     }
     /// Coarse/fine energy history, including both encoded channels.
     pub fn energy(&self) -> &EnergyState {
@@ -227,7 +249,9 @@ impl CeltDecoder {
     pub fn synthesis(&self) -> &CeltSynthesis {
         &self.backend
     }
-    /// Decode a complete CELT-only packet, atomically across all compressed frames.
+    /// Decode a complete CELT-only packet, atomically across all frames.
+    /// Empty/one-byte compressed frames invoke PLC/DTX using the current TOC
+    /// duration and the last decoded bandwidth context.
     pub fn decode(&mut self, data: &[u8]) -> Result<DecodedPcm, DecoderError> {
         let packet = Packet::parse(data)?;
         if packet.mode() != Mode::Celt {
@@ -254,7 +278,7 @@ impl CeltDecoder {
             range: 0,
         };
         for payload in packet.frames() {
-            let frame = next.frame(payload, config)?;
+            let frame = next.frame_or_loss(payload, config)?;
             let end = result.length + frame.samples().len();
             // Packet framing caps total duration at120ms; supported output is <=48kHz.
             if end > result.values.len() {
@@ -263,35 +287,44 @@ impl CeltDecoder {
             result.values[result.length..end].copy_from_slice(frame.samples());
             result.length = end;
         }
-        result.range = next.rng;
+        result.range = next.range;
         *self = next;
         Ok(result)
     }
     /// Decode one CELT-only frame payload with explicit encoded configuration.
+    /// Empty/one-byte payloads conceal this frame duration; initial loss is silent.
     pub fn decode_frame(
         &mut self,
         payload: &[u8],
         config: FrameConfig,
     ) -> Result<PcmFrame, DecoderError> {
         let mut next = self.clone();
-        let result = next.frame(payload, config)?;
+        let result = next.frame_or_loss(payload, config)?;
         *self = next;
         Ok(result)
     }
-    fn frame(&mut self, payload: &[u8], config: FrameConfig) -> Result<PcmFrame, DecoderError> {
-        if !(2..=1275).contains(&payload.len()) {
-            return Err(DecoderError::MissingPayload);
-        }
-        let end = match config.bandwidth {
-            Bandwidth::Narrowband => 13,
-            Bandwidth::Wideband => 17,
-            Bandwidth::SuperWideband => 19,
-            Bandwidth::Fullband => 21,
-            _ => return Err(DecoderError::InvalidConfiguration),
-        };
+    fn configuration_end(config: FrameConfig) -> Result<usize, DecoderError> {
         if !(1..=2).contains(&config.channels) {
             return Err(DecoderError::InvalidConfiguration);
         }
+        match config.bandwidth {
+            Bandwidth::Narrowband => Ok(13),
+            Bandwidth::Wideband => Ok(17),
+            Bandwidth::SuperWideband => Ok(19),
+            Bandwidth::Fullband => Ok(21),
+            _ => Err(DecoderError::InvalidConfiguration),
+        }
+    }
+    fn frame(
+        &mut self,
+        payload: &[u8],
+        config: FrameConfig,
+        end: usize,
+    ) -> Result<PcmFrame, DecoderError> {
+        if !(2..=1275).contains(&payload.len()) {
+            return Err(DecoderError::MissingPayload);
+        }
+        self.loss.begin_normal();
         let layout = BandLayout::new(config.channels, 0, end)?;
         let size = config.size;
         if config.channels == 1 {
@@ -302,6 +335,7 @@ impl CeltDecoder {
         }
         let mut entropy = RangeDecoder::new(payload);
         let prefix = control::decode_prefix(&mut entropy, size, 0)?;
+        self.recover_energy(size, prefix.intra(), end);
         self.energy
             .coarse(&mut entropy, layout, size, prefix.intra())?;
         let tf = control::decode_tf(&mut entropy, size, 0..end, prefix.transient())?;
@@ -343,6 +377,7 @@ impl CeltDecoder {
                 channel.fill(-(28 << 24));
             }
         }
+        self.prepare_overlap()?;
         let energies = *self.energy.values();
         let controls = SynthesisControls {
             size,
@@ -375,7 +410,7 @@ impl CeltDecoder {
                 }
             }
         }
-        let increase = (1i32 << size.lm()) * 16777;
+        let increase = (i32::from(self.loss.duration) + (1i32 << size.lm())).min(160) * 16777;
         for (c, channel) in values.iter_mut().enumerate() {
             for (i, value) in channel.iter_mut().enumerate() {
                 self.background[c][i] = (self.background[c][i] + increase).min(*value);
@@ -387,6 +422,8 @@ impl CeltDecoder {
             }
         }
         self.rng = entropy.range();
+        self.range = self.rng;
+        self.record_normal(size, end)?;
         Ok(pcm)
     }
 }

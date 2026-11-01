@@ -169,16 +169,20 @@ fn real_celt_packets_match_public_opus_pcm_and_final_range()
 fn invalid_packets_frames_and_late_failures_preserve_every_history()
 -> Result<(), Box<dyn std::error::Error>> {
     let mut decoder = CeltDecoder::new(Decimation::By1, 2)?;
-    decoder.decode(&[0xf8, 0xff, 0xff])?;
+    let warm = include_str!("celt-packet-fixtures.txt")
+        .lines()
+        .filter(|s| s.starts_with("packet "))
+        .nth(1)
+        .ok_or("warm packet")?;
+    let hex = warm.split_whitespace().nth(4).ok_or("warm hex")?;
+    let data: Vec<u8> = hex
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|s| Ok(u8::from_str_radix(std::str::from_utf8(s)?, 16)?))
+        .collect::<Result<_, Box<dyn std::error::Error>>>()?;
+    decoder.decode(&data)?;
     let before = decoder.clone();
-    for data in [
-        &[][..],
-        &[0][..],
-        &[0xf8][..],
-        &[0xf8, 0xff][..],
-        &[0xfb, 0][..],
-        &[0xfa, 2, 0xff, 0xff, 0][..],
-    ] {
+    for data in [&[][..], &[0][..], &[0xfb, 0][..]] {
         assert!(decoder.decode(data).is_err());
         assert_eq!(decoder, before);
     }
@@ -187,6 +191,36 @@ fn invalid_packets_frames_and_late_failures_preserve_every_history()
         channels: 1,
         bandwidth: Bandwidth::Fullband,
     };
+    let mut after_first = before.clone();
+    after_first.decode(&[0xf8, 0xff, 0xff])?;
+    assert_ne!(after_first, before);
+    // Retained deterministic LCG malformed payload: a corrupt uniform code
+    // fails after the first frame has already changed synthesis/energy history.
+    let hex = concat!(
+        "5048495da955d7c2136e1692dc1407f3bfeefe758a16b24819ffee3e16e47c202ddc",
+        "1b0eba018dfc063c2482acb14d92badbfbcb92c80172c413aa5b41863138b081dc24",
+        "d08edb5614c43b62fde27d63d93fa7f8def6ea00daf5285fe4cff053ca73c71e2c34",
+        "d00272c227da22ef84cf3877f6f1781cd4b7fcc72aa75f8b3fac",
+    );
+    let bad: Vec<u8> = hex
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|s| Ok(u8::from_str_radix(std::str::from_utf8(s)?, 16)?))
+        .collect::<Result<_, Box<dyn std::error::Error>>>()?;
+    let failure = after_first
+        .decode_frame(&bad, config)
+        .err()
+        .ok_or("malformed payload accepted")?;
+    let pulse_error =
+        opura::celt::pulses::PulseError::Entropy(opura::range::RangeError::CorruptUniformValue);
+    let expected_failure = DecoderError::Partition(opura::celt::partition::PartitionError::Pvq(
+        opura::celt::pvq::PvqError::Pulses(pulse_error),
+    ));
+    assert_eq!(failure, expected_failure);
+    let mut packet = vec![0xfa, 2, 0xff, 0xff];
+    packet.extend_from_slice(&bad);
+    assert_eq!(decoder.decode(&packet), Err(failure));
+    assert_eq!(decoder, before);
     for c in [
         FrameConfig {
             channels: 0,
@@ -207,13 +241,11 @@ fn invalid_packets_frames_and_late_failures_preserve_every_history()
         );
         assert_eq!(decoder, before);
     }
-    for len in [0, 1, 1276] {
-        assert_eq!(
-            decoder.decode_frame(&vec![0; len], config),
-            Err(DecoderError::MissingPayload)
-        );
-        assert_eq!(decoder, before);
-    }
+    assert_eq!(
+        decoder.decode_frame(&vec![0; 1276], config),
+        Err(DecoderError::MissingPayload)
+    );
+    assert_eq!(decoder, before);
     decoder.reset();
     assert_eq!(decoder, CeltDecoder::new(Decimation::By1, 2)?);
     assert!(CeltDecoder::new(Decimation::By1, 0).is_err());

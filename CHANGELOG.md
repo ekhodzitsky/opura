@@ -7,6 +7,27 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.36] - 2026-11-01
+
+- Add transactional CELT periodic/noise PLC, explicit48kHz-clock loss scheduling,
+  initial silence, empty/one-byte DTX frames and normal recovery across mixed
+  frame/channel/bandwidth and multi-frame packet contexts.
+- Preserve full signal/future/LPC history; connect pitch/excitation decay, bounded
+  synthesis stabilization/energy guards, negative comb prefilter/TDAC, noise RNG
+  and background/recovery updates. Public range is zero for loss; RNG persists.
+- Expose read-only concealment diagnostics and retain native reset band-limit
+  semantics. Every error rolls back the complete frame/packet/loss operation.
+- Match public libopus PCM, range and complete state on872 scenarios, including
+  long bursts, mixed implicit loss, resets and210x120ms stress reaching caps.
+- Match208 original bandwidth and232 energy-guard cases; verify256 adversarial
+  normal/loss/recovery sequences, guard/duration rollback and a retained late
+  corrupt-uniform regression. Fifteen mutations are caught.
+- Existing normal corpus remains unchanged; all optional corpora reproduce and
+  mandatory offline gates pass.
+
+Hybrid, cross-mode transitions, full conformance and encoding remain pending.
+Standalone SILK implicit DTX also awaits unified packet orchestration.
+
 ## [0.1.35] - 2026-11-01
 
 - Add fixed-storage classic CELT PLC pitch analysis from2048 mono/stereo internal

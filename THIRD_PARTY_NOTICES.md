@@ -1214,3 +1214,14 @@ ranking and pseudo interpolation follow `celt/pitch.c`; fixed PLC search geometr
 follows `celt/celt_decoder.c` at the pinned revision above. Their original
 CSIRO/Xiph.Org/Jean-Marc Valin notices and terms are retained above; existing
 LPC and scalar math attribution also apply.
+
+
+# CELT concealment and recovery attribution
+
+Periodic/noise PLC selection, LPC stabilization, excitation/synthesis energy
+checks, noise/background decay, prefilter/TDAC, loss counters and recovery follow
+`celt/celt_decoder.c`; public loss/DTX scheduling and initial silence follow
+`src/opus_decoder.c` at the pinned revision above. Their existing original
+CSIRO/Xiph.Org/Gregory Maxwell notices and terms are retained above, along with
+LPC, pitch, scalar math, comb and MDCT component notices. Optional guard oracles
+extract unchanged original safety blocks into temporary probes only.

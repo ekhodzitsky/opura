@@ -132,6 +132,22 @@ pub struct PcmFrame {
     rate: Decimation,
 }
 impl PcmFrame {
+    pub(crate) fn silence(
+        size: FrameSize,
+        rate: Decimation,
+        channels: usize,
+    ) -> Result<Self, OutputError> {
+        if !(1..=2).contains(&channels) {
+            return Err(OutputError::InvalidSignal);
+        }
+        Ok(Self {
+            samples: [0; 1920],
+            length: size.samples() / rate.factor() * channels,
+            channels,
+            rate,
+        })
+    }
+
     /// Final signed-16 PCM, interleaved when stereo.
     pub fn samples(&self) -> &[i16] {
         &self.samples[..self.length]

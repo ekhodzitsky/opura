@@ -116,6 +116,10 @@ impl Default for PostfilterState {
     }
 }
 impl PostfilterState {
+    pub(crate) fn set_history(&mut self, history: &[i32; 1026]) {
+        self.history = *history;
+    }
+
     /// Clear signal history and both parameter generations.
     pub fn reset(&mut self) {
         *self = Self::default();
@@ -214,4 +218,40 @@ fn filter(
 }
 fn mul(coefficient: i32, value: i32) -> i32 {
     ((i64::from(coefficient as i16) * i64::from(value)) >> 15) as i32
+}
+
+// Recovery prefilter uses separate input/output and zero overlap. Only the
+// current negative gain applies; lag reads must not feed back filtered output.
+pub(crate) fn prefilter(
+    history: &[i32; 1026],
+    future: &[i32; 120],
+    params: PostfilterParams,
+) -> [i32; 120] {
+    if params.gain == 0 {
+        return *future;
+    }
+    let params = params.clamped();
+    let mut source = [0i32; 1146];
+    source[..1026].copy_from_slice(history);
+    source[1026..].copy_from_slice(future);
+    let gains = params
+        .tapset
+        .gains()
+        .map(|g| (-i32::from(params.gain) * g + 16384) >> 15);
+    let mut output = [0i32; 120];
+    for (i, out) in output.iter_mut().enumerate() {
+        let at = 1026 + i;
+        let delayed = at - usize::from(params.period);
+        let terms = [
+            source[delayed],
+            source[delayed + 1].wrapping_add(source[delayed - 1]),
+            source[delayed + 2].wrapping_add(source[delayed - 2]),
+        ];
+        let mut value = source[at];
+        for j in 0..3 {
+            value = value.wrapping_add(mul(gains[j], terms[j]));
+        }
+        *out = value.wrapping_sub(1).clamp(-536870911, 536870911);
+    }
+    output
 }

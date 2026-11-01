@@ -3,8 +3,8 @@
 Opura is a pure Rust, zero-dependency Opus implementation under development.
 **Mono/stereo SILK packets support final PCM output, explicit loss concealment and in-band FEC.**
 Packet framing, range decoding and the SILK channel primitives are also available.
-**CELT-only normal packets also decode to final mono/stereo PCM at all five rates.**
-CELT loss/DTX, Hybrid, cross-mode transitions, full conformance and encoding
+**CELT-only normal/loss/DTX packets also decode to final mono/stereo PCM at all five rates.**
+Hybrid, cross-mode transitions, standalone SILK implicit DTX, full conformance and encoding
 remain under development. The accepted direction is a complete decoder first, then
 an encoder, prioritizing speed and reliability. See the
 [decoder-first decision](docs/decisions/0002-decoder-first.md) for evaluation
@@ -1552,3 +1552,58 @@ diff -u tests/celt-pitch-fixtures.txt /tmp/opura-celt-pitch.txt
 
 These helpers prepare waveform PLC. CELT loss synthesis/recovery and Hybrid
 remain incomplete; normal CELT packet-to-PCM decoding is already supported.
+
+
+## CELT loss, DTX and recovery
+
+`CeltDecoder::conceal_samples(duration)` conceals an explicit missing interval on
+a 48kHz clock: 120..5760 samples in120-sample steps (2.5..120ms). For example,
+960 requests20ms at every output rate. Scheduling follows the last packet's
+frame size and valid2.5/5/10/20ms subframes. Before audio history exists it returns
+silence. `decode`/`decode_frame` also accept empty/one-byte compressed frames as
+PLC/DTX; the current TOC supplies duration while the prior decoded band limit is
+retained. An absent transport packet should use conceal_samples, not an empty
+byte slice passed as packet framing.
+
+Periodic PLC estimates pitch from2048 processed samples, analyzes stabilized LPC24,
+extracts/decays excitation, extrapolates, applies IIR and limits synthesis energy.
+After100ms of concealment, noise PLC uses background-limited log-energy decay and
+normalized random spectra. Two consecutive normal frames re-enable periodic PLC
+after noise. Pending negative comb prefilter and TDAC join synthesized loss with
+the next MDCT, and recovery adjusts predicted energies/background growth.
+Loss and PLC durations saturate at10000 units of2.5ms; per-call work/output remain
+bounded. Every error preserves the entire decoder across the whole operation.
+
+`DecodedPcm::final_range()` / decoder final_range are zero for loss/DTX, while
+`rng_state()` retains the internal noise RNG. `concealment()` exposes read-only
+mode/duration/pitch, LPC, full signal/future history and scheduling diagnostics.
+`reset()` clears histories/diagnostics and restores the initial frame clock;
+it retains the internal band limit as native OPUS_RESET_STATE does. Fresh
+construction starts fullband. Initial loss remains silent in either case.
+
+[872 public-reference scenarios](tests/celt-loss-fixtures.txt) match PCM, final
+range, all energy/log/background values, deemphasis, postfilter parameters/full
+history, MDCT overlap, full2048-sample/future signal, LPC, RNG and PLC controls.
+They cover all rates/API/encoded channels/bandwidths, frame changes, initial and
+implicit loss, mixed/multi-frame packets, short/long bursts, recovery/reset and
+210 consecutive120ms requests reaching the duration caps. The oracle distinguishes
+fresh construction (reset2) from native reset (reset1), and appends read-only
+observers without changing original decoding statements.
+
+[208 original bandwidth and232 energy-guard cases](tests/celt-plc-filter-fixtures.txt)
+exercise coefficient/extreme/sum boundaries, zero/explosion cutoffs, attenuation
+ratio/rounding and overlap crossfade independently of realistic stream coverage.
+Invalid guard/duration checks, packet/frame equivalence, a retained corrupt-uniform
+late-frame regression and256 adversarial normal/loss/recovery sequences verify
+bounds and rollback. Fifteen mutations detect scheduling, mode/decay/warmup,
+prefilter/TDAC, recovery/background, counters/RNG/reset and guard arithmetic.
+
+```sh
+python3 tools/celt_packet_fixtures.py target/reference/opus --loss > /tmp/opura-celt-loss.txt
+diff -u tests/celt-loss-fixtures.txt /tmp/opura-celt-loss.txt
+python3 tools/celt_plc_fixtures.py target/reference/opus > /tmp/opura-celt-plc-guards.txt
+diff -u tests/celt-plc-filter-fixtures.txt /tmp/opura-celt-plc-guards.txt
+```
+
+CELT-only normal and loss paths are now end-to-end. Hybrid, cross-mode transitions,
+complete official conformance, encoder and competitive evaluation remain pending.

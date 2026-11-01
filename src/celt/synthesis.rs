@@ -100,6 +100,40 @@ pub struct CeltSynthesis {
     deemphasis: DeemphasisState,
 }
 impl CeltSynthesis {
+    pub(crate) fn set_overlap(&mut self, overlap: &[[i32; 60]; 2]) {
+        for (c, values) in overlap.iter().enumerate().take(self.channels) {
+            self.mdct[c].set_overlap(values);
+        }
+    }
+    pub(crate) fn render_concealed(
+        &mut self,
+        history: &[[i32; 2048]; 2],
+        future: &[[i32; 120]; 2],
+        size: FrameSize,
+    ) -> Result<PcmFrame, SynthesisError> {
+        let mut next = self.clone();
+        let n = size.samples();
+        let pcm = next.deemphasis.process(
+            &history[0][2048 - n..],
+            if self.channels == 2 {
+                Some(&history[1][2048 - n..])
+            } else {
+                None
+            },
+            self.rate,
+        )?;
+        for c in 0..self.channels {
+            let mut tail = [0i32; 1026];
+            tail.copy_from_slice(&history[c][1022..]);
+            next.postfilter[c].set_history(&tail);
+            let mut overlap = [0i32; 60];
+            overlap.copy_from_slice(&future[c][..60]);
+            next.mdct[c].set_overlap(&overlap);
+        }
+        *self = next;
+        Ok(pcm)
+    }
+
     /// Start an independent backend with one/two PCM output channels.
     pub fn new(rate: Decimation, channels: usize) -> Result<Self, SynthesisError> {
         if !(1..=2).contains(&channels) {

@@ -66,6 +66,10 @@ impl Default for MdctState {
     }
 }
 impl MdctState {
+    pub(crate) fn set_overlap(&mut self, overlap: &[i32; 60]) {
+        self.overlap = *overlap;
+    }
+
     /// Clear the overlap before a fresh independent stream.
     pub fn reset(&mut self) {
         self.overlap.fill(0);
