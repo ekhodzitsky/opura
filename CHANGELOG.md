@@ -7,6 +7,20 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.19] - 2026-11-01
+
+- Add fixed-storage CELT algebraic pulse codebooks with compile-time symmetric U
+  counts, checked 32-bit cardinality and exact CWRS index/entropy decoding.
+- Support 2..176 coordinates and 0..128 pulses when representable; zero pulses
+  consumes no bits. Expose pulse vectors and exact squared norms.
+- Match all 22575 configuration outcomes, 70423 exhaustive small-codebook indices,
+  13401 boundary/random vectors and 566 entropy steps across 73 streams against
+  original generic cwrs.c; independently verify cardinalities combinatorially.
+- Verify invalid indices/geometries, raw-suffix rollback and pulse invariants;
+  four targeted mutations fail. Fixtures reproduce and all mandatory gates pass.
+
+CELT band normalization/rotation, allocation and transforms remain incomplete.
+
 ## [0.1.18] - 2026-11-01
 
 - Add transactional CELT Laplace range symbols and persistent Q24 band-energy

@@ -850,3 +850,46 @@ diff -u src/celt/energy_tables.rs /tmp/opura-celt-energy-tables.rs
 
 CELT shape decoding, transform synthesis and complete Opus conformance remain
 incomplete. No end-to-end CELT audio or performance claim follows from these tests.
+
+
+## CELT integer pulse vectors
+
+`opura::celt::pulses::PulseCodebook::new(dimensions, pulses)` accepts 2..176
+coordinates and 0..128 pulses when the signed codebook fits a `u32` index.
+`cardinality()`, `dimensions()` and `pulses()` expose the validated geometry.
+`decode_index(index)` returns a fixed-storage `PulseVector` in canonical CWRS
+coordinate order; `values()` exposes its signed coordinates and `squared_norm()`
+the exact sum of squares. Absolute coordinate values sum to the pulse count.
+Zero pulses yields a single all-zero vector.
+
+`decode(entropy)` reads the uniform index and commits entropy only on success.
+Large indices use raw suffix bits, which must be present physically; range input
+retains the usual zero-extension semantics and the future band decoder enforces
+codec bit budgets. Invalid geometry, overflowing cardinalities and out-of-range
+indices return typed `PulseError` values. The one-dimensional sign case belongs
+to band orchestration and is excluded from this primitive.
+
+Compile-time symmetric U recurrence rows use capped counts and checked V sums.
+No runtime allocation or table generation is needed; descending-dimension
+ordering takes at most dimensions+pulses search/coordinate iterations. Capped
+values reject overflowing codebooks and cannot change any valid index ordering.
+
+[Original generic CWRS evidence](tests/celt-pulse-fixtures.txt) covers all 22575
+configuration outcomes (1834 fit), 70423 indices exhaustively across 57 small
+codebooks, 13401 wide/boundary vectors, and 566 entropy steps across 73 streams.
+Exhaustive fingerprints hash little-endian signed-32 squared norm followed by
+every coordinate for each index. Separate tests independently count codewords
+using signed occupancy/binomial sums and check pulse/norm invariants. Invalid
+requests and raw suffix exhaustion preserve entropy, including after a preceding
+range symbol. Four mutations detect sign boundary, coordinate order, U recurrence
+and index-interval errors.
+
+```sh
+python3 tools/celt_pulse_fixtures.py target/reference/opus > /tmp/opura-celt-pulses.txt
+diff -u tests/celt-pulse-fixtures.txt /tmp/opura-celt-pulses.txt
+```
+
+The optional oracle compiles original `cwrs.c` with `SMALL_FOOTPRINT` so arbitrary
+valid geometries can be checked without the optimized standard-mode table's
+shape restrictions. CELT normalized bands, rotations, allocation and inverse
+transforms remain future work; these integer vectors do not provide CELT audio.
