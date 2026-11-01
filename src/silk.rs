@@ -5,6 +5,7 @@
 //! Stereo channel zero is mid and channel one is side (not left/right).
 
 pub mod channel;
+pub mod cng;
 pub mod excitation;
 pub mod gains;
 pub mod lpc;

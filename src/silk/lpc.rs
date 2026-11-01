@@ -47,9 +47,10 @@ impl FrameNlsf {
     }
 }
 
-// Only validated FrameNlsf spectra reach this helper: length 10 or 16,
+// Validated FrameNlsf or bounded CNG-smoothed spectra reach this helper:
+// length 10 or 16,
 // ordered frequencies in 0..=32767. The polynomial ordering matches the reference.
-fn convert(spectrum: &[i16]) -> [i16; 16] {
+pub(super) fn convert(spectrum: &[i16]) -> [i16; 16] {
     const ORDER10: [usize; 10] = [0, 9, 6, 3, 4, 5, 8, 1, 2, 7];
     const ORDER16: [usize; 16] = [0, 15, 8, 7, 4, 11, 12, 3, 2, 13, 10, 5, 6, 9, 14, 1];
     let count = spectrum.len();

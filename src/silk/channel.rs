@@ -3,6 +3,7 @@
 //! The cursor starts at signal-type symbols, after headers, LBRR ordering and
 //! stereo fields. Output precedes CNG/PLC glue, stereo and resampling.
 use super::{
+    cng::{CngError, CngState},
     excitation::{ExcitationError, decode_excitation},
     gains::{FrameActivity, FrameDuration, GainCoding, GainError, GainState},
     nlsf::{NlsfError, NlsfOrder, NlsfState},
@@ -26,6 +27,8 @@ pub enum ChannelError {
     Excitation(ExcitationError),
     /// Synthesis parameters were incompatible.
     Synthesis(SynthesisError),
+    /// Comfort-noise estimation rejected incompatible decoded geometry.
+    Cng(CngError),
 }
 impl fmt::Display for ChannelError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -40,6 +43,7 @@ impl ChannelError {
             Self::Pitch(e) => e,
             Self::Excitation(e) => e,
             Self::Synthesis(e) => e,
+            Self::Cng(e) => e,
         }
     }
 }
@@ -61,6 +65,7 @@ pub struct ChannelState {
     nlsf: NlsfState,
     pitch: PitchState,
     synthesis: SynthesisState,
+    cng: CngState,
 }
 impl ChannelState {
     /// Forget every history, including the prior synthesis gain and rate.
@@ -138,8 +143,49 @@ impl ChannelState {
             .synthesis
             .synthesize(rate, &gains, &nlsf, &pitch, &excitation)
             .map_err(ChannelError::Synthesis)?;
+        next.cng
+            .update(rate, &gains, &nlsf, &excitation)
+            .map_err(ChannelError::Cng)?;
         *self = next;
         *decoder = entropy;
         Ok(pcm)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn successful_channel_frames_retain_comfort_noise_estimates()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let data = [0; 1024];
+        let mut state = ChannelState::default();
+        for rate in [SilkRate::Khz8, SilkRate::Khz12, SilkRate::Khz16] {
+            state.decode(
+                &mut RangeDecoder::new(&data),
+                rate,
+                FrameDuration::Ms20,
+                FrameActivity::Inactive,
+                PitchCoding::Independent,
+            )?;
+            assert_ne!(state.cng, CngState::default());
+            let before = state.clone();
+            assert!(
+                state
+                    .decode(
+                        &mut RangeDecoder::new(&[]),
+                        rate,
+                        FrameDuration::Ms20,
+                        FrameActivity::Inactive,
+                        PitchCoding::Independent
+                    )
+                    .is_err()
+            );
+            assert_eq!(state, before);
+        }
+        state.reset();
+        assert_eq!(state.cng, CngState::default());
+        Ok(())
     }
 }

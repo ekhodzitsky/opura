@@ -7,6 +7,24 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-11-01
+
+- Add fixed-storage SILK comfort-noise estimation from decoded inactive frames
+  and CNG mixing into 10/20 ms concealed PCM at 8/12/16 kHz.
+- Match reference spectral/gain smoothing, excitation-bank selection, wrapping
+  PRNG, LPC filtering, PLC noise-energy compensation and signed saturation.
+- Include CNG estimates in channel state transactions without changing existing
+  loss-free mono PCM/final range; validate geometry and PLC noise context before
+  changing state or output. Reset and rate changes follow upstream semantics.
+- Compare every PCM sample and retained CNG state field on 192 independent
+  upstream cases, covering cold loss, burst losses/recovery, rates/durations,
+  gain branches and clipping. Typed tests verify error transactions and reset;
+  targeted mutations detect mask, noise compensation and filter-reset errors.
+
+CNG is a component for loss handling; a complete PLC implementation and packet
+loss API are still required. Mono output remains before buffering/resampling;
+stereo and CELT/Hybrid remain future work.
+
 ## [0.1.8] - 2026-11-01
 
 - Decode loss-free mono SILK-only Opus packets to raw internal-rate PCM at

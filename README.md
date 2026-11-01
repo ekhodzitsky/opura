@@ -472,3 +472,38 @@ library; normal Cargo builds and tests use only the saved fixtures.
 python3 tools/silk_packet_fixtures.py target/reference/opus > /tmp/opura-silk-packets.txt
 diff -u tests/silk-packet-fixtures.txt /tmp/opura-silk-packets.txt
 ```
+
+## SILK comfort noise
+
+`opura::silk::cng::CngState` estimates background noise from decoded inactive
+frames. `update(rate, gains, nlsf, excitation)` observes typed channel parameters;
+active frames retain the estimates and clear the noise filter history. Channel
+transactions now retain these estimates automatically without modifying loss-free
+PCM. Separate channels require separate state instances.
+
+`mix(rate, duration, noise_scale_q14, previous_gain_q16, pcm)` adds CNG to a
+10/20 ms frame already produced by PLC. The scale and previous gain come from
+PLC after concealment; they are not volume controls. It compensates for the
+random-noise energy already supplied by PLC, selects excitation from its bank
+with the reference PRNG, and applies fixed-point LPC synthesis and saturation.
+Invalid geometry, a scale outside 0..=16384 or a nonpositive prior gain leaves
+history and samples unchanged. All buffers and loops are bounded. Rate switches
+reset smoothed estimates/seed while retaining bank/filter memory as upstream
+does; explicit `reset()` clears all history.
+
+[192 CNG reference cases](tests/silk-cng-fixtures.txt) compare literal PCM and
+all retained state fields against pinned `silk_CNG`: inactive/active frames,
+first loss before training, burst losses, recovery, all rates/durations, switches
+during loss, both gain-energy branches and clipping. Tests also check typed
+integration and transactional errors. Targeted mutations detect wrong excitation
+masks, PLC noise compensation and missing good-frame filter reset.
+
+```sh
+python3 tools/silk_cng_fixtures.py target/reference/opus > /tmp/opura-cng.txt
+diff -u tests/silk-cng-fixtures.txt /tmp/opura-cng.txt
+```
+
+This stage does not supply PLC or reconstruct speech after a loss. The packet
+API still rejects loss/DTX input until the remaining loss-processing stages are
+integrated. Complete Opus compatibility and competitive performance remain
+unestablished.

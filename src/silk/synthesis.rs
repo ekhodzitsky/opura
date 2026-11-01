@@ -234,19 +234,19 @@ impl SynthesisState {
     }
 }
 
-fn mul_wb(a: i32, b: i32) -> i32 {
+pub(super) fn mul_wb(a: i32, b: i32) -> i32 {
     ((i64::from(a) * i64::from(b as i16)) >> 16) as i32
 }
-fn mul_ww(a: i32, b: i32) -> i32 {
+pub(super) fn mul_ww(a: i32, b: i32) -> i32 {
     ((i64::from(a) * i64::from(b)) >> 16) as i32
 }
-fn round_shift(value: i32, bits: u32) -> i32 {
+pub(super) fn round_shift(value: i32, bits: u32) -> i32 {
     ((i64::from(value) + (1i64 << (bits - 1))) >> bits) as i32
 }
-fn saturate16(value: i32) -> i16 {
+pub(super) fn saturate16(value: i32) -> i16 {
     value.clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16
 }
-fn shift_saturated(value: i32, bits: u32) -> i32 {
+pub(super) fn shift_saturated(value: i32, bits: u32) -> i32 {
     value.clamp(i32::MIN >> bits, i32::MAX >> bits) << bits
 }
 
