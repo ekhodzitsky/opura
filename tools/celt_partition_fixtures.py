@@ -10,7 +10,9 @@ import tempfile
 REVISION='22244de5a79bd1d6d623c32e72bf1954b56235be'
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('source',type=Path)
-parser.add_argument('--tables',action='store_true')
+mode=parser.add_mutually_exclusive_group()
+mode.add_argument('--tables',action='store_true')
+mode.add_argument('--bands',action='store_true',help='Generate full TF/stereo band evidence instead of partitions')
 args=parser.parse_args();source=args.source.resolve()
 if subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip()!=REVISION:
     raise SystemExit('Expected pinned Opus v1.6.1')
@@ -54,6 +56,27 @@ for signature in ['opus_uint32 celt_lcg_rand(', 'opus_int16 bitexact_cos(', 'int
                   'static void intensity_stereo(', 'static void stereo_split(', 'static int compute_qn(',
                   'static void compute_theta(', 'static unsigned quant_partition(']:
     wrapper+=function(bands,signature)
+wrapper+=declaration(bands,'static const int ordery_table[]')+'\n'
+for signature in ['static void stereo_merge(', 'static void deinterleave_hadamard(', 'static void interleave_hadamard(', 'void haar1(', 'static unsigned quant_band_n1(', 'static unsigned quant_band(']:
+    wrapper+=function(bands,signature)
+start=bands.index('#ifdef FIXED_POINT\n#define MIN_STEREO_ENERGY')
+wrapper+=bands[start:bands.index('#endif',start)+6]+'\n'
+wrapper+=function(bands,'static unsigned quant_band_stereo(')
+wrapper+='''
+void band_decode(const unsigned char *data,int len,int band,int lm,int B,int bits,int gain,int spread,int fill,int remaining,unsigned seed,int folded,int position,int stereo,int tf,int intensity,int disable,const int *fold,int *out) {
+    ec_dec dec;ec_dec_init(&dec,(unsigned char*)data,len);
+    for(int j=0;j<position;j++) ec_dec_bit_logp(&dec,2+j%5);
+    if(position>=4) ec_dec_bits(&dec,3);
+    struct band_ctx ctx={0};
+    ctx.resynth=1;ctx.m=&mode48000_960_120;ctx.i=band;ctx.spread=spread;ctx.ec=&dec;ctx.remaining_bits=remaining;ctx.seed=seed;
+    ctx.intensity=intensity;ctx.disable_inv=disable;ctx.tf_change=tf;
+    int N=(ctx.m->eBands[band+1]-ctx.m->eBands[band])<<lm;
+    int scratch[176]={0};
+    if(stereo) out[0]=quant_band_stereo(&ctx,out+7,out+7+N,N,bits,B,folded?(int*)fold:NULL,lm,out+7+2*N,scratch,fill);
+    else out[0]=quant_band(&ctx,out+7,N,bits,B,folded?(int*)fold:NULL,lm,out+7+2*N,gain,scratch,fill);
+    out[1]=ctx.remaining_bits;out[2]=ctx.seed;out[3]=dec.rng;out[4]=ec_tell(&dec);out[5]=ec_tell_frac(&dec);out[6]=ec_get_error(&dec);
+}
+'''
 wrapper+='''
 void partition(const unsigned char *data,int len,int band,int lm,int B,int bits,int gain,int spread,int fill,int remaining,unsigned seed,int folded,int position,const int *fold,int *out) {
     ec_dec dec;ec_dec_init(&dec,(unsigned char*)data,len);
@@ -73,6 +96,36 @@ with tempfile.TemporaryDirectory(prefix='opura-celt-partition-') as temp:
                     *[str(source/'celt'/p) for p in ['vq.c','cwrs.c','mathops.c','entcode.c','entenc.c','entdec.c']],'-o',str(path/'probe.so')],check=True)
     lib=c.CDLL(str(path/'probe.so'));ptr=c.POINTER(c.c_int32);u8=c.POINTER(c.c_ubyte)
     lib.partition.argtypes=[u8,*[c.c_int]*9,c.c_uint,c.c_int,c.c_int,ptr,ptr];lib.partition.restype=None
+    if args.bands:
+        lib.band_decode.argtypes=[u8,*[c.c_int]*9,c.c_uint,*[c.c_int]*6,ptr,ptr];lib.band_decode.restype=None
+        print('# Original classic quant_band/quant_band_stereo:',REVISION)
+        print('# band BAND LM BLOCKS TF STEREO INTENSITY DISABLE BITS GAIN SPREAD FILL REMAINING SEED FOLDED POSITION HEX FOLD[N if FOLDED] MASK REMAINING SEED RANGE TELL TELL_FRAC ERROR LEFT[N] RIGHT[N] FOLD_OUT[N]')
+        edges=numbers(declaration(modes,'static const opus_int16 eband5ms[]'))
+        mappings=[[0,-1,0,-1,0,-1,0,-1],[0,-1,0,-2,1,0,1,-1],[0,-2,0,-3,2,0,1,-1],[0,-2,0,-3,3,0,1,-1]]
+        random=0x54464241
+        def next_random():
+            global random
+            random^=(random<<13)&0xffffffff;random^=random>>17;random^=(random<<5)&0xffffffff
+            return random
+        for lm in range(4):
+            for band in range(21):
+                n=(edges[band+1]-edges[band])<<lm
+                for blocks in sorted({1,1<<lm}):
+                    for tf in sorted(set(mappings[lm][4:8] if blocks>1 else mappings[lm][:4])):
+                        for stereo in [0,1]:
+                            for case,bits in enumerate([0,7,8,16,17,24,31,32,64,128,179,180,256,267,511,1024,4096]):
+                                gain=0x7fffffff if stereo else [0,1<<28,1<<30,0x7fffffff][case%4]
+                                remaining=[0,8,16,24,256,8191][case%6]
+                                if case%3==2:remaining=8191
+                                spread=case%4;fill=[0,1,(1<<blocks)-1,0x55&((1<<blocks)-1)][case%4]
+                                intensity=[0,band,band+1,21][case%4];disable=(case//4)%2
+                                seed=next_random();folded=case%3!=0;position=case%7
+                                fold=[0 if case%3==1 else (c.c_int32(next_random()).value>>8)//math.isqrt(n+1) for _ in range(n)]
+                                data=bytes(next_random()&255 for _ in range(128));out=(c.c_int32*(3*n+7))()
+                                lib.band_decode((c.c_ubyte*len(data)).from_buffer_copy(data),len(data),band,lm,blocks,bits,gain,spread,fill,remaining,seed,int(folded),position,stereo,tf,intensity,disable,(c.c_int32*n)(*fold),out)
+                                result=list(out);result[2]=c.c_uint32(result[2]).value;result[3]=c.c_uint32(result[3]).value
+                                print('band',band,lm,blocks,tf,stereo,intensity,disable,bits,gain,spread,fill,remaining,seed,int(folded),position,data.hex(),*(fold if folded else []),*result)
+        raise SystemExit
     print('# Original classic recursive quant_partition:',REVISION)
     print('# partition BAND LM BLOCKS BITS GAIN SPREAD FILL REMAINING SEED FOLDED POSITION HEX FOLD[N if FOLDED] MASK REMAINING SEED RANGE TELL TELL_FRAC ERROR OUTPUT[N]')
     edges=numbers(declaration(modes,'static const opus_int16 eband5ms[]'))

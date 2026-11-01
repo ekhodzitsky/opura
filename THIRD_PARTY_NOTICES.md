@@ -1134,3 +1134,11 @@ Theta resolution/entropy, recursive partition/gain/bit balancing and noise/foldi
 follow `celt/bands.c`; pulse mapping follows `celt/rate.h` and standard cache
 indices/bits follow `celt/static_modes_fixed.h` at the pinned revision above.
 Their original CSIRO/Xiph.Org/Gregory Maxwell notices and terms are retained above.
+
+
+# CELT mono/stereo band orchestration attribution
+
+TF/Haar/Hadamard scheduling, folding output, one-coordinate signs and stereo
+angle/intensity/inversion/N2/merge scheduling follow `celt/bands.c` at the pinned
+revision above. Original CSIRO/Xiph.Org/Gregory Maxwell notices and redistribution
+terms are retained above; existing scalar/PVQ/transform notices also apply.

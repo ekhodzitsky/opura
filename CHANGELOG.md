@@ -7,6 +7,24 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.30] - 2026-11-01
+
+- Add transactional mono/stereo CELT band decoding over recursive partitions:
+  one-coordinate signs, TF Haar/Hadamard reorganization and collapse masks,
+  scaled folding output, stereo theta/intensity/inversion, N2 orthogonal-side
+  signs and general stereo allocation/merge.
+- Preserve the existing partition API and fixed-storage bounds; validate TF,
+  initial blocks, stereo gain/intensity and fill domains before decoding.
+- Match both channels, folding output, masks, budget/seed and entropy on 15680
+  original band cases covering every frame/band/TF/channel context; reject 28
+  corrupt uniform cases atomically. Domain rollback and nine mutations pass.
+- Break a correlated oracle parameter combination exposed by mutation testing
+  to verify inversion override independently. Fixtures/tables reproduce and all
+  mandatory offline gates pass.
+
+All-band folding/budget orchestration, anti-collapse and complete CELT/Hybrid
+packet decoding remain required before full Opus conformance.
+
 ## [0.1.29] - 2026-11-01
 
 - Add transactional classic CELT mono partition decoding: standard pulse-cache

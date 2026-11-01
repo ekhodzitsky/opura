@@ -1314,3 +1314,43 @@ diff -u src/celt/partition_tables.rs /tmp/opura-celt-partition-tables.rs
 The optional oracle uses unchanged original theta/partition functions with pinned
 standard mode, generic CWRS, vq and entropy. TF/stereo band orchestration,
 anti-collapse, complete CELT/Hybrid packets and official conformance follow.
+
+
+## CELT mono/stereo band reconstruction
+
+`opura::celt::partition::decode_band(entropy, state, BandControls, fold)` adds TF
+and stereo orchestration. Controls contain a `PartitionControls` request, a
+standard `tf_change` and optional `StereoControls { intensity, disable_inversion }`.
+LM must be 0..3 and initial blocks 1 (long) or 2^LM (transient); TF must belong to
+the corresponding standard mapping. Only low block-count fill bits are accepted.
+Stereo requires unit Q31 gain and intensity 0..=21. Fold, entropy and budget
+bounds match partition decoding; every error preserves both shared states.
+
+One-coordinate bands reconstruct unit signs with remaining-budget guards,
+independently of gain. Other bands transform fold data, decode partitions and
+undo time/frequency reorganization with exact Haar/Hadamard rounding/masks.
+Stereo adds step/uniform theta, intensity inversion (consumed even when ignored),
+N2 orthogonal-side signs, larger-half-first budgets and normalized channel merge.
+`Band::left()`/`right()` return frequency-interleaved Q24 coordinates and
+`collapse_mask()` the combined u8 mask. `folding()` captures scaled mono/mid data
+before stereo merge; N2 stereo captures its stronger primary basis.
+
+[15708 original band cases](tests/celt-band-decode-fixtures.txt) exhaust every
+frame size, band, long/transient TF mapping and mono/stereo combination, with
+varied budgets/gains, intensity/inversion, spreading, folding and entropy cursor
+positions. 15680 match both channels, folding vectors, masks, remaining budget,
+seed and range/tell/tell_frac; 28 corrupt uniform cases reject atomically.
+Malformed-control/fold rollback and nine mutations cover stereo probability,
+intensity boundary, inversion override, N1 budget, TF mask, fold scaling, N2
+primary/sign and final inversion. Mutation testing exposed a correlated oracle
+parameter combination; the regenerated corpus independently exercises override.
+
+```sh
+python3 tools/celt_partition_fixtures.py target/reference/opus --bands > /tmp/opura-celt-band-decode.txt
+diff -u tests/celt-band-decode-fixtures.txt /tmp/opura-celt-band-decode.txt
+```
+
+The optional oracle extends the unchanged original partition/theta functions
+with original quant_band/quant_band_stereo and Haar/Hadamard/stereo helpers.
+All-band folding/budget orchestration, anti-collapse and complete CELT/Hybrid
+packet decoding are still needed; this evidence does not establish a full codec.

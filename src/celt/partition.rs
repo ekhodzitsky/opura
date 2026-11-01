@@ -12,6 +12,9 @@ use super::{
 use crate::range::{RangeDecoder, RangeError};
 use std::fmt;
 
+mod band;
+pub use band::{Band, BandControls, StereoControls, decode_band};
+
 /// Invalid geometry/budget/vector or spectral entropy.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
@@ -147,12 +150,52 @@ pub fn decode_partition(
     fold: Option<&[i32]>,
 ) -> Result<Partition, PartitionError> {
     let c = controls;
+    let n = validate(entropy, state, c, fold, 2)?;
+    let mut next = entropy.clone();
+    let mut shared = state.clone();
+    let mut result = Partition {
+        values: [0; 176],
+        length: n,
+        collapse: 0,
+    };
+    let mut decoder = Decoder {
+        entropy: &mut next,
+        state: &mut shared,
+        band: c.band,
+        spread: c.spread,
+        intensity: 21,
+        disable_inv: false,
+        tf_change: 0,
+    };
+    result.collapse = decoder.partition(
+        &mut result.values[..n],
+        fold,
+        Node {
+            bits: c.bits,
+            blocks: c.blocks,
+            lm: c.lm,
+            gain: c.gain,
+            fill: u32::from(c.fill),
+        },
+    )? as u16;
+    *entropy = next;
+    *state = shared;
+    Ok(result)
+}
+fn validate(
+    entropy: &RangeDecoder<'_>,
+    state: &PartitionState,
+    c: PartitionControls,
+    fold: Option<&[i32]>,
+    minimum: usize,
+) -> Result<usize, PartitionError> {
     if c.band >= 21 || !(-1..=3).contains(&c.lm) {
         return Err(PartitionError::InvalidGeometry);
     }
     let width = usize::from(BANDS[c.band + 1] - BANDS[c.band]);
     let n = if c.lm < 0 { width / 2 } else { width << c.lm };
-    if !(2..=176).contains(&n) || !matches!(c.blocks, 1 | 2 | 4 | 8 | 16) || n % c.blocks != 0 {
+    if !(minimum..=176).contains(&n) || !matches!(c.blocks, 1 | 2 | 4 | 8 | 16) || n % c.blocks != 0
+    {
         return Err(PartitionError::InvalidGeometry);
     }
     if !(0..=81600).contains(&state.remaining)
@@ -181,39 +224,16 @@ pub fn decode_partition(
             }
         }
     }
-    let mut next = entropy.clone();
-    let mut shared = state.clone();
-    let mut result = Partition {
-        values: [0; 176],
-        length: n,
-        collapse: 0,
-    };
-    let mut decoder = Decoder {
-        entropy: &mut next,
-        state: &mut shared,
-        band: c.band,
-        spread: c.spread,
-    };
-    result.collapse = decoder.partition(
-        &mut result.values[..n],
-        fold,
-        Node {
-            bits: c.bits,
-            blocks: c.blocks,
-            lm: c.lm,
-            gain: c.gain,
-            fill: u32::from(c.fill),
-        },
-    )? as u16;
-    *entropy = next;
-    *state = shared;
-    Ok(result)
+    Ok(n)
 }
 struct Decoder<'a, 'b> {
     entropy: &'a mut RangeDecoder<'b>,
     state: &'a mut PartitionState,
     band: usize,
     spread: Spread,
+    intensity: usize,
+    disable_inv: bool,
+    tf_change: i8,
 }
 impl Decoder<'_, '_> {
     fn partition(
@@ -239,7 +259,17 @@ impl Decoder<'_, '_> {
                 fill = (fill & 1) | (fill << 1);
             }
             blocks = (blocks + 1) >> 1;
-            let split = self.theta(half, &mut bits, blocks, original_blocks, lm, &mut fill)?;
+            let split = self.theta(
+                &mut bits,
+                &mut fill,
+                Theta {
+                    n: half,
+                    blocks,
+                    original_blocks,
+                    lm,
+                    stereo: false,
+                },
+            )?;
             let mut delta = split.delta;
             if original_blocks > 1 && (split.angle & 0x3fff) != 0 {
                 if split.angle > 8192 {
@@ -372,23 +402,40 @@ impl Decoder<'_, '_> {
             }
         }
     }
-    fn theta(
-        &mut self,
-        n: usize,
-        bits: &mut i32,
-        blocks: usize,
-        original_blocks: usize,
-        lm: i8,
-        fill: &mut u32,
-    ) -> Result<Split, PartitionError> {
+    fn theta(&mut self, bits: &mut i32, fill: &mut u32, t: Theta) -> Result<Split, PartitionError> {
+        let Theta {
+            n,
+            blocks,
+            original_blocks,
+            lm,
+            stereo,
+        } = t;
         let pulse_cap = i32::from(LOG_N[self.band]) + i32::from(lm) * 8;
-        let offset = (pulse_cap >> 1) - 4;
-        let qn = compute_qn(n, *bits, offset, pulse_cap);
+        let offset = (pulse_cap >> 1) - if stereo && n == 2 { 16 } else { 4 };
+        let qn = if stereo && self.band >= self.intensity {
+            1
+        } else {
+            compute_qn(n, *bits, offset, pulse_cap, stereo)
+        };
+        let mut inv = false;
         let before = self.entropy.tell_frac();
         let angle = if qn == 1 {
+            if stereo && *bits > 16 && self.state.remaining > 16 {
+                inv = self.entropy.decode_bit_logp(2)?;
+            }
+            if self.disable_inv {
+                inv = false;
+            }
             0
         } else {
-            let index = if original_blocks > 1 {
+            let index = if stereo && n > 2 {
+                let mut cdf = [0u16; 258];
+                let q = qn as usize;
+                for i in 0..=q {
+                    cdf[i + 1] = cdf[i] + if i <= q / 2 { 3 } else { 1 };
+                }
+                self.entropy.decode_cdf(&cdf[..q + 2])? as u32
+            } else if original_blocks > 1 || stereo {
                 self.entropy.decode_uint(qn + 1)?
             } else {
                 let mut cdf = [0u16; 258];
@@ -416,6 +463,7 @@ impl Decoder<'_, '_> {
                 >> 15
         };
         Ok(Split {
+            inv,
             angle,
             gains,
             delta,
@@ -432,7 +480,15 @@ struct Node {
     gain: i32,
     fill: u32,
 }
+struct Theta {
+    n: usize,
+    blocks: usize,
+    original_blocks: usize,
+    lm: i8,
+    stereo: bool,
+}
 struct Split {
+    inv: bool,
     angle: u16,
     gains: [i16; 2],
     delta: i32,
@@ -464,9 +520,9 @@ fn bits_to_pulses(cache: &[u8], mut bits: i32) -> usize {
         hi
     }
 }
-fn compute_qn(n: usize, bits: i32, offset: i32, pulse_cap: i32) -> u32 {
+fn compute_qn(n: usize, bits: i32, offset: i32, pulse_cap: i32, stereo: bool) -> u32 {
     const EXP: [i32; 8] = [16384, 17866, 19483, 21247, 23170, 25267, 27554, 30048];
-    let n2 = (2 * n - 1) as i32;
+    let n2 = (2 * n - 1 - usize::from(stereo && n == 2)) as i32;
     let qb = ((bits + n2 * offset) / n2)
         .min(bits - pulse_cap - 32)
         .min(64);
