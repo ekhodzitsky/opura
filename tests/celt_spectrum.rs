@@ -3,7 +3,7 @@ use opura::{
     celt::{
         FrameSize, allocation, control,
         energy::{BandLayout, EnergyState},
-        partition::{self, PartitionError},
+        partition::{self, AntiCollapseError, PartitionError},
         pvq::Spread,
     },
     range::RangeDecoder,
@@ -20,12 +20,41 @@ const SPREADS: [Spread; 4] = [
     Spread::Normal,
     Spread::Aggressive,
 ];
+#[derive(Debug)]
+struct PipelineStats {
+    success: usize,
+    corrupt: usize,
+    rejected: usize,
+    prefix: usize,
+    dual: usize,
+    anti: usize,
+    changed: usize,
+}
 #[test]
 fn full_spectral_pipeline_matches_original_channels_masks_seed_and_entropy()
 -> Result<(), Box<dyn std::error::Error>> {
-    let mut lines = include_str!("celt-spectrum-fixtures.txt")
-        .lines()
-        .filter(|s| !s.starts_with('#'));
+    let s = verify_pipeline(include_str!("celt-spectrum-fixtures.txt"), false)?;
+    assert_eq!((s.success, s.corrupt, s.rejected), (3779, 253, 0));
+    assert_eq!(s.prefix, 1008);
+    assert_eq!(s.dual, 408);
+    Ok(())
+}
+#[test]
+fn final_energy_and_anti_collapse_match_original_histories_and_noise()
+-> Result<(), Box<dyn std::error::Error>> {
+    let s = verify_pipeline(include_str!("celt-anti-collapse-fixtures.txt"), true)?;
+    assert_eq!(
+        (
+            s.success, s.corrupt, s.rejected, s.prefix, s.dual, s.anti, s.changed
+        ),
+        (1850, 166, 0, 504, 178, 395, 135)
+    );
+    Ok(())
+}
+fn verify_pipeline(text: &str, finish: bool) -> Result<PipelineStats, Box<dyn std::error::Error>> {
+    let mut lines = text.lines().filter(|s| !s.starts_with('#'));
+    let mut anti_count = 0;
+    let mut changed = 0;
     let mut count = 0;
     let mut corrupt = 0;
     let mut rejected = 0;
@@ -49,6 +78,21 @@ fn full_spectral_pipeline_matches_original_channels_masks_seed_and_entropy()
             .chunks_exact(2)
             .map(|s| Ok(u8::from_str_radix(std::str::from_utf8(s)?, 16)?))
             .collect::<Result<_, Box<dyn std::error::Error>>>()?;
+        let mut histories = [[[0i32; 21]; 2]; 2];
+        if finish {
+            let h: Vec<i32> = lines
+                .next()
+                .ok_or("missing history")?
+                .split_whitespace()
+                .skip(1)
+                .map(|s| s.parse())
+                .collect::<Result<_, _>>()?;
+            for k in 0..2 {
+                for c in 0..2 {
+                    histories[k][c].copy_from_slice(&h[42 * k + 21 * c..42 * k + 21 * (c + 1)]);
+                }
+            }
+        }
         let expected: Vec<i64> = lines
             .next()
             .ok_or("missing spectrum")?
@@ -95,7 +139,7 @@ fn full_spectral_pipeline_matches_original_channels_masks_seed_and_entropy()
             Ok((energy, tf, spread, a))
         })();
         let invalid = expected[11] != 0 || expected[16] != 0 || expected[9] > data.len() as i64 * 8;
-        let (energy, tf, spread, a) = match pipeline {
+        let (mut energy, tf, spread, a) = match pipeline {
             Ok(p) => p,
             Err(e) => {
                 assert!(
@@ -135,10 +179,12 @@ fn full_spectral_pipeline_matches_original_channels_masks_seed_and_entropy()
             ),
             (expected[8], expected[9], expected[10])
         );
-        for c in 0..2 {
-            let actual = energy.channel(c).ok_or("energy channel")?;
-            for i in 0..21 {
-                assert_eq!(i64::from(actual[i]), expected[17 + c * 21 + i]);
+        if !finish {
+            for c in 0..2 {
+                let actual = energy.channel(c).ok_or("energy channel")?;
+                for i in 0..21 {
+                    assert_eq!(i64::from(actual[i]), expected[17 + c * 21 + i]);
+                }
             }
         }
         let before = ec.clone();
@@ -153,13 +199,72 @@ fn full_spectral_pipeline_matches_original_channels_masks_seed_and_entropy()
             corrupt += 1;
             continue;
         }
-        let result = result.map_err(|e| {
+        let mut result = result.map_err(|e| {
             format!(
                 "frame{} LM{lm} C{channels} {start}..{end} len{}: {e}",
                 count + corrupt + rejected,
                 data.len()
             )
         })?;
+        if finish {
+            let on = if a.anti_collapse_reserved() {
+                ec.decode_bits(1)? != 0
+            } else {
+                false
+            };
+            assert_eq!(i64::from(on), *expected.last().ok_or("anti flag")?);
+            let bits_left = (data.len() as u32 * 8).saturating_sub(ec.tell());
+            energy.finalise(&mut ec, layout, a.fine_bits(), a.fine_priority(), bits_left)?;
+            let current = [
+                *energy.channel(0).ok_or("current left")?,
+                *energy.channel(1).ok_or("current right")?,
+            ];
+            let saved = result.clone();
+            if a.anti_collapse_reserved() {
+                if anti_count == 0 {
+                    let bytes = [0u8; 128];
+                    let mut wrong_cursor = RangeDecoder::new(&bytes);
+                    let other = allocation::decode_allocation(
+                        &mut wrong_cursor,
+                        size,
+                        BandLayout::new(channels, if start == 0 { 17 } else { 0 }, 21)?,
+                        true,
+                    )?;
+                    assert_eq!(
+                        result.anti_collapse(&other, &current, &histories[0], &histories[1]),
+                        Err(AntiCollapseError::InvalidContext)
+                    );
+                    assert_eq!(result, saved);
+                }
+                let mut invalid = current;
+                invalid[0][0] = i32::MAX;
+                assert_eq!(
+                    result.anti_collapse(&a, &invalid, &histories[0], &histories[1]),
+                    Err(AntiCollapseError::InvalidEnergy)
+                );
+                assert_eq!(result, saved);
+            } else {
+                assert_eq!(
+                    result.anti_collapse(&a, &current, &histories[0], &histories[1]),
+                    Err(AntiCollapseError::InvalidContext)
+                );
+                assert_eq!(result, saved);
+            }
+            if on {
+                result.anti_collapse(&a, &current, &histories[0], &histories[1])?;
+                anti_count += 1;
+                changed += usize::from(result != saved);
+            }
+            for c in 0..2 {
+                for i in 0..21 {
+                    assert_eq!(
+                        i64::from(current[c][i]),
+                        expected[17 + c * 21 + i],
+                        "final energy"
+                    );
+                }
+            }
+        }
         assert_eq!(result.layout(), layout);
         assert_eq!(result.size(), size);
         assert_eq!(i64::from(result.seed()), expected[12]);
@@ -216,11 +321,15 @@ fn full_spectral_pipeline_matches_original_channels_masks_seed_and_entropy()
         dual += usize::from(a.dual_stereo());
         count += 1;
     }
-    assert_eq!((count, corrupt, rejected), (3779, 253, 0));
-    assert!(count > 3000);
-    assert!(full_prefix > 500);
-    assert!(dual > 0);
-    Ok(())
+    Ok(PipelineStats {
+        success: count,
+        corrupt,
+        rejected,
+        prefix: full_prefix,
+        dual,
+        anti: anti_count,
+        changed,
+    })
 }
 #[test]
 fn invalid_spectrum_payload_and_context_preserve_entropy() -> Result<(), Box<dyn std::error::Error>>

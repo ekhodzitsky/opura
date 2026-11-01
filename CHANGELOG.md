@@ -7,6 +7,22 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.32] - 2026-11-01
+
+- Add atomic transient anti-collapse on normalized spectra: bit-depth thresholds,
+  current/two prior energy attenuation, mono history max, 20ms amplitude scaling,
+  interleaved per-block noise and legacy vector renormalization.
+- Validate matching transient 10/20ms allocation/reservation and bounded Q24
+  energies; preserve the complete spectrum on errors and retain the stored seed
+  because anti-collapse consumes a local RNG copy.
+- Match 1850 original complete-stage cases through reserved control/final energy
+  and optional anti-collapse, including 395 enabled restorations (135 changing
+  coefficients); reject 166 corrupt streams across 2016 total cases.
+- Check invalid context/energy rollback and seven targeted mutations; all prior
+  spectral evidence regenerates unchanged and mandatory offline gates pass.
+
+Stateful compressed CELT PCM integration, loss recovery and Hybrid remain pending.
+
 ## [0.1.31] - 2026-11-01
 
 - Assemble complete normalized CELT mono/stereo spectra from immutable

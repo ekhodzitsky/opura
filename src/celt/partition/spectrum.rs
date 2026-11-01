@@ -234,3 +234,124 @@ pub fn decode_spectrum(
     *entropy = next;
     Ok(result)
 }
+
+/// Invalid anti-collapse context, energy domain or scalar/vector arithmetic.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum AntiCollapseError {
+    /// Matching allocation must reserve anti-collapse for a transient 10/20ms frame.
+    InvalidContext,
+    /// Every current/history Q24 energy must lie within -32..=32 log2 units.
+    InvalidEnergy,
+    /// Band normalization failed.
+    Band(crate::celt::bands::BandError),
+}
+impl std::fmt::Display for AntiCollapseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidContext => f.write_str("invalid CELT anti-collapse frame context"),
+            Self::InvalidEnergy => f.write_str("CELT anti-collapse energy outside -32..32"),
+            Self::Band(e) => write!(f, "CELT anti-collapse: {e}"),
+        }
+    }
+}
+impl std::error::Error for AntiCollapseError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Band(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+impl From<crate::celt::bands::BandError> for AntiCollapseError {
+    fn from(e: crate::celt::bands::BandError) -> Self {
+        Self::Band(e)
+    }
+}
+impl Spectrum {
+    /// Fill collapsed transient blocks after final energy, when the reserved bit is
+    /// on. Allocation must match this spectrum and reserve anti-collapse. Energies
+    /// and both histories contain two channels even for mono (which uses their max).
+    /// Errors preserve the complete spectrum. The stored folding seed is unchanged:
+    /// original anti-collapse consumes a local copy, not persistent decoder RNG.
+    pub fn anti_collapse(
+        &mut self,
+        allocation: &Allocation,
+        current: &[[i32; 21]; 2],
+        previous: &[[i32; 21]; 2],
+        previous2: &[[i32; 21]; 2],
+    ) -> Result<(), AntiCollapseError> {
+        use crate::celt::bands::BandError;
+        use crate::celt::{bands, math};
+        let lm = self.size.lm();
+        if self.size != allocation.size()
+            || self.layout != allocation.layout()
+            || !(2..=3).contains(&lm)
+            || !allocation.transient()
+            || !allocation.anti_collapse_reserved()
+        {
+            return Err(AntiCollapseError::InvalidContext);
+        }
+        if [current, previous, previous2].iter().any(|a| {
+            a.iter()
+                .flatten()
+                .any(|&v| !(-(32 << 24)..=(32 << 24)).contains(&v))
+        }) {
+            return Err(AntiCollapseError::InvalidEnergy);
+        }
+        let mut next = self.clone();
+        let mut seed = self.seed;
+        let blocks = 1usize << lm;
+        for i in self.layout.bands() {
+            let width = usize::from(BANDS[i + 1] - BANDS[i]);
+            let n = width << lm;
+            let depth = ((1 + allocation.pvq_bits()[i]) / width as i32) >> lm;
+            let exponent = ((depth << 7) as i16).wrapping_neg();
+            let threshold = 32767.min(math::exp2(exponent) >> 1) >> 1;
+            let shift = (31 - (n as u32).leading_zeros()) >> 1;
+            let root = i32::from(
+                math::rsqrt_normalized((n as i32) << ((7 - shift) * 2)).map_err(BandError::from)?,
+            );
+            for c in 0..self.layout.channels() {
+                let mut p1 = previous[c][i];
+                let mut p2 = previous2[c][i];
+                if self.layout.channels() == 1 {
+                    p1 = p1.max(previous[1][i]);
+                    p2 = p2.max(previous2[1][i]);
+                }
+                let difference = (current[c][i] - p1.min(p2)).max(0);
+                let mut amplitude = if difference < (16 << 24) {
+                    2 * 16383.min(math::exp2(((-difference + 8192) >> 14) as i16) >> 1)
+                } else {
+                    0
+                };
+                if lm == 3 {
+                    amplitude = (23170 * amplitude.min(23169)) >> 14;
+                }
+                amplitude = amplitude.min(threshold) >> 1;
+                amplitude = ((root * amplitude) >> 15) << (10 - shift);
+                let first = usize::from(BANDS[i]) << lm;
+                let x = &mut next.values[c][first..first + n];
+                let mut changed = false;
+                for block in 0..blocks {
+                    if self.masks[c][i] & (1 << block) == 0 {
+                        for j in 0..width {
+                            seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+                            x[(j << lm) + block] = if seed & 0x8000 != 0 {
+                                amplitude
+                            } else {
+                                -amplitude
+                            };
+                        }
+                        changed = true;
+                    }
+                }
+                if changed {
+                    bands::renormalize(x, i32::MAX)?;
+                }
+            }
+        }
+        *self = next;
+        Ok(())
+    }
+}

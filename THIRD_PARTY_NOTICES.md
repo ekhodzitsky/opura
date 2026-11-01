@@ -1150,3 +1150,11 @@ Cross-band balance, folding selection/masks, special Hybrid folding and
 stereo-mode transitions follow `quant_all_bands` / `special_hybrid_folding` in
 `celt/bands.c` at the pinned revision above, under the retained original
 CSIRO/Xiph.Org/Gregory Maxwell notices and redistribution terms.
+
+
+# CELT transient anti-collapse attribution
+
+Bit-depth/energy attenuation, mono history merging, short-block noise and
+renormalization scheduling follow `anti_collapse` in `celt/bands.c` at the pinned
+revision above, under the retained CSIRO/Xiph.Org/Gregory Maxwell notices and
+redistribution terms. Existing scalar math and vector normalization notices apply.

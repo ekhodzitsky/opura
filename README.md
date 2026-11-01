@@ -1395,3 +1395,38 @@ diff -u tests/celt-spectrum-fixtures.txt /tmp/opura-celt-spectrum.txt
 The optional oracle uses unchanged original quant_all_bands and preceding stage
 blocks/functions with pinned scalar code. It does not yet validate anti-collapse,
 stateful CELT PCM packets, Hybrid synthesis or official complete Opus conformance.
+
+
+## CELT transient anti-collapse
+
+After spectrum decoding, read the reserved raw bit when allocation requests it,
+then call the existing energy final refinement with the remaining whole bits.
+If the raw bit is on, call `Spectrum::anti_collapse(allocation, current, previous,
+previous2)`. The three Q24 energy arrays each contain both 21-band channels,
+including the inactive channel history for mono max merging. Every energy must
+be within -32..=32 log2 units. Allocation must match spectrum size/layout and
+reserve anti-collapse for a transient 10/20ms frame; invalid context/energy or
+normalization errors preserve the complete spectrum.
+
+Original bit-depth and energy thresholds, LM3 scaling, interleaved empty-block
+noise and legacy renormalization determine the restored unit spectra. Masks and
+stored seed remain unchanged: upstream anti-collapse takes its seed by value.
+Frame-level energy history updates and final RNG policy belong to the forthcoming
+stateful decoder, rather than this primitive.
+
+[2016 final-stage cases](tests/celt-anti-collapse-fixtures.txt) extend the original
+coarse/TF/spread/allocation/fine/all-band pipeline with varied two-channel energy
+histories, reserved control decoding, final energy and unchanged anti_collapse.
+1850 cases match final energies, selected channel coefficients, masks, seed and
+entropy, including 504 prefix cases and 395 enabled anti-collapse calls, of which
+135 change coefficients. 166 corrupt streams reject atomically. Invalid context
+and energy rollback plus seven mutations verify thresholds, mono history, energy
+attenuation, LM3 gain, noise ordering, normalization and persistent seed policy.
+
+```sh
+python3 tools/celt_partition_fixtures.py target/reference/opus --anti > /tmp/opura-celt-anti.txt
+diff -u tests/celt-anti-collapse-fixtures.txt /tmp/opura-celt-anti.txt
+```
+
+The spectral pipeline now includes optional anti-collapse. Stateful compressed
+CELT PCM packets, CELT loss recovery, Hybrid and full conformance remain pending.

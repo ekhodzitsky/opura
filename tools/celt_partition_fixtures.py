@@ -13,6 +13,7 @@ parser.add_argument('source',type=Path)
 mode=parser.add_mutually_exclusive_group()
 mode.add_argument('--tables',action='store_true')
 mode.add_argument('--spectra',action='store_true',help='Generate allocation-to-spectrum evidence')
+mode.add_argument('--anti',action='store_true',help='Generate final-energy and anti-collapse evidence')
 mode.add_argument('--bands',action='store_true',help='Generate full TF/stereo band evidence instead of partitions')
 args=parser.parse_args();source=args.source.resolve()
 if subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip()!=REVISION:
@@ -66,6 +67,7 @@ wrapper+=function(bands,'static unsigned quant_band_stereo(')
 wrapper+=function(bands,'static void compute_channel_weights(')
 wrapper+=function(bands,'static void special_hybrid_folding(')
 wrapper+=function(bands,'void quant_all_bands(')
+wrapper+=function(bands,'void anti_collapse(')
 decoder=(source/'celt/celt_decoder.c').read_text();celt=(source/'celt/celt.c').read_text()
 def block(text,start,end):
     return text[text.index(start):text.index(end)]
@@ -74,7 +76,7 @@ spread=block(decoder,'   tell = ec_tell(dec);\n   spread_decision = SPREAD_NORMA
 allocation=block(decoder,'   ALLOC(cap, nbEBands, int);','   unquant_fine_energy(mode, start, end, oldBandE, NULL, fine_quant, dec, C);')
 wrapper+='#include "celt.h"\n'+declaration(celt,'const signed char tf_select_table[4][8]')+'\n'+function(celt,'void init_caps(')+function(decoder,'static void tf_decode(')
 wrapper+='''
-void spectrum(const unsigned char *data,int len,int LM,int C,int start,int end,int transient,int intra,int with_prefix,int position,unsigned seed,int disable,int *out) {
+void spectrum(const unsigned char *data,int len,int LM,int C,int start,int end,int transient,int intra,int with_prefix,int position,unsigned seed,int disable,int finish,const int *prev1,const int *prev2,int *out) {
     ec_dec inner,*dec=&inner;ec_dec_init(dec,(unsigned char*)data,len);
     const CELTMode *mode=&mode48000_960_120;
     const opus_int16 *eBands=mode->eBands;int nbEBands=21;
@@ -103,6 +105,12 @@ void spectrum(const unsigned char *data,int len,int LM,int C,int start,int end,i
     out[8]=dec->rng;out[9]=ec_tell(dec);out[10]=ec_tell_frac(dec);out[11]=ec_get_error(dec);
     int N=120<<LM;int values[1920]={0};unsigned char masks[42]={0};
     quant_all_bands(0,mode,start,end,values,C==2?values+N:NULL,masks,NULL,pulses,isTransient?M:0,spread_decision,dual_stereo,intensity,tf_res,len*64-anti_collapse_rsv,balance,dec,LM,codedBands,&seed,0,0,disable);
+    if(finish) {
+        int on=anti_collapse_rsv>0 ? ec_dec_bits(dec,1) : 0;
+        unquant_energy_finalise(mode,start,end,energy,fine_quant,fine_priority,len*8-ec_tell(dec),dec,C);
+        if(on) anti_collapse(mode,values,masks,LM,C,N,start,end,energy,prev1,prev2,pulses,seed,0,0);
+        out[101+2*N]=on;
+    }
     out[12]=seed;out[13]=dec->rng;out[14]=ec_tell(dec);out[15]=ec_tell_frac(dec);out[16]=ec_get_error(dec);
     for(int j=0;j<42;j++) {out[17+j]=energy[j];out[59+j]=masks[j];}
     for(int j=0;j<2*N;j++) out[101+j]=values[j];
@@ -142,9 +150,9 @@ with tempfile.TemporaryDirectory(prefix='opura-celt-partition-') as temp:
                     *[str(source/'celt'/p) for p in ['vq.c','cwrs.c','mathops.c','entcode.c','entenc.c','entdec.c','rate.c','quant_bands.c','laplace.c']],'-o',str(path/'probe.so')],check=True)
     lib=c.CDLL(str(path/'probe.so'));ptr=c.POINTER(c.c_int32);u8=c.POINTER(c.c_ubyte)
     lib.partition.argtypes=[u8,*[c.c_int]*9,c.c_uint,c.c_int,c.c_int,ptr,ptr];lib.partition.restype=None
-    if args.spectra:
-        lib.spectrum.argtypes=[u8,*[c.c_int]*9,c.c_uint,c.c_int,ptr];lib.spectrum.restype=None
-        print('# Original coarse/TF/spread/allocation/fine/quant_all_bands:',REVISION)
+    if args.spectra or args.anti:
+        lib.spectrum.argtypes=[u8,*[c.c_int]*9,c.c_uint,c.c_int,c.c_int,ptr,ptr,ptr];lib.spectrum.restype=None
+        print('# Original coarse/TF/spread/allocation/fine/quant_all_bands'+('/final/anti_collapse' if args.anti else '')+':',REVISION)
         print('# frame LM CHANNELS START END TRANSIENT_ARG INTRA_ARG PREFIX POSITION SEED DISABLE HEX')
         print('# spectrum TRANSIENT INTRA SPREAD ANTI_RSV CODED INTENSITY DUAL BALANCE BEFORE_RANGE BEFORE_TELL BEFORE_FRAC BEFORE_ERROR SEED RANGE TELL FRAC ERROR ENERGY[42] MASKS[42 interleaved] VALUES[2*N]')
         random=0x414c4c42
@@ -152,19 +160,26 @@ with tempfile.TemporaryDirectory(prefix='opura-celt-partition-') as temp:
             global random
             random^=(random<<13)&0xffffffff;random^=random>>17;random^=(random<<5)&0xffffffff
             return random
-        for lm in range(4):
+        if args.anti:print('# history PREVIOUS[42] PREVIOUS2[42]; spectrum suffix ANTI_ON')
+        for lm in (range(2,4) if args.anti else range(4)):
             for channels in [1,2]:
                 for start,end in [(0,1),(0,13),(0,17),(0,19),(0,21),(17,18),(17,19),(17,20),(17,21)]:
                     for length in [2,3,8,16,40,120,1275]:
                         for pattern in range(8):
                             transient=(pattern+length)%2 if lm else 0;intra=(pattern//2)%2;with_prefix=pattern%3==2;position=pattern%4
+                            if args.anti:transient=1
                             seed=next_random();disable=(pattern//3)%2
                             data=bytes([0]*length) if pattern==0 else bytes([255]*length) if pattern==1 else bytes(next_random()&255 for _ in range(length))
-                            out=(c.c_int32*(101+2*(120<<lm)))()
-                            lib.spectrum((c.c_ubyte*length).from_buffer_copy(data),length,lm,channels,start,end,transient,intra,int(with_prefix),position,seed,disable,out)
+                            histories=[]
+                            if args.anti:
+                                levels=[-28,-20,-9,0,8,16,18,28]
+                                histories=[[levels[(i*(3 if h else 1)+pattern+lm+2*h)%8]*(1<<24)+[-8192,0,8192,1<<22][(i+pattern+h)%4] for i in range(42)] for h in range(2)]
+                            out=(c.c_int32*(101+2*(120<<lm)+int(args.anti)))()
+                            lib.spectrum((c.c_ubyte*length).from_buffer_copy(data),length,lm,channels,start,end,transient,intra,int(with_prefix),position,seed,disable,int(args.anti),*((c.c_int32*42)(*h) for h in histories) if args.anti else (None,None),out)
                             result=list(out)
                             for j in [8,12,13]:result[j]=c.c_uint32(result[j]).value
                             print('frame',lm,channels,start,end,transient,intra,int(with_prefix),position,seed,disable,data.hex())
+                            if args.anti:print('history',*histories[0],*histories[1])
                             print('spectrum',*result)
         raise SystemExit
     if args.bands:
