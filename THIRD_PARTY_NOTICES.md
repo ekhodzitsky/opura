@@ -1352,3 +1352,13 @@ follow `celt/mathops.c::celt_sqrt32`, `celt_rcp_norm16` and `celt_rcp_norm32`.
 All use the pinned revision above, with their CELT band/scalar notices and terms
 already retained here. Canonical band edges, log widths and means keep their
 existing mode/table attribution. Active-domain overflow validation is added in Rust.
+
+
+# CELT encoder energy quantization attribution
+
+Coarse temporal/inter-band prediction, decay/scarcity/LFE policy, inter/intra
+RDO and fine/final refinement follow `celt/quant_bands.c` at the pinned revision.
+The CELT energy/probability/quant_bands notices and terms already retained above
+apply. Rust adds atomic stage failures, checked physical-target arithmetic and
+deterministic zero residuals outside each newly selected coarse layout; original
+unused per-frame scratch is not treated as initialized state by optional probes.

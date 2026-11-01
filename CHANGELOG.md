@@ -7,6 +7,21 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.47] - 2026-11-02
+
+- Add fixed-storage CELT energy encoding with temporal/inter-band coarse prediction,
+  inter/intra two-pass RDO, loss bias, decay/scarcity/LFE policy and fine/final bits.
+- Preserve energy/residual/delayed state and the entropy writer together on errors;
+  validate physical Q24 targets/options/budgets and canonicalize inactive residuals.
+- Match388 original full energy bitstreams and per-stage state/range/accounting,
+  including212 intra/176 inter choices. Retain both reference sides of11 artificial
+  scarce-prefix history differences; separately verify96 normal-budget matching
+  encoder/decoder sequences, late rollback and sixteen detected mutations.
+- Optional energy and previous entropy/decoder-energy evidence reproduce; all seven
+  mandatory offline checks pass without foreign dependencies or unsafe code.
+
+Complete compressed audio encoding remains under development.
+
 ## [0.1.46] - 2026-11-02
 
 - Add safe fixed-storage CELT band analysis: native amplitudes, normalized Q24

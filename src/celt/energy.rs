@@ -1,8 +1,12 @@
-//! Classic CELT log-energy reconstruction in Q24 (21 bands, one/two channels).
+//! Classic CELT log-energy quantization/reconstruction in Q24 (21 bands, one/two channels).
 //!
 //! Coarse, fine and final stages are separate because allocation and shape
-//! decoding occur between them. This is not a packet decoder. QEXT/RES24 are
+//! coding occur between them. [`EnergyEncoder`] adds coarse inter/intra RDO and
+//! fine/final quantization. These primitives do not encode/decode a full packet. QEXT/RES24 are
 //! unsupported. Algorithms/tables follow pinned Opus; see THIRD_PARTY_NOTICES.md.
+mod encoder;
+pub use encoder::{CoarseEncoding, EnergyEncoder, EnergyEncodingError};
+
 use super::{FrameSize, energy_tables::PROBABILITY};
 use crate::range::{RangeDecoder, RangeError};
 use std::{fmt, ops::Range};

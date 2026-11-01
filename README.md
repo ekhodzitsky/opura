@@ -1962,3 +1962,47 @@ diff -u tests/celt-analysis-math-fixtures.txt /tmp/celt-analysis-math-fixtures.t
 
 Transient/pitch-prefilter decisions, quantization and complete audio packet
 encoding remain under development.
+
+## CELT energy encoding foundation
+
+`opura::celt::energy::EnergyEncoder` keeps reconstructed energies, current Q24
+residuals and native delayed-intra distortion. `CoarseEncoding` supplies the
+band/channel layout, duration, effective distortion end, available bytes,
+force/two-pass choices, loss percentage and LFE policy. Coarse encoding matches
+native temporal/inter-band prediction, decay limits, bit-scarcity fallbacks and
+inter/intra RDO. It returns the selected flag and writes it only when it fits.
+Fine and final methods insert the selected raw refinements in native order.
+
+Each complete stage commits both energy and entropy state together; errors leave
+both unchanged. Inputs are selected Q24 log energies in [-28,16], covering the
+standard signed16 analysis domain; inactive targets are ignored. Reconstructed
+histories outside the layout persist, while residuals outside a new coarse
+layout become zero. Accessors expose histories, residuals and delayed distortion;
+reset clears all three. Fine quantizers are 0..8 bits. Final refinement returns
+unused budget and rejects budgets beyond conservative remaining storage.
+Stages are separate so allocation and shape coding can occur between them.
+
+All finalized bytes, stage ranges/whole/eighth-bit counters, active energies,
+residuals, delayed distortion and chosen flags match 388 independent original
+packets (212 intra,176 inter). The corpus retains both original encoder and
+decoder histories. Eleven artificial prefix-scarcity cases reproduce native
+history differences, including the first-band one-bit path; they are not treated
+as encoder/decoder history agreement. Callers must reserve an appropriate layer
+budget. A separate 96-frame test verifies full matching energy/range/counter
+round trips at ordinary budgets across frame/layout changes and resets.
+
+Tests verify late coarse/fine/final arithmetic failures after staged writes,
+invalid options/targets/refinements and finished writers. All sixteen targeted
+mutations are detected. The original RDO routine leaves unused residual scratch
+uninitialized; the optional oracle clears only unselected entries before reading
+them, matching Opura's deterministic contract without changing active DSP.
+
+```sh
+python3 tools/celt_energy_encoder_fixtures.py /path/to/opus-v1.6.1 > /tmp/celt-energy-encoder-fixtures.txt
+diff -u tests/celt-energy-encoder-fixtures.txt /tmp/celt-energy-encoder-fixtures.txt
+```
+
+These are energy bitstreams, not complete compressed audio packets. Shape
+quantization, frame controls, transient/pitch decisions and full packet encoding
+remain under development. All stages use fixed storage, safe Rust and zero Cargo
+dependencies; original C is confined to optional external probes.
