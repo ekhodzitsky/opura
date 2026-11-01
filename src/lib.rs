@@ -1,9 +1,9 @@
-//! Pure Rust Opus framing, entropy, mono/stereo SILK and normal CELT output.
+//! Pure Rust Opus framing, entropy, SILK/CELT output and normal Hybrid output.
 //! No dependencies or allocation; complete Opus decoding is not implemented yet.
 //!
 //! This validates RFC 6716 section 3 framing, not compressed audio contents.
 //! Full Opus audio decoding, containers, multistream and self-delimiting framing
-//! are not implemented; see [`silk::decoder`] and [`celt::decoder`] for supported
+//! are not implemented; see [`silk::decoder`], [`celt::decoder`] and [`hybrid`] for supported
 //! audio subsets. Pass exactly one packet, with its transport headers removed.
 //!
 //! ```
@@ -14,6 +14,7 @@
 //! ```
 
 pub mod celt;
+pub mod hybrid;
 pub mod range;
 pub mod silk;
 

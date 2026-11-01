@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Real CELT-only streams and public opus_decode PCM/final range from pinned Opus.
+"""CELT-only and optional Hybrid streams with public PCM/range from pinned Opus.
 
 Optional developer oracle: compile unchanged external scalar fixed-point source
 in a temporary directory; no reference library is linked or loaded by Cargo.
@@ -12,8 +12,10 @@ import subprocess
 import tempfile
 REVISION='22244de5a79bd1d6d623c32e72bf1954b56235be'
 parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('source',type=Path)
+parser.add_argument('--hybrid',action='store_true',help='Generate normal shared-entropy Hybrid streams')
 parser.add_argument('--loss',action='store_true',help='Generate periodic/noise PLC and recovery streams')
 args=parser.parse_args();source=args.source.resolve()
+if args.loss and args.hybrid:parser.error('Choose one fixture mode')
 if subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip()!=REVISION:
     raise SystemExit('Expected pinned Opus v1.6.1')
 if subprocess.check_output(['git','-C',str(source),'status','--porcelain'],text=True).strip():
@@ -38,6 +40,13 @@ int configure(OpusEncoder *e,int bandwidth,int channels,int bitrate,int vbr) {
     ret|=opus_encoder_ctl(e,OPUS_SET_DTX(0));
     return ret;
 }
+int normal_payload(const unsigned char *data,int len) {
+    const unsigned char *frames[48];opus_int16 sizes[48];
+    int count=opus_packet_parse(data,len,NULL,frames,sizes,NULL);
+    if(count<=0) return 0;
+    for(int i=0;i<count;i++) if(sizes[i]<=1) return 0;
+    return 1;
+}
 int reset(OpusDecoder *d) {return opus_decoder_ctl(d,OPUS_RESET_STATE);}
 int decode(OpusDecoder *d,const unsigned char *data,int len,opus_int16 *pcm,opus_uint32 *range) {
     int count=opus_decode(d,data,len,pcm,5760,0);
@@ -57,6 +66,12 @@ int repack(const unsigned char *packets,const int *lengths,int count,unsigned ch
     opus_repacketizer_destroy(r);return result;
 }
 '''
+if args.hybrid:
+    wrapper=wrapper.replace('MODE_CELT_ONLY','MODE_HYBRID').replace(
+        'ret|=opus_encoder_ctl(e,OPUS_SET_DTX(0));',
+        'ret|=opus_encoder_ctl(e,OPUS_SET_DTX(0));\n'
+        'ret|=opus_encoder_ctl(e,OPUS_SET_INBAND_FEC(vbr));\n'
+        'ret|=opus_encoder_ctl(e,OPUS_SET_PACKET_LOSS_PERC(vbr ? 5 : 0));')
 files=manifest('silk_sources.mk','SILK_SOURCES')+manifest('silk_sources.mk','SILK_SOURCES_FIXED')+manifest('celt_sources.mk','CELT_SOURCES')+manifest('opus_sources.mk','OPUS_SOURCES')
 with tempfile.TemporaryDirectory(prefix='opura-celt-packets-') as temp:
     path=Path(temp);(path/'probe.c').write_text(wrapper)
@@ -104,7 +119,7 @@ void snapshot_loss(const OpusDecoder *st,opus_int32 *out) {
     lib=c.CDLL(str(path/'probe.so'));ptr=c.c_void_p;i16=c.POINTER(c.c_int16);u8=c.POINTER(c.c_ubyte);u32=c.POINTER(c.c_uint32);ints=c.POINTER(c.c_int)
     for name,types,result in [('opus_encoder_create',[c.c_int,c.c_int,c.c_int,ints],ptr),('opus_decoder_create',[c.c_int,c.c_int,ints],ptr),
                               ('opus_encoder_destroy',[ptr],None),('opus_decoder_destroy',[ptr],None),
-                              ('configure',[ptr,*[c.c_int]*4],c.c_int),('reset',[ptr],c.c_int),
+                              ('normal_payload',[u8,c.c_int],c.c_int),('configure',[ptr,*[c.c_int]*4],c.c_int),('reset',[ptr],c.c_int),
                               ('opus_encode',[ptr,i16,c.c_int,u8,c.c_int],c.c_int),('decode',[ptr,u8,c.c_int,i16,u32],c.c_int),
                               ('repack',[u8,ints,c.c_int,u8],c.c_int),('opus_packet_pad',[u8,c.c_int,c.c_int],c.c_int),('snapshot',[ptr,ints],None),
                               ('decode_loss',[ptr,u8,c.c_int,c.c_int,i16,u32],c.c_int),('snapshot_loss',[ptr,ints],None)]:
@@ -189,13 +204,13 @@ void snapshot_loss(const OpusDecoder *st,opus_int32 *out) {
                     finally:
                         lib.opus_encoder_destroy(encoder);lib.opus_decoder_destroy(decoder)
         raise SystemExit
-    print('# Real CELT-only encoder streams; public fixed-point opus_decode:',REVISION)
+    print('# Real '+('Hybrid' if args.hybrid else 'CELT-only')+' encoder streams; public fixed-point opus_decode:',REVISION)
     print('# packet RESET RATE API_CHANNELS HEX FINAL_RANGE SAMPLES_PER_CHANNEL PCM[N*C]')
     print('# state ENERGY[42] PREVIOUS[42] PREVIOUS2[42] BACKGROUND[42] DEEMPHASIS[2] POSTFILTER[old/current period,gain,tap] OVERLAP[60*C] HISTORY[1026*C]')
     for rate in [8000,12000,16000,24000,48000]:
         for api in [1,2]:
             for sequence in range(3):
-                error=c.c_int();encoder=lib.opus_encoder_create(48000,2,2051,c.byref(error))
+                error=c.c_int();encoder=lib.opus_encoder_create(48000,2,2049 if args.hybrid else 2051,c.byref(error))
                 if not encoder or error.value:raise SystemExit('Encoder initialization failed')
                 decoder=lib.opus_decoder_create(rate,api,c.byref(error))
                 if not decoder or error.value:raise SystemExit('Decoder initialization failed')
@@ -206,10 +221,16 @@ void snapshot_loss(const OpusDecoder *st,opus_int32 *out) {
                         if reset and lib.reset(decoder):raise SystemExit('Reset failed')
                         if index<24:lm=index//6;count=1
                         else:count=[2,3,4,6,8,12,24,48][index-24];lm=3 if count<=6 else 0
+                        if args.hybrid:
+                            lm=2+(index//6)%2 if index<24 else (2 if count>6 else 3)
+                            if index>=24:count=[2,3,4,6,2,4,6,12][index-24]
                         n=120<<lm
                         band=[1101,1103,1104,1105][(index//3+sequence)%4] if sequence else 1105
+                        if args.hybrid:band=[1104,1105][(index//3+sequence)%2]
                         channels=1 if index%12 in [0,1,2,7,8] else 2
+                        if args.hybrid and index>=24:channels=2
                         bitrate=[24000,48000,96000,192000][(index//2+sequence)%4]
+                        if args.hybrid:bitrate=[48000,64000,96000,128000][(index//2+sequence)%4]
                         if lib.configure(encoder,band,channels,bitrate,index%2):raise SystemExit('Encoder configuration failed')
                         frames=[]
                         for part in range(count):
@@ -222,15 +243,28 @@ void snapshot_loss(const OpusDecoder *st,opus_int32 *out) {
                                 if index%7==0:right=left
                                 if index in [0,11,12,20,28]:left=right=0
                                 if index==29:left=10000 if j<2 else 0;right=-left
+                                if args.hybrid and (index==30 or (sequence==2 and index%8==5)):
+                                    left=32767 if (j+phase)%13<7 else -32768
+                                    right=c.c_int16(random>>8).value
                                 samples.extend([left,right])
                             data=(c.c_ubyte*1275)();length=lib.opus_encode(encoder,(c.c_int16*len(samples))(*samples),n,data,1275)
+                            # Rapid Hybrid 20->10ms changes can produce an
+                            # encoder budget-fallback PLC frame. This normal-only
+                            # corpus retries boundedly; loss has a separate oracle.
+                            if args.hybrid:
+                                for _ in range(4):
+                                    if length>=0 and lib.normal_payload(data,length):break
+                                    length=lib.opus_encode(encoder,(c.c_int16*len(samples))(*samples),n,data,1275)
+                                if length<0 or not lib.normal_payload(data,length):raise SystemExit('Hybrid encoder did not produce normal payload')
                             if length<3:raise SystemExit('Expected normal CELT payload')
                             packet=bytes(data[:length])
-                            if packet[0]>>3<16:raise SystemExit('Expected CELT-only packet')
+                            if args.hybrid:
+                                if not 12<=packet[0]>>3<16:raise SystemExit(f'Expected Hybrid packet: rate{rate} api{api} sequence{sequence} index{index} part{part} toc{packet[0]:02x} bw{band} bits{bitrate}')
+                            elif packet[0]>>3<16:raise SystemExit('Expected CELT-only packet')
                             frames.append(packet)
                         combined=b''.join(frames);data=(c.c_ubyte*65536)()
                         length=lib.repack((c.c_ubyte*len(combined)).from_buffer_copy(combined),(c.c_int*len(frames))(*map(len,frames)),len(frames),data)
-                        if length<0:raise SystemExit('Repacketization failed')
+                        if length<0:raise SystemExit(f'Repacketization failed rate{rate} api{api} seq{sequence} index{index} frames{[p[0] for p in frames]}')
                         if index==31:
                             if lib.opus_packet_pad(data,length,length+257):raise SystemExit('Padding failed')
                             length+=257

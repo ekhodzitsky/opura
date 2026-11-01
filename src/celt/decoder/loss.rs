@@ -115,6 +115,7 @@ pub struct ConcealmentState {
     mode: ConcealmentMode,
     pub(super) initialized: bool,
     pub(super) last_size: FrameSize,
+    start: usize,
     end: usize,
 }
 impl Default for ConcealmentState {
@@ -131,11 +132,16 @@ impl Default for ConcealmentState {
             mode: ConcealmentMode::None,
             initialized: false,
             last_size: FrameSize::Ms2_5,
+            start: 0,
             end: 21,
         }
     }
 }
 impl ConcealmentState {
+    /// Last normal frame's inclusive start (zero for CELT,17 for Hybrid).
+    pub fn start_band(&self) -> usize {
+        self.start
+    }
     /// Last normal frame's exclusive band endpoint, retained across loss headers.
     pub fn end_band(&self) -> usize {
         self.end
@@ -177,8 +183,10 @@ impl ConcealmentState {
         self.coefficients.get(channel)
     }
     pub(super) fn reset(&mut self) {
+        let start = self.start;
         let end = self.end;
         *self = Self::default();
+        self.start = start;
         self.end = end;
     }
     pub(super) fn begin_normal(&mut self) {
@@ -237,15 +245,21 @@ impl CeltDecoder {
         payload: &[u8],
         config: FrameConfig,
     ) -> Result<PcmFrame, DecoderError> {
-        let end = Self::configuration_end(config)?;
+        Self::configuration_end(config)?;
         self.loss.last_size = config.size;
         if payload.len() <= 1 {
             Ok(self.loss_frame(config.size)?)
         } else {
-            self.frame(payload, config, end)
+            self.frame(payload, config)
         }
     }
-    pub(super) fn recover_energy(&mut self, size: FrameSize, intra: bool, end: usize) {
+    pub(super) fn recover_energy(
+        &mut self,
+        size: FrameSize,
+        intra: bool,
+        start: usize,
+        end: usize,
+    ) {
         if intra || self.loss.duration == 0 {
             return;
         }
@@ -256,7 +270,7 @@ impl CeltDecoder {
             _ => 0,
         };
         for (c, channel) in self.energy.values_mut().iter_mut().enumerate() {
-            for (i, value) in channel.iter_mut().enumerate().take(end) {
+            for (i, value) in channel.iter_mut().enumerate().take(end).skip(start) {
                 let p1 = self.previous[c][i];
                 let p2 = self.previous2[c][i];
                 if *value < p1.max(p2) {
@@ -292,6 +306,7 @@ impl CeltDecoder {
     pub(super) fn record_normal(
         &mut self,
         size: FrameSize,
+        start: usize,
         end: usize,
     ) -> Result<(), ConcealmentError> {
         self.record_signal(size)?;
@@ -300,6 +315,7 @@ impl CeltDecoder {
         self.loss.mode = ConcealmentMode::Normal;
         self.loss.prefilter = false;
         self.loss.initialized = true;
+        self.loss.start = start;
         self.loss.end = end;
         Ok(())
     }
@@ -327,7 +343,7 @@ impl CeltDecoder {
                 .map_err(SynthesisError::from)
                 .map_err(ConcealmentError::from);
         }
-        let noise = self.loss.plc_duration >= 40 || self.loss.skip;
+        let noise = self.loss.plc_duration >= 40 || self.loss.skip || self.loss.start != 0;
         let pcm = if noise {
             self.noise_loss(size)?
         } else {
@@ -354,7 +370,7 @@ impl CeltDecoder {
         };
         let mut spectra = [[0i32; 960]; 2];
         for (c, spectrum) in spectra.iter_mut().enumerate().take(channels) {
-            for i in 0..end {
+            for i in self.loss.start..end {
                 self.energy.values_mut()[c][i] =
                     self.background[c][i].max(self.energy.values()[c][i] - decay);
                 let first = usize::from(BANDS[i]) << size.lm();
@@ -376,7 +392,7 @@ impl CeltDecoder {
                 .map_err(SynthesisError::from)?;
         let controls = SynthesisControls {
             size,
-            bands: 0..end,
+            bands: self.loss.start..end,
             transient: false,
             silence: false,
             postfilter: params,

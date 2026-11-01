@@ -1225,3 +1225,41 @@ checks, noise/background decay, prefilter/TDAC, loss counters and recovery follo
 CSIRO/Xiph.Org/Gregory Maxwell notices and terms are retained above, along with
 LPC, pitch, scalar math, comb and MDCT component notices. Optional guard oracles
 extract unchanged original safety blocks into temporary probes only.
+
+
+# Hybrid packet integration attribution
+
+Shared SILK/CELT entropy ordering, Hybrid redundancy-presence parsing, start-band
+selection and fixed-point PCM accumulation follow `src/opus_decoder.c` and
+`celt/arch.h` at the pinned revision above. SILK/CELT component attribution
+continues to apply. The packet integration source carries the following notice:
+
+```c
+/* Copyright (c) 2010 Xiph.Org Foundation, Skype Limited
+   Copyright (c) 2024 Arm Limited
+   Written by Jean-Marc Valin and Koen Vos */
+/*
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions
+   are met:
+
+   - Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+
+   - Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+
+   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+   ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER
+   OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+   EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+   PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+   PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+   LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+   NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+```

@@ -295,7 +295,6 @@ impl SilkDecoder {
             Bandwidth::Mediumband => SilkRate::Khz12,
             _ => SilkRate::Khz16,
         };
-        let channels = usize::from(packet.channels());
         let frame_count = if fec { 1 } else { packet.frames().len() };
         if packet.frames()[..frame_count]
             .iter()
@@ -309,44 +308,10 @@ impl SilkDecoder {
             let (header, mut entropy) =
                 decode_header(&packet, frame_index).map_err(DecoderError::Header)?;
             entropy.allow_silk_zero_extension();
-            let duration = if header.frame_duration_ms() == 10 {
-                FrameDuration::Ms10
-            } else {
-                FrameDuration::Ms20
-            };
-            if !fec {
-                skip_lbrr(&mut entropy, rate, duration, &header)?;
-            }
-            for index in 0..header.frame_count() {
-                let collapse = next.enter_frame(channels, rate);
-                let FrameFlags {
-                    vad,
-                    redundant,
-                    previous: previous_redundant,
-                } = frame_flags(&header, index)?;
-                let mut prediction = next.stereo.previous_prediction();
-                let mut mid_only = false;
-                if channels == 2 && (!fec || redundant[0]) {
-                    prediction = StereoPrediction::decode(&mut entropy)?;
-                    if if fec { !redundant[1] } else { !vad[1] } {
-                        mid_only = decode_mid_only(&mut entropy)?;
-                    }
-                }
-                let plan = FramePlan {
-                    kind: if fec { Kind::Fec } else { Kind::Normal },
-                    rate,
-                    duration,
-                    channels,
-                    index,
-                    vad,
-                    redundant,
-                    previous_redundant,
-                    prediction,
-                    mid_only,
-                    collapse,
-                };
-                next.frame(Some(&mut entropy), plan, &mut output)?;
-            }
+            let layer = next.decode_layer(&header, &mut entropy, rate, fec)?;
+            let end = output.length + layer.samples().len();
+            output.samples[output.length..end].copy_from_slice(layer.samples());
+            output.length = end;
             if !fec && entropy.tell() + 17 <= payload.len() as u32 * 8 {
                 return Err(DecoderError::UnsupportedTransition);
             }
@@ -358,6 +323,59 @@ impl SilkDecoder {
             FrameDuration::Ms20
         };
         *self = next;
+        Ok(output)
+    }
+    // Decode one positioned SILK layer. The caller owns the outer transaction
+    // and the physical entropy budget (Hybrid continues into CELT).
+    pub(crate) fn decode_layer(
+        &mut self,
+        header: &FrameHeader,
+        entropy: &mut RangeDecoder<'_>,
+        rate: SilkRate,
+        fec: bool,
+    ) -> Result<DecodedPcm, DecoderError> {
+        let channels = header.channel_count();
+        let mut output = self.empty_output();
+        let duration = if header.frame_duration_ms() == 10 {
+            FrameDuration::Ms10
+        } else {
+            FrameDuration::Ms20
+        };
+        if !fec {
+            skip_lbrr(entropy, rate, duration, header)?;
+        }
+        for index in 0..header.frame_count() {
+            let collapse = self.enter_frame(channels, rate);
+            let FrameFlags {
+                vad,
+                redundant,
+                previous: previous_redundant,
+            } = frame_flags(header, index)?;
+            let mut prediction = self.stereo.previous_prediction();
+            let mut mid_only = false;
+            if channels == 2 && (!fec || redundant[0]) {
+                prediction = StereoPrediction::decode(entropy)?;
+                if if fec { !redundant[1] } else { !vad[1] } {
+                    mid_only = decode_mid_only(entropy)?;
+                }
+            }
+            let plan = FramePlan {
+                kind: if fec { Kind::Fec } else { Kind::Normal },
+                rate,
+                duration,
+                channels,
+                index,
+                vad,
+                redundant,
+                previous_redundant,
+                prediction,
+                mid_only,
+                collapse,
+            };
+            self.frame(Some(entropy), plan, &mut output)?;
+        }
+        self.last_duration = duration;
+        output.range = entropy.range();
         Ok(output)
     }
     fn frame(

@@ -4,8 +4,9 @@ Opura is a pure Rust, zero-dependency Opus implementation under development.
 **Mono/stereo SILK packets support final PCM output, explicit loss concealment and in-band FEC.**
 Packet framing, range decoding and the SILK channel primitives are also available.
 **CELT-only normal/loss/DTX packets also decode to final mono/stereo PCM at all five rates.**
-Hybrid, cross-mode transitions, standalone SILK implicit DTX, full conformance and encoding
-remain under development. The accepted direction is a complete decoder first, then
+**Normal Hybrid packets also decode to final PCM through shared SILK/CELT entropy.**
+Hybrid loss/FEC, CELT transition tails, cross-mode transitions, standalone SILK
+implicit DTX, full conformance and encoding remain under development. The accepted direction is a complete decoder first, then
 an encoder, prioritizing speed and reliability. See the
 [decoder-first decision](docs/decisions/0002-decoder-first.md) for evaluation
 requirements; SOTA performance is an ambition, not a current claim.
@@ -1607,3 +1608,47 @@ diff -u tests/celt-plc-filter-fixtures.txt /tmp/opura-celt-plc-guards.txt
 
 CELT-only normal and loss paths are now end-to-end. Hybrid, cross-mode transitions,
 complete official conformance, encoder and competitive evaluation remain pending.
+
+
+## Normal Hybrid packets
+
+`hybrid::HybridDecoder` decodes normal Hybrid packets with10/20ms frames,
+encoded mono/stereo, independent mono/stereo PCM output and all five standard
+output rates. The SILK low band runs at16kHz and shares one range decoder with
+CELT bands17..19 (SWB) or17..21 (FB). Normal in-band LBRR is consumed before the
+primary audio. Multi-frame packets support up to120ms; errors preserve both
+layers and all synthesis/resampler histories.
+
+```rust
+use opura::{hybrid::HybridDecoder, silk::{decoder::PcmChannels, resampler::OutputRate}};
+let mut decoder = HybridDecoder::new(OutputRate::Khz48, PcmChannels::Stereo)?;
+// let pcm = decoder.decode(transport_packet)?;
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+Signed16 output follows the reference's canonical fixed-point `SIG2RES` then
+`ADD_RES`: CELT rounds/saturates to signed16 before the layer sum saturates.
+Read-only `celt()` exposes energies, overlap, postfilter and de-emphasis histories.
+`reset()` retains output geometry and native CELT start/end configuration.
+This API currently rejects empty/one-byte loss/DTX frames and redundant CELT
+transition tails; Hybrid loss/FEC and unified cross-mode orchestration follow.
+
+`tests/hybrid-packet-fixtures.txt` contains960 public fixed-point libopus packet
+results and independent complete CELT snapshots. It covers all output rates,
+wire/API channel combinations, SWB/FB and10/20ms changes, silence, tones, noise,
+impulses, clipping, normal LBRR, padding and up to12 frames/120ms. Packet output
+and final state also match decoding the same frames separately. Retained deep
+entropy failures verify rollback after SILK and after an earlier valid frame;
+512 deterministic corrupt packets check bounds and atomicity.
+
+Regenerate the optional oracle with the pinned clean external reference:
+
+```sh
+python3 tools/celt_packet_fixtures.py /path/to/opus-v1.6.1 --hybrid > tests/hybrid-packet-fixtures.txt
+```
+
+No C implementation is linked by Cargo. The generator retries boundedly when a
+rapid encoder20→10ms change emits its one-byte budget-fallback PLC frame; this
+corpus records normal packets only. PCM/range and state come from unchanged
+original decoding routines. These subset results do not establish full Opus
+conformance or competitive end-to-end performance.

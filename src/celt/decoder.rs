@@ -315,17 +315,32 @@ impl CeltDecoder {
             _ => Err(DecoderError::InvalidConfiguration),
         }
     }
-    fn frame(
+    fn frame(&mut self, payload: &[u8], config: FrameConfig) -> Result<PcmFrame, DecoderError> {
+        let mut entropy = RangeDecoder::new(payload);
+        self.decode_layer(&mut entropy, config, 0)
+    }
+    // Positioned entropy is shared with the SILK layer. The enclosing decoder
+    // owns the transaction; only standard CELT (0) and Hybrid (17) starts exist.
+    pub(crate) fn decode_layer(
         &mut self,
-        payload: &[u8],
+        entropy: &mut RangeDecoder<'_>,
         config: FrameConfig,
-        end: usize,
+        start: usize,
     ) -> Result<PcmFrame, DecoderError> {
-        if !(2..=1275).contains(&payload.len()) {
+        let end = Self::configuration_end(config)?;
+        if !matches!(start, 0 | 17)
+            || (start == 17
+                && (end <= 17 || !matches!(config.size, FrameSize::Ms10 | FrameSize::Ms20)))
+        {
+            return Err(DecoderError::InvalidConfiguration);
+        }
+        let bytes = entropy.storage_bits() / 8;
+        if !(2..=1275).contains(&bytes) {
             return Err(DecoderError::MissingPayload);
         }
+        self.loss.last_size = config.size;
         self.loss.begin_normal();
-        let layout = BandLayout::new(config.channels, 0, end)?;
+        let layout = BandLayout::new(config.channels, start, end)?;
         let size = config.size;
         if config.channels == 1 {
             let values = self.energy.values_mut();
@@ -333,19 +348,15 @@ impl CeltDecoder {
                 values[0][i] = values[0][i].max(values[1][i]);
             }
         }
-        let mut entropy = RangeDecoder::new(payload);
-        let prefix = control::decode_prefix(&mut entropy, size, 0)?;
-        self.recover_energy(size, prefix.intra(), end);
-        self.energy
-            .coarse(&mut entropy, layout, size, prefix.intra())?;
-        let tf = control::decode_tf(&mut entropy, size, 0..end, prefix.transient())?;
-        let spread = control::decode_spread(&mut entropy)?;
-        let allocation =
-            allocation::decode_allocation(&mut entropy, size, layout, prefix.transient())?;
-        self.energy
-            .fine(&mut entropy, layout, allocation.fine_bits())?;
+        let prefix = control::decode_prefix(entropy, size, start)?;
+        self.recover_energy(size, prefix.intra(), start, end);
+        self.energy.coarse(entropy, layout, size, prefix.intra())?;
+        let tf = control::decode_tf(entropy, size, start..end, prefix.transient())?;
+        let spread = control::decode_spread(entropy)?;
+        let allocation = allocation::decode_allocation(entropy, size, layout, prefix.transient())?;
+        self.energy.fine(entropy, layout, allocation.fine_bits())?;
         let mut spectrum = partition::decode_spectrum(
-            &mut entropy,
+            entropy,
             &allocation,
             &tf,
             spread,
@@ -353,9 +364,9 @@ impl CeltDecoder {
             self.channels() == 1,
         )?;
         let anti = allocation.anti_collapse_reserved() && entropy.decode_bits(1)? != 0;
-        let bits = (payload.len() as u32 * 8).saturating_sub(entropy.tell());
+        let bits = (bytes * 8).saturating_sub(entropy.tell());
         self.energy.finalise(
-            &mut entropy,
+            entropy,
             layout,
             allocation.fine_bits(),
             allocation.fine_priority(),
@@ -369,7 +380,7 @@ impl CeltDecoder {
                 &self.previous2,
             )?;
         }
-        if entropy.tell() > payload.len() as u32 * 8 {
+        if entropy.tell() > bytes * 8 {
             return Err(DecoderError::BitBudgetExceeded);
         }
         if prefix.silence() {
@@ -381,7 +392,7 @@ impl CeltDecoder {
         let energies = *self.energy.values();
         let controls = SynthesisControls {
             size,
-            bands: 0..end,
+            bands: start..end,
             transient: prefix.transient(),
             silence: prefix.silence(),
             postfilter: prefix.postfilter(),
@@ -414,7 +425,7 @@ impl CeltDecoder {
         for (c, channel) in values.iter_mut().enumerate() {
             for (i, value) in channel.iter_mut().enumerate() {
                 self.background[c][i] = (self.background[c][i] + increase).min(*value);
-                if i >= end {
+                if i < start || i >= end {
                     *value = 0;
                     self.previous[c][i] = -(28 << 24);
                     self.previous2[c][i] = -(28 << 24);
@@ -423,7 +434,7 @@ impl CeltDecoder {
         }
         self.rng = entropy.range();
         self.range = self.rng;
-        self.record_normal(size, end)?;
+        self.record_normal(size, start, end)?;
         Ok(pcm)
     }
 }

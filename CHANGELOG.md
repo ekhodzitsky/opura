@@ -7,6 +7,22 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.37] - 2026-11-01
+
+- Add transactional fixed-storage normal Hybrid decoding: shared SILK/CELT
+  entropy, 16kHz low band, SWB/FB high bands and exact signed16 accumulation.
+- Support10/20ms frames, mono/stereo encoded and output channels, all five PCM
+  rates, normal LBRR, padding and multi-frame packets up to120ms.
+- Reuse positioned layer kernels without changing standalone SILK/CELT evidence;
+  retain CELT start-band diagnostics and history clearing/reset semantics.
+- Match960 public libopus PCM/range results and independent complete CELT state
+  snapshots, including clipping and channel/bandwidth changes. Verify packet
+  versus individual-frame equivalence, deep/late failure rollback,512 corrupt
+  packets and twelve detected mutations. Optional corpora reproduce; all offline gates pass.
+
+Hybrid loss/FEC/DTX, transition tails, unified cross-mode orchestration, full
+conformance and encoding remain pending.
+
 ## [0.1.36] - 2026-11-01
 
 - Add transactional CELT periodic/noise PLC, explicit48kHz-clock loss scheduling,
