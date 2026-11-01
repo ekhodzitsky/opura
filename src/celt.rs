@@ -7,6 +7,8 @@ pub mod pvq;
 
 pub mod allocation;
 mod allocation_tables;
+mod band_tables;
+pub mod bands;
 pub mod control;
 mod control_tables;
 pub mod energy;

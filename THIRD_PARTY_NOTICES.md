@@ -1117,3 +1117,12 @@ Their additional original decoder/mode notices are retained above.
    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 ```
+
+
+# CELT band arithmetic attribution
+
+Coded theta/log2tan, Haar, Hadamard ordering and stereo merge follow
+`celt/bands.c`; folded/noise normalization follows `celt/vq.c` at the pinned
+revision above. Their original CSIRO/Xiph.Org/Gregory Maxwell notices and
+redistribution terms are retained above. The optional oracle extracts these
+functions unchanged into temporary developer probes; no C is linked into Cargo.

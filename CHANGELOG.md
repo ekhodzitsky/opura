@@ -7,6 +7,18 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.28] - 2026-11-01
+
+- Add bounded allocation-free CELT coded-theta gains/log2tan, Haar and
+  Hadamard/interleave operations, legacy folded/noise vector normalization and
+  normalized stereo merge. Invalid geometry/gain/vector domains preserve inputs.
+- Match 16259 coded angles, 68644 positive log-ratio pairs, 1531 vector transforms,
+  420 normalizations and 400 stereo merges from unchanged pinned reference code.
+- Check permutation inverses, invalid-input rollback and seven arithmetic/order
+  mutations. Constants/fixtures reproduce and all mandatory offline gates pass.
+
+Recursive spectral entropy decoding and full CELT/Hybrid remain incomplete.
+
 ## [0.1.27] - 2026-11-01
 
 - Add bounded transactional classic CELT allocation: caps, dynamic boosts, trim,

@@ -1229,3 +1229,41 @@ The optional oracle uses the unchanged decoder allocation block, init_caps,
 rate.c, entropy and fine-energy routines with the pinned original standard mode.
 Recursive spectral partitions/folding/stereo assembly, anti-collapse and complete
 compressed CELT/Hybrid decoding remain future work.
+
+
+## CELT band arithmetic and transforms
+
+`opura::celt::bands` provides `split_gains` (Q15 cosine/sine), Q11 `log2_tan`,
+`haar`, `deinterleave`/`interleave`, legacy `renormalize` and `stereo_merge`.
+These are fixed-storage primitives for recursive spectral decoding. Coded theta
+accepts endpoints 0/16384 and interior 64..16320: classic qn<=256 never produces
+smaller interior values, where upstream cosine arithmetic is undefined.
+Log-ratio inputs must be positive i16 values. Vector lengths are 1..176;
+permutation strides 1/2/4/8/16 must divide the length, with Hadamard stride>=2.
+Haar uses a power-of-two stride and even per-stride length. Products truncate
+before sums, using the original single-precision-derived coefficient.
+
+Renormalization accepts nonnegative Q31 gain, rounded Q14 coordinates fitting
+i16 and one plus squared energy fitting positive i32. Stereo merge accepts
+matching Q24 vectors, each squared norm <=2 Q48 units, and nonnegative Q31 mid
+gain. It preserves the original near-cancellation fallback. Validation/scalar
+errors leave all input vectors unchanged; successful operations follow original
+fixed-point rounding, truncation and wrapping exactly.
+
+[Original band evidence](tests/celt-band-fixtures.txt) covers all 16259 supported
+coded angles, all 1..256 sine/cosine pairs plus wide Q15 boundaries (68644 pairs),
+every supported permutation/Haar geometry (1531 cases), 420 folded/noise/edge
+normalizations and 400 stereo merges including cancellation. Tests also check
+permutation inversion, invalid domains/rollback and seven targeted mutations.
+
+```sh
+python3 tools/celt_band_fixtures.py target/reference/opus > /tmp/opura-celt-bands.txt
+diff -u tests/celt-band-fixtures.txt /tmp/opura-celt-bands.txt
+python3 tools/celt_band_fixtures.py target/reference/opus --tables > /tmp/opura-celt-band-tables.rs
+rustfmt --edition 2024 /tmp/opura-celt-band-tables.rs
+diff -u src/celt/band_tables.rs /tmp/opura-celt-band-tables.rs
+```
+
+The optional oracle extracts the original band/vq functions unchanged and uses
+pinned original scalar math. Recursive partition entropy, folding/stereo band
+assembly, anti-collapse, complete CELT/Hybrid decoding and conformance follow.
