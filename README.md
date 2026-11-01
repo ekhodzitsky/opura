@@ -2033,3 +2033,37 @@ The optional oracle uses unchanged generic SMALL_FOOTPRINT CWRS code to cover
 all representable geometries. Normal Cargo builds/tests use retained fixtures
 and have zero dependencies. PVQ pulse search and recursive band encoding remain
 under development before these primitives form complete encoded audio.
+
+## PVQ pulse-search encoding foundation
+
+`opura::celt::pvq::encode_band` selects and encodes integer pulses from normalized
+Q24 input using an existing positive-pulse `PulseCodebook`. It returns the same
+`NormalizedBand` shape/collapse representation as decoding, resynthesized at a
+nonnegative Q31 gain. Public block counts are 1/2/4/8 and must divide dimension;
+the internal partition path also supports sixteen blocks and the wider mask.
+The gain affects returned reconstruction, independently of pulse selection.
+
+Input length matches the book and its squared Q24 norm is at most two
+(`sum(x*x) <= 2^49`). This includes rounded unit vectors; arbitrary large signal
+vectors are rejected explicitly. Forward spreading, adaptive Q14 headroom,
+pyramid projection, tiny/silent fallback, greedy strict-tie decisions and sign
+restoration match the native fixed-point algorithm. Input is unchanged and no
+allocation occurs. Reconstruction is staged before the single atomic CWRS
+write, so model, arithmetic, capacity and lifecycle errors preserve the writer.
+
+All 16,368 independent original cases match full bytes/range/accounting, chosen
+decoded integer pulses, resynthesized coordinates and collapse masks. They span
+representative books, every spread/block/gain setting, raw/range prefixes,
+zero/impulse/tie/tiny/random/energy-boundary vectors and the exact pyramid fallback
+boundary. Original `alg_unquant` independently confirms the native resynthesis.
+Mixed public band streams round-trip with identical output and counters; boundary,
+invalid-domain and rollback tests pass, and fourteen targeted mutations are
+caught. Prior normalized-band decoder fixtures reproduce unchanged.
+
+```sh
+python3 tools/celt_pvq_fixtures.py /path/to/opus-v1.6.1 --encode > /tmp/celt-pvq-encoder-fixtures.txt
+diff -u tests/celt-pvq-encoder-fixtures.txt /tmp/celt-pvq-encoder-fixtures.txt
+```
+
+QEXT, angle/recursive-band encoding, frame controls and complete audio packet
+encoding remain separate work. The optional original oracle stays outside Cargo.

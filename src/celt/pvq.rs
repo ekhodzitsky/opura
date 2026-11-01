@@ -1,7 +1,10 @@
-//! Classic CELT normalized algebraic pulse bands, before band/stereo orchestration.
+//! Classic CELT normalized algebraic pulse band encoding/decoding, before orchestration.
 //! Q24 normalization, spreading and collapse masks follow pinned Opus vq.c.
 //! Copyright (c) 2007-2008 CSIRO; 2007-2009 Xiph.Org Foundation.
 //! See THIRD_PARTY_NOTICES.md. QEXT refinement is not supported.
+mod encoder;
+pub use encoder::encode_band;
+
 use super::{
     math,
     pulses::{PulseCodebook, PulseError},
@@ -31,6 +34,10 @@ pub enum PvqError {
     InvalidBlocks,
     /// Q31 gain must be nonnegative (0..i32::MAX).
     InvalidGain,
+    /// Input length must match the codebook and Q24 squared norm cannot exceed 2.
+    InvalidInput,
+    /// Search/headroom arithmetic could not remain in the native integer domain.
+    ArithmeticOverflow,
     /// Pulse codebook decoding failed.
     Pulses(PulseError),
     /// Scalar normalization failed.
@@ -44,6 +51,8 @@ impl fmt::Display for PvqError {
                 f.write_str("CELT PVQ requires 1/2/4/8 blocks dividing dimension")
             }
             Self::InvalidGain => f.write_str("CELT PVQ Q31 gain must be nonnegative"),
+            Self::InvalidInput => f.write_str("CELT PVQ input exceeds normalized Q24 domain"),
+            Self::ArithmeticOverflow => f.write_str("CELT PVQ search arithmetic overflow"),
             Self::Pulses(e) => write!(f, "CELT PVQ pulses: {e}"),
             Self::Math(e) => write!(f, "CELT PVQ normalization: {e}"),
         }
@@ -125,7 +134,27 @@ pub(crate) fn decode_partition_band(
     }
     let mut next = entropy.clone();
     let pulses = codebook.decode(&mut next)?;
-    let energy = pulses.squared_norm() as i32;
+    let result = reconstruct(
+        pulses.values(),
+        pulses.squared_norm(),
+        codebook.pulses(),
+        spread,
+        blocks,
+        gain,
+    )?;
+    *entropy = next;
+    Ok(result)
+}
+fn reconstruct(
+    pulses: &[i16],
+    energy: u32,
+    pulse_count: usize,
+    spread: Spread,
+    blocks: usize,
+    gain: i32,
+) -> Result<NormalizedBand, PvqError> {
+    let n = pulses.len();
+    let energy = energy as i32;
     let k = (31 - energy.leading_zeros() as i32) >> 1;
     let normalized = shift(energy, 2 * (k - 7) - 15);
     let scale = mul_q31(math::rsqrt_normalized_q31(normalized)?, gain);
@@ -134,17 +163,16 @@ pub(crate) fn decode_partition_band(
         length: n,
         collapse: 0,
     };
-    for (target, &pulse) in result.values[..n].iter_mut().zip(pulses.values()) {
+    for (target, &pulse) in result.values[..n].iter_mut().zip(pulses) {
         let product = ((i64::from(pulse) * i64::from(scale)) >> 15) as i32;
         *target = shift(product, k + 15 - 24);
     }
-    inverse_spread(&mut result.values[..n], blocks, codebook.pulses(), spread)?;
-    for (i, block) in pulses.values().chunks_exact(n / blocks).enumerate() {
+    inverse_spread(&mut result.values[..n], blocks, pulse_count, spread)?;
+    for (i, block) in pulses.chunks_exact(n / blocks).enumerate() {
         if block.iter().any(|&p| p != 0) {
             result.collapse |= 1 << i;
         }
     }
-    *entropy = next;
     Ok(result)
 }
 fn inverse_spread(
@@ -152,6 +180,15 @@ fn inverse_spread(
     blocks: usize,
     pulses: usize,
     spread: Spread,
+) -> Result<(), PvqError> {
+    spread_vector(x, blocks, pulses, spread, true)
+}
+fn spread_vector(
+    x: &mut [i32],
+    blocks: usize,
+    pulses: usize,
+    spread: Spread,
+    inverse: bool,
 ) -> Result<(), PvqError> {
     let n = x.len();
     if 2 * pulses >= n || spread == Spread::None {
@@ -178,10 +215,17 @@ fn inverse_spread(
         }
     }
     for block in x.chunks_exact_mut(n / blocks) {
-        if stride2 != 0 {
-            rotate(block, stride2, s, c);
+        if inverse {
+            if stride2 != 0 {
+                rotate(block, stride2, s, c);
+            }
+            rotate(block, 1, c, s);
+        } else {
+            rotate(block, 1, c, -s);
+            if stride2 != 0 {
+                rotate(block, stride2, s, -c);
+            }
         }
-        rotate(block, 1, c, s);
     }
     Ok(())
 }

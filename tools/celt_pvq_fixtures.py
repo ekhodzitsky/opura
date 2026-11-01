@@ -6,12 +6,14 @@ compiled into a temporary library. Cargo never links or loads the reference.
 """
 import argparse
 import ctypes as c
+import math
 from pathlib import Path
 import subprocess
 import tempfile
 REVISION='22244de5a79bd1d6d623c32e72bf1954b56235be'
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('source',type=Path)
+parser.add_argument('--encode',action='store_true')
 args=parser.parse_args()
 source=args.source.resolve()
 if subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip()!=REVISION:
@@ -34,6 +36,27 @@ int encode_indices(int n,int k,const unsigned *indices,int count,unsigned char *
     int len=(ec_tell(&enc)+7)/8;
     ec_enc_shrink(&enc,len);ec_enc_done(&enc);
     return ec_get_error(&enc) ? -1 : len;
+}
+int quantize_probe(int n,int k,int spread,int blocks,int gain,int prefix_bits,unsigned prefix_value,const int *input,int *out,unsigned char *data) {
+    celt_norm x[176];for(int i=0;i<n;i++) x[i]=input[i];
+    ec_enc enc;ec_enc_init(&enc,data,64);
+    if(prefix_bits) ec_enc_uint(&enc,prefix_value,1U<<prefix_bits);
+    out[0]=alg_quant(x,n,k,spread,blocks,&enc,gain,1,0);
+    out[1]=(int)enc.rng;out[2]=ec_tell(&enc);out[3]=ec_tell_frac(&enc);
+    int length=(ec_tell(&enc)+7)/8;ec_enc_shrink(&enc,length);ec_enc_done(&enc);
+    if(ec_get_error(&enc))return -1;
+    ec_dec dec;ec_dec_init(&dec,data,length);
+    if(prefix_bits && ec_dec_uint(&dec,1U<<prefix_bits)!=prefix_value)return -2;
+    out[4]=decode_pulses(out+5,n,k,&dec);
+    for(int i=0;i<n;i++) out[5+n+i]=x[i];
+    if(dec.rng!=enc.rng || ec_tell(&dec)!=ec_tell(&enc) || ec_tell_frac(&dec)!=ec_tell_frac(&enc))return -3;
+    ec_dec_init(&dec,data,length);
+    if(prefix_bits) ec_dec_uint(&dec,1U<<prefix_bits);
+    celt_norm reconstructed[176];
+    unsigned mask=alg_unquant(reconstructed,n,k,spread,blocks,&dec,gain);
+    if(mask!=(unsigned)out[0])return -4;
+    for(int i=0;i<n;i++)if(x[i]!=reconstructed[i])return -5;
+    return length;
 }
 void decode_bands(const unsigned char *data,int len,int n,int k,int spread,int blocks,int gain,int count,int *out) {
     ec_dec dec;
@@ -58,8 +81,49 @@ with tempfile.TemporaryDirectory(prefix='opura-celt-pvq-') as temp:
     i32=c.POINTER(c.c_int);u32=c.POINTER(c.c_uint32);u8=c.POINTER(c.c_ubyte)
     for name,types,result in [('root',[c.c_int],c.c_int),
                               ('encode_indices',[c.c_int,c.c_int,u32,c.c_int,u8],c.c_int),
-                              ('decode_bands',[u8,*[c.c_int]*7,i32],None)]:
+                              ('decode_bands',[u8,*[c.c_int]*7,i32],None),
+                              ('quantize_probe',[c.c_int]*6+[c.c_uint32,i32,i32,u8],c.c_int)]:
         fn=getattr(lib,name);fn.argtypes=types;fn.restype=result
+    if args.encode:
+        print('# Original fixed-point alg_quant with native resynthesis/pulse decoding:',REVISION)
+        print('# band N K SPREAD BLOCKS GAIN PREFIX_BITS PREFIX_VALUE HEX MASK RANGE TELL FRAC ENERGY INPUT[N] PULSES[N] RECONSTRUCTED[N]')
+        print('# Initial capacity64, shrunk to ceil(tell/8) after the band; selected inputs have Q24 squared norm<=2.')
+        seed=0x5155414e
+        def random_i16():
+            global seed
+            seed^=(seed<<13)&0xffffffff;seed^=seed>>17;seed^=(seed<<5)&0xffffffff
+            return c.c_int16(seed).value
+        for n in [2,3,4,5,6,8,10,14,16,18,22,24,32,36,44,48,64,72,88,96,144,176]:
+            for k in [1,2,3,4,8,13,36,95,128]:
+                if u[n][k]+u[n][k+1]>0xffffffff:continue
+                for blocks in [1,2,4,8,16]:
+                    if n%blocks:continue
+                    for spread in range(4):
+                        for pattern in range(11):
+                            amplitude=(1<<24)//(1+math.isqrt(n-1))
+                            if pattern==0:values=[0]*n
+                            elif pattern==1:values=[1<<24]+[0]*(n-1)
+                            elif pattern==2:values=[0]*(n-1)+[-(1<<24)]
+                            elif pattern==3:values=[amplitude]*n
+                            elif pattern==4:values=[amplitude if i%2 else -amplitude for i in range(n)]
+                            elif pattern==5:values=[1 if i%2 else -1 for i in range(n)]
+                            elif pattern==6:
+                                raw=[random_i16() for _ in range(n)];root=max(1,math.isqrt(sum(x*x for x in raw)))
+                                values=[x*(1<<24)//root for x in raw]
+                            elif pattern==7:values=[random_i16()%257-128 for _ in range(n)]
+                            elif pattern==8:values=[((1<<24)*math.isqrt(2<<40))//(math.isqrt(n<<40)+1)]*n
+                            elif pattern==9:values=[1,k-1]+[0]*(n-2)
+                            else:values=[1,k]+[0]*(n-2)
+                            if sum(x*x for x in values)>1<<49:raise SystemExit('Unexpected input energy')
+                            gain=[0,1<<30,0x7fffffff][(pattern+n+k+blocks+spread)%3]
+                            prefix_bits=[0,3,9][(pattern+k+spread)%3]
+                            prefix_value=(n*13+k*7+pattern)%(1<<prefix_bits)
+                            data=(c.c_ubyte*64)();out=(c.c_int*(5+2*n))();input_data=(c.c_int*n)(*values)
+                            length=lib.quantize_probe(n,k,spread,blocks,gain,prefix_bits,prefix_value,input_data,out,data)
+                            if length<1:raise SystemExit('Original quantize/decode mismatch: '+str((n,k,spread,blocks,gain,pattern,length)))
+                            if list(input_data)!=values:raise SystemExit('Unexpected probe input mutation')
+                            print('band',n,k,spread,blocks,gain,prefix_bits,prefix_value,bytes(data[:length]).hex(),out[0],out[1]&0xffffffff,out[2],out[3],out[4],*values,*out[5:])
+        raise SystemExit(0)
     print('# Original fixed-point alg_unquant and reciprocal sqrt:',REVISION)
     print('# rootblock START COUNT STEP OFFSET FNV1A64(le-i32); stream N K SPREAD BLOCKS GAIN_Q31 HEX COUNT')
     print('# band COLLAPSE_MASK RANGE TELL TELL_FRAC Q24_VALUES[N]')

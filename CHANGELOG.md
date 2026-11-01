@@ -7,6 +7,20 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.49] - 2026-11-02
+
+- Add safe allocation-free normalized CELT PVQ band encoding with native forward
+  spreading, adaptive Q14 headroom, pyramid/greedy pulse selection and sign/tie rules.
+- Stage resynthesized Q24 shape/collapse output before atomic CWRS writing; preserve
+  input/writer on errors and validate normalized energy/block/gain domains. Reuse
+  unchanged decoder reconstruction and support the internal sixteen-block mask.
+- Match16368 original encoded bytes/counters/chosen pulses/reconstructions/masks,
+  including exact projection boundaries; verify mixed public round trips and
+  malformed/resource/lifecycle failures, and detect fourteen targeted mutations.
+  New and previous PVQ corpora reproduce; all seven mandatory offline gates pass.
+
+Recursive band/control encoding and complete audio encoding remain in development.
+
 ## [0.1.48] - 2026-11-02
 
 - Add allocation-free native CWRS vector ranking and atomic pulse entropy encoding

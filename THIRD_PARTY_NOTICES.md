@@ -1372,3 +1372,13 @@ apply. Optional encoder fixtures use the unchanged original SMALL_FOOTPRINT
 recurrence so every supported representable geometry is covered, including
 geometries outside the optimized standard-mode table. Zero-pulse encoding is
 a no-bit extension paired with Opura's existing zero-pulse decoding contract.
+
+
+# CELT PVQ pulse search and encoding attribution
+
+Forward spreading, adaptive-headroom pyramid/greedy search, strict score ties,
+silence fallback, sign restoration and resynthesis follow `celt/vq.c::alg_quant`,
+`op_pvq_search_c`, `exp_rotation` and `normalise_residual` at the pinned revision.
+Existing normalized-band/vq notices and terms apply. Rust validates a bounded
+normalized Q24 input domain, retains immutable caller input, and stages returned
+reconstruction before the single atomic CWRS write. QEXT refinement is excluded.
