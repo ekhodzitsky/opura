@@ -3,6 +3,8 @@
 Opura is a pure Rust, zero-dependency Opus implementation under development.
 **Mono/stereo SILK packets support final PCM output, explicit loss concealment and in-band FEC.**
 Packet framing, range decoding and the SILK channel primitives are also available.
+CELT synthesis from decoded spectra is verified; its compressed-frame path remains
+under development.
 Implicit DTX handling, CELT/Hybrid decoding and encoding
 are not implemented. The accepted direction is a complete decoder first, then
 an encoder, prioritizing speed and reliability. See the
@@ -967,8 +969,9 @@ diff -u src/celt/fft_tables.rs /tmp/opura-celt-fft-tables.rs
 ```
 
 The optional oracle observes original standard plans and scalar routines. FFT
-alone does not synthesize CELT audio; inverse MDCT/window overlap, recursive
-bands, allocation and full packet orchestration remain incomplete.
+alone does not synthesize CELT audio; inverse MDCT/window overlap and output
+stages are described below. Recursive bands/allocation and full packet
+orchestration remain incomplete.
 
 
 ## CELT inverse MDCT and overlap
@@ -1006,9 +1009,9 @@ rustfmt --edition 2024 /tmp/opura-celt-mdct-tables.rs
 diff -u src/celt/mdct_tables.rs /tmp/opura-celt-mdct-tables.rs
 ```
 
-These are internal transform outputs. CELT allocation/recursive band assembly,
-postfiltering, de-emphasis, full packet decoding and complete conformance remain
-incomplete; no end-to-end CELT audio or competitive performance claim is made.
+These are internal transform outputs; the complete synthesis backend is below.
+CELT allocation/recursive band assembly, full packet decoding and complete
+conformance remain incomplete; no end-to-end CELT audio or competitive performance claim is made.
 
 
 ## CELT spectral scaling and output de-emphasis
@@ -1052,8 +1055,8 @@ rustfmt --edition 2024 /tmp/opura-celt-output-tables.rs
 diff -u src/celt/output_tables.rs /tmp/opura-celt-output-tables.rs
 ```
 
-Comb postfiltering, recursive CELT bands/allocation, Hybrid and complete Opus
-packet output remain future work. Stage equality does not establish complete
+The comb postfilter and synthesis backend are described below. Recursive CELT
+bands/allocation, Hybrid and complete Opus packet output remain future work. Stage equality does not establish complete
 conformance or SOTA performance.
 
 
@@ -1091,6 +1094,48 @@ diff -u tests/celt-postfilter-fixtures.txt /tmp/opura-celt-postfilter.txt
 ```
 
 The optional oracle extracts original scalar comb routines unchanged and applies
-the original normal-decoder scheduling with the pinned standard window. Full CELT
-synthesis integration, recursive bands, allocation, packet control and conformance
-remain incomplete; this stage does not itself decode Opus packets.
+the original normal-decoder scheduling with the pinned standard window. The complete synthesis backend follows below; recursive bands, allocation,
+packet control and conformance remain incomplete; this stage does not itself decode Opus packets.
+
+
+## Complete CELT synthesis backend
+
+`opura::celt::synthesis::CeltSynthesis::new(decimation, output_channels)` selects
+fixed output rate and one/two API channels. `synthesize(spectra, energies,
+controls)` takes one/two decoded normalized Q24 left/right spectra, one 21-band
+Q24 energy array per encoded channel, and `SynthesisControls` for frame size,
+selected bands, transient/silence flags and new postfilter parameters. Spectra
+must exactly match the 120/240/480/960-bin frame size. This API starts after
+entropy, allocation and recursive spectral decoding; it accepts no Opus packets.
+
+The backend combines spectral scaling, reference mono/stereo projection, long
+or interleaved-short inverse MDCTs, synthesis clipping, delayed comb filtering
+and final de-emphasis/decimation. Stereo to mono halves each spectrum before
+addition; mono to stereo preserves each output channel's existing histories.
+Clipping occurs after all MDCT blocks without clipping pending overlap. Silence
+zeros new spectra while allowing overlap/filter continuation. Returned signed-16
+`PcmFrame` values are final for this classic synthesis path.
+
+All channel, overlap, postfilter and de-emphasis changes commit atomically.
+`reset()` retains output geometry. Read-only `overlap(channel)`,
+`postfilter(channel)` and `deemphasis_memory()` expose diagnostic state;
+`channels()` and `sample_rate()` report configuration. Invalid channels, energy
+counts, spectral lengths and band ranges preserve every history.
+
+[480 original complete-backend cases](tests/celt-synthesis-fixtures.txt) compare
+final PCM, both MDCT overlaps, every postfilter history entry/parameter generation
+and both de-emphasis memories. They cover every rate/frame/encoded/API channel
+and long/transient combination, channel changes, selected/Hybrid high bands,
+silence, gain/period/tap switches, clipping and resets. The oracle composes
+original unchanged celt_synthesis/comb/de-emphasis with original standard mode,
+MDCT and FFT. Five mutations detect downmix rounding, transient stride/layout,
+lost overlap, omitted synthesis clipping and skipped postfilter integration.
+
+```sh
+python3 tools/celt_synthesis_fixtures.py target/reference/opus > /tmp/opura-celt-synthesis.txt
+diff -u tests/celt-synthesis-fixtures.txt /tmp/opura-celt-synthesis.txt
+```
+
+Encoded CELT frame parsing/allocation/recursive bands, loss recovery, Hybrid
+mixing and official full Opus conformance remain incomplete. This stage evidence
+is not a complete codec or a competitive-performance result.

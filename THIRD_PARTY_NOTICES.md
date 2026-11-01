@@ -1065,3 +1065,10 @@ The standard window uses the retained inverse-MDCT table notices.
    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 ```
+
+# CELT synthesis backend ordering
+
+Channel projection, transient block scheduling and synthesis clipping follow
+`celt/celt_decoder.c` at the pinned revision above, under its retained original
+CSIRO/Xiph.Org/Gregory Maxwell notice. The composed scalar, CWRS/PVQ, transform,
+band scaling, postfilter and de-emphasis stages retain their notices above.

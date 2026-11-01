@@ -7,6 +7,21 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.25] - 2026-11-01
+
+- Add atomic fixed-rate/channel `CeltSynthesis` from decoded normalized spectra
+  and Q24 energies through scaling, mono/stereo projection, long/transient MDCT,
+  synthesis clipping, comb postfilter and final de-emphasis/decimation to PCM.
+- Preserve independent output-channel overlap/filter histories across encoded
+  channel changes; match separate-half downmix rounding and short-block stride.
+- Match final PCM and all overlap/postfilter/de-emphasis state on 480 original
+  complete-backend cases across every rate/frame/channel/transient combination.
+- Verify malformed rollback/reset and five integration mutations. Oracle data
+  reproduces byte-identically; all mandatory offline checks pass.
+
+Input is already decoded spectra. CELT entropy/allocation/recursive band decoding,
+loss concealment, Hybrid and complete Opus conformance remain incomplete.
+
 ## [0.1.24] - 2026-11-01
 
 - Add bounded per-channel classic CELT comb postfilter with validated periods,
