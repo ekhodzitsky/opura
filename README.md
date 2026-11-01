@@ -1852,3 +1852,41 @@ diff -u tests/celt-forward-mdct-fixtures.txt /tmp/celt-forward-mdct-fixtures.txt
 
 This is transform analysis, not a complete audio encoder. Pre-emphasis, encoder
 band analysis/quantization and packet orchestration remain under development.
+
+## CELT signed16 input foundation
+
+`opura::celt::input::PreemphasisState` converts one selected mono/stereo channel
+to pre-emphasized Q12 signal at CELT's 48 kHz internal clock. `InputRate` supports
+8/12/16/24/48 kHz. Input is exactly one interleaved frame at the selected rate;
+output holds 120/240/480/960 internal samples. Trailing output slots within a
+960-sample buffer are preserved. Each channel uses its own state.
+
+```rust
+use opura::celt::{FrameSize, input::{InputRate, PreemphasisState}};
+let mut filter = PreemphasisState::default();
+let mut signal = [0; 120];
+filter.process(FrameSize::Ms2_5, InputRate::Khz48, &[0; 120], 1, 0, &mut signal)?;
+assert_eq!(signal, [0; 120]);
+# Ok::<(), opura::celt::input::InputError>(())
+```
+
+The stage converts signed16 to Q12, inserts zeros for low-rate input and applies
+the standard Q15 coefficient 27853. It keeps native memory across rate/frame
+changes; `reset()` clears it for an independent stream, and `memory()` exposes
+the pending Q12 term. Invalid layout/channel/capacity preserves the complete
+output and memory. No allocation, intermediate signal buffer or foreign code
+is used. Signed16 input does not need the reference's wider-input clipping path.
+
+All samples and both channel memories match 512 independent original cases over
+every rate/frame/channel combination, signed extremes, rate/layout changes,
+resets and both native fast/general paths. Duration chunking and channel
+isolation pass; eleven targeted mutations are detected. Optional regeneration:
+
+```sh
+python3 tools/celt_input_fixtures.py /path/to/opus-v1.6.1 > /tmp/celt-input-fixtures.txt
+diff -u tests/celt-input-fixtures.txt /tmp/celt-input-fixtures.txt
+```
+
+This primitive does not retain MDCT overlap or perform pitch prefiltering. Low-rate
+spectra still need native scaling/cutoff after transformation. Those stages,
+encoder analysis/quantization and complete packet encoding remain work.

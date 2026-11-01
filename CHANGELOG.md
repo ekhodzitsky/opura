@@ -7,6 +7,21 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.44] - 2026-11-02
+
+- Add safe allocation-free CELT signed16 input pre-emphasis at all five standard
+  rates and four block sizes, with selected mono/stereo interleaved channels.
+- Match Q12 conversion, low-rate zero insertion and Q15 filter memory across
+  frames/rates; expose typed input rates, memory diagnostics and reset. Preserve
+  complete output/state on errors and retain ignored output slots.
+- Match512 independent original sample/memory cases, including both native
+  fast/general paths, extreme PCM, rate/channel changes and resets. Verify
+  duration chunking/channel isolation, detect eleven targeted mutations and
+  reproduce optional fixtures. All seven mandatory offline gates pass.
+
+Pitch prefilter/overlap staging, further analysis/quantization and complete audio
+encoding remain under development; no Cargo dependency is introduced.
+
 ## [0.1.43] - 2026-11-02
 
 - Add safe allocation-free standard CELT forward MDCT analysis for all four

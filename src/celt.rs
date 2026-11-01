@@ -1,7 +1,10 @@
-//! CELT-only normal/loss/DTX decoding and classic transform-layer primitives.
+//! CELT normal/loss/DTX decoding and classic transform-layer primitives.
 //!
 //! See [`decoder`] for stateful CELT PCM output and concealment.
-//! Hybrid packet synthesis and cross-mode transitions remain under development.
+//! [`crate::decoder::OpusDecoder`] handles shared Hybrid/mode-transition histories.
+//! [`input`] and forward [`mdct`] analysis are encoder foundations; complete audio
+//! encoding remains under development.
+pub mod input;
 pub mod lpc;
 pub mod math;
 pub mod partition;
