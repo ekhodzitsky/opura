@@ -7,6 +7,22 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.34] - 2026-11-01
+
+- Add bounded allocation-free CELT autocorrelation/window/scaling, fast64 LPC
+  analysis and Q25→Q12 coefficient fitting, Q12 FIR and canonical in-place IIR
+  primitives for upcoming pitch search and periodic loss concealment.
+- Validate supported geometry/correlation/reflection domains and preserve all
+  outputs on errors; retain original FIR saturation and IIR memory semantics.
+- Match 1601 correlations, 2680 LPC analyses, 832 FIR and 336 IIR original cases.
+  Add power-of-two estimator boundaries and clustered positive covariance cases
+  after mutation testing exposed missing scale/fitting coverage.
+- Independent zero-filter/correlation bounds, invalid/unstable rollback and seven
+  arithmetic mutations pass; corpus reproduces and mandatory offline gates pass.
+
+Normal CELT PCM remains supported; periodic/noise PLC, Hybrid and complete Opus
+conformance/encoding are still pending.
+
 ## [0.1.33] - 2026-11-01
 
 - Add stateful allocation-free normal CELT-only frame/packet decoding to final

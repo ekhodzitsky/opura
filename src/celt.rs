@@ -2,6 +2,7 @@
 //!
 //! See [`decoder`] for stateful normal CELT PCM output. CELT loss/DTX and
 //! Hybrid packet synthesis remain under development.
+pub mod lpc;
 pub mod math;
 pub mod partition;
 mod partition_tables;

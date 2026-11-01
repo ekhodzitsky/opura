@@ -1480,3 +1480,45 @@ Optional regeneration compiles external pinned libopus into a temporary library,
 uses its real encoder/repacketizer/public decoder, and records independent state
 snapshots. Normal CELT support is now end-to-end; CELT PLC/DTX, Hybrid, mode
 transitions, official full conformance, encoder and competitive evaluation remain.
+
+
+## CELT LPC and concealment filters
+
+`opura::celt::lpc::autocorrelation(input, lag, windowed)` accepts 3..2048 i16
+samples, lag0..24 and at least three samples beyond the lag. Optional standard
+120-sample end windows require length>=240. Returned correlations include lag0
+in [2^28,2^29) and an energy scaling exponent. The estimator includes original
+rounding headroom and exact power-of-two normalization decisions.
+
+`analyse(correlation, coefficients)` supports order1..24, with one extra ACF lag,
+lag0 in0..2^30 and other lag magnitudes <=lag0. Unstable intermediate reflection
+coefficients reject; this is not a general positive-definiteness validator.
+Fast64 accumulation, Q31 reflection, gain stopping and Q25→Q12 bandwidth fitting
+match upstream. All-zero ACF clears output. The ten-fit fallback retains the
+original behavior: coefficient0 becomes4096 and other incoming outputs remain.
+
+`fir(input, coefficients, output)` requires order3..24, output1..1024 and explicit
+leading history (input length=output length+order). Signed32 sums wrap, then
+round/saturate to +/-32767. `iir(values, coefficients, memory)` works in place
+on Q12 i32 data at order4/8/12/16/20/24, length order..1080 divisible by4, as used
+by classic PLC. It takes newest-first i16 memory; the canonical original kernel
+returns low16 bits of raw Q12 outputs, which PLC discards afterwards. This differs
+from a conventional rounded persistent IIR memory and is reproduced deliberately.
+All routines use fixed storage, bounded work and atomic failures.
+
+[Original scalar LPC evidence](tests/celt-lpc-fixtures.txt) compares every value
+and memory on 1601 correlations, 2680 coefficient analyses, 832 FIR and 336 IIR
+cases: silence/DC/tones/noise/extremes, windows, scaling, high-order positive
+Toeplitz covariance, every supported order and short/long filter geometry.
+Exact estimator boundaries and clustered spectra were added after mutation
+survivors exposed missing scale/fitting cases. Independent zero-filter and
+correlation bounds, malformed/unstable rollback and seven targeted mutations pass.
+
+```sh
+python3 tools/celt_lpc_fixtures.py target/reference/opus > /tmp/opura-celt-lpc.txt
+diff -u tests/celt-lpc-fixtures.txt /tmp/opura-celt-lpc.txt
+```
+
+The optional oracle compiles unchanged original celt_lpc/pitch scalar kernels
+and math; clustered covariance models define test inputs, not expected outputs.
+These helpers prepare CELT pitch search/PLC; loss synthesis is not yet integrated.
