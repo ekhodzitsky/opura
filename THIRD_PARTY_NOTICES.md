@@ -47,6 +47,9 @@ from `silk/tables_NLSF_CB_NB_MB.c`, `silk/tables_NLSF_CB_WB.c`,
 `silk/decode_parameters.c`, under the same notices. LPC conversion and its
 cosine table follow `silk/NLSF2A.c`, `silk/table_LSF_cos.c`, `silk/LPC_fit.c`,
 `silk/LPC_inv_pred_gain.c`, `silk/bwexpander_32.c` and `silk/Inlines.h`.
+Packet-loss concealment and recovery follow `silk/PLC.c`, `silk/PLC.h`,
+`silk/sum_sqr_shift.c`, `silk/bwexpander.c` and the loss paths in
+`silk/decode_frame.c` / `silk/decode_core.c`.
 Comfort-noise estimation and filtering additionally follow `silk/CNG.c`
 and its fixed-point square-root approximation in `silk/Inlines.h`.
 Pitch/LTP reconstruction and tables additionally follow `silk/decode_pitch.c`,

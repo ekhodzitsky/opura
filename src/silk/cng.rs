@@ -226,7 +226,7 @@ fn order(rate: SilkRate) -> usize {
 
 // Matches the bounded CLZ/fraction approximation in SILK Inlines.h, including
 // returning zero for negative residual energy rather than taking its absolute.
-fn sqrt_approx(value: i32) -> i32 {
+pub(super) fn sqrt_approx(value: i32) -> i32 {
     if value <= 0 {
         return 0;
     }

@@ -24,12 +24,15 @@ impl fmt::Display for SynthesisError {
 }
 impl std::error::Error for SynthesisError {}
 
-/// One channel of signed 16-bit PCM, before stereo, CNG/PLC glue and resampling.
+/// One channel of signed 16-bit PCM at the internal SILK rate.
+///
+/// Direct synthesis returns samples before loss-processing glue. Channel loss
+/// recovery additionally applies PLC/CNG; stereo and resampling are separate.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PcmFrame {
-    samples: [i16; 320],
-    length: usize,
-    rate: SilkRate,
+    pub(super) samples: [i16; 320],
+    pub(super) length: usize,
+    pub(super) rate: SilkRate,
 }
 impl PcmFrame {
     /// Samples at the internal SILK rate, not the Opus output rate.
@@ -49,9 +52,12 @@ impl PcmFrame {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SynthesisState {
     rate: Option<SilkRate>,
-    lpc: [i32; 16],
-    history: [i16; 320],
-    previous_gain: i32,
+    pub(super) lpc: [i32; 16],
+    pub(super) history: [i16; 320],
+    pub(super) previous_gain: i32,
+    pub(super) last_filter: [i16; 16],
+    pub(super) after_loss: bool,
+    pub(super) recovery_lag: Option<u16>,
 }
 impl Default for SynthesisState {
     fn default() -> Self {
@@ -60,6 +66,9 @@ impl Default for SynthesisState {
             lpc: [0; 16],
             history: [0; 320],
             previous_gain: 65536,
+            last_filter: [0; 16],
+            after_loss: false,
+            recovery_lag: None,
         }
     }
 }
@@ -119,7 +128,10 @@ impl SynthesisState {
         {
             return Err(SynthesisError::IncompatibleFrame);
         }
-        let lpc = nlsf.to_lpc();
+        let mut lpc = nlsf.to_lpc();
+        if self.after_loss {
+            lpc.expand_after_loss();
+        }
         Ok(self.apply(Parameters {
             rate,
             gains: gains.gains_q16(),
@@ -133,15 +145,20 @@ impl SynthesisState {
         }))
     }
 
+    pub(super) fn prepare_rate(&mut self, rate: SilkRate) {
+        if self.rate != Some(rate) {
+            self.lpc.fill(0);
+            self.history.fill(0);
+            self.recovery_lag = None;
+            self.rate = Some(rate);
+        }
+    }
+
     fn apply(&mut self, p: Parameters<'_>) -> PcmFrame {
         let subframe = p.rate.khz() as usize * 5;
         let memory = subframe * 4;
         let length = p.excitation.len();
-        if self.rate != Some(p.rate) {
-            self.lpc.fill(0);
-            self.history.fill(0);
-            self.rate = Some(p.rate);
-        }
+        self.prepare_rate(p.rate);
         let mut output = PcmFrame {
             samples: [0; 320],
             length,
@@ -167,14 +184,21 @@ impl SynthesisState {
                 }
             }
             self.previous_gain = gain;
-            if p.voiced {
-                let lag = usize::from(p.lags[k]);
+            let recovery = self.after_loss && !p.voiced && k < 2;
+            let recovery_lag = if recovery { self.recovery_lag } else { None };
+            if p.voiced || recovery_lag.is_some() {
+                let lag = usize::from(recovery_lag.unwrap_or(p.lags[k]));
+                let coefficients = if recovery_lag.is_some() {
+                    &[0, 0, 4096, 0, 0]
+                } else {
+                    &p.ltp[k]
+                };
                 if k == 0 || (k == 2 && p.interpolate) {
                     if k == 2 {
                         history[memory..memory + 2 * subframe]
                             .copy_from_slice(&output.samples[..2 * subframe]);
                     }
-                    let mut inverse = inverse_gain(gain);
+                    let mut inverse = inverse_gain(gain, 47);
                     if k == 0 {
                         inverse = mul_wb(inverse, i32::from(p.scale)).wrapping_shl(2);
                     }
@@ -200,7 +224,7 @@ impl SynthesisState {
                 }
                 for (i, sample) in residual[..subframe].iter_mut().enumerate() {
                     let mut prediction = 2i32;
-                    for (j, &coefficient) in p.ltp[k].iter().enumerate() {
+                    for (j, &coefficient) in coefficients.iter().enumerate() {
                         prediction = prediction.wrapping_add(mul_wb(
                             ltp[cursor - lag + 2 - j],
                             i32::from(coefficient),
@@ -228,6 +252,10 @@ impl SynthesisState {
             short.copy_within(subframe..subframe + 16, 0);
         }
         self.lpc.copy_from_slice(&short[..16]);
+        self.last_filter.fill(0);
+        self.last_filter[..p.filters[1].len()].copy_from_slice(p.filters[1]);
+        self.after_loss = false;
+        self.recovery_lag = None;
         self.history.copy_within(length..memory, 0);
         self.history[memory - length..memory].copy_from_slice(output.samples());
         output
@@ -251,14 +279,14 @@ pub(super) fn shift_saturated(value: i32, bits: u32) -> i32 {
 }
 
 // Reference reciprocal refinement: ordinary integer division is not bit-exact.
-fn inverse_gain(denominator: i32) -> i32 {
+pub(super) fn inverse_gain(denominator: i32, fraction_bits: u32) -> i32 {
     let headroom = denominator.leading_zeros() - 1;
     let normalized = denominator << headroom;
     let inverse = (i32::MAX >> 2) / (normalized >> 16);
     let initial = inverse << 16;
     let error = ((1 << 29) - mul_wb(normalized, inverse)).wrapping_shl(3);
     let result = initial.wrapping_add(mul_ww(error, inverse));
-    let shift = 14 - headroom as i32;
+    let shift = 61 - headroom as i32 - fraction_bits as i32;
     if shift <= 0 {
         shift_saturated(result, (-shift) as u32)
     } else {

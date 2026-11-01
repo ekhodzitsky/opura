@@ -7,6 +7,24 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-11-01
+
+- Add bounded internal-channel loss concealment with reference fixed-point
+  PLC: random/voiced excitation, gain attenuation, pitch drift, rewhitening and
+  LPC synthesis. Preserve shared prediction histories between losses and good frames.
+- Mix CNG and apply recovery energy glue in upstream order; clear gain clamping
+  after loss and apply post-loss LPC bandwidth expansion and voiced-to-unvoiced
+  recovery prediction. Expose transactional `ChannelState::conceal` for 10/20 ms.
+- Match all PCM samples, entropy counters, gain indices, shared synthesis history
+  and complete PLC state against 240 pinned original decode_frame steps, including
+  cold loss, bursts, recovery, rates/durations, inactive/unvoiced/voiced and clipping.
+- Verify long loss bursts, reset and failed-recovery rollback; detect omitted PLC
+  expansion, recovery fade, post-loss filter expansion and recovery prediction
+  with targeted mutations. Reference regeneration is byte-identical.
+
+This is an internal channel loss API. Packet loss scheduling, FEC recovery,
+mono buffering/resampling, stereo and CELT/Hybrid still require integration.
+
 ## [0.1.9] - 2026-11-01
 
 - Add fixed-storage SILK comfort-noise estimation from decoded inactive frames

@@ -122,6 +122,12 @@ pub struct GainState {
     previous: Option<u8>,
 }
 impl GainState {
+    // dec_API clears the absolute drop clamp after packet loss. Ten is also
+    // the reference starting index if a later internal frame is conditional.
+    pub(super) fn after_loss(&mut self) {
+        self.previous = Some(10);
+    }
+
     /// Last reconstructed logarithmic index (0..=63), if history is available.
     pub fn previous_index(&self) -> Option<u8> {
         self.previous

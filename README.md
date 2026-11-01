@@ -503,7 +503,43 @@ python3 tools/silk_cng_fixtures.py target/reference/opus > /tmp/opura-cng.txt
 diff -u tests/silk-cng-fixtures.txt /tmp/opura-cng.txt
 ```
 
-This stage does not supply PLC or reconstruct speech after a loss. The packet
-API still rejects loss/DTX input until the remaining loss-processing stages are
-integrated. Complete Opus compatibility and competitive performance remain
+This stage does not itself supply PLC; the channel loss engine below combines
+it with concealment. The packet API still rejects loss/DTX input until loss
+scheduling is integrated. Complete Opus compatibility and competitive performance remain
 unestablished.
+
+## SILK channel loss concealment
+
+`ChannelState::conceal(rate, duration)` advances one missing 10/20 ms internal
+frame through PLC, CNG and loss-energy bookkeeping, returning `PcmFrame` without
+consuming entropy. A fresh channel produces silence. Separate channel instances
+retain their own histories; explicit `reset()` starts a new stream. Errors leave
+all state unchanged. No allocation or unsafe Rust is used.
+
+PLC retains the last good excitation and filter, estimates the harmonic/noise
+mixture, rewhitens PCM history, drifts pitch and attenuates both components during
+loss. Concealed PCM updates shared synthesis history before CNG, as upstream does.
+The next good frame applies post-loss filter bandwidth expansion and temporary
+voiced prediction after voiced loss; energy glue fades a stronger recovery onset.
+Concealment resets the gain index to 10, matching dec_API. Entropy context and
+first-frame/conditional scheduling remain the caller's responsibility, including
+independent first regular frames after configuration changes.
+
+[240 independent loss/recovery steps](tests/silk-plc-fixtures.txt) run the original
+pinned `silk_decode_frame`, including original PLC, CNG and glue. Tests compare
+every PCM sample, entropy counters for good frames, gain indices, shared LPC/PCM
+history and all retained PLC fields. Sequences include loss before training,
+consecutive losses, recovery, all rates/durations, changes during loss, inactive,
+unvoiced and voiced signals, and clipping. Public tests also exercise long bursts,
+reset and transactional failure/retry during recovery. Targeted mutations detect
+missing PLC expansion, energy fade, post-loss expansion and recovery prediction.
+
+```sh
+python3 tools/silk_plc_fixtures.py target/reference/opus > /tmp/opura-plc.txt
+diff -u tests/silk-plc-fixtures.txt /tmp/opura-plc.txt
+```
+
+The mono packet API still rejects empty/one-byte loss or DTX payloads; scheduling
+loss from packet duration and FEC recovery are separate integration work. Channel
+PCM precedes mono buffering/resampling and stereo. Full Opus conformance and
+competitive performance remain unestablished.

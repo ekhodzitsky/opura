@@ -16,6 +16,11 @@ pub struct FrameLpc {
     order: usize,
 }
 impl FrameLpc {
+    pub(super) fn expand_after_loss(&mut self) {
+        expand_i16(&mut self.current[..self.order], 63570);
+        expand_i16(&mut self.first_half[..self.order], 63570);
+    }
+
     /// Prediction filter for the second half (both halves for 10 ms frames).
     /// The implicit leading coefficient of one is omitted.
     pub fn current_q12(&self) -> &[i16] {
@@ -142,7 +147,7 @@ fn fit(coefficients: &mut [i32], output: &mut [i16]) {
 }
 
 // Returns zero for unstable filters or excessive prediction power gain.
-fn inverse_gain(coefficients: &[i16]) -> i32 {
+pub(super) fn inverse_gain(coefficients: &[i16]) -> i32 {
     const LIMIT: i32 = 16773022; // round(0.99975 * 2^24)
     const MIN_GAIN: i32 = 107374; // round(2^30 / 10000)
     if coefficients.iter().copied().map(i32::from).sum::<i32>() >= 4096 {
@@ -201,6 +206,15 @@ fn reciprocal(value: i32) -> i32 {
     let inverse = (i32::MAX >> 2) / (normalized >> 16);
     let error = ((1 << 29) - ((i64::from(normalized) * i64::from(inverse)) >> 16) as i32) * 8;
     ((i64::from(inverse) << 16) + ((i64::from(error) * i64::from(inverse)) >> 16)) as i32
+}
+
+// Reference silk_bwexpander: rounded products avoid a filter-stability bias.
+pub(super) fn expand_i16(coefficients: &mut [i16], mut chirp: i32) {
+    let delta = chirp - 65536;
+    for coefficient in coefficients {
+        *coefficient = round_shift(i64::from(chirp) * i64::from(*coefficient), 16) as i16;
+        chirp += round_shift(i64::from(chirp) * i64::from(delta), 16) as i32;
+    }
 }
 
 #[cfg(test)]
