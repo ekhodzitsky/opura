@@ -7,6 +7,22 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.13] - 2026-11-01
+
+- Add a fixed-storage SILK decoder resampler for all 15 combinations of
+  8/12/16 kHz internal input and 8/12/16/24/48 kHz output rates.
+- Match reference delay compensation, three-section allpass x2 upsampling,
+  fractional FIR interpolation and AR/FIR downsampling with rounded-up Q16 ratios.
+- Validate whole-ms input bounds (1–120 ms) and output capacity before modifying
+  state or samples; retain filter history across calls and reset on rate changes.
+- Match PCM and every active filter/delay/configuration field on 360 independent
+  upstream cases, including impulses, DC extremes, alternating limits, random
+  input, clipping, resets and rate transitions. Verify chunking invariance and
+  invalid-buffer rollback; mutations detect allpass, FIR mirror and delay errors.
+
+This component does not yet add Opus mono/stereo buffering or integrate output
+resampling into packet decoding. Full Opus compatibility remains unestablished.
+
 ## [0.1.12] - 2026-11-01
 
 - Add transactional mono in-band FEC recovery with `MonoDecoder::decode_fec`,

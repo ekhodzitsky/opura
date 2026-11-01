@@ -13,6 +13,7 @@ pub mod mono;
 pub mod nlsf;
 pub mod pitch;
 mod plc;
+pub mod resampler;
 pub mod synthesis;
 
 use crate::{

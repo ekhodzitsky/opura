@@ -608,3 +608,38 @@ diff -u tests/silk-fec-fixtures.txt /tmp/opura-fec.txt
 As with normal and loss decoding, output precedes mono delay buffering/resampling.
 Stereo, CELT/Hybrid and implicit DTX still require implementation; no full-codec
 conformance or competitive performance claim follows from these stage checks.
+
+## SILK output resampler
+
+`opura::silk::resampler::ResamplerState::new(OutputRate)` selects one of the standard
+8/12/16/24/48 kHz outputs. `process(input_rate, input, output)` accepts internal
+8/12/16 kHz PCM and writes converted samples into a caller-owned buffer, returning
+the count written. Input must contain 1..=120 whole milliseconds. A short output
+buffer or invalid input geometry changes neither state nor output; any unused
+output tail remains untouched. Buffers and loops are bounded and allocation-free.
+
+The stage includes reference input-delay compensation, x2 allpass upsampling,
+fractional FIR interpolation and AR/FIR downsampling for all 15 supported rate
+pairs. Filter history persists across calls; an input-rate change resets it, while
+`reset()` clears history but retains the output rate. Output is invariant under
+whole-ms chunking. The separate Opus mono/stereo buffering delay must still be
+supplied by the packet output integration.
+
+[360 reference cases](tests/silk-resampler-fixtures.txt) compare every PCM sample,
+active IIR/FIR state, delay buffer and configuration value with the original pinned
+resampler. Inputs include silence, impulses, positive/negative DC limits,
+alternating signed limits, random samples and clipping, across variable chunk
+sizes, explicit resets and input/output rate pairs. Additional tests check split
+processing, follow-up state behavior and transactional validation. Mutations detect
+a missing allpass leading term, incorrect FIR mirroring and dropped input delay.
+
+```sh
+python3 tools/silk_resampler_fixtures.py target/reference/opus > /tmp/opura-resampler.txt
+diff -u tests/silk-resampler-fixtures.txt /tmp/opura-resampler.txt
+python3 tools/silk_resampler_fixtures.py target/reference/opus --tables > /tmp/opura-resampler-tables.rs
+rustfmt --edition 2024 /tmp/opura-resampler-tables.rs
+diff -u src/silk/resampler_tables.rs /tmp/opura-resampler-tables.rs
+```
+
+Packet output integration and final public-Opus PCM comparisons follow this stage.
+Stereo and CELT/Hybrid remain incomplete; no competitive performance claim is made.
