@@ -7,6 +7,24 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.14] - 2026-11-01
+
+- Add `MonoOutputDecoder` for final mono SILK PCM at 8/12/16/24/48 kHz,
+  composing normal/loss/FEC decoding, one-sample mono buffering and resampling.
+- Preserve the buffered channel sample across internal-rate switches while
+  reinitializing the resampler; commit all packet/delay/filter history atomically.
+- Match every final PCM sample and public OPUS_GET_FINAL_RANGE on 255 successful
+  public opus_decode results across all 15 rate pairs, frame durations, multi-frame
+  120 ms packets, explicit loss, FEC/recovery and input-rate changes. Five real
+  primary transitions reject without state updates.
+- Verify reset, invalid requests, late FEC resource rollback and unchanged output
+  histories on errors. Mutations detect missing mono delay and per-packet filter
+  resets; the independent public-output fixture mode regenerates byte-identically.
+
+This delivers final-rate PCM for the supported mono SILK subset. Stereo,
+CELT/Hybrid, transition reconstruction and implicit DTX remain incomplete;
+full Opus conformance and competitive performance are not established.
+
 ## [0.1.13] - 2026-11-01
 
 - Add a fixed-storage SILK decoder resampler for all 15 combinations of

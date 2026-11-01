@@ -1,9 +1,9 @@
 # opura
 
 Opura is a pure Rust, zero-dependency Opus implementation under development.
-**Loss-free mono SILK packets can be decoded to raw internal-rate PCM.**
+**Mono SILK packets support final PCM output, explicit loss concealment and in-band FEC.**
 Packet framing, range decoding and the SILK channel primitives are also available.
-Stereo, implicit DTX handling, output-rate resampling, CELT/Hybrid decoding and encoding
+Stereo, implicit DTX handling, CELT/Hybrid decoding and encoding
 are not implemented. The accepted direction is a complete decoder first, then
 an encoder, prioritizing speed and reliability. See the
 [decoder-first decision](docs/decisions/0002-decoder-first.md) for evaluation
@@ -641,5 +641,40 @@ rustfmt --edition 2024 /tmp/opura-resampler-tables.rs
 diff -u src/silk/resampler_tables.rs /tmp/opura-resampler-tables.rs
 ```
 
-Packet output integration and final public-Opus PCM comparisons follow this stage.
+Packet output integration and direct public-Opus PCM comparisons are described below.
 Stereo and CELT/Hybrid remain incomplete; no competitive performance claim is made.
+
+## Final-rate mono SILK PCM
+
+`opura::silk::output::MonoOutputDecoder::new(OutputRate)` supplies the final mono
+output path at 8/12/16/24/48 kHz. It combines packet/channel decoding, PLC/CNG/FEC,
+the dec_API mono delay and the output resampler. Use `decode(packet)`,
+`conceal(duration_ms)` or `decode_fec(packet)` with the same scheduling and subset
+restrictions as `MonoDecoder`. FEC is followed by normal decoding of the same
+received packet. `OutputPcm` exposes final `samples()`, `sample_rate()` and
+`final_range()`, with fixed storage for at most 5760 samples (120 ms at 48 kHz).
+
+Every operation commits packet, predictor, delay and resampler state together.
+Errors preserve all histories. Input-rate switches reset resampling filters but
+retain the preceding mono channel sample, matching upstream buffering semantics.
+`reset()` clears the stream while retaining the selected output rate. All work
+is bounded and allocation-free.
+
+[260 direct public-decoder cases](tests/silk-output-fixtures.txt) contain the actual
+signed-16 samples returned by pinned fixed-point `opus_decode`, rather than an
+internal observation point. Tests match every sample and public final range on
+255 successful normal/loss/FEC results across all 15 input/output rate pairs,
+durations, 120 ms repacketized inputs, recovery and input-rate switches. Five real
+transition packets reject transactionally. Additional tests verify invalid input,
+late FEC resource-error rollback, output-history recovery and reset. Mutations
+detect missing mono delay and accidental resampler reset between packets.
+
+```sh
+python3 tools/silk_packet_fixtures.py target/reference/opus --public-output > /tmp/opura-output.txt
+diff -u tests/silk-output-fixtures.txt /tmp/opura-output.txt
+```
+
+The lower-level APIs remain available for raw internal PCM and individual stages.
+This final-rate path supports mono SILK, not stereo, CELT/Hybrid, implicit DTX or
+CELT transition reconstruction. It has not yet passed complete official Opus
+conformance, and no full-codec performance superiority is claimed.

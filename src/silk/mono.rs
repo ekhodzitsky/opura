@@ -48,7 +48,9 @@ impl fmt::Display for MonoError {
             Self::InvalidLossDuration => {
                 f.write_str("mono SILK loss duration must be 10..120 ms in 10 ms steps")
             }
-            Self::MissingPayload => f.write_str("mono SILK loss/DTX decoding is not implemented"),
+            Self::MissingPayload => f.write_str(
+                "missing SILK payload requires explicit concealment; implicit DTX is unsupported",
+            ),
             Self::Header(e) => write!(f, "mono SILK header: {e}"),
             Self::Channel(e) => write!(f, "mono SILK packet: {e}"),
             Self::UnsupportedTransition => {
@@ -86,6 +88,9 @@ pub struct MonoPcm {
     final_range: u32,
 }
 impl MonoPcm {
+    pub(super) fn rate(&self) -> SilkRate {
+        self.rate
+    }
     /// PCM samples, in packet transmission order.
     pub fn samples(&self) -> &[i16] {
         &self.samples[..self.length]

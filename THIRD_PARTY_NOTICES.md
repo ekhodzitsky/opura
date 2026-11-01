@@ -47,6 +47,7 @@ from `silk/tables_NLSF_CB_NB_MB.c`, `silk/tables_NLSF_CB_WB.c`,
 `silk/decode_parameters.c`, under the same notices. LPC conversion and its
 cosine table follow `silk/NLSF2A.c`, `silk/table_LSF_cos.c`, `silk/LPC_fit.c`,
 `silk/LPC_inv_pred_gain.c`, `silk/bwexpander_32.c` and `silk/Inlines.h`.
+Mono output delay buffering follows `silk/dec_API.c`.
 Decoder output resampling and coefficient tables additionally follow
 `silk/resampler.c`, `silk/resampler_private_up2_HQ.c`,
 `silk/resampler_private_IIR_FIR.c`, `silk/resampler_private_down_FIR.c`,

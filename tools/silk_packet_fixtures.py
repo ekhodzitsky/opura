@@ -20,8 +20,9 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('source', type=Path)
 parser.add_argument('--loss', action='store_true', help='Emit loss/recovery streams with completed decode_frame PCM')
 parser.add_argument('--fec', action='store_true', help='Emit FEC and subsequent primary decoding streams')
+parser.add_argument('--public-output', action='store_true', help='Emit actual public opus_decode PCM at every output rate')
 args = parser.parse_args()
-if args.loss and args.fec: parser.error('--loss and --fec are mutually exclusive')
+if sum([args.loss, args.fec, args.public_output]) > 1: parser.error('Choose one fixture output mode')
 source = args.source.resolve()
 if subprocess.check_output(['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip() != REVISION:
     raise SystemExit('Expected Opus v1.6.1 at ' + REVISION)
@@ -204,6 +205,19 @@ int decode_complete(OpusDecoder *decoder, const unsigned char *packet, int len, 
     if (opus_decoder_ctl(decoder, OPUS_GET_FINAL_RANGE(out + 2)) != OPUS_OK) abort();
     out[3] = transition_seen;
     return result;
+ }
+int decode_public(OpusDecoder *decoder, const unsigned char *packet, int len, int frame_samples, int fec,
+                  opus_int16 *pcm, opus_uint32 *out) {
+    captured_length = 0;
+    finished_length = 0;
+    transition_seen = 0;
+    int result = opus_decode(decoder, packet, len, pcm, frame_samples, fec);
+    if (result < 0) return result;
+    out[0] = result;
+    out[1] = captured_rate;
+    if (opus_decoder_ctl(decoder, OPUS_GET_FINAL_RANGE(out + 2)) != OPUS_OK) abort();
+    out[3] = transition_seen;
+    return result;
 }
 '''
 files = (manifest('silk_sources.mk', 'SILK_SOURCES')
@@ -249,10 +263,73 @@ with tempfile.TemporaryDirectory(prefix='opura-packet-reference-') as temp:
         ('opus_encode', [pointer, i16, c.c_int, u8, c.c_int], c.c_int),
         ('decode', [pointer, u8, c.c_int, i16, u32], c.c_int),
         ('decode_complete', [pointer, u8, c.c_int, c.c_int, c.c_int, i16, u32], c.c_int),
+        ('decode_public', [pointer, u8, c.c_int, c.c_int, c.c_int, i16, u32], c.c_int),
         ('repack', [u8, c.POINTER(c.c_int), c.c_int, u8], c.c_int),
     ]:
         function = getattr(lib, name)
         function.argtypes, function.restype = types, result
+    if args.public_output:
+        print('# Actual public fixed-point opus_decode PCM and final range:', REVISION)
+        print('# KIND RESET OUTPUT_HZ INPUT_KHZ DURATION_MS HEX FINAL_RANGE PCM[duration_ms*output_hz/1000]')
+        error = c.c_int()
+        for output_khz in [8, 12, 16, 24, 48]:
+            for sequence in range(4):
+                encoder = lib.opus_encoder_create(48000, 1, 2048, c.byref(error))
+                if not encoder or error.value: raise SystemExit('Encoder initialization failed')
+                decoder = lib.opus_decoder_create(output_khz * 1000, 1, c.byref(error))
+                if not decoder or error.value: raise SystemExit('Decoder initialization failed')
+                phase, random, reset_next = 0, 0x50434d21 + sequence, True
+                history = []
+                try:
+                    def emit(kind, packet, duration):
+                        global decoder, reset_next
+                        data = (c.c_ubyte * len(packet))(*packet) if packet else None
+                        pcm, out = (c.c_int16 * 5760)(), (c.c_uint32 * 4)()
+                        length = duration * output_khz
+                        result = lib.decode_public(decoder, data, len(packet), length, int(kind == 'fec'), pcm, out)
+                        if result != length: raise SystemExit('Public reference decode failed')
+                        actual_kind = 'transition' if out[3] else kind
+                        print(actual_kind, int(reset_next), output_khz * 1000, out[1], duration,
+                              packet.hex() if packet else '-', out[2], *pcm[:result])
+                        reset_next = bool(out[3])
+                        if reset_next:
+                            lib.opus_decoder_destroy(decoder)
+                            decoder = lib.opus_decoder_create(output_khz * 1000, 1, c.byref(error))
+                            if not decoder or error.value: raise SystemExit('Decoder reset failed')
+                    for index in range(12):
+                        band = sequence if sequence < 3 else [0, 1, 2][index // 4]
+                        if lib.configure(encoder, 1101 + band, int(sequence != 0)):
+                            raise SystemExit('Encoder configuration failed')
+                        duration = [10, 20, 40, 60][index // 3]
+                        samples = []
+                        for _ in range(48 * duration):
+                            phase = (phase + 1) % 240
+                            random ^= (random << 13) & 0xffffffff
+                            random ^= random >> 17
+                            random ^= (random << 5) & 0xffffffff
+                            value = ((phase if phase < 120 else 239 - phase) - 60) * 160
+                            samples.append(0 if 6 <= index <= 8 else value + random % 1024 - 512)
+                        data = (c.c_ubyte * 1276)()
+                        size = lib.opus_encode(encoder, (c.c_int16 * len(samples))(*samples), len(samples), data, 1276)
+                        if size <= 1: raise SystemExit('Reference audio encoding failed')
+                        packet = bytes(data[:size])
+                        if packet[0] >> 3 >= 12: raise SystemExit('Expected SILK mono')
+                        history.append(packet)
+                        if index % 3 == 1: continue
+                        if index in [2, 8]: emit('loss', b'', 120 if index == 2 else 30)
+                        if index in [5, 11]: emit('fec', packet, duration)
+                        emit('packet', packet, duration)
+                    group = history[-2:]
+                    if group[0][0] != group[1][0]: raise SystemExit('Expected matching final frame configurations')
+                    combined = b''.join(group)
+                    size = lib.repack((c.c_ubyte * len(combined))(*combined),
+                                      (c.c_int * 2)(*[len(p) for p in group]), 2, data)
+                    if size <= 0: raise SystemExit('Reference repacketization failed')
+                    emit('packet', bytes(data[:size]), 120)
+                finally:
+                    lib.opus_encoder_destroy(encoder)
+                    lib.opus_decoder_destroy(decoder)
+        raise SystemExit(0)
     if args.fec:
         print('# Pinned Opus v1.6.1 mono FEC and subsequent primary decode_frame PCM:', REVISION)
         print('# KIND RESET HEX RATE_KHZ FINAL_RANGE PCM[frame_duration_ms*rate]')

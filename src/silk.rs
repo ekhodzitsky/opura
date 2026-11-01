@@ -11,6 +11,7 @@ pub mod gains;
 pub mod lpc;
 pub mod mono;
 pub mod nlsf;
+pub mod output;
 pub mod pitch;
 mod plc;
 pub mod resampler;
