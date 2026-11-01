@@ -1205,3 +1205,12 @@ window attribution also apply. The original additional notice is retained here.
    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 ```
+
+
+# CELT PLC pitch analysis attribution
+
+Classic downsampling/whitening, FIR5, coarse/fine correlations, normalized pitch
+ranking and pseudo interpolation follow `celt/pitch.c`; fixed PLC search geometry
+follows `celt/celt_decoder.c` at the pinned revision above. Their original
+CSIRO/Xiph.Org/Jean-Marc Valin notices and terms are retained above; existing
+LPC and scalar math attribution also apply.

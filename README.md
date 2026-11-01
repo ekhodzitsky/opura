@@ -1522,3 +1522,33 @@ diff -u tests/celt-lpc-fixtures.txt /tmp/opura-celt-lpc.txt
 The optional oracle compiles unchanged original celt_lpc/pitch scalar kernels
 and math; clustered covariance models define test inputs, not expected outputs.
 These helpers prepare CELT pitch search/PLC; loss synthesis is not yet integrated.
+
+
+## CELT concealment pitch analysis
+
+`opura::celt::pitch::plc_pitch(left, optional_right)` analyzes exactly2048 latest
+processed internal Q12 samples per channel, each within +/-536870911 (SIG_SAT).
+The fixed-storage `PlcPitch` exposes a48kHz period within100..=720 and the full
+1024-sample half-rate whitened signal. Inputs remain borrowed and unchanged.
+
+The implementation follows original factor2 triangular downsampling with stereo
+headroom, stabilized LPC4, FIR5 rounding, quarter-rate coarse correlation, two
+fine candidate neighborhoods, normalized two-best ranking/sliding energy and
+pseudo interpolation. No encoder pitch/remove-doubling stage is included.
+
+[2202 original pitch cases](tests/celt-pitch-fixtures.txt) compare every whitened
+sample and period across every target period100..720 in mono/stereo, low/full
+amplitudes, triangle/square/impulse/saw/noise/silence/DC/alternating signals and
+matching/opposite/shifted/independent channel contexts. Integer signal recipes
+are fixture inputs; expected outputs come solely from pinned original scalar
+pitch_downsample/pitch_search and LPC/math. Domain and deterministic silence
+checks plus seven mutations verify stereo headroom, lag window, FIR rounding,
+coarse/fine scaling, candidate radius, interpolation and sliding energy.
+
+```sh
+python3 tools/celt_pitch_fixtures.py target/reference/opus > /tmp/opura-celt-pitch.txt
+diff -u tests/celt-pitch-fixtures.txt /tmp/opura-celt-pitch.txt
+```
+
+These helpers prepare waveform PLC. CELT loss synthesis/recovery and Hybrid
+remain incomplete; normal CELT packet-to-PCM decoding is already supported.

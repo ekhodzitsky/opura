@@ -7,6 +7,21 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.35] - 2026-11-01
+
+- Add fixed-storage classic CELT PLC pitch analysis from2048 mono/stereo internal
+  history samples: factor2 lowpass/LPC4/FIR5 whitening, coarse quarter-rate and
+  fine candidate correlation, normalized pitch ranking and pseudo interpolation.
+- Validate decoder signal bounds and return both the period and full1024-sample
+  whitened signal without mutating input or allocating.
+- Match all samples and periods on2202 original cases covering every target
+  period100..720, channel combinations, phase/noise/silence and amplitude bounds.
+- Domain/silence checks and seven meaningful mutations pass; optional corpus
+  reproduces and all mandatory offline gates pass.
+
+Full CELT periodic/noise loss synthesis and recovery, Hybrid, conformance and
+encoding remain pending; normal CELT packets already decode to final PCM.
+
 ## [0.1.34] - 2026-11-01
 
 - Add bounded allocation-free CELT autocorrelation/window/scaling, fast64 LPC

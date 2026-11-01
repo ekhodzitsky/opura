@@ -6,6 +6,7 @@ pub mod lpc;
 pub mod math;
 pub mod partition;
 mod partition_tables;
+pub mod pitch;
 pub mod pulses;
 pub mod pvq;
 
