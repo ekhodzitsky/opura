@@ -7,6 +7,29 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-11-01
+
+- Decode loss-free mono SILK-only Opus packets to raw internal-rate PCM at
+  8/12/16 kHz, including 10/20/40/60 ms Opus frames, packet codes 0–3, padding
+  and multi-frame packets up to 120 ms with fixed output storage.
+- Consume LBRR before regular audio with correct adjacent-frame conditional
+  coding, isolated from regular gain, spectral and synthesis histories.
+- Commit all packet histories and output atomically. Reject unsupported stereo,
+  CELT/Hybrid, loss/DTX frames and CELT transition tails with typed errors.
+- Handle legitimately stripped trailing zero bytes with a bounded packet-only
+  virtual entropy budget; preserve strict public primitive budget contracts.
+- Verify raw PCM samples and public final range against the pinned fixed-point
+  libopus decoder on 222 real encoded periodic/noise, silence and FEC packets,
+  including repacketized 120 ms inputs. Another 48 synthetic symbol packets cover
+  all LBRR masks; six real transition packets verify unsupported-input rollback.
+- Add rollback/retry, reset, malformed-input, resource-boundary and zero-trimming
+  regressions and targeted mutations for gapped LBRR, premature commits and
+  missing zero extension, with a reproducible external-reference generator.
+
+Output precedes Opus mono delay buffering and resampling. Loss recovery,
+CNG/PLC, stereo and CELT/Hybrid decoding remain unimplemented. Full Opus
+conformance and competitive PCM performance are not established.
+
 ## [0.1.7] - 2026-11-01
 
 - Add transactional single-channel SILK decoding from signal-type symbols through

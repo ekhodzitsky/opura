@@ -1,10 +1,11 @@
 # opura
 
 Opura is a pure Rust, zero-dependency Opus implementation under development.
-**Packet framing, range decoding, SILK headers, gain, NLSF, LPC, pitch/LTP, excitation and
-loss-free single-channel synthesis and transactional channel integration are implemented.** Complete Opus packet-to-PCM
-decoding and encoding are not available yet. The accepted direction is a complete decoder
-first, then an encoder, prioritizing speed and reliability. See the
+**Loss-free mono SILK packets can be decoded to raw internal-rate PCM.**
+Packet framing, range decoding and the SILK channel primitives are also available.
+Stereo, loss/DTX handling, output-rate resampling, CELT/Hybrid decoding and encoding
+are not implemented. The accepted direction is a complete decoder first, then
+an encoder, prioritizing speed and reliability. See the
 [decoder-first decision](docs/decisions/0002-decoder-first.md) for evaluation
 requirements; SOTA performance is an ambition, not a current claim.
 
@@ -181,7 +182,7 @@ diff -u tests/silk-gain-dequant-fixtures.txt /tmp/opura-dequant.txt
 ```
 
 These are synthetic primitive tests. They do not establish full decoder
-conformance or performance; stereo and frame orchestration remain incomplete.
+conformance or performance; stereo and full Opus orchestration remain incomplete.
 
 ## SILK spectral parameters
 
@@ -195,7 +196,7 @@ preserve order, such as 8↔12 kHz. Use `FrameNlsf::to_lpc()` for the subsequent
 
 The decoder uses fixed storage without allocation. Failure leaves spectral
 history and entropy unchanged. Like gains, this primitive must participate in
-a future frame-level transaction before its history is used for another frame.
+the channel transaction below before its history is used for another frame.
 Successful side-information decoding does not validate the remaining payload.
 
 [Reference sequences](tests/silk-nlsf-fixtures.txt) cover 3408 decoding steps:
@@ -269,10 +270,11 @@ changes reset history automatically. Implicit scale index zero on a voiced
 frame means Q14 scale 15565, not zero.
 
 Entropy and history commit together only on success. As with the other
-primitives, the future full-frame decoder must defer history commits until all
+primitives, a caller must defer history commits until all
 excitation data succeeds. Malformed delta chains preserve the reference's signed
 16-bit raw index behavior while reconstructed sample lags clamp to 2–18 ms.
-This stage stops before excitation samples; concealment and PCM remain future work.
+This stage stops before excitation samples; the synthesis and channel stages
+below provide PCM. Concealment remains future work.
 
 [3618 reference steps](tests/silk-pitch-fixtures.txt) use the actual pinned
 upstream index-decoding suffix, parameter reconstruction and pitch decoder.
@@ -331,8 +333,9 @@ rustfmt --edition 2024 /tmp/opura-excitation-tables.rs
 diff -u src/silk/excitation_tables.rs /tmp/opura-excitation-tables.rs
 ```
 
-This is excitation before LTP/LPC filtering and gain scaling, not PCM. Full-frame
-state commits, stereo processing and resampling still need integration.
+This is excitation before LTP/LPC filtering and gain scaling, not PCM.
+`ChannelState` below supplies the enclosing state transaction and synthesis;
+stereo processing and resampling remain future work.
 
 
 ## SILK synthesis
@@ -372,8 +375,8 @@ diff -u tests/silk-synthesis-fixtures.txt /tmp/opura-synthesis.txt
 This produces **loss-free internal-channel PCM**, before CNG, PLC glue, stereo
 reconstruction, output-rate resampling and CELT/Hybrid mixing. It is not a
 complete Opus decoder, does not handle packet loss, and does not establish audio
-quality or performance superiority over competitors. Packet-to-frame entropy
-orchestration remains the next integration requirement.
+quality or performance superiority over competitors. Mono SILK packet
+orchestration is described below.
 
 ## SILK channel integration
 
@@ -404,11 +407,68 @@ rate change. Targeted mutation checks detect missing spectral-history reset
 and premature history commits before excitation validation. The synthetic
 inputs are not complete Opus conformance vectors;
 output precedes CNG/PLC glue, stereo conversion and resampling. Complete
-packet-to-PCM decoding and competitive PCM performance remain future work.
+Opus support and competitive PCM performance remain future work. Mono SILK
+packet integration is described below.
 
 Optional fixture regeneration uses the same clean pinned reference checkout:
 
 ```sh
 python3 tools/silk_channel_fixtures.py target/reference/opus > /tmp/opura-channel.txt
 diff -u tests/silk-channel-fixtures.txt /tmp/opura-channel.txt
+```
+
+## Mono SILK packets to PCM
+
+`opura::silk::mono::MonoDecoder::decode(&packet_bytes)` parses an externally
+delimited mono SILK-only Opus packet and returns `MonoPcm`. It handles 10/20/40/60 ms
+Opus frames, packet codes 0–3, framing padding and multi-frame packets up to 120 ms.
+Output uses fixed storage for at most 1920 signed 16-bit samples, with no allocation,
+unsafe code or dependencies. `sample_rate()` reports the encoded 8/12/16 kHz rate;
+`samples()` exposes the used portion, and `final_range()` matches the public
+libopus final range of the last Opus frame for supported packets.
+
+Each Opus frame has its own entropy cursor and SILK header. LBRR is consumed
+before regular audio, with conditional coding only for adjacent redundant
+frames. Scratch states keep skipped LBRR out of regular gain/NLSF/synthesis
+history. The first regular internal frame is independent; later internal frames
+are conditional. Histories persist across Opus frames and packets, with channel
+rate-switch behavior. `reset()` starts a fresh stream.
+
+The entire packet is a transaction: any `MonoError` discards all output and
+history updates, including earlier successfully decoded frames. Empty/one-byte
+loss or DTX frames, stereo, CELT, Hybrid and SILK/CELT transition redundancy
+return explicit errors. LBRR is skipped for normal playback; FEC recovery is
+not implemented. Transport/container parsing remains the caller's responsibility.
+
+SILK encoders may strip trailing zero bytes. Packet entropy therefore uses zero
+extension with a virtual budget of 1275 bytes, the maximum original Opus frame
+size, while existing public channel/parameter primitives retain their strict
+input-length budgets. Some truncated or modified payloads are indistinguishable
+from valid zero-trimmed data; successful decoding and final range do not provide
+an integrity guarantee. All decoding loops and output sizes remain bounded.
+
+These are **raw internal-channel samples** from loss-free synthesis, before
+Opus mono delay buffering and output-rate resampling. They are not sample-aligned
+with `opus_decode` output. CNG/PLC state and recovery after loss, stereo and
+CELT/Hybrid mixing remain future work. This API establishes a limited packet-to-PCM
+path, not complete Opus conformance or competitive audio performance.
+
+[Audio packet fixtures](tests/silk-packet-fixtures.txt) come from the pinned
+Opus 1.6.1 scalar fixed-point encoder, using deterministic periodic/noise audio
+and silence, both with and without in-band FEC. The full upstream decoder runs
+normally; observational hooks copy original `silk_decode_core` PCM and identify
+transition tails. Tests compare every supported PCM sample and public
+`OPUS_GET_FINAL_RANGE`, and verify explicit rejection and rollback for transitions.
+The corpus includes rate/duration changes and packets repacked by the reference
+repacketizer. Separate synthetic symbol packets encoded with upstream primitives
+exercise every LBRR mask, including gaps and adjacent conditional frames. Additional checks exercise packet codes, padding, the 120 ms output
+boundary, zero-byte trimming, malformed inputs and whole-packet rollback/retry.
+
+Optional regeneration requires the same clean pinned checkout, Python and a C
+compiler. It compiles external source manifests into a temporary reference
+library; normal Cargo builds and tests use only the saved fixtures.
+
+```sh
+python3 tools/silk_packet_fixtures.py target/reference/opus > /tmp/opura-silk-packets.txt
+diff -u tests/silk-packet-fixtures.txt /tmp/opura-silk-packets.txt
 ```

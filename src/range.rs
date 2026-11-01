@@ -52,6 +52,7 @@ impl std::error::Error for RangeError {}
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RangeDecoder<'a> {
     input: &'a [u8],
+    budget_bytes: usize,
     position: usize,
     previous: u8,
     range: u32,
@@ -67,6 +68,7 @@ impl<'a> RangeDecoder<'a> {
     pub fn new(input: &'a [u8]) -> Self {
         let mut decoder = Self {
             input,
+            budget_bytes: input.len(),
             position: 0,
             previous: 0,
             range: 128,
@@ -210,9 +212,17 @@ impl<'a> RangeDecoder<'a> {
         self.bits_total * 8 - (log * 8 + fraction)
     }
 
+    // SILK-only encoders may remove all trailing zero bytes (opus_encoder.c).
+    // Their decoder must zero-extend beyond the transmitted size. Packet framing
+    // caps the original compressed frame at 1275 bytes, so use that virtual budget
+    // only for the packet SILK path. Public primitive callers keep strict budgets.
+    pub(crate) fn allow_silk_zero_extension(&mut self) {
+        self.budget_bytes = 1275;
+    }
+
     // Compare rounded-up byte usage to avoid multiplying an arbitrary slice length.
     pub(crate) fn is_within_budget(&self) -> bool {
-        self.tell().div_ceil(8) as usize <= self.input.len()
+        self.tell().div_ceil(8) as usize <= self.budget_bytes
     }
 
     fn transaction<T>(

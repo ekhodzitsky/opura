@@ -8,6 +8,7 @@ pub mod channel;
 pub mod excitation;
 pub mod gains;
 pub mod lpc;
+pub mod mono;
 pub mod nlsf;
 pub mod pitch;
 pub mod synthesis;
