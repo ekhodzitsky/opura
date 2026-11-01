@@ -1362,3 +1362,13 @@ The CELT energy/probability/quant_bands notices and terms already retained above
 apply. Rust adds atomic stage failures, checked physical-target arithmetic and
 deterministic zero residuals outside each newly selected coarse layout; original
 unused per-frame scratch is not treated as initialized state by optional probes.
+
+
+# CELT CWRS encoding attribution
+
+Vector ranking and uniform pulse encoding follow `celt/cwrs.c::icwrs` and
+`encode_pulses` at the pinned revision above. Existing CWRS notices and terms
+apply. Optional encoder fixtures use the unchanged original SMALL_FOOTPRINT
+recurrence so every supported representable geometry is covered, including
+geometries outside the optimized standard-mode table. Zero-pulse encoding is
+a no-bit extension paired with Opura's existing zero-pulse decoding contract.

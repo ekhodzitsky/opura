@@ -2006,3 +2006,30 @@ These are energy bitstreams, not complete compressed audio packets. Shape
 quantization, frame controls, transient/pitch decisions and full packet encoding
 remain under development. All stages use fixed storage, safe Rust and zero Cargo
 dependencies; original C is confined to optional external probes.
+
+## CWRS pulse encoding foundation
+
+`PulseCodebook::index_of(values)` ranks a signed integer vector in native CWRS
+order; `encode(writer, values)` writes the corresponding uniform index with
+native range/raw splitting. Vector length and L1 pulse sum must match the
+validated book. Both methods allocate nothing and preserve input; encoding
+errors preserve the whole writer. Zero pulses accepts only the all-zero vector,
+consumes no bits and still requires an unfinished writer. This maps already
+selected integer pulses; it does not choose them from a spectral signal.
+
+Independent original `icwrs`/`encode_pulses` fixtures cover all 1,834 representable
+books in the 2..176 dimension/0..128 pulse domain: 13,395 vectors with full streams,
+ranked indices and range/whole/eighth-bit counters. Tests also invert all 70,423
+indices of the retained small books plus deterministic wide samples, verify
+malformed length/L1/signed extremes and capacity/lifecycle rollback, and detect
+nine targeted mutations. Prior pulse-decoder fixtures reproduce unchanged.
+
+```sh
+python3 tools/celt_pulse_fixtures.py /path/to/opus-v1.6.1 --encode > /tmp/celt-pulse-encoder-fixtures.txt
+diff -u tests/celt-pulse-encoder-fixtures.txt /tmp/celt-pulse-encoder-fixtures.txt
+```
+
+The optional oracle uses unchanged generic SMALL_FOOTPRINT CWRS code to cover
+all representable geometries. Normal Cargo builds/tests use retained fixtures
+and have zero dependencies. PVQ pulse search and recursive band encoding remain
+under development before these primitives form complete encoded audio.

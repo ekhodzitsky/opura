@@ -7,6 +7,19 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.48] - 2026-11-02
+
+- Add allocation-free native CWRS vector ranking and atomic pulse entropy encoding
+  to validated codebooks, including the existing zero-pulse extension.
+- Validate exact dimensions/L1 sum before ranking; preserve input and complete
+  writer state on malformed vectors, capacity and lifecycle failures.
+- Match all1834 representable books and13395 original encoder vectors/streams/
+  counters. Verify70423 exhaustive small-book inverses, deterministic wide cases,
+  boundaries and nine detected mutations. New and prior decoder pulse corpora
+  reproduce; all seven mandatory offline checks pass with zero dependencies.
+
+PVQ pulse search, recursive band coding and complete audio encoding remain work.
+
 ## [0.1.47] - 2026-11-02
 
 - Add fixed-storage CELT energy encoding with temporal/inter-band coarse prediction,

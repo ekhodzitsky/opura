@@ -13,6 +13,7 @@ import tempfile
 REVISION='22244de5a79bd1d6d623c32e72bf1954b56235be'
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('source',type=Path)
+parser.add_argument('--encode',action='store_true')
 args=parser.parse_args()
 source=args.source.resolve()
 if subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip()!=REVISION:
@@ -41,6 +42,24 @@ int write_sequence(int n,int k,const unsigned *indices,int count,unsigned char *
     ec_enc_done(&enc);
     return ec_get_error(&enc) ? -1 : len;
 }
+unsigned rank_vector(int n,int k,const int *values) {
+    if(!k) return 0;
+    unsigned count,u[130];
+    return icwrs(n,k,&count,values,u);
+}
+int write_vectors(int n,int k,const unsigned *indices,int count,unsigned char *data,int *out) {
+    ec_enc enc;ec_enc_init(&enc,data,256);
+    for(int i=0;i<count;i++) {
+        int *row=out+i*(n+4);
+        index_vector(n,k,indices[i],row+4);
+        row[0]=(int)rank_vector(n,k,row+4);
+        if(k)encode_pulses(row+4,n,k,&enc);
+        row[1]=(int)enc.rng;row[2]=ec_tell(&enc);row[3]=ec_tell_frac(&enc);
+    }
+    int length=(ec_tell(&enc)+7)/8;
+    ec_enc_shrink(&enc,length);ec_enc_done(&enc);
+    return ec_get_error(&enc)?-1:length;
+}
 void read_sequence(const unsigned char *data,int len,int n,int k,int count,int *out) {
     ec_dec dec;
     ec_dec_init(&dec,(unsigned char*)data,len);
@@ -67,8 +86,34 @@ with tempfile.TemporaryDirectory(prefix='opura-celt-pulses-') as temp:
     for name,types,result in [('count_book',[c.c_int,c.c_int],c.c_uint32),
                               ('index_vector',[c.c_int,c.c_int,c.c_uint32,i32],c.c_int),
                               ('write_sequence',[c.c_int,c.c_int,u32,c.c_int,u8],c.c_int),
-                              ('read_sequence',[u8,c.c_int,c.c_int,c.c_int,c.c_int,i32],None)]:
+                              ('read_sequence',[u8,c.c_int,c.c_int,c.c_int,c.c_int,i32],None),
+                              ('write_vectors',[c.c_int,c.c_int,u32,c.c_int,u8,i32],c.c_int)]:
         fn=getattr(lib,name);fn.argtypes=types;fn.restype=result
+    if args.encode:
+        print('# Original SMALL_FOOTPRINT icwrs/encode_pulses:',REVISION)
+        print('# stream N K CARDINALITY HEX COUNT; step INDEX RANGE TELL FRAC VECTOR[N]')
+        print('# Initial capacity256, shrunk to ceil(tell/8) after all steps; zero-pulse extension consumes no bits.')
+        seed=0x43575253
+        def next_index():
+            global seed
+            seed^=(seed<<13)&0xffffffff;seed^=seed>>17;seed^=(seed<<5)&0xffffffff
+            return seed
+        for n in range(2,177):
+            for k in range(129):
+                cardinality=1 if not k else u[n][k]+u[n][k+1]
+                if cardinality>0xffffffff:continue
+                if lib.count_book(n,k)!=cardinality:raise SystemExit('Original cardinality mismatch')
+                indices={0,cardinality-1,next_index()%cardinality,next_index()%cardinality}
+                if cardinality>1:indices.update([1,cardinality-2,cardinality//2-1,cardinality//2])
+                indices=sorted(indices);data=(c.c_ubyte*256)();rows=(c.c_int*((n+4)*len(indices)))()
+                length=lib.write_vectors(n,k,(c.c_uint32*len(indices))(*indices),len(indices),data,rows)
+                if length<1:raise SystemExit('Original vector encoding failed')
+                print('stream',n,k,cardinality,bytes(data[:length]).hex(),len(indices))
+                for index,expected_index in enumerate(indices):
+                    row=rows[index*(n+4):(index+1)*(n+4)]
+                    if row[0]&0xffffffff!=expected_index:raise SystemExit('Original CWRS rank/decode mismatch')
+                    print('step',row[0]&0xffffffff,row[1]&0xffffffff,*row[2:])
+        raise SystemExit(0)
     print('# Original SMALL_FOOTPRINT cwrs.c:',REVISION)
     print('# book N K CARDINALITY (0=overflow); all N K COUNT FNV1A64(le-i32 norm then coordinates per index)')
     print('# vector N K INDEX SQUARED_NORM COORDINATES[N]; stream N K HEX COUNT; step RANGE TELL TELL_FRAC SQUARED_NORM COORDINATES[N]')

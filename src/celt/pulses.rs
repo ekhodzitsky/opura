@@ -1,11 +1,11 @@
-//! Classic CELT CWRS/PVQ integer pulse-vector decoding.
+//! Classic CELT CWRS/PVQ integer pulse-vector encoding and decoding.
 //!
 //! The symmetric U recurrence counts codewords; ordering follows original
 //! cwrs.c. Compile-time capped rows avoid allocation and overflowing counts.
 //! This primitive does not normalize/rotate vectors or decode complete bands.
 //! Copyright (c) 2007-2008 CSIRO; 2007-2009 Xiph.Org Foundation;
 //! 2007-2009 Timothy B. Terriberry. See THIRD_PARTY_NOTICES.md.
-use crate::range::{RangeDecoder, RangeError};
+use crate::range::{EncoderError, RangeDecoder, RangeEncoder, RangeError};
 use std::fmt;
 
 /// Invalid pulse-codebook configuration, index or entropy.
@@ -18,6 +18,10 @@ pub enum PulseError {
     CardinalityOverflow,
     /// Index must be strictly less than the codebook cardinality.
     InvalidIndex,
+    /// Vector length or sum of absolute coordinates differs from the codebook.
+    InvalidVector,
+    /// Range or raw-bit encoding failed without changing the writer.
+    Encoding(EncoderError),
     /// Range or raw-bit decoding failed.
     Entropy(RangeError),
 }
@@ -31,6 +35,8 @@ impl fmt::Display for PulseError {
                 f.write_str("CELT pulse codebook exceeds 32-bit cardinality")
             }
             Self::InvalidIndex => f.write_str("CELT pulse index exceeds codebook cardinality"),
+            Self::InvalidVector => f.write_str("CELT pulse vector does not match its codebook"),
+            Self::Encoding(e) => write!(f, "CELT pulse encoding: {e}"),
             Self::Entropy(e) => write!(f, "CELT pulse entropy: {e}"),
         }
     }
@@ -39,6 +45,7 @@ impl std::error::Error for PulseError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Entropy(e) => Some(e),
+            Self::Encoding(e) => Some(e),
             _ => None,
         }
     }
@@ -46,6 +53,12 @@ impl std::error::Error for PulseError {
 impl From<RangeError> for PulseError {
     fn from(e: RangeError) -> Self {
         Self::Entropy(e)
+    }
+}
+
+impl From<EncoderError> for PulseError {
+    fn from(error: EncoderError) -> Self {
+        Self::Encoding(error)
     }
 }
 
@@ -105,6 +118,51 @@ impl PulseCodebook {
     /// Number of representable vectors; valid indices are 0..cardinality.
     pub fn cardinality(self) -> u32 {
         self.cardinality
+    }
+    /// Rank a signed integer pulse vector in native CWRS coordinate order.
+    /// Length must equal dimensions and the L1 sum must equal pulses. Zero
+    /// pulses accepts only the all-zero vector and returns the sole index 0.
+    /// Input is never changed; no allocation or search over indices occurs.
+    pub fn index_of(self, values: &[i16]) -> Result<u32, PulseError> {
+        if values.len() != self.dimensions {
+            return Err(PulseError::InvalidVector);
+        }
+        // Exact length bounds this sum by176*32768, even for i16::MIN.
+        let total: usize = values.iter().map(|v| usize::from(v.unsigned_abs())).sum();
+        if total != self.pulses {
+            return Err(PulseError::InvalidVector);
+        }
+        let last = values[self.dimensions - 1];
+        let mut index = u32::from(last < 0);
+        let mut pulses = usize::from(last.unsigned_abs());
+        for coordinate in (0..self.dimensions - 1).rev() {
+            index = index
+                .checked_add(u(self.dimensions - coordinate, pulses))
+                .ok_or(PulseError::CardinalityOverflow)?;
+            pulses += usize::from(values[coordinate].unsigned_abs());
+            if values[coordinate] < 0 {
+                index = index
+                    .checked_add(u(self.dimensions - coordinate, pulses + 1))
+                    .ok_or(PulseError::CardinalityOverflow)?;
+            }
+        }
+        if index >= self.cardinality {
+            return Err(PulseError::InvalidIndex);
+        }
+        Ok(index)
+    }
+    /// Encode a validated integer vector with its native uniform CWRS index.
+    /// Large codebooks split into range and raw suffix bits. Errors preserve
+    /// the entire writer; no input changes or allocations occur. Zero pulses
+    /// consumes no bits but still requires an unfinished writer.
+    pub fn encode(self, entropy: &mut RangeEncoder, values: &[i16]) -> Result<(), PulseError> {
+        let index = self.index_of(values)?;
+        if self.cardinality == 1 {
+            entropy.encode_bits(0, 0)?;
+        } else {
+            entropy.encode_uint(index, self.cardinality)?;
+        }
+        Ok(())
     }
     /// Decode a codebook index without consuming entropy.
     /// At most dimensions+pulses iterations of the coordinate/search loops.
