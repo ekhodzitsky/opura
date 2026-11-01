@@ -7,6 +7,22 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.26] - 2026-11-01
+
+- Add transactional CELT control prefix decoding with typed silence/postfilter/
+  transient/intra fields, positioned start0/17 contexts and CELT Packet wrapper.
+- Preserve cached-tell decisions and physical silence accounting; add exact
+  differential TF/select reservation and spreading models/budget fallbacks.
+- Match fields and range/tell/tell_frac on 3360 original prefix/coarse/TF/spread
+  sequences and 1824 standalone TF boundary cases, including all postfilter
+  octave/pitch/gain/tap boundaries and 2..1275-byte payload budgets.
+- Exhaust every two-byte prefix at all frame sizes/start contexts; validate
+  malformed rollback and silence accounting overflow. Six mutations are caught;
+  fixtures/tables reproduce and all mandatory offline gates pass.
+
+These control stages still need CELT allocation and recursive spectral decoding
+before compressed frames can use the verified PCM backend.
+
 ## [0.1.25] - 2026-11-01
 
 - Add atomic fixed-rate/channel `CeltSynthesis` from decoded normalized spectra

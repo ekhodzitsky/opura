@@ -1072,3 +1072,10 @@ Channel projection, transient block scheduling and synthesis clipping follow
 `celt/celt_decoder.c` at the pinned revision above, under its retained original
 CSIRO/Xiph.Org/Gregory Maxwell notice. The composed scalar, CWRS/PVQ, transform,
 band scaling, postfilter and de-emphasis stages retain their notices above.
+
+# CELT control and TF attribution
+
+Prefix/silence accounting, postfilter/transient/intra guards and TF/select/spread
+decoding follow `celt/celt_decoder.c`; TF mappings follow `celt/celt.c` and
+probability models follow `celt/celt.h` at the pinned revision. Their original
+CSIRO/Xiph.Org/Gregory Maxwell notices and redistribution terms are retained above.

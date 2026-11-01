@@ -1139,3 +1139,50 @@ diff -u tests/celt-synthesis-fixtures.txt /tmp/opura-celt-synthesis.txt
 Encoded CELT frame parsing/allocation/recursive bands, loss recovery, Hybrid
 mixing and official full Opus conformance remain incomplete. This stage evidence
 is not a complete codec or a competitive-performance result.
+
+
+## CELT frame controls and TF resolution
+
+`opura::celt::control::decode_header(packet, frame_index)` accepts a CELT-only
+packet frame and returns immutable `FramePrefix` plus its positioned borrowed
+entropy decoder. The prefix exposes size, silence, typed postfilter parameters,
+transient/short-block count and intra-energy flag. This wrapper does not decode
+coarse energies or the rest of the compressed audio.
+
+`decode_prefix(entropy, size, start)` supports a correctly positioned cursor for
+CELT start0 or Hybrid start17 after SILK. Payloads must contain 2..1275 bytes;
+empty/one-byte loss handling is separate. A cursor already beyond its physical
+budget rejects. Original cached-tell guards decide field presence. Silence
+advances bit accounting to the physical end without changing normalized range
+or reading more bytes; accounting errors leave entropy unchanged.
+
+After coarse energies, call `decode_tf(entropy, size, bands, transient)` for a
+half-open interval within 0..21. Its `TfResolution::values()` exposes 21 signed
+resolution values, zero outside selected bands. Differential flags, first/later
+probabilities, reserved select bit and conditional select consumption follow
+upstream. `decode_spread(entropy)` then reads the spreading decision or returns
+Normal when fewer than four whole bits remain. Allocation follows later.
+Every control operation is transactional, bounded and allocation-free.
+
+[Reference control sequences](tests/celt-control-fixtures.txt) compare all values
+and range/tell/tell_frac on 3360 prefix→original coarse-energy→TF→spread cases.
+They cover all sizes/start contexts/channels, positioned range/raw cursors,
+2..1275-byte budgets, silence, near-exhaustion and all postfilter octave/pitch/
+gain/tap boundaries. Another 1824 standalone TF cases target exact remaining-bit
+boundaries, every LM/transient model and selected/empty intervals. Tests exhaust
+all 65536 two-byte values at all four sizes and both starts, verify invalid
+rollback/packet errors and silence-accounting overflow, and detect six mutations
+in silence accounting, pitch, TF reservation/aggregation/select and spread fallback.
+
+```sh
+python3 tools/celt_control_fixtures.py target/reference/opus > /tmp/opura-celt-control.txt
+diff -u tests/celt-control-fixtures.txt /tmp/opura-celt-control.txt
+python3 tools/celt_control_fixtures.py target/reference/opus --tables > /tmp/opura-celt-control-tables.rs
+rustfmt --edition 2024 /tmp/opura-celt-control-tables.rs
+diff -u src/celt/control_tables.rs /tmp/opura-celt-control-tables.rs
+```
+
+The oracle extracts original prefix/spread decision blocks and `tf_decode`
+unchanged, with original entropy/coarse-energy routines and tables. These stages
+are not full compressed CELT or Hybrid decoding; allocation, recursive bands,
+loss recovery and official complete Opus conformance remain incomplete.

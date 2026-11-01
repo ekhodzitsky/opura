@@ -267,6 +267,21 @@ impl<'a> RangeDecoder<'a> {
         self.input.len().saturating_mul(8).min(u32::MAX as usize) as u32
     }
 
+    // Silence consumes the remaining physical bit budget without reading bytes
+    // or changing range state. Never rewind an already advanced cursor.
+    pub(crate) fn pad_to_storage_end(&mut self) -> Result<(), RangeError> {
+        let extra = self.storage_bits().saturating_sub(self.tell());
+        let total = self
+            .bits_total
+            .checked_add(extra)
+            .ok_or(RangeError::BitCountOverflow)?;
+        if total > u32::MAX / 8 - 64 {
+            return Err(RangeError::BitCountOverflow);
+        }
+        self.bits_total = total;
+        Ok(())
+    }
+
     // Compare rounded-up byte usage to avoid multiplying an arbitrary slice length.
     pub(crate) fn is_within_budget(&self) -> bool {
         self.tell().div_ceil(8) as usize <= self.budget_bytes
@@ -353,6 +368,11 @@ mod tests {
         decoder.bits_total = u32::MAX / 8 - 63;
         let before = decoder.clone();
         assert_eq!(decoder.decode_uint(256), Err(RangeError::BitCountOverflow));
+        assert_eq!(decoder, before);
+        assert_eq!(
+            decoder.pad_to_storage_end(),
+            Err(RangeError::BitCountOverflow)
+        );
         assert_eq!(decoder, before);
         assert_eq!(decoder.tell(), decoder.tell_frac().div_ceil(8));
     }

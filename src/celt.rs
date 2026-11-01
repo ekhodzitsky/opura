@@ -5,6 +5,8 @@ pub mod math;
 pub mod pulses;
 pub mod pvq;
 
+pub mod control;
+mod control_tables;
 pub mod energy;
 mod energy_tables;
 pub mod fft;
