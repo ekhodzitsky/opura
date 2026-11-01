@@ -1055,3 +1055,42 @@ diff -u src/celt/output_tables.rs /tmp/opura-celt-output-tables.rs
 Comb postfiltering, recursive CELT bands/allocation, Hybrid and complete Opus
 packet output remain future work. Stage equality does not establish complete
 conformance or SOTA performance.
+
+
+## CELT comb postfilter
+
+`opura::celt::postfilter::PostfilterParams::new(period, gain, tapset)` validates
+classic decoder periods 15..1023 and nonnegative Q15 gains 0..24576. Period zero
+is accepted for zero gain; default parameters disable the filter. `Tapset`
+selects standard Set0/Set1/Set2; parameter getters expose the validated values.
+
+`PostfilterState::process(input, new_params)` accepts one internal-rate channel
+of 120/240/480/960 samples and returns a `FilteredFrame` through `samples()`.
+The first 120 values transition old to current parameters. Longer frames then
+transition current to newly decoded parameters before constant filtering. A
+120-sample frame stores new parameters for the next call. The two parameter
+generations follow upstream period clamping even when gain is zero.
+
+Filtering retains 1026 processed samples, uses exact windowed coefficients,
+different transition/constant biases and signed wrapping/clipping. Disabled
+segments pass input unchanged. `parameters()` and `history()` inspect state;
+`reset()` clears it. Validation precedes any mutation. Use independent instances
+per output channel and apply de-emphasis after filtering. This API follows normal
+decoder frame scheduling; loss and packet control belong to later orchestration.
+
+[576 original cases](tests/celt-postfilter-fixtures.txt) compare all outputs,
+every history entry and all old/current parameter fields through period/gain/tap
+changes, constant/disabled filters, short/long frames, clipping, extremes and
+resets. Separate checks verify short-frame delay, disabled long-frame tails and
+invalid-request rollback. Five mutations detect transition/constant bias,
+processed history, premature new parameters and omitted constant-filter shortcut.
+
+```sh
+python3 tools/celt_postfilter_fixtures.py target/reference/opus > /tmp/opura-celt-postfilter.txt
+diff -u tests/celt-postfilter-fixtures.txt /tmp/opura-celt-postfilter.txt
+```
+
+The optional oracle extracts original scalar comb routines unchanged and applies
+the original normal-decoder scheduling with the pinned standard window. Full CELT
+synthesis integration, recursive bands, allocation, packet control and conformance
+remain incomplete; this stage does not itself decode Opus packets.

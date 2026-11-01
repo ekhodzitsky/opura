@@ -7,6 +7,19 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.24] - 2026-11-01
+
+- Add bounded per-channel classic CELT comb postfilter with validated periods,
+  Q15 gains/tapsets, processed history and old/current parameter generations.
+- Match constant/windowed in-place arithmetic, distinct transition/constant
+  biases, clipping and 120-sample versus long-frame parameter scheduling.
+- Match every output, all 1026 history entries and six parameter fields on 576
+  chained original cases across tapsets, gains, periods, sizes, resets/extremes.
+- Verify delayed short parameters, disable-tail passthrough, malformed rollback,
+  five detected mutations and reproducible fixtures. All offline gates pass.
+
+End-to-end CELT synthesis integration, allocation/recursive bands and full Opus remain incomplete.
+
 ## [0.1.23] - 2026-11-01
 
 - Add fixed-storage CELT spectral denormalization using Q24 band/mean energies,
