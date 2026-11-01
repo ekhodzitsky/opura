@@ -678,3 +678,47 @@ The lower-level APIs remain available for raw internal PCM and individual stages
 This final-rate path supports mono SILK, not stereo, CELT/Hybrid, implicit DTX or
 CELT transition reconstruction. It has not yet passed complete official Opus
 conformance, and no full-codec performance superiority is claimed.
+
+## SILK stereo reconstruction primitives
+
+`opura::silk::stereo::StereoPrediction::decode(&mut entropy)` reads the joint,
+coarse and fine stereo predictor symbols transactionally. `decode_mid_only` reads
+the optional flag separately; callers determine its presence from side VAD/LBRR
+context. Failed symbol decoding leaves entropy unchanged. Default prediction is
+zero, suitable before the first stereo frame; the optimized Q13 pair is exposed
+by `coefficients_q13()`.
+
+`StereoState::reconstruct(rate, mid, side, prediction)` converts equal-length
+10/20 ms raw mid/side frames at 8/12/16 kHz into `StereoFrame` left/right samples.
+It uses two previous raw samples per channel and 8 ms predictor interpolation,
+including reference signed-16 difference truncation at extreme predictor changes.
+Side history retains original samples before prediction. Invalid geometry leaves
+all history unchanged; `reset()` clears it. Rate changes preserve stereo history,
+with packet channel-transition policy left to orchestration.
+
+`StereoFrame` includes the one-sample buffering delay and is ready for per-channel
+resampling. Do not apply the separate mono buffering delay again. Output uses
+fixed buffers and signed saturation with no allocation or unsafe Rust. Previous
+prediction can be reused during losses through `previous_prediction()`.
+
+[All 5625 predictor combinations](tests/silk-stereo-entropy-fixtures.txt) compare
+values, both mid-only outcomes and entropy states with original pinned routines.
+[192 reconstruction cases](tests/silk-stereo-fixtures.txt) compare both channels
+and every retained state value across quiet, extreme, correlated/opposed inputs,
+clipping, resets, rate changes and signed-16 interpolation wrap. Tests cover every
+two-byte prefix and invalid geometry transactions. Mutations detect incorrect
+predictor subtraction, interpolation width and side-history retention.
+
+```sh
+python3 tools/silk_stereo_fixtures.py target/reference/opus --entropy > /tmp/opura-stereo-entropy.txt
+diff -u tests/silk-stereo-entropy-fixtures.txt /tmp/opura-stereo-entropy.txt
+python3 tools/silk_stereo_fixtures.py target/reference/opus > /tmp/opura-stereo.txt
+diff -u tests/silk-stereo-fixtures.txt /tmp/opura-stereo.txt
+python3 tools/silk_stereo_fixtures.py target/reference/opus --tables > /tmp/opura-stereo-tables.rs
+rustfmt --edition 2024 /tmp/opura-stereo-tables.rs
+diff -u src/silk/stereo_tables.rs /tmp/opura-stereo-tables.rs
+```
+
+These primitives do not yet supply stereo packet ordering, side-channel restarts
+or mono/stereo stream transitions. The packet output API still accepts mono only;
+full stereo, CELT/Hybrid and complete Opus conformance remain future work.

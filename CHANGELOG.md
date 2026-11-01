@@ -7,6 +7,23 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.15] - 2026-11-01
+
+- Add transactional SILK stereo predictor and optional mid-only entropy decoding,
+  with typed optimized Q13 predictions and strict primitive budget checks.
+- Reconstruct buffered internal-rate left/right PCM from mid/side frames using
+  reference 8 ms interpolation, signed-16 predictor-difference arithmetic,
+  saturation and two-sample raw histories. Preserve history across rate changes.
+- Match all 5625 quantizer pairs, mid-only flags and entropy counters against
+  upstream; match both PCM channels and persistent reconstruction state on 192
+  independent extreme, correlated/opposed, quiet, clipping and reset/rate cases.
+- Verify short-prefix/geometry rollback and reset; mutations detect omitted
+  predictor subtraction, incorrect interpolation arithmetic and predicted-side
+  history retention. Reference tables and fixtures regenerate byte-identically.
+
+Stereo packet/channel scheduling is not yet integrated. Existing final-rate mono
+SILK remains supported; full Opus conformance/performance remain unestablished.
+
 ## [0.1.14] - 2026-11-01
 
 - Add `MonoOutputDecoder` for final mono SILK PCM at 8/12/16/24/48 kHz,

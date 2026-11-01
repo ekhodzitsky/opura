@@ -15,6 +15,7 @@ pub mod output;
 pub mod pitch;
 mod plc;
 pub mod resampler;
+pub mod stereo;
 pub mod synthesis;
 
 use crate::{
