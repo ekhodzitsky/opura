@@ -1,7 +1,10 @@
 # Opus entropy coding attribution
 
-The Rust range decoder follows the algorithms and integer arithmetic of
-RFC 6716 and the Xiph.Org Opus entropy coder (entdec.c and entcode.c).
+The Rust range decoder and encoder follow the algorithms and integer arithmetic
+of RFC 6716 and the Xiph.Org Opus entropy coder (entdec.c, entenc.c and entcode.c).
+Classic Laplace coding additionally follows celt/laplace.c under the CELT notices
+below. Optional reference benchmark/fixture tools compile external original source
+only; it is not a Cargo dependency.
 Reference revision: v1.6.1, commit 22244de5a79bd1d6d623c32e72bf1954b56235be.
 No C implementation is linked or included in the library. The following
 notices and terms are retained for the adapted entropy-coding implementation.

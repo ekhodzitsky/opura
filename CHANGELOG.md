@@ -7,6 +7,22 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.42] - 2026-11-02
+
+- Add a safe fixed-capacity Opus range encoder: CDF/ICDF, probability bits,
+  raw suffix bits, uniform integers and clipped classic Laplace values.
+- Match native normalization/carry chains, whole/eighth-bit accounting, uniform
+  prefix patching, raw-suffix relocation and minimal endpoint termination with
+  partial-byte overlap. Expose finalized bytes, idempotent finish and reset.
+- Preserve all state/bytes on invalid models, lifecycle, capacity and late write
+  failures using a bounded write journal without per-symbol frame copies.
+- Match607 independent original encoder cases and10969 intermediate states/full
+  final bytes; verify mixed round trips, all Laplace zero-frequency extremes,
+  resource rollback and twelve detected mutations. Optional fixtures reproduce;
+  all mandatory offline gates pass with zero Cargo dependencies.
+
+Audio analysis, quantization and complete packet encoding remain pending.
+
 ## [0.1.41] - 2026-11-02
 
 - Add matched optional Rust/C complete-decoder replay benchmarks over all twelve

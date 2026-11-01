@@ -2,7 +2,8 @@
 //!
 //! [`decoder::OpusDecoder`] combines SILK/CELT/Hybrid PCM, loss/DTX, FEC and mode
 //! transitions. All120 official RFC8251 vector/rate/channel cases pass.
-//! End-to-end performance validation and encoding remain pending. Component APIs are in
+//! The measured scalar decoder baseline trails libopus. Audio encoding remains pending.
+//! Frame-local entropy writing is available in [`range::RangeEncoder`]. Component APIs are in
 //! [`silk::decoder`], [`celt::decoder`] and [`hybrid`].
 //!
 //! Pass exactly one externally delimited packet with transport headers removed.

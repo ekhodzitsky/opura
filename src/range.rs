@@ -1,4 +1,4 @@
-//! Frame-local entropy decoding from RFC 6716 section 4.1.
+//! Frame-local entropy coding from RFC 6716 section 4.1.
 //!
 //! Range input is zero-extended as required by Opus. Raw bits are read from
 //! the end of the same frame and may overlap range input, but cannot extend
@@ -7,8 +7,14 @@
 //! codec's bit budget using [`RangeDecoder::tell`] / [`RangeDecoder::tell_frac`].
 //! This primitive alone cannot determine whether a frame is valid audio.
 //!
-//! Arithmetic follows the Opus reference entropy decoder. See
+//! [`RangeEncoder`] provides the matching atomic fixed-capacity writer. It does
+//! not encode audio. Decoding borrows input; encoding owns its bounded buffer.
+//!
+//! Arithmetic follows the Opus reference entropy coder. See
 //! `THIRD_PARTY_NOTICES.md` for attribution and redistribution terms.
+
+mod encoder;
+pub use encoder::{EncoderError, RangeEncoder};
 
 use std::fmt;
 

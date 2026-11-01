@@ -1774,3 +1774,56 @@ all ten rate/channel configurations. All PCM/range checks agree. Opura takes
 about 1.54–1.80 times the reference time and uses more decoder state; the speed
 target fails. The report preserves every result and reproduction command.
 SIMD builds, other competitors and encoder quality remain unmeasured.
+
+## Range encoding foundation
+
+`opura::range::RangeEncoder` owns fixed storage for one 1..=1275-byte frame.
+It supports validated CDFs, 8-bit inverse CDFs, log-probability bits, raw suffix
+bits, split uniform integers and classic CELT Laplace deltas. Laplace returns
+the actually coded value when the finite tail clips a large input. Range and
+whole/eighth-bit counters match the native entropy coder. This is an encoder
+primitive; audio analysis, quantization and complete packet encoding remain work.
+
+```rust
+use opura::range::{RangeDecoder, RangeEncoder};
+let mut encoder = RangeEncoder::new(8)?;
+encoder.encode_uint(123, 257)?;
+encoder.encode_bits(5, 3)?;
+let frame = encoder.finish()?;
+let mut decoder = RangeDecoder::new(frame);
+assert_eq!(decoder.decode_uint(257)?, 123);
+assert_eq!(decoder.decode_bits(3)?, 5);
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+Successful finalization returns exactly the current capacity, including zero
+padding. `shrink(bytes)` moves the written raw suffix to a smaller logical end;
+`patch_initial_bits(value, bits)` changes up to eight reserved uniform prefix
+bits. The caller must ensure that the prefix model permits patching. `finish()`
+is idempotent, `bytes()` is unavailable before success, and encoding/patching/
+shrinking after finish fails. `reset()` clears bytes and state while retaining
+current capacity. Every error preserves all bytes and state, including late raw
+or termination failures. A small copied scalar state and bounded write journal
+avoid copying the whole frame per symbol; the implementation allocates nothing.
+
+Callers reserve a codec-specific bit budget and check finalization: a successful
+symbol operation does not guarantee termination will fit. Conversely, `tell()`
+includes conservative termination overhead; eight exact uniform bits can fit in
+one byte while reporting nine bits. Native partial raw/termination overlap is
+retained. Invalid model/value/precision, capacity and lifecycle failures use
+`EncoderError`; errors are recoverable rather than sticky. Capacity cannot grow.
+
+The independent pinned original encoder corpus covers 607 cases and 10,969
+intermediate states, complete final bytes, carry runs exceeding 1,199 bytes,
+all prefix patch locations, raw relocation, tight overlap and expected finish
+failures. Mixed-model round trips preserve range and both counters; extreme
+Laplace tails round-trip at all 32,736 zero frequencies and both decay endpoints.
+Twelve targeted mutations are detected. Regeneration is optional:
+
+```sh
+python3 tools/range_encoder_fixtures.py /path/to/opus-v1.6.1 > /tmp/range-encoder-fixtures.txt
+diff -u tests/range-encoder-fixtures.txt /tmp/range-encoder-fixtures.txt
+```
+
+The optional oracle compiles unchanged external entropy sources temporarily;
+normal Cargo builds/tests use the retained fixtures and have no foreign dependency.
