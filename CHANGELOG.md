@@ -7,6 +7,20 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.22] - 2026-11-01
+
+- Add per-channel inverse CELT MDCT and standard 120-sample TDAC window with
+  persistent 60-sample overlap across 120/240/480/960-sample block changes.
+- Support validated strided spectra for interleaved short blocks; preserve exact
+  headroom selection, rotations, FFT scaling and pathological signed wrapping.
+  Return internal signed-32 signal, before postfilter/de-emphasis/final PCM.
+- Match all 198360 time samples and overlap values in 398 original chained cases,
+  including every size/stride geometry, resets, silence, impulses and extremes.
+- Verify invalid-input rollback/reset, five detected mutations and byte-identical
+  table/fixture regeneration. All mandatory offline checks pass.
+
+CELT allocation/recursive bands, postfiltering and full packet decoding remain incomplete.
+
 ## [0.1.21] - 2026-11-01
 
 - Add allocation-free standard CELT complex FFT plans for 60/120/240/480 points,

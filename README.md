@@ -969,3 +969,43 @@ diff -u src/celt/fft_tables.rs /tmp/opura-celt-fft-tables.rs
 The optional oracle observes original standard plans and scalar routines. FFT
 alone does not synthesize CELT audio; inverse MDCT/window overlap, recursive
 bands, allocation and full packet orchestration remain incomplete.
+
+
+## CELT inverse MDCT and overlap
+
+`opura::celt::mdct::MdctState` stores the pending 60-sample overlap for one channel.
+`synthesize(size, input, stride)` applies original inverse rotations/headroom
+control, the verified FFT and the standard 120-sample TDAC window. It returns a
+`TimeFrame` containing 120/240/480/960 signed-32 internal signal values through
+`samples()`. These precede CELT postfiltering, de-emphasis and signed-16 PCM.
+The caller supplies the reference spectral signal scale after denormalization.
+
+Input bin i is read at `input[i*stride]`. Stride is 1/2/4/8, the selected
+size*stride must not exceed 960, and input must contain all selected bins in at
+most 960 entries. Other entries are ignored. Interleaved short blocks use
+successive slices offset by block index, retaining overlap on each call.
+State and output commit together; invalid geometry leaves overlap unchanged.
+`overlap()` inspects the pending 60 samples; `reset()` clears them. Frame-size
+changes preserve overlap, matching upstream synthesis buffers.
+
+[398 original inverse-MDCT cases](tests/celt-mdct-fixtures.txt) match every time
+sample and overlap entry (198360 values). Chained cases cover all size/stride
+geometries, resets, silence, tiny signals, impulses, DC, full-scale signed limits,
+alternating extremes and deterministic spectra. Additional sequences process
+all 2/4/8 short blocks from a shared interleaved spectrum. Original headroom
+observations cover pre/FFT shift extrema 0 and 29 and post-shift extrema 0 and
+13, including pathological overflow behavior. Invalid requests preserve
+state; five mutations detect lost overlap, wrong window complement, omitted FFT
+shift, real/imaginary swap and incorrect saved tail.
+
+```sh
+python3 tools/celt_mdct_fixtures.py target/reference/opus > /tmp/opura-celt-mdct.txt
+diff -u tests/celt-mdct-fixtures.txt /tmp/opura-celt-mdct.txt
+python3 tools/celt_mdct_fixtures.py target/reference/opus --tables > /tmp/opura-celt-mdct-tables.rs
+rustfmt --edition 2024 /tmp/opura-celt-mdct-tables.rs
+diff -u src/celt/mdct_tables.rs /tmp/opura-celt-mdct-tables.rs
+```
+
+These are internal transform outputs. CELT allocation/recursive band assembly,
+postfiltering, de-emphasis, full packet decoding and complete conformance remain
+incomplete; no end-to-end CELT audio or competitive performance claim is made.
