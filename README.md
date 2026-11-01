@@ -772,7 +772,7 @@ competitive performance are not established.
 PVQ and loss reconstruction. `integer_sqrt(u32)` returns the exact floor of the
 root (including zero) in at most 16 steps. Other functions reproduce the pinned
 reference's integer approximations, rather than correctly rounded real math:
-`sqrt`, `rsqrt_normalized`, `cos_norm`, `log2`, `exp2`, `reciprocal`,
+`sqrt`, `rsqrt_normalized`, `rsqrt_normalized_q31`, `cos_norm`, `log2`, `exp2`, `reciprocal`,
 `fractional_divide_q29` and saturated-Q31 `fractional_divide`.
 
 Rustdoc specifies Q formats, saturation, zero sentinels and valid input domains.
@@ -893,3 +893,38 @@ The optional oracle compiles original `cwrs.c` with `SMALL_FOOTPRINT` so arbitra
 valid geometries can be checked without the optimized standard-mode table's
 shape restrictions. CELT normalized bands, rotations, allocation and inverse
 transforms remain future work; these integer vectors do not provide CELT audio.
+
+
+## Normalized CELT PVQ bands
+
+`opura::celt::pvq::decode_band(entropy, codebook, spread, blocks, gain)` composes
+positive-pulse CWRS decoding, Q24 normalization and inverse spreading. Gain is a
+nonnegative Q31 value, and `Spread` selects None/Light/Normal/Aggressive. Blocks
+must be 1/2/4/8 and divide the coordinate count. `NormalizedBand::values()` exposes
+Q24 spectral coordinates; `collapse_mask()` marks contiguous raw-pulse blocks
+with nonzero entries before spreading, independently of gain.
+
+Refined normalization uses `math::rsqrt_normalized_q31`, which maps Q31 input
+in [2^29,2^31) to a Q29 reciprocal root with the reference Newton step. Spreading
+preserves the original two-pass rotation order, secondary stride and deliberate
+Q14 rounding between rotations. Output and intermediate storage are bounded;
+input validation and pulse/raw-bit failures leave entropy unchanged. The caller
+still enforces the surrounding CELT budget and handles zero-pulse folding,
+one-dimensional signs, recursive splits and stereo orchestration.
+
+[Original alg_unquant evidence](tests/celt-pvq-fixtures.txt) matches all spectral
+coordinates, masks and range/tell/tell_frac in 28464 bands across 4116 streams.
+It covers sparse/dense and boundary codebook indices, dimensions 2–176, zero,
+half and full gains, every spread/block combination, including one-coordinate
+short blocks. Another 196608 normalized reciprocal-root inputs are hashed from
+original mathops.c, including fractional boundaries between Q16 seed values.
+Five mutations detect missing root refinement, Q14 rounding, reverse rotation,
+secondary-stride coefficients and incorrect collapse masks.
+
+```sh
+python3 tools/celt_pvq_fixtures.py target/reference/opus > /tmp/opura-celt-pvq.txt
+diff -u tests/celt-pvq-fixtures.txt /tmp/opura-celt-pvq.txt
+```
+
+This is a normalized-band primitive, not CELT packet or audio output. Allocation,
+recursive bands, transform synthesis, Hybrid and full conformance remain future work.

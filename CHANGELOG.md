@@ -7,6 +7,20 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.20] - 2026-11-01
+
+- Add atomic normalized CELT PVQ bands from positive-pulse codebooks: Q31 gain,
+  high-precision Q24 normalization, all spreading modes and 1/2/4/8-block masks.
+- Implement refined Q31-input/Q29-output reciprocal square root with explicit
+  normalized-domain validation and reference Newton arithmetic.
+- Match every coordinate, mask and entropy diagnostic in 28464 original
+  alg_unquant results across 4116 streams; match 196608 refined-root inputs.
+- Verify invalid gains/geometry and raw-bit rollback; five mutations detect root
+  refinement, rotation order/rounding/stride coefficients and collapse mask.
+  Reference corpus reproduces and all required offline checks pass.
+
+Recursive CELT bands, allocation, transforms and complete Opus decoding remain incomplete.
+
 ## [0.1.19] - 2026-11-01
 
 - Add fixed-storage CELT algebraic pulse codebooks with compile-time symmetric U

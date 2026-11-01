@@ -15,7 +15,7 @@ pub enum MathError {
     NegativeInput,
     /// Reciprocal/division denominator must be positive.
     InvalidDenominator,
-    /// Normalized reciprocal square root requires Q16 input in [0.25, 1).
+    /// Reciprocal square root requires normalized input in [0.25, 1).
     NotNormalized,
     /// Fractional division requires numerator magnitude no greater than denominator.
     NotFractional,
@@ -25,7 +25,9 @@ impl fmt::Display for MathError {
         f.write_str(match self {
             Self::NegativeInput => "CELT square root/logarithm input must be nonnegative",
             Self::InvalidDenominator => "CELT reciprocal/division denominator must be positive",
-            Self::NotNormalized => "CELT reciprocal square root input must be 16384..65536",
+            Self::NotNormalized => {
+                "CELT reciprocal square root input must be normalized to [0.25, 1)"
+            }
             Self::NotFractional => "CELT fractional numerator magnitude exceeds denominator",
         })
     }
@@ -86,6 +88,22 @@ pub fn rsqrt_normalized(x: i32) -> Result<i16, MathError> {
     let r2 = mul_q15(r, r);
     let y = ((add16(mul_q15(r2, n), r2) - 16384) << 1) as i16 as i32;
     Ok(add16(r, mul_q15(r, mul_q15(y, mul_q15(y, 12288) - 16384))) as i16)
+}
+
+/// Refined reciprocal square root: normalized Q31 [2^29,2^31) to Q29.
+/// Uses the Q14 estimate followed by the reference fixed-point Newton step.
+pub fn rsqrt_normalized_q31(x: i32) -> Result<i32, MathError> {
+    if x < 1 << 29 {
+        return Err(MathError::NotNormalized);
+    }
+    let root = i32::from(rsqrt_normalized(x >> 15)?) << 15;
+    let mut tmp = mul_q31(root, root);
+    tmp = mul_q31(1 << 30, tmp);
+    tmp = mul_q31(x, tmp);
+    Ok(mul_q31(root, 201326592 - tmp).wrapping_shl(4))
+}
+fn mul_q31(a: i32, b: i32) -> i32 {
+    ((i64::from(a) * i64::from(b)) >> 31) as i32
 }
 
 /// Approximate cos(pi*x/2): periodic Q15 angle to Q15 amplitude.
