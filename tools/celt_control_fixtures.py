@@ -12,7 +12,7 @@ import re
 import subprocess
 import tempfile
 REVISION='22244de5a79bd1d6d623c32e72bf1954b56235be'
-parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('source',type=Path);parser.add_argument('--tables',action='store_true')
+parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('source',type=Path);mode=parser.add_mutually_exclusive_group();mode.add_argument('--tables',action='store_true');mode.add_argument('--encode',action='store_true')
 args=parser.parse_args();source=args.source.resolve()
 if subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip()!=REVISION:
     raise SystemExit('Expected pinned Opus v1.6.1')
@@ -105,6 +105,43 @@ void encode_prefix(int LM,int octave,int pitch,int qg,int tap,int transient,int 
     if(ec_get_error(&enc)) abort();
 }
 '''
+encoder=(source/'celt/celt_encoder.c').read_text()
+wrapper+=function(encoder,'static void tf_encode(')+r'''
+int control_prefix(ec_enc *enc,ec_dec *dec,int position,int target,int pattern) {
+    if(position==1){if(enc)ec_enc_uint(enc,13,17);else if(ec_dec_uint(dec,17)!=13)return -1;}
+    if(position==2){for(int i=0;i<3;i++){if(enc)ec_enc_bit_logp(enc,i%2,2+i);else if(ec_dec_bit_logp(dec,2+i)!=i%2)return -1;}}
+    unsigned random=0x54464354U+pattern;
+    while((int)(enc?ec_tell(enc):ec_tell(dec))<target){
+        unsigned width=IMIN(25,target-(int)(enc?ec_tell(enc):ec_tell(dec)));
+        random=random*1664525U+1013904223U;
+        unsigned value=(pattern==0?0:pattern==1?~0U:random)&((1U<<width)-1);
+        if(enc)ec_enc_bits(enc,value,width);else if(ec_dec_bits(dec,width)!=value)return -1;
+    }
+    return 0;
+}
+int encode_tf_probe(int length,int LM,int start,int end,int transient,int position,int remaining,int pattern,int select,int requested,const int *decisions,int *out,unsigned char *data) {
+    ec_enc enc;ec_enc_init(&enc,data,length);
+    control_prefix(&enc,NULL,position,length*8-remaining,pattern);
+    out[0]=enc.rng;out[1]=ec_tell(&enc);out[2]=ec_tell_frac(&enc);
+    int values[21]={0};for(int i=start;i<end;i++)values[i]=decisions[i];
+    tf_encode(start,end,transient,values,LM,select,&enc);
+    out[3]=enc.rng;out[4]=ec_tell(&enc);out[5]=ec_tell_frac(&enc);
+    for(int i=0;i<21;i++)out[6+i]=values[i];
+    int spread_decision=SPREAD_NORMAL;
+    if(ec_tell(&enc)+4<=length*8){spread_decision=requested;ec_enc_icdf(&enc,requested,spread_icdf,5);}
+    out[27]=spread_decision;out[28]=enc.rng;out[29]=ec_tell(&enc);out[30]=ec_tell_frac(&enc);
+    ec_enc_done(&enc);if(ec_get_error(&enc))return 0;
+    ec_dec dec;ec_dec_init(&dec,data,length);
+    if(control_prefix(NULL,&dec,position,length*8-remaining,pattern))return -1;
+    if(dec.rng!=(unsigned)out[0]||ec_tell(&dec)!=(unsigned)out[1]||ec_tell_frac(&dec)!=(unsigned)out[2])return -2;
+    int decoded[21]={0};tf_decode(start,end,transient,decoded,LM,&dec);
+    for(int i=0;i<21;i++)if(decoded[i]!=values[i])return -3;
+    if(dec.rng!=(unsigned)out[3]||ec_tell(&dec)!=(unsigned)out[4]||ec_tell_frac(&dec)!=(unsigned)out[5])return -4;
+    int effective=SPREAD_NORMAL;if(ec_tell(&dec)+4<=length*8)effective=ec_dec_icdf(&dec,spread_icdf,5);
+    if(effective!=spread_decision||dec.rng!=enc.rng||ec_tell(&dec)!=ec_tell(&enc)||ec_tell_frac(&dec)!=ec_tell_frac(&enc)||ec_get_error(&dec))return -5;
+    return 1;
+}
+'''
 with tempfile.TemporaryDirectory(prefix='opura-celt-control-') as temp:
     path=Path(temp);(path/'probe.c').write_text(wrapper)
     subprocess.run(['cc','-shared','-fPIC','-O2','-fwrapv','-DFIXED_POINT','-DVAR_ARRAYS','-DOPUS_BUILD','-DDISABLE_FLOAT_API',
@@ -114,6 +151,35 @@ with tempfile.TemporaryDirectory(prefix='opura-celt-control-') as temp:
     lib.controls.argtypes=[u8,*[c.c_int]*6,i32];lib.controls.restype=None
     lib.encode_prefix.argtypes=[c.c_int]*7+[u8];lib.encode_prefix.restype=None
     lib.tf_only.argtypes=[u8,*[c.c_int]*6,i32];lib.tf_only.restype=None
+    if args.encode:
+        lib.encode_tf_probe.argtypes=[c.c_int]*10+[i32,i32,u8];lib.encode_tf_probe.restype=c.c_int
+        print('# Original tf_encode and spreading field:',REVISION)
+        print('# controls LM START END TRANSIENT POSITION REMAINING PATTERN SELECT REQUESTED HEX DECISIONS[21] BEFORE_RANGE BEFORE_TELL BEFORE_FRAC TF_RANGE TF_TELL TF_FRAC VALUES[21] SPREAD RANGE TELL FRAC')
+        random=0x5446454e;rows=0;failed=0
+        def next_random():
+            global random
+            random^=(random<<13)&0xffffffff;random^=random>>17;random^=(random<<5)&0xffffffff
+            return random
+        for lm in range(4):
+            for transient in range(2 if lm else 1):
+                for start,end in [(0,21),(17,21),(5,13),(0,0),(21,21),(0,1),(20,21),(1,2)]:
+                    for length in [2,3,8,32,1275]:
+                        remaining_values=sorted(set([0,1,2,3,4,5,6,7,8,9,12,16,length*8-1])) if length<1275 else [length*8-1]
+                        for remaining in remaining_values:
+                            if remaining>=length*8:continue
+                            for case in range(6):
+                                for select in [0,1]:
+                                    decisions=[int(case==1 or case==2 and i%2 or case==3 and i>=10 or case==4 and i==start or case==5 and next_random()&1) for i in range(21)]
+                                    position=case%3;pattern=case%3;requested=case%4
+                                    out=(c.c_int32*31)();data=(c.c_ubyte*length)()
+                                    ok=lib.encode_tf_probe(length,lm,start,end,transient,position,remaining,pattern,select,requested,(c.c_int32*21)(*decisions),out,data)
+                                    if ok<0:raise SystemExit(f'Original TF/spread roundtrip failure {lm,start,end,transient,length,remaining,case,select,ok}')
+                                    if not ok:failed+=1;continue
+                                    result=list(out)
+                                    for i in [0,3,28]:result[i]=c.c_uint32(result[i]).value
+                                    print('controls',lm,start,end,transient,position,remaining,pattern,select,requested,bytes(data).hex(),*decisions,*result);rows+=1
+        print(f'# rows={rows} final-capacity-rejected={failed}')
+        raise SystemExit
     print('# Original CELT prefix/coarse-positioned TF/spread:',REVISION)
     print('# frame LM START END CHANNELS POSITION HEX; prefix SILENCE PERIOD GAIN TAP TRANSIENT SHORT_BLOCKS INTRA RANGE TELL FRAC')
     print('# coarse RANGE TELL FRAC ENERGY_Q24[42]; tf RANGE TELL FRAC VALUES[21]; spread SYMBOL RANGE TELL FRAC')

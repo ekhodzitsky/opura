@@ -1415,3 +1415,12 @@ Rust shares a statically dispatched spectral driver between entropy directions,
 validates bounded immutable input/amplitude domains and stages full writer/output.
 Optional original evidence enables RESYNTH and uses read-only entropy-symbol
 observers around prefix decoding; original codec function bodies stay unchanged.
+
+
+# CELT TF and spreading control encoding attribution
+
+Differential/reserved-select TF writing follows `celt/celt_encoder.c::tf_encode`
+at the pinned revision. Spreading-field coding follows its spread ICDF budget
+check; existing CELT encoder/control/table notices and terms apply. Rust accepts
+immutable binary decisions and returns effective resolutions, validates frame/
+writer domains and stages the whole operation. TF/spread analysis is separate.

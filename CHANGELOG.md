@@ -7,6 +7,20 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.53] - 2026-11-02
+
+- Add atomic native TF-control encoding from immutable binary band decisions,
+  returning effective standard resolutions after differential signalling,
+  reserved-select and scarce-budget fallback. Add spreading-field encoding with
+  effective Normal fallback when fewer than four whole bits remain.
+- Match 34,944 complete original control packets/mappings/counters, including
+  8,736 empty intervals and 15,345 spreading fallbacks; paired decoding agrees.
+  Validate domains, LM0/transient exclusion, finished no-symbol paths and injected
+  first/middle/select-symbol failures. All 16 targeted mutations are detected.
+- New and previous control fixtures reproduce, and all seven required offline
+  gates pass with zero dependencies. Analysis decisions, allocation writing and
+  audio packet assembly remain subsequent work.
+
 ## [0.1.52] - 2026-11-02
 
 - Add atomic fixed-storage encoding of complete allocated CELT normalized spectra:

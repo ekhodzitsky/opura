@@ -2212,3 +2212,40 @@ nested-call guard to construct an identical canonical writer context. Its
 unchanged original quant_all_bands then performs encoding and paired decoding.
 Native decoder scratch outside selected bins is excluded from signal comparison;
 Rust returns zeros there. These external probes remain outside Cargo.
+
+
+## CELT TF and spreading control encoding
+
+`opura::celt::control::encode_tf` takes immutable binary band decisions and a
+select policy, then returns the effective `TfResolution` for spectral coding.
+It writes native differential flags, reserves/selects the alternate mapping only
+when relevant and retains the current state for decisions that cannot fit.
+Intervals require `start<=end<=21`; empty intervals retain native reservation
+semantics and return zero resolutions. LM0 cannot be transient. The API stages
+the full writer, leaving it and the input unchanged on every error.
+
+`control::encode_spread` writes the existing spread ICDF when four whole physical
+bits remain, otherwise returning Normal without writing. Both APIs require
+2..1275-byte capacity, an in-budget cursor and an unfinished writer, including
+empty/no-symbol cases. These functions encode caller decisions; selecting
+transients, TF analysis and spread policy remain separate encoder analysis work.
+Energy coarse coding owns the intra flag, so a future prefix writer must stop
+before that flag instead of duplicating it.
+
+All 34,944 independent original encoded control cases match complete bytes,
+range/whole/eighth-bit accounting and effective TF/spread values. Native and Rust
+paired decoding agree across sizes, intervals, binary patterns, both select
+policies, raw/range prefixes, scarce budgets and 2..1275-byte capacities, including
+8,736 empty intervals and 15,345 spreading fallbacks. Sixteen targeted mutations
+are detected. A statically injected symbol writer verifies complete rollback at
+the first, middle and final select writes; production uses the native range-writer
+method directly through static dispatch. Existing control decoder evidence stays
+unchanged.
+
+```sh
+python3 tools/celt_control_fixtures.py /path/to/opus-v1.6.1 --encode > /tmp/celt-control-encoder-fixtures.txt
+diff -u tests/celt-control-encoder-fixtures.txt /tmp/celt-control-encoder-fixtures.txt
+```
+
+Original function probes remain optional external evidence, outside Cargo.
+Allocation encoding and full audio packet assembly are still under development.

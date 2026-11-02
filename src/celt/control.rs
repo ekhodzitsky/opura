@@ -10,9 +10,12 @@ use super::{
 };
 use crate::{
     Mode, Packet,
-    range::{RangeDecoder, RangeError},
+    range::{EncoderError, RangeDecoder, RangeError},
 };
 use std::{fmt, ops::Range};
+
+mod encoder;
+pub use encoder::{encode_spread, encode_tf};
 
 /// Invalid CELT controls, payload/context or entropy.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -30,6 +33,10 @@ pub enum ControlError {
     InvalidBands,
     /// Positioned prefix cursor already exceeds the physical frame budget.
     BitBudgetExceeded,
+    /// Encoding requires a supported frame/control context (LM0 is not transient).
+    InvalidContext,
+    /// Entropy encoding failed without committing the writer.
+    Encoding(EncoderError),
     /// Entropy operation failed.
     Entropy(RangeError),
     /// Decoded postfilter parameters are unsupported.
@@ -44,6 +51,8 @@ impl fmt::Display for ControlError {
             Self::InvalidStart => f.write_str("CELT control prefix start must be 0 or 17"),
             Self::InvalidBands => f.write_str("invalid CELT TF band interval"),
             Self::BitBudgetExceeded => f.write_str("CELT control cursor exceeds frame budget"),
+            Self::InvalidContext => f.write_str("invalid CELT encoding control context"),
+            Self::Encoding(e) => write!(f, "CELT control encoding: {e}"),
             Self::Entropy(e) => write!(f, "CELT control entropy: {e}"),
             Self::Postfilter(e) => write!(f, "CELT control postfilter: {e}"),
         }
@@ -53,6 +62,7 @@ impl std::error::Error for ControlError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Entropy(e) => Some(e),
+            Self::Encoding(e) => Some(e),
             Self::Postfilter(e) => Some(e),
             _ => None,
         }
@@ -61,6 +71,11 @@ impl std::error::Error for ControlError {
 impl From<RangeError> for ControlError {
     fn from(e: RangeError) -> Self {
         Self::Entropy(e)
+    }
+}
+impl From<EncoderError> for ControlError {
+    fn from(error: EncoderError) -> Self {
+        Self::Encoding(error)
     }
 }
 impl From<PostfilterError> for ControlError {
