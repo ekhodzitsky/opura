@@ -16,7 +16,7 @@ REVISION='22244de5a79bd1d6d623c32e72bf1954b56235be'
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('source',type=Path)
 mode=parser.add_mutually_exclusive_group()
-for name in ['analysis','analysis-math','analysis-tables','transients','tf-analysis','tf-packets','tf-math','dynalloc-tables','hybrid-dynalloc-analysis','dynalloc-analysis','dynalloc-packets','dynalloc-math','spreading-analysis','spreading-packets','spreading-tails','allocation-analysis-tables','allocation-analysis-math','stereo-analysis','trim-analysis','allocation-packets','allocation-tails','prefilter','comb-fields','pitch-packets']:mode.add_argument('--'+name,action='store_true')
+for name in ['analysis','analysis-math','analysis-tables','transients','tf-analysis','tf-packets','tf-math','dynalloc-tables','hybrid-dynalloc-analysis','dynalloc-analysis','dynalloc-packets','dynalloc-math','spreading-analysis','spreading-packets','spreading-tails','allocation-analysis-tables','allocation-analysis-math','stereo-analysis','trim-analysis','allocation-packets','allocation-tails','prefilter','comb-fields','pitch-packets','channel-packets']:mode.add_argument('--'+name,action='store_true')
 args=parser.parse_args();source=args.source.resolve()
 if subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip()!=REVISION:
     raise SystemExit('Expected pinned Opus v1.6.1')
@@ -410,6 +410,9 @@ int prefilter_process(CELTEncoder *s,int LM,const int *input,const int *options,
 }
 '''
 files=manifest('silk_sources.mk','SILK_SOURCES')+manifest('silk_sources.mk','SILK_SOURCES_FIXED')+manifest('celt_sources.mk','CELT_SOURCES')+manifest('opus_sources.mk','OPUS_SOURCES')
+if args.channel_packets:
+    from celt_channel_fixtures import adapt_wrapper
+    wrapper=adapt_wrapper(wrapper)
 with tempfile.TemporaryDirectory(prefix='opura-celt-encoder-') as temp:
     path=Path(temp);(path/'probe.c').write_text(wrapper)
     # Appended read-only observations; every original decoding statement is intact.
@@ -432,6 +435,10 @@ void decoder_energy(const OpusDecoder *s,int *out){baseline_decoder_energy((cons
         ('baseline_encode',[ptr,c.c_int,i16,c.c_int,u8,i32],c.c_int),('opus_decoder_create',[c.c_int,c.c_int,i32],ptr),('opus_decoder_destroy',[ptr],None),
         ('decode_packet',[ptr,u8,c.c_int,i16,u32],c.c_int),('reset_decoder',[ptr],c.c_int),('decoder_energy',[ptr,i32],None)]:
         fn=getattr(lib,name);fn.argtypes=types;fn.restype=result
+    if args.channel_packets:
+        from celt_channel_fixtures import emit
+        emit(lib,REVISION)
+        raise SystemExit(0)
     if args.comb_fields:
         lib.comb_field_probe.argtypes=[c.c_int]*4+[u8,i32];lib.comb_field_probe.restype=c.c_int
         print('# Unchanged original fresh-prefix comb encoding block:',REVISION)

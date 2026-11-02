@@ -7,6 +7,24 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.83] - 2026-11-03
+
+- Separate fixed CELT PCM input channels from encoded channels. Add compatible
+  `set_encoded_channels`/`encoded_channels` controls for stereo input emitting
+  mono/stereo CBR/VBR/CVBR packets without resets. Preserve both input filter,
+  overlap and pitch histories, downmix after MDCT, mirror reconstructed mono
+  energies and use coded channels for TF/rate/allocation/VBR decisions. Reset
+  retains selection; invalid controls and early/late encoding errors preserve
+  complete state. Existing fixed-layout encoder/CLI behavior remains unchanged.
+- Validate640 exact original-component packets/state histories and6400 unchanged
+  public native decoder PCM/range records. Actual VBR/CVBR/silence/CBR-toggle
+  replay matches10240 native records including440 losses and2240 received wire
+  layout changes. Four isolated source mutations are detected; previous fixed
+  VBR corpus and optional pitch fixtures remain byte-identical. See
+  docs/validation/celt-channel-layout.md for evidence and remaining scope.
+  All seven required offline gates pass, including23 Python tests.
+  General unified PCM ownership and SILK/Hybrid/mode transitions remain work.
+
 ## [0.1.82] - 2026-11-03
 
 - Add shared scalar encoder frontend primitives: transactional raw-PCM stereo

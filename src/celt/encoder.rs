@@ -37,6 +37,9 @@ mod hybrid_vbr;
 pub(crate) use hybrid_vbr::HybridVbr;
 use hybrid_vbr::VbrBudget;
 #[cfg(test)]
+#[path = "channel_encoder_tests.rs"]
+mod channel_encoder_tests;
+#[cfg(test)]
 #[path = "hybrid_dynalloc_tests.rs"]
 mod hybrid_dynalloc_tests;
 #[cfg(test)]
@@ -186,7 +189,7 @@ impl EncodedPacket {
     }
 }
 
-/// Fixed-rate/channel CELT-only encoder with bounded storage and no allocation.
+/// Fixed-input-rate/channel CELT-only encoder with bounded storage and no allocation.
 ///
 /// Default policy uses long transforms (optional native transient detection),
 /// disabled pitch comb (optional native prefilter)/silence suppression,
@@ -198,6 +201,7 @@ impl EncodedPacket {
 pub struct CeltEncoder {
     rate: InputRate,
     channels: usize,
+    encoded_channels: usize,
     preemphasis: [PreemphasisState; 2],
     overlap: [[i32; 120]; 2],
     energy: EnergyEncoder,
@@ -236,6 +240,7 @@ impl CeltEncoder {
         Ok(Self {
             rate,
             channels,
+            encoded_channels: channels,
             preemphasis: [PreemphasisState::default(), PreemphasisState::default()],
             overlap: [[0; 120]; 2],
             energy: EnergyEncoder::default(),
@@ -261,9 +266,27 @@ impl CeltEncoder {
     pub fn input_rate(&self) -> InputRate {
         self.rate
     }
-    /// Fixed interleaved input/encoded channel count.
+    /// Fixed interleaved PCM input channel count.
     pub fn channels(&self) -> usize {
         self.channels
+    }
+    /// Selected encoded channel count, initially equal to the input layout.
+    pub fn encoded_channels(&self) -> usize {
+        self.encoded_channels
+    }
+    /// Select the next packet's wire layout, retaining both input histories.
+    ///
+    /// Stereo input can encode mono or stereo; mono input can encode mono only.
+    /// Mono coding downmixes the MDCT spectrum rather than the raw PCM. Both
+    /// input preemphasis, overlap and pitch histories advance throughout mono
+    /// packets; reconstructed mono energies prime both coded channels. Reset
+    /// retains this selection. Invalid selections preserve all state.
+    pub fn set_encoded_channels(&mut self, channels: usize) -> Result<(), EncoderError> {
+        if !(1..=self.channels).contains(&channels) {
+            return Err(EncoderError::InvalidChannels);
+        }
+        self.encoded_channels = channels;
+        Ok(())
     }
     /// Whether native tone/transient analysis selects short MDCT windows.
     pub fn transient_detection(&self) -> bool {
@@ -390,7 +413,7 @@ impl CeltEncoder {
         self.encode_frame(size, pcm, writer, Some(controls), None)
     }
     fn tf_permitted(&self, diagnostics: analysis::TransientAnalysis, payload_bytes: usize) -> bool {
-        self.analyze_tf && payload_bytes >= 15 * self.channels && !diagnostics.tf_tonal()
+        self.analyze_tf && payload_bytes >= 15 * self.encoded_channels && !diagnostics.tf_tonal()
     }
     // Operates on the packet's staged stream; the outer transaction owns errors.
     fn encode_spreading(
@@ -407,7 +430,7 @@ impl CeltEncoder {
         let end = bands.end();
         let requested_spread = if self.analyze_spreading
             && !transient
-            && payload_bytes >= 10 * self.channels
+            && payload_bytes >= 10 * self.encoded_channels
             && writer.tell() + 4 <= budget
         {
             let weights = *perceptual
@@ -419,7 +442,7 @@ impl CeltEncoder {
                 size,
                 bands.normalized_values(),
                 analysis::SpreadingOptions {
-                    channels: self.channels,
+                    channels: self.encoded_channels,
                     end,
                     weights,
                     update_hf: active_prefilter,
@@ -502,11 +525,11 @@ impl CeltEncoder {
             bytes: [0; 1276],
             length: payload.len() + 1,
             size,
-            channels: self.channels,
+            channels: self.encoded_channels,
             range,
         };
         packet.bytes[0] =
-            ((config + size.lm()) as u8) << 3 | if self.channels == 2 { 4 } else { 0 };
+            ((config + size.lm()) as u8) << 3 | if self.encoded_channels == 2 { 4 } else { 0 };
         packet.bytes[1..packet.length].copy_from_slice(payload);
         Ok(packet)
     }
@@ -592,7 +615,7 @@ impl CeltEncoder {
                 enabled: hybrid.is_none()
                     && self.pitch_prefilter
                     && !silence
-                    && payload_bytes > 12 * self.channels
+                    && payload_bytes > 12 * self.encoded_channels
                     && 16 < budget,
                 available_bytes: payload_bytes as u16,
                 tf_estimate: diagnostics.map_or(0, |d| d.tf_estimate()),
@@ -629,25 +652,26 @@ impl CeltEncoder {
                 }
             },
         );
-        let layout = BandLayout::new(self.channels, start, end)?;
+        let layout = BandLayout::new(self.encoded_channels, start, end)?;
         let spectrum = analysis::analyze_frame(
             size,
             &context[..self.channels * stride],
             self.channels,
-            self.channels,
+            self.encoded_channels,
             self.rate,
             transient,
         )?;
-        let bands = analysis::analyze_bands(size, spectrum.values(), self.channels, end, end)?;
+        let bands =
+            analysis::analyze_bands(size, spectrum.values(), self.encoded_channels, end, end)?;
         let mut target = [[0; 21]; 2];
         let mut amplitudes = [[0; 21]; 2];
-        for c in 0..self.channels {
+        for c in 0..self.encoded_channels {
             target[c] = *bands.log_energies(c).ok_or(EncoderError::InvalidChannels)?;
             amplitudes[c] = *bands.amplitudes(c).ok_or(EncoderError::InvalidChannels)?;
         }
-        let temporal = self
-            .vbr
-            .temporal(&target, self.channels, start, end, size, transient);
+        let temporal =
+            self.vbr
+                .temporal(&target, self.encoded_channels, start, end, size, transient);
         let perceptual = if (self.analyze_dynamic || self.analyze_spreading || vbr_rate.is_some())
             && (hybrid.is_none() || effective_bytes >= 2)
         {
@@ -660,13 +684,13 @@ impl CeltEncoder {
                     size,
                     &context[..self.channels * stride],
                     self.channels,
-                    self.channels,
+                    self.encoded_channels,
                     self.rate,
                     false,
                 )?;
                 let long_bands =
-                    analysis::analyze_bands(size, long.values(), self.channels, end, end)?;
-                for (c, logs) in comparison[..self.channels].iter_mut().enumerate() {
+                    analysis::analyze_bands(size, long.values(), self.encoded_channels, end, end)?;
+                for (c, logs) in comparison[..self.encoded_channels].iter_mut().enumerate() {
                     *logs = *long_bands
                         .log_energies(c)
                         .ok_or(EncoderError::InvalidChannels)?;
@@ -700,7 +724,7 @@ impl CeltEncoder {
         } else {
             None
         };
-        for (c, target) in target[..self.channels].iter_mut().enumerate() {
+        for (c, target) in target[..self.encoded_channels].iter_mut().enumerate() {
             let previous = self
                 .energy
                 .energies()
@@ -755,7 +779,11 @@ impl CeltEncoder {
             let analyzed = analysis::analyze_tf(
                 size,
                 bands
-                    .normalized(d.channel())
+                    .normalized(if self.encoded_channels == 1 {
+                        0
+                    } else {
+                        d.channel()
+                    })
                     .ok_or(EncoderError::InvalidChannels)?,
                 end,
                 analysis::TfAnalysisOptions {
@@ -799,28 +827,29 @@ impl CeltEncoder {
                 filtered.active(),
             )?
         };
-        let mut rate = analysis::equivalent_rate(size, self.channels, payload_bytes)?;
+        let mut rate = analysis::equivalent_rate(size, self.encoded_channels, payload_bytes)?;
         if let Some(vbr) = hybrid.and_then(|h| h.vbr) {
             rate = rate.min(
-                vbr.rate as i32 - (40 * self.channels as i32 + 20) * ((400 >> size.lm()) - 50),
+                vbr.rate as i32
+                    - (40 * self.encoded_channels as i32 + 20) * ((400 >> size.lm()) - 50),
             );
         }
         if let Some(vbr) = vbr_rate {
-            rate = vbr.equivalent(size, self.channels);
+            rate = vbr.equivalent(size, self.encoded_channels);
         }
-        let intensity = if self.analyze_allocation && self.channels == 2 {
+        let intensity = if self.analyze_allocation && self.encoded_channels == 2 {
             self.intensity.select((rate / 1000) as i16, layout)
         } else {
             end
         };
         let dual_stereo = self.analyze_allocation
-            && self.channels == 2
+            && self.encoded_channels == 2
             && size != FrameSize::Ms2_5
             && analysis::analyze_stereo(size, bands.normalized_values())?;
         let vbr = hybrid.and_then(|h| h.vbr);
         let vbr_budget = VbrBudget {
             size,
-            channels: self.channels,
+            channels: self.encoded_channels,
             capacity: payload_bytes,
             initial_tell_q3,
             tell_q3: 0,
@@ -834,7 +863,7 @@ impl CeltEncoder {
         let saving = Cell::new(self.trim.stereo_saving());
         let rate_target = VbrTarget {
             size,
-            channels: self.channels,
+            channels: self.encoded_channels,
             coded_bands: self.previous_coded,
             intensity,
             stereo_saving: 0,
@@ -874,7 +903,7 @@ impl CeltEncoder {
                         bands.normalized_values(),
                         &target,
                         analysis::TrimOptions {
-                            channels: self.channels,
+                            channels: self.encoded_channels,
                             end,
                             intensity,
                             equivalent_rate: rate,
@@ -944,6 +973,9 @@ impl CeltEncoder {
         )?;
         if silence {
             self.energy.silence(layout);
+        }
+        if self.channels == 2 && self.encoded_channels == 1 {
+            self.energy.mirror_mono();
         }
         let coded = allocation.coded_bands();
         self.previous_coded = if self.previous_coded == 0 {

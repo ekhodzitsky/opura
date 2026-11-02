@@ -100,6 +100,11 @@ impl EnergyEncoder {
             self.energies.values[channel][layout.bands()].fill(-(28 << 24));
         }
     }
+    // Native CC2/C1 packet completion primes the dormant coded channel.
+    // Residuals stay zero there, as set by coarse quantization.
+    pub(crate) fn mirror_mono(&mut self) {
+        self.energies.values[1] = self.energies.values[0];
+    }
     /// Reconstructed energy histories, including inactive bands/channels.
     pub fn energies(&self) -> &EnergyState {
         &self.energies

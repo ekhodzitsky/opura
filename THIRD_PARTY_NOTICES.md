@@ -1754,3 +1754,10 @@ copyright (c) 2010-2011 Xiph.Org Foundation, Skype Limited, written by
 Jean-Marc Valin and Koen Vos, under the existing BSD notices above. Optional
 oracles compile the unchanged external source and extracted decision block;
 native code is never included in Cargo builds or ordinary tests.
+
+Distinct CELT API/wire channel processing, spectral downmix, TF channel
+selection and reconstructed mono-energy mirroring follow the CC/C paths in
+Opus v1.6.1 `celt/celt_encoder.c` under the existing CELT notices. Optional
+channel-layout fixtures extend the component oracle's orchestration while
+keeping original component functions and public native decoding unchanged.
+They do not claim byte parity with the entire native encoder.

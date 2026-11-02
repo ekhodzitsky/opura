@@ -62,6 +62,13 @@ single-frame silence can use three-byte packets. CBR remains the default. Librar
 `CeltEncoder::encode_vbr` with `VbrOptions`, whose payload cap excludes TOC.
 The nominal rate includes TOC and can be limited by channel/capacity bounds;
 unattainable budgets fail explicitly. See [CELT VBR validation](docs/validation/celt-vbr.md).
+
+The CELT library also supports stereo PCM emitting mono or stereo packets via
+`set_encoded_channels(1|2)`, retaining both input filter/overlap/pitch histories
+and rate feedback across changes. `channels()` remains the fixed PCM input
+layout; `encoded_channels()` selects the wire layout. Reset retains selection.
+See [channel-layout validation](docs/validation/celt-channel-layout.md).
+Automatic mode/channel selection still requires the shared encoder owner.
 The encoder flushes its 120-sample delay at 48 kHz; pre-skip
 and the final granule preserve the exact input duration after resampling.
 
@@ -2479,8 +2486,10 @@ remain under development.
 
 `opura::celt::encoder::CeltEncoder` is a safe, zero-dependency, fixed-storage
 PCM-to-packet API. Construct it with `InputRate` (8/12/16/24/48 kHz) and one/two
-channels, then encode one interleaved signed16 frame at 2.5/5/10/20 ms. Rate and
-channel geometry stay fixed; frame duration and payload budget may change.
+channels, then encode one interleaved signed16 frame at 2.5/5/10/20 ms. Input
+rate and PCM layout stay fixed; frame duration, encoded layout and payload
+budget may change. `set_encoded_channels` selects mono/stereo wire channels
+bounded by the input layout while retaining both input histories.
 `reset()` clears every history while retaining geometry and settings.
 
 ```rust

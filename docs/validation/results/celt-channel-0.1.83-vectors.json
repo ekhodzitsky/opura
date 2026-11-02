@@ -1,0 +1,12 @@
+{
+  "status": "pass",
+  "reference_revision": "22244de5a79bd1d6d623c32e72bf1954b56235be",
+  "vector_sha256": "34ba0c14910f5480004a1231c71965c67a066dcaab058461130d75f410408357",
+  "streams": 80,
+  "records": 10240,
+  "lost": 440,
+  "silence_packets": 2292,
+  "mono_packets": 5360,
+  "stereo_packets": 4440,
+  "received_wire_changes": 2240
+}

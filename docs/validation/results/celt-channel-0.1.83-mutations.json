@@ -1,0 +1,26 @@
+[
+  {
+    "mutation": "omit-mono-energy-mirroring",
+    "test": "celt::encoder::channel_encoder_tests::original_components_and_public_native_decoder_match_layout_transitions",
+    "detected": true,
+    "exit_code": 101
+  },
+  {
+    "mutation": "use-input-channel-prefilter-gate",
+    "test": "celt::encoder::channel_encoder_tests::original_components_and_public_native_decoder_match_layout_transitions",
+    "detected": true,
+    "exit_code": 101
+  },
+  {
+    "mutation": "stop-second-input-history",
+    "test": "celt::encoder::channel_encoder_tests::original_components_and_public_native_decoder_match_layout_transitions",
+    "detected": true,
+    "exit_code": 101
+  },
+  {
+    "mutation": "wrong-mono-tf-channel",
+    "test": "celt::encoder::channel_encoder_tests::original_components_and_public_native_decoder_match_layout_transitions",
+    "detected": true,
+    "exit_code": 101
+  }
+]

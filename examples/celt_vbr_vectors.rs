@@ -15,6 +15,11 @@ use std::{
 };
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let path = env::args_os().nth(1).ok_or("expected new output path")?;
+    let channel_transitions = match env::args_os().nth(2) {
+        None => false,
+        Some(flag) if flag == "--channel-transitions" => true,
+        _ => return Err("expected optional --channel-transitions".into()),
+    };
     let mut out = BufWriter::new(OpenOptions::new().write(true).create_new(true).open(path)?);
     out.write_all(b"OPURACV1")?;
     let mut records = 0;
@@ -28,7 +33,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         for channels in 1..=2 {
             for mode in 0..4 {
                 for loss in [false, true] {
-                    let mut encoder = CeltEncoder::new(rate, channels)?;
+                    let input_channels = if channel_transitions { 2 } else { channels };
+                    let mut encoder = CeltEncoder::new(rate, input_channels)?;
                     encoder.set_transient_detection(true);
                     encoder.set_tf_analysis(true);
                     encoder.set_dynamic_allocation(true);
@@ -44,6 +50,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         },
                     )?;
                     for frame in 0..128 {
+                        let wire_channels = if channel_transitions {
+                            if frame % 9 < 4 { 2 } else { 1 }
+                        } else {
+                            channels
+                        };
+                        encoder.set_encoded_channels(wire_channels)?;
                         let size = [
                             FrameSize::Ms2_5,
                             FrameSize::Ms5,
@@ -51,15 +63,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             FrameSize::Ms20,
                         ][(frame / 16 + mode) % 4];
                         let n = size.samples() / rate.factor();
-                        let pcm: Vec<i16> = (0..n * channels)
+                        let pcm: Vec<i16> = (0..n * input_channels)
                             .map(|i| {
                                 if (24..48).contains(&frame) || (80..88).contains(&frame) {
                                     0
                                 } else if (48..64).contains(&frame) {
                                     if i % 3 == 0 { 1 } else { 0 }
                                 } else {
-                                    let phase =
-                                        (frame * n + i / channels + 17 * (i % channels)) % 80;
+                                    let phase = (frame * n
+                                        + i / input_channels
+                                        + 17 * (i % input_channels))
+                                        % 80;
                                     ((phase.min(80 - phase) as i32 - 20)
                                         * if frame % 17 == 0 { 1000 } else { 300 })
                                         as i16
@@ -76,9 +90,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     bitrate: if (112..120).contains(&frame) {
                                         1500000
                                     } else if mode < 2 {
-                                        32001 * channels as u32
+                                        32001 * wire_channels as u32
                                     } else {
-                                        64001 * channels as u32
+                                        64001 * wire_channels as u32
                                     },
                                     constrained: if mode % 2 == 1 {
                                         (frame / 40) % 2 == 0
@@ -86,7 +100,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         false
                                     },
                                     payload_bytes: if (104..112).contains(&frame) {
-                                        63 * channels
+                                        63 * wire_channels
                                     } else {
                                         1275
                                     },
