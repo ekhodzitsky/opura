@@ -1,5 +1,43 @@
 use super::*;
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+#[test]
+fn oversized_stereo_fec_retries_all_channel_histories_from_same_input() -> Result<()> {
+    let duration = PacketDuration::Ms60;
+    let pcm: Vec<i16> = (0..2880)
+        .flat_map(|i| [((i % 80) as i16 - 40) * 500, ((i % 53) as i16 - 26) * 600])
+        .collect();
+    let options = StereoOptions {
+        complexity: 0,
+        packet_loss_percent: 20,
+        ..StereoOptions::default()
+    };
+    let mut warm = StereoEncoder::new(OutputRate::Khz48, SilkRate::Khz16);
+    warm.set_inband_fec(true);
+    for _ in 0..4 {
+        warm.encode(duration, &pcm, 480, options)?;
+    }
+    assert!(warm.fec.has_pending(duration));
+    for budget in (128..=480).step_by(16) {
+        let mut actual = warm.clone();
+        let Ok(packet) = actual.encode(duration, &pcm, budget, options) else {
+            continue;
+        };
+        if !actual.fec.dropped {
+            continue;
+        }
+        assert!(!actual.has_fec());
+        let mut expected = warm.clone();
+        expected.fec.clear_pending();
+        assert_eq!(packet, expected.encode(duration, &pcm, budget, options)?);
+        assert_eq!(
+            actual.encode(duration, &pcm, 480, options)?,
+            expected.encode(duration, &pcm, 480, options)?
+        );
+        assert_eq!(actual, expected);
+        return Ok(());
+    }
+    Err("no successful stereo FEC budget retry exercised".into())
+}
 fn state(v: &[i64]) -> StereoAnalysisState {
     StereoAnalysisState {
         prediction: [v[0] as i16, v[1] as i16],

@@ -3,6 +3,7 @@ use super::{
     analysis::VoiceActivityDetector,
     channel::{ChannelFrameEncoder, FrameControls, FrameError},
     dtx::{Decision, DtxState},
+    fec::{self, FecState},
 };
 use crate::{
     range::{EncoderError, RangeEncoder},
@@ -60,7 +61,8 @@ pub struct MonoOptions {
     /// Use variable output length, bounded by the supplied packet bytes.
     /// False fills the exact packet budget using transport-level Opus padding.
     pub variable_bitrate: bool,
-    /// Loss percentage, 0..=100, for LTP state scaling (does not enable FEC).
+    /// Loss percentage, 0..=100, for LTP scaling and opt-in FEC policy.
+    /// Does not request FEC by itself; call `set_inband_fec`. Zero disables new backups.
     pub packet_loss_percent: u8,
 }
 impl Default for MonoOptions {
@@ -144,7 +146,7 @@ impl MonoPacket {
 }
 /// Fixed-bandwidth mono PCM encoder for all five external rates. Uses native
 /// DC rejection, encoder resampling, VAD, SNR tables and packet bit reservoir.
-/// Supports opt-in DTX; adaptive bandwidth switching and FEC remain separate work.
+/// Supports opt-in DTX/FEC; adaptive bandwidth switching remains separate work.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MonoEncoder {
     input: OutputRate,
@@ -156,6 +158,7 @@ pub struct MonoEncoder {
     channel: ChannelFrameEncoder,
     excess: i32,
     dtx: DtxState,
+    fec: FecState<1>,
 }
 impl MonoEncoder {
     /// Start an independent mono stream at a fixed input rate/internal bandwidth.
@@ -170,6 +173,7 @@ impl MonoEncoder {
             channel: ChannelFrameEncoder::new(internal),
             excess: 0,
             dtx: DtxState::default(),
+            fec: FecState::default(),
         }
     }
     /// Nominal pre-skip on the 48 kHz Opus clock: 6.5 ms, including the native
@@ -183,15 +187,28 @@ impl MonoEncoder {
     pub fn set_dtx(&mut self, enabled: bool) {
         self.dtx.enabled = enabled;
     }
+    /// Request in-band FEC using `MonoOptions::packet_loss_percent`. Disabled
+    /// by default. Fixed bandwidth is preserved; protection requires sufficient
+    /// bitrate and activity. Previously queued redundancy can still be carried
+    /// by the next packet after disabling this setting.
+    pub fn set_inband_fec(&mut self, enabled: bool) {
+        self.fec.enabled = enabled;
+    }
+    /// Whether the last successful packet carries prior-packet redundancy.
+    pub fn has_fec(&self) -> bool {
+        self.fec.sent[0]
+    }
     /// Whether the last successfully encoded packet suppressed its payload.
     pub fn in_dtx(&self) -> bool {
         self.dtx.suppressed
     }
-    /// Reset all input, VAD, predictor and bitrate history, retaining rates and DTX settings.
+    /// Reset all input, VAD, predictor and bitrate history, retaining rates and DTX/FEC settings.
     pub fn reset(&mut self) {
         let enabled = self.dtx.enabled;
+        let fec = self.fec.enabled;
         *self = Self::new(self.input, self.internal);
         self.set_dtx(enabled);
+        self.set_inband_fec(fec);
     }
     /// Encode exactly one duration of mono PCM. packet_bytes includes TOC and
     /// packet padding, excludes transport/container overhead, and is 3..=1276.
@@ -232,15 +249,70 @@ impl MonoEncoder {
         for sample in &mut pcm[..converted] {
             std::mem::swap(sample, &mut staged.previous);
         }
+        let backup = staged.fec.has_pending(duration).then(|| staged.clone());
+        let attempt = staged.encode_packet(
+            duration,
+            &pcm[..converted],
+            packet_bytes,
+            options,
+            digital_silence,
+            true,
+        );
+        let retry = match &attempt {
+            Err(MonoError::Frame(e)) => fec::budget_failure(e),
+            Err(MonoError::Entropy(EncoderError::CapacityExhausted)) => true,
+            _ => false,
+        };
+        if retry {
+            if let Some(mut next) = backup {
+                let packet = next.encode_packet(
+                    duration,
+                    &pcm[..converted],
+                    packet_bytes,
+                    options,
+                    digital_silence,
+                    false,
+                )?;
+                *self = next;
+                return Ok(packet);
+            }
+        }
+        let packet = attempt?;
+        *self = staged;
+        Ok(packet)
+    }
+    fn encode_packet(
+        &mut self,
+        duration: PacketDuration,
+        pcm: &[i16],
+        packet_bytes: usize,
+        options: MonoOptions,
+        digital_silence: bool,
+        include_fec: bool,
+    ) -> Result<MonoPacket, MonoError> {
+        let ms = duration.milliseconds() as usize;
+        let converted = pcm.len();
         let frames = duration.frames();
         let frame_samples = converted / frames;
         let maximum = (packet_bytes as u32 - 1) * 8;
         let bitrate = maximum as i32 * 1000 / ms as i32;
         let nominal_bits = bitrate * ms as i32 / 1000;
-        let per_frame = nominal_bits / frames as i32;
+
         let mut writer = RangeEncoder::new(1275)?;
         let header_bits = frames as u32 + 1;
         writer.encode_icdf(0, &[(256 - (256 >> header_bits)) as u8, 0], 8)?;
+        self.fec.begin(
+            duration,
+            self.internal,
+            bitrate,
+            options.packet_loss_percent,
+        );
+        let channel = &mut self.channel;
+        self.fec
+            .prefix(&mut writer, include_fec, |_, writer, frame, coding| {
+                channel.encode_redundant(writer, frame, coding)
+            })?;
+        let per_frame = (nominal_bits - self.fec.used_bits) / frames as i32;
         let mut flags = 0;
         for (index, frame) in pcm[..converted].chunks_exact(frame_samples).enumerate() {
             let mut target = per_frame
@@ -249,28 +321,30 @@ impl MonoEncoder {
                 } else {
                     50
                 }
-                - staged.excess * 2;
+                - self.excess * 2;
             if index > 0 {
-                target -= (writer.tell() as i32 - per_frame * index as i32) * 2;
+                target -=
+                    (writer.tell() as i32 - self.fec.used_bits - per_frame * index as i32) * 2;
             }
             target = target.clamp(bitrate.min(5000), bitrate.max(5000));
             let snr = target_snr(self.internal, duration.frame_duration(), target);
-            let mut activity = staged
+            let mut activity = self
                 .vad
                 .analyze(self.internal, duration.frame_duration(), frame)
                 .map_err(FrameError::from)?;
-            if staged.dtx.enabled && digital_silence {
+            if (self.dtx.enabled || self.fec.enabled) && digital_silence {
                 activity.probability_q8 = activity.probability_q8.min(12);
             }
             let active = activity.probability_q8 >= 13;
-            staged.dtx.frame(0, active && !digital_silence);
+            self.dtx.frame(0, active && !digital_silence);
             let limit = match (frames, index) {
                 (2, 0) => maximum * 3 / 5,
                 (3, 0) => maximum * 2 / 5,
                 (3, 1) => maximum * 3 / 4,
                 _ => maximum,
             };
-            staged.channel.encode(
+            let fec_controls = self.fec.controls(0, index);
+            let encoded = self.channel.encode_with_redundancy(
                 &mut writer,
                 frame,
                 FrameControls {
@@ -289,12 +363,19 @@ impl MonoEncoder {
                     max_bits: limit,
                     packet_loss_percent: options.packet_loss_percent,
                     frames_per_packet: frames as u8,
-                    redundancy: false,
+                    redundancy: self.fec.sent[0],
                 },
+                if fec_controls.is_some() || self.fec.sent[0] {
+                    maximum
+                } else {
+                    limit
+                },
+                fec_controls,
             )?;
+            self.fec.record(0, index, encoded.redundancy());
             flags = (flags << 1) | u32::from(active);
         }
-        writer.patch_initial_bits(flags << 1, header_bits)?;
+        writer.patch_initial_bits((flags << 1) | u32::from(self.fec.sent[0]), header_bits)?;
         let payload = writer.tell().div_ceil(8) as usize;
         if payload >= packet_bytes {
             return Err(FrameError::BitBudgetExceeded.into());
@@ -314,7 +395,10 @@ impl MonoEncoder {
                 PacketDuration::Ms40 => 2,
                 PacketDuration::Ms60 => 3,
             };
-        let decision = staged.dtx.finish(duration, 1, digital_silence);
+        let decision = self.dtx.finish(duration, 1, digital_silence);
+        if decision != Decision::Transmit {
+            self.fec.suppress();
+        }
         let result = if decision != Decision::Transmit {
             packet(config << 3, &[], 1, 0)
         } else {
@@ -334,8 +418,7 @@ impl MonoEncoder {
         } else {
             payload.len() as i32 * 8
         };
-        staged.excess = (staged.excess + payload_bits - nominal_bits).clamp(0, 10000);
-        *self = staged;
+        self.excess = (self.excess + payload_bits - nominal_bits).clamp(0, 10000);
         Ok(result)
     }
 }

@@ -1,9 +1,10 @@
 # SILK LBRR channel-core checkpoint
 
-This unreleased checkpoint implements lower-rate redundant quantization and
-serialization in `silk::encoder::channel`. It does not enable FEC in the raw PCM
-frontends or CLI. The full SILK task remains open for previous-packet admission,
-stereo scheduling, FEC controls, adaptive bandwidth and broader evaluation.
+This record describes the lower-rate redundant quantization/serialization
+checkpoint in commit `fdb7297`, under `silk::encoder::channel`. Its evidence is
+limited to the channel core. Opura 0.1.70 subsequently connects the raw PCM
+frontends and CLI; see [integrated FEC validation](silk-fec-packets.md).
+Adaptive bandwidth and broader encoder evaluation remain unfinished.
 
 `ChannelFrameEncoder::encode_with_redundancy` optionally generates a saved
 `RedundantFrame` before the normal bitrate-search loop. Speech activity must
@@ -59,9 +60,10 @@ The oracle buffers traces per packet. A packet with invalid native entropy is
 not treated as a valid frame golden; its diagnostic/actual response is retained
 and that stream ends. Thus 7 packets / 21 internal frames after the failure are
 outside this golden comparison. The workload is not altered to avoid the failure.
-Frontend integration must admit pending FEC against the full current packet
-budget and preserve a usable primary frame. That policy and constrained raw-PCM
-recovery streams remain required before advertising complete FEC support.
+At this checkpoint frontend integration still needed to admit pending FEC
+against the full current packet budget and preserve a usable primary frame.
+The subsequent [0.1.70 frontend record](silk-fec-packets.md) verifies that
+policy and constrained raw-PCM recovery streams.
 
 Ordinary Rust tests additionally verify that redundant quantization leaves main
 NSQ/gains/bytes unchanged, errors roll back gain/NSQ/entropy state, finished

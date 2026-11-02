@@ -2,6 +2,44 @@ use super::*;
 use crate::{Packet, decoder::OpusDecoder, silk::decoder::PcmChannels};
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 #[test]
+fn oversized_fec_retries_identical_input_without_prefix() -> Result<()> {
+    let duration = PacketDuration::Ms60;
+    let pcm: Vec<i16> = (0..2880).map(|i| ((i % 80) as i16 - 40) * 500).collect();
+    let options = MonoOptions {
+        complexity: 0,
+        packet_loss_percent: 20,
+        ..MonoOptions::default()
+    };
+    let mut warm = MonoEncoder::new(OutputRate::Khz48, SilkRate::Khz16);
+    warm.set_inband_fec(true);
+    for _ in 0..4 {
+        warm.encode(duration, &pcm, 480, options)?;
+    }
+    assert!(warm.fec.has_pending(duration));
+    for budget in (64..=240).step_by(8) {
+        let mut actual = warm.clone();
+        let Ok(packet) = actual.encode(duration, &pcm, budget, options) else {
+            continue;
+        };
+        if !actual.fec.dropped {
+            continue;
+        }
+        assert!(!actual.has_fec());
+        assert_eq!(packet.as_bytes().len(), budget);
+        let mut expected = warm.clone();
+        expected.fec.clear_pending();
+        let without = expected.encode(duration, &pcm, budget, options)?;
+        assert_eq!(packet, without);
+        assert_eq!(
+            actual.encode(duration, &pcm, 480, options)?,
+            expected.encode(duration, &pcm, 480, options)?
+        );
+        assert_eq!(actual, expected);
+        return Ok(());
+    }
+    Err("no successful FEC budget retry exercised".into())
+}
+#[test]
 fn all_rates_bandwidths_and_packet_durations_decode_and_reset() -> Result<()> {
     for input in [
         OutputRate::Khz8,

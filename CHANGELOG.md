@@ -7,6 +7,26 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.70] - 2026-11-02
+
+- Add opt-in in-band FEC to mono/stereo SILK PCM encoders through
+  `set_inband_fec` and `has_fec`, and CLI `--mode silk --fec LOSS_PERCENT`.
+  Carry compatible prior-packet backups before current audio with native
+  masks/stereo predictors, conditional coding, gain policy and bit-cost averaging.
+- Preserve explicitly selected bandwidth. Evaluate native threshold/hysteresis
+  policy at the per-channel packet payload rate; nonzero loss and sufficient
+  activity/rate are required. Disabling FEC can still send one queued backup;
+  reset retains FEC/DTX settings and clears all stream/queue history.
+- Bound packet admission: if pending FEC prevents primary encoding from fitting,
+  retry once from identical post-resampling state without that prefix. Preserve
+  strict byte caps, atomic errors and all channel/VAD/quantizer histories. Clear
+  incompatible queue geometry and suppress FEC diagnostics on DTX packets.
+- Match 576 unchanged native fixed-bandwidth eligibility/gain cases; cover all
+  input/internal rates, packet durations, CBR/VBR, sparse stereo masks, DTX,
+  geometry/toggle transitions and abrupt budgets in packet/recovery validation.
+- Independently match 48000 normal/loss/recovery decoded records with pinned
+  libopus, including 7920 FEC requests. Verify 240 FEC CLI files with independent
+  packet probes and FFmpeg/libopus, plus 240 no-FEC/DTX regression files.
 - Add native pre-search LBRR quantization to the SILK channel core, using copied
   NSQ state and separate redundant gain history. Return saved redundant frames
   and serialize them with active redundancy entropy contexts in a later packet.
@@ -17,10 +37,11 @@ and validation, without implying full Opus compatibility before PCM decoding.
   Match 280 independent recovery/continuation PCM results, including 93 loss
   requests (46 with LBRR, 47 without). Retain the native oversized-LBRR/PLC case.
 - All seven required offline checks pass, including 19 Python tool tests;
-  the complete FEC trace regenerates byte for byte against unchanged native code.
-- This is channel-core work: fixed-bandwidth PCM frontends and CLI do not yet
-  emit FEC. Previous-packet queue/admission policy, stereo and adaptive bandwidth
-  remain in the full SILK task. No complete FEC encoder claim is made.
+  native FEC traces/policy regenerate exactly. All 28320 default/no-FEC packets
+  are byte-identical and all 240 regression CLI PCM hashes match 0.1.69.
+- Adaptive bandwidth, Hybrid encoding, complete automatic mode/rate policy and
+  representative quality/performance evaluation remain unfinished. Fixed-mode
+  FEC interoperability does not establish perceptual or speed leadership.
 
 ## [0.1.69] - 2026-11-02
 

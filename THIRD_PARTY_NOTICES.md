@@ -1663,3 +1663,13 @@ at the same pinned revision and under the SILK terms above. The optional oracle
 extends the existing unchanged public frame wrapper and public decoder calls;
 it retains native entropy overflow diagnostics and the actual padded PLC packet,
 without substituting codec algorithms or changing reference source.
+
+
+Fixed-bandwidth FEC frontend policy follows the original `decide_fec` threshold
+and hysteresis constants in `src/opus_encoder.c`, LBRR gain increments in
+`silk/control_codec.c`, and masks, stereo field ordering and bit-cost averaging
+in `silk/enc_API.c` at the same pinned revision. Native automatic bandwidth
+selection is outside these fixed-bandwidth APIs. The bounded primary-preserving
+packet retry is Opura's admission policy. Existing Opus/SILK terms above apply.
+The optional policy oracle extracts unchanged native functions/tables; generated
+Rust packet/recovery traces and external library probes are validation only.

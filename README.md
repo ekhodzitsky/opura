@@ -7,7 +7,7 @@ The separate SILK/CELT/Hybrid APIs and their component stages remain available.
 **The CELT encoder accepts mono/stereo PCM at all five standard input rates.
 The fixed-bandwidth SILK encoder accepts mono/stereo PCM and emits 10/20/40/60 ms
 NB/MB/WB Opus packets.** Both paths are available through the WAV/Ogg CLI.
-SILK supports opt-in DTX; FEC, adaptive bandwidth and Hybrid encoding remain in progress.
+SILK supports opt-in DTX and in-band FEC; adaptive bandwidth and Hybrid encoding remain in progress.
 **The decoder passes all120 official RFC8251 vector/rate/channel cases.**
 The first complete-decoder benchmark is recorded: Opura trails the pinned scalar
 libopus reference in all ten configurations; complete adaptive encoding remains under development. The accepted direction is a complete decoder first, then an encoder,
@@ -70,6 +70,16 @@ default and still runs full encoder analysis. Library users call `set_dtx(true)`
 on the mono/stereo encoder; `in_dtx()` describes its last successful packet.
 See the [DTX validation record](docs/validation/silk-dtx.md).
 
+Add `--fec 20` to request in-band FEC with a 20% loss estimate (0 disables it).
+The library equivalent is `set_inband_fec(true)` with
+`MonoOptions::packet_loss_percent` / `StereoOptions::packet_loss_percent`.
+Protection needs sufficient bitrate and speech activity. It carries prior audio
+in the next packet and can combine with DTX; `has_fec()` describes the last
+successful packet. Explicit bandwidth stays fixed. If pending redundancy cannot
+fit alongside primary audio, it is omitted; CBR bytes/duration remain intact.
+The [FEC validation record](docs/validation/silk-fec-packets.md) describes loss
+recovery, queue transitions, bounded retry and independent decoding.
+
 Decoding accepts SILK, Hybrid and CELT in one mono/stereo Ogg Opus stream
 (mapping family zero, zero header output gain), and writes PCM16 WAV at 48 kHz.
 Chained/multiplexed streams, nonzero output gain, other mappings and packets
@@ -89,7 +99,7 @@ Fixed-bandwidth SILK library paths are available under
 10/20/40/60 ms, with exact CBR byte budgets or capped variable length. See the
 [mono interoperability record](docs/validation/silk-mono-packets.md) and
 [stereo validation](docs/validation/silk-stereo-packets.md).
-FEC and adaptive bandwidth remain in progress. The validation record also
+Adaptive bandwidth remains in progress. The validation record also
 retains a reproduced default-FFmpeg decoder tail-trimming issue; FFmpeg/libopus
 and the native decoder preserve exact duration.
 Library packet parsing itself does not parse Ogg containers.

@@ -8,6 +8,7 @@
 pub mod analysis;
 pub mod channel;
 mod dtx;
+mod fec;
 mod math;
 pub mod mono;
 pub mod nsq;

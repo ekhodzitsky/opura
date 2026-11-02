@@ -2,6 +2,7 @@
 //! Adapted from Opus v1.6.1 stereo encoder sources; see THIRD_PARTY_NOTICES.md.
 use super::{
     dtx::{Decision, DtxState},
+    fec::{self, FecState, StereoPrefix},
     math::{divide_q, energy},
 };
 use crate::{
@@ -98,22 +99,30 @@ impl StereoAnalysisFrame {
         writer: &mut RangeEncoder,
         side_active: bool,
     ) -> Result<(), StereoEncodeError> {
-        if side_active && self.mid_only {
-            return Err(StereoEncodeError::InvalidControls);
-        }
-        let mut next = writer.clone();
-        let joint = 5 * usize::from(self.indices[0][2]) + usize::from(self.indices[1][2]);
-        next.encode_icdf(joint, &JOINT, 8)?;
-        for index in self.indices {
-            next.encode_icdf(usize::from(index[0]), &UNIFORM3, 8)?;
-            next.encode_icdf(usize::from(index[1]), &UNIFORM5, 8)?;
-        }
-        if !side_active {
-            next.encode_icdf(usize::from(self.mid_only), &MID_ONLY, 8)?;
-        }
-        *writer = next;
-        Ok(())
+        encode_prefix(writer, self.indices, self.mid_only, side_active)
     }
+}
+pub(super) fn encode_prefix(
+    writer: &mut RangeEncoder,
+    indices: [[u8; 3]; 2],
+    mid_only: bool,
+    side_active: bool,
+) -> Result<(), StereoEncodeError> {
+    if side_active && mid_only {
+        return Err(StereoEncodeError::InvalidControls);
+    }
+    let mut next = writer.clone();
+    let joint = 5 * usize::from(indices[0][2]) + usize::from(indices[1][2]);
+    next.encode_icdf(joint, &JOINT, 8)?;
+    for index in indices {
+        next.encode_icdf(usize::from(index[0]), &UNIFORM3, 8)?;
+        next.encode_icdf(usize::from(index[1]), &UNIFORM5, 8)?;
+    }
+    if !side_active {
+        next.encode_icdf(usize::from(mid_only), &MID_ONLY, 8)?;
+    }
+    *writer = next;
+    Ok(())
 }
 /// Native stereo analysis histories; retained across internal-rate/duration
 /// changes. Reset when entering a new stereo stream, as in the original API.
@@ -461,7 +470,7 @@ impl StereoPacket {
 /// Raw interleaved stereo PCM to fixed-bandwidth SILK Opus packets. Supports
 /// adaptive M/S prediction/width, panned mid-only omission and side restarts.
 /// External/internal rates and channel count remain fixed for this stream;
-/// Supports opt-in DTX; FEC and adaptive bandwidth transitions remain separate work.
+/// Supports opt-in DTX/FEC; adaptive bandwidth transitions remain separate work.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StereoEncoder {
     input: OutputRate,
@@ -475,6 +484,7 @@ pub struct StereoEncoder {
     previous_mid_only: bool,
     excess: i32,
     dtx: DtxState,
+    fec: FecState<2>,
 }
 impl StereoEncoder {
     /// Start a stereo stream at any standard PCM rate and fixed SILK bandwidth.
@@ -491,6 +501,7 @@ impl StereoEncoder {
             previous_mid_only: false,
             excess: 0,
             dtx: DtxState::default(),
+            fec: FecState::default(),
         }
     }
     /// Nominal pre-skip on the48kHz clock, including stereo/input compensation.
@@ -503,15 +514,27 @@ impl StereoEncoder {
     pub fn set_dtx(&mut self, enabled: bool) {
         self.dtx.enabled = enabled;
     }
+    /// Request in-band FEC using `StereoOptions::packet_loss_percent`. Disabled
+    /// by default. Fixed bandwidth is preserved; bitrate/activity gate protection.
+    /// Queued redundancy can still be carried by the next packet after disabling.
+    pub fn set_inband_fec(&mut self, enabled: bool) {
+        self.fec.enabled = enabled;
+    }
+    /// Whether the last successful packet carries prior-packet redundancy.
+    pub fn has_fec(&self) -> bool {
+        self.fec.sent.iter().any(|&v| v)
+    }
     /// Whether the last successfully encoded packet suppressed its payload.
     pub fn in_dtx(&self) -> bool {
         self.dtx.suppressed
     }
-    /// Clear every stream history, retaining configured rates and DTX settings.
+    /// Clear every stream history, retaining configured rates and DTX/FEC settings.
     pub fn reset(&mut self) {
         let enabled = self.dtx.enabled;
+        let fec = self.fec.enabled;
         *self = Self::new(self.input, self.internal);
         self.set_dtx(enabled);
+        self.set_inband_fec(fec);
     }
     /// Encode one10/20/40/60ms interleaved L/R packet. Byte budget includes TOC /
     /// packet padding and is3..=1276. CBR fills the budget, variable mode caps it.
@@ -553,15 +576,66 @@ impl StereoEncoder {
             );
             next.resampler[channel].process(&filtered[..samples], converted)?;
         }
+        let backup = next.fec.has_pending(duration).then(|| next.clone());
+        let attempt =
+            next.encode_packet(duration, &pcm, packet_bytes, options, digital_silence, true);
+        let retry = match &attempt {
+            Err(StereoPacketError::Frame(e)) => fec::budget_failure(e),
+            Err(StereoPacketError::Entropy(EncoderError::CapacityExhausted))
+            | Err(StereoPacketError::Stereo(StereoEncodeError::Entropy(
+                EncoderError::CapacityExhausted,
+            ))) => true,
+            _ => false,
+        };
+        if retry {
+            if let Some(mut backup) = backup {
+                let packet = backup.encode_packet(
+                    duration,
+                    &pcm,
+                    packet_bytes,
+                    options,
+                    digital_silence,
+                    false,
+                )?;
+                *self = backup;
+                return Ok(packet);
+            }
+        }
+        let packet = attempt?;
+        *self = next;
+        Ok(packet)
+    }
+    fn encode_packet(
+        &mut self,
+        duration: PacketDuration,
+        pcm: &[[i16; 960]; 2],
+        packet_bytes: usize,
+        options: StereoOptions,
+        digital_silence: bool,
+        include_fec: bool,
+    ) -> Result<StereoPacket, StereoPacketError> {
+        let ms = duration.milliseconds() as usize;
         let frames = duration.frames();
         let frame_samples = ms * self.internal.khz() as usize / frames;
         let maximum = (packet_bytes as u32 - 1) * 8;
         let bitrate = maximum as i32 * 1000 / ms as i32;
         let nominal_bits = bitrate * ms as i32 / 1000;
-        let per_frame = nominal_bits / frames as i32;
+
         let mut writer = RangeEncoder::new(1275)?;
         let header_bits = (frames as u32 + 1) * 2;
         writer.encode_icdf(0, &[(256 - (256 >> header_bits)) as u8, 0], 8)?;
+        self.fec.begin(
+            duration,
+            self.internal,
+            bitrate,
+            options.packet_loss_percent,
+        );
+        let channels = &mut self.channels;
+        self.fec
+            .prefix(&mut writer, include_fec, |ch, writer, frame, coding| {
+                channels[ch].encode_redundant(writer, frame, coding)
+            })?;
+        let per_frame = (nominal_bits - self.fec.used_bits) / frames as i32;
         let mut flags = [[false; 3]; 2];
         for index in 0..frames {
             let mut target = per_frame
@@ -570,40 +644,41 @@ impl StereoEncoder {
                 } else {
                     50
                 }
-                - next.excess * 2;
+                - self.excess * 2;
             if index > 0 {
-                target -= (writer.tell() as i32 - per_frame * index as i32) * 2;
+                target -=
+                    (writer.tell() as i32 - self.fec.used_bits - per_frame * index as i32) * 2;
             }
             target = target.clamp(bitrate.min(5000), bitrate.max(5000));
             let start = index * frame_samples;
             let end = start + frame_samples;
-            let stereo = next.stereo.analyze(
+            let stereo = self.stereo.analyze(
                 self.internal,
                 duration.frame_duration(),
                 &pcm[0][start..end],
                 &pcm[1][start..end],
                 StereoControls {
                     total_rate_bps: target,
-                    previous_activity_q8: u16::from(next.activity),
+                    previous_activity_q8: u16::from(self.activity),
                     to_mono: false,
                 },
             )?;
-            if !stereo.mid_only() && next.previous_mid_only {
-                next.channels[1].restart_prediction();
+            if !stereo.mid_only() && self.previous_mid_only {
+                self.channels[1].restart_prediction();
             }
-            let mut mid_activity = next.vad[0]
+            let mut mid_activity = self.vad[0]
                 .analyze(self.internal, duration.frame_duration(), stereo.mid())
                 .map_err(FrameError::from)?;
             let mut side_activity = if stereo.mid_only() {
                 None
             } else {
                 Some(
-                    next.vad[1]
+                    self.vad[1]
                         .analyze(self.internal, duration.frame_duration(), stereo.side())
                         .map_err(FrameError::from)?,
                 )
             };
-            if next.dtx.enabled && digital_silence {
+            if (self.dtx.enabled || self.fec.enabled) && digital_silence {
                 mid_activity.probability_q8 = mid_activity.probability_q8.min(12);
                 if let Some(side) = &mut side_activity {
                     side.probability_q8 = side.probability_q8.min(12);
@@ -611,10 +686,14 @@ impl StereoEncoder {
             }
             flags[0][index] = mid_activity.probability_q8 >= 13;
             flags[1][index] = side_activity.is_some_and(|a| a.probability_q8 >= 13);
-            next.dtx.frame(0, flags[0][index] && !digital_silence);
+            self.dtx.frame(0, flags[0][index] && !digital_silence);
             if side_activity.is_some() {
-                next.dtx.frame(1, flags[1][index] && !digital_silence);
+                self.dtx.frame(1, flags[1][index] && !digital_silence);
             }
+            self.fec.stereo[index] = Some(StereoPrefix {
+                indices: *stereo.indices(),
+                mid_only: stereo.mid_only(),
+            });
             stereo.encode_prefix(&mut writer, flags[1][index])?;
             let limit = match (frames, index) {
                 (2, 0) => maximum * 3 / 5,
@@ -639,12 +718,24 @@ impl StereoEncoder {
                 }
                 let coding = if index == 0 {
                     PitchCoding::Independent
-                } else if channel == 1 && next.previous_mid_only {
+                } else if channel == 1 && self.previous_mid_only {
                     PitchCoding::IndependentWithoutScaling
                 } else {
                     PitchCoding::Conditional
                 };
-                next.channels[channel].encode(
+                let fec_controls = self.fec.controls(channel, index);
+                let hard = if fec_controls.is_some() || self.fec.sent.iter().any(|&v| v) {
+                    if channel == 0 && stereo.rates_bps()[1] > 0 {
+                        maximum.saturating_sub(
+                            maximum.saturating_sub(writer.tell()) / (frames as u32 * 2),
+                        )
+                    } else {
+                        maximum
+                    }
+                } else {
+                    cap
+                };
+                let encoded = self.channels[channel].encode_with_redundancy(
                     &mut writer,
                     if channel == 0 {
                         stereo.mid()
@@ -667,19 +758,22 @@ impl StereoEncoder {
                         max_bits: cap,
                         packet_loss_percent: options.packet_loss_percent,
                         frames_per_packet: frames as u8,
-                        redundancy: false,
+                        redundancy: self.fec.sent[channel],
                     },
+                    hard,
+                    fec_controls,
                 )?;
+                self.fec.record(channel, index, encoded.redundancy());
             }
-            next.activity = mid_activity.probability_q8;
-            next.previous_mid_only = stereo.mid_only();
+            self.activity = mid_activity.probability_q8;
+            self.previous_mid_only = stereo.mid_only();
         }
         let mut header = 0;
-        for channel in flags {
+        for (channel, has_fec) in flags.into_iter().zip(self.fec.sent) {
             for &flag in &channel[..frames] {
                 header = (header << 1) | u32::from(flag);
             }
-            header <<= 1;
+            header = (header << 1) | u32::from(has_fec);
         }
         writer.patch_initial_bits(header, header_bits)?;
         let payload = writer.tell().div_ceil(8) as usize;
@@ -701,7 +795,10 @@ impl StereoEncoder {
                 PacketDuration::Ms40 => 2,
                 PacketDuration::Ms60 => 3,
             };
-        let decision = next.dtx.finish(duration, 2, digital_silence);
+        let decision = self.dtx.finish(duration, 2, digital_silence);
+        if decision != Decision::Transmit {
+            self.fec.suppress();
+        }
         let result = StereoPacket {
             packet: if decision != Decision::Transmit {
                 packet((config << 3) | 4, &[], 1, 0)
@@ -723,8 +820,7 @@ impl StereoEncoder {
         } else {
             payload.len() as i32 * 8
         };
-        next.excess = (next.excess + payload_bits - nominal_bits).clamp(0, 10000);
-        *self = next;
+        self.excess = (self.excess + payload_bits - nominal_bits).clamp(0, 10000);
         Ok(result)
     }
 }

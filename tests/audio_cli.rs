@@ -145,6 +145,12 @@ fn command_refuses_existing_output_and_bad_arguments() -> Result<()> {
     for arguments in [
         vec!["--frame-ms", "40"],
         vec!["--dtx"],
+        vec!["--fec", "20"],
+        vec!["--mode", "silk", "--fec", "101"],
+        vec!["--mode", "silk", "--fec", "-1"],
+        vec!["--mode", "silk", "--fec", "bad"],
+        vec!["--mode", "silk", "--fec", "20", "--fec", "20"],
+        vec!["--mode", "silk", "--fec"],
         vec!["--mode", "silk", "--dtx", "--dtx"],
         vec!["--bitrate", "0"],
         vec!["--bitrate", "64000", "--bitrate", "64000"],
@@ -481,6 +487,98 @@ fn silk_dtx_saves_bytes_and_preserves_duration_in_both_channel_layouts() -> Resu
                     channels,
                     frames * (48000 / rate) as usize,
                 )?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn audio_packets(bytes: &[u8]) -> Result<Vec<Vec<u8>>> {
+    let mut offset = 0;
+    let mut pending = Vec::new();
+    let mut packets = Vec::new();
+    while offset < bytes.len() {
+        let header = bytes.get(offset..offset + 27).ok_or("truncated Ogg page")?;
+        assert_eq!(&header[..4], b"OggS");
+        let laces = bytes
+            .get(offset + 27..offset + 27 + usize::from(header[26]))
+            .ok_or("truncated laces")?;
+        offset += 27 + laces.len();
+        for &length in laces {
+            let end = offset + usize::from(length);
+            pending.extend_from_slice(bytes.get(offset..end).ok_or("truncated packet")?);
+            offset = end;
+            if length < 255 {
+                packets.push(std::mem::take(&mut pending));
+            }
+        }
+    }
+    assert!(pending.is_empty() && packets.len() >= 3);
+    Ok(packets.into_iter().skip(2).collect())
+}
+#[test]
+fn silk_cli_fec_emits_redundancy_and_combines_with_dtx() -> Result<()> {
+    let temp = Temporary::new()?;
+    for rate in [8000, 48000] {
+        for channels in [1u16, 2] {
+            for ms in [10, 20, 40, 60] {
+                let stem = format!("fec-{rate}-{channels}-{ms}");
+                let input = temp.0.join(stem.clone() + ".wav");
+                let frames = rate as usize * 2 + 17;
+                let mut wave = wave(rate, channels, frames);
+                for (index, sample) in wave[44..].chunks_exact_mut(2).enumerate() {
+                    let i = index / usize::from(channels);
+                    let value = if (rate as usize / 3..rate as usize * 3 / 2).contains(&i) {
+                        0
+                    } else if index % usize::from(channels) == 0 {
+                        ((i % 80) as i16 - 40) * 300
+                    } else {
+                        ((i % 53) as i16 - 26) * 400
+                    };
+                    sample.copy_from_slice(&value.to_le_bytes());
+                }
+                fs::write(&input, wave)?;
+                for dtx in [false, true] {
+                    let encoded = temp.0.join(format!("{stem}-{dtx}.opus"));
+                    let output = temp.0.join(format!("{stem}-{dtx}-decoded.wav"));
+                    let mut command = cli();
+                    command.arg("encode").arg(&input).arg(&encoded).args([
+                        "--mode",
+                        "silk",
+                        "--fec",
+                        "20",
+                        "--bitrate",
+                        "64000",
+                        "--frame-ms",
+                        &ms.to_string(),
+                    ]);
+                    if dtx {
+                        command.arg("--dtx");
+                    }
+                    success(&mut command)?;
+                    let mut protected = 0;
+                    let mut suppressed = 0;
+                    for bytes in audio_packets(&fs::read(&encoded)?)? {
+                        let packet = opura::Packet::parse(&bytes)?;
+                        if packet.frames()[0].is_empty() {
+                            suppressed += 1;
+                            continue;
+                        }
+                        let (header, _) = opura::silk::decode_header(&packet, 0)?;
+                        protected +=
+                            usize::from((0..header.channel_count()).any(|ch| {
+                                header.redundancy(ch).is_some_and(|f| f.iter().any(|&v| v))
+                            }));
+                    }
+                    assert!(protected > 0, "no FEC: {stem}/{dtx}");
+                    assert_eq!(suppressed > 0, dtx);
+                    success(cli().arg("decode").arg(&encoded).arg(&output))?;
+                    output_pcm(
+                        &fs::read(output)?,
+                        channels,
+                        frames * (48000 / rate) as usize,
+                    )?;
+                }
             }
         }
     }
