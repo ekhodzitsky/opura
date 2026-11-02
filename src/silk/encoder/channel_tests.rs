@@ -49,6 +49,30 @@ fn indices(i: &FrameIndices) -> Vec<i32> {
 }
 #[test]
 fn unchanged_public_native_channel_frames_packets_and_pcm_match() -> Result<()> {
+    native_channel_corpus(
+        include_str!("../../../tests/silk-encoder-channel-fixtures.txt"),
+        false,
+    )
+}
+#[test]
+fn unchanged_native_redundancy_and_main_channel_frames_match() -> Result<()> {
+    native_channel_corpus(
+        include_str!("../../../tests/silk-encoder-fec-fixtures.txt"),
+        true,
+    )
+}
+fn native_channel_corpus(fixtures: &str, with_fec: bool) -> Result<()> {
+    let mut fec_metadata = Vec::<i32>::new();
+    let mut redundant_frames = Vec::<Option<RedundantFrame>>::new();
+    let mut redundant_count = 0;
+    let mut soft_target_overruns = 0;
+    let mut native_overflows = 0;
+    let mut recovery_count = 0;
+    let mut recovered_losses = 0;
+    let mut protected_recoveries = 0;
+    let mut recovery_decoder = OpusDecoder::new(OutputRate::Khz48, PcmChannels::Mono)?;
+    let mut current_packet = Vec::new();
+    let mut lbrr_flag = false;
     let mut channel = ChannelFrameEncoder::new(SilkRate::Khz8);
     let mut writer = RangeEncoder::new(1275)?;
     let mut flags = 0;
@@ -61,21 +85,56 @@ fn unchanged_public_native_channel_frames_packets_and_pcm_match() -> Result<()> 
     let mut native_decoder = OpusDecoder::new(OutputRate::Khz48, PcmChannels::Mono)?;
     let mut own_decoder = OpusDecoder::new(OutputRate::Khz48, PcmChannels::Mono)?;
     let mut header_bits = 0;
-    for (line_number, line) in include_str!("../../../tests/silk-encoder-channel-fixtures.txt")
-        .lines()
-        .enumerate()
-    {
+    for (line_number, line) in fixtures.lines().enumerate() {
         if line.starts_with('#') {
             continue;
         }
         let f: Vec<_> = line.split_whitespace().collect();
+        if f[0] == "recover" {
+            assert!(with_fec);
+            let count: u16 = f[2].parse()?;
+            let pcm = if f[1] == "1" {
+                recovered_losses += 1;
+                protected_recoveries += usize::from(lbrr_flag);
+                recovery_decoder.decode_fec(&current_packet, count)?
+            } else {
+                recovery_decoder.decode(&current_packet)?
+            };
+            assert_eq!(pcm.samples().len(), usize::from(count));
+            assert_eq!(pcm.final_range(), f[3].parse()?);
+            assert_eq!(fingerprint(pcm.samples()), f[4].parse()?);
+            recovery_count += 1;
+            continue;
+        }
+        if f[0] == "overflow" {
+            assert!(with_fec);
+            let tell: u32 = f[5].parse()?;
+            let maximum: u32 = f[6].parse()?;
+            let storage: u32 = f[7].parse()?;
+            assert!(tell > maximum && tell > storage * 8);
+            let fallback = hex(f[9])?;
+            assert_eq!(fallback.len(), f[8].parse::<usize>()?);
+            let packet = crate::Packet::parse(&fallback)?;
+            assert_eq!(packet.frame_samples(), 2880);
+            assert_eq!(packet.frames(), &[&[0u8][..]]);
+            native_overflows += 1;
+            continue;
+        }
+        if f[0] == "fec" {
+            fec_metadata = f[1..]
+                .iter()
+                .map(|v| v.parse())
+                .collect::<std::result::Result<_, _>>()?;
+            continue;
+        }
         if f[0] == "packet" {
             if f[1] == "1" {
                 native_decoder = OpusDecoder::new(OutputRate::Khz48, PcmChannels::Mono)?;
                 own_decoder = OpusDecoder::new(OutputRate::Khz48, PcmChannels::Mono)?;
+                recovery_decoder = OpusDecoder::new(OutputRate::Khz48, PcmChannels::Mono)?;
             }
             let original = hex(f[5])?;
-            writer.patch_initial_bits(flags << 1, header_bits)?;
+            writer.patch_initial_bits((flags << 1) | u32::from(lbrr_flag), header_bits)?;
             let mut finalized = writer.clone();
             finalized.shrink(finalized.tell().div_ceil(8) as usize)?;
             let mut own = vec![original[0] & 0xf8];
@@ -101,6 +160,7 @@ fn unchanged_public_native_channel_frames_packets_and_pcm_match() -> Result<()> 
                 line_number + 1
             );
             assert_eq!(own_decoder.final_range(), expected_range);
+            current_packet = own;
             packets += 1;
             continue;
         }
@@ -120,6 +180,7 @@ fn unchanged_public_native_channel_frames_packets_and_pcm_match() -> Result<()> 
             .collect::<std::result::Result<_, _>>()?;
         if v[14] == 0 {
             channel = ChannelFrameEncoder::new(r);
+            redundant_frames.clear();
         }
         if channel.rate != r {
             // Midstream input-rate history conversion belongs to the enclosing
@@ -127,6 +188,7 @@ fn unchanged_public_native_channel_frames_packets_and_pcm_match() -> Result<()> 
             channel = ChannelFrameEncoder::new(r);
             channel.history[..25 * khz].copy_from_slice(&history);
             channel.counter = v[14] as u32;
+            redundant_frames.clear();
             rate_changes += 1;
         }
         assert_eq!(channel.counter, v[14] as u32);
@@ -142,6 +204,37 @@ fn unchanged_public_native_channel_frames_packets_and_pcm_match() -> Result<()> 
             header_bits = v[12] as u32 + 1;
             let cdf = [(256 - (256 >> header_bits)) as u8, 0];
             writer.encode_icdf(0, &cdf, 8)?;
+            let previous = std::mem::take(&mut redundant_frames);
+            let mask = previous
+                .iter()
+                .enumerate()
+                .fold(0, |mask, (i, f)| mask | (usize::from(f.is_some()) << i));
+            lbrr_flag = mask != 0;
+            assert_eq!(lbrr_flag, v[13] != 0);
+            if lbrr_flag && v[12] > 1 {
+                writer.encode_icdf(
+                    mask - 1,
+                    if v[12] == 2 {
+                        &[203, 150, 0]
+                    } else {
+                        &[215, 195, 166, 125, 110, 82, 0]
+                    },
+                    8,
+                )?;
+            }
+            for (i, frame) in previous.iter().enumerate() {
+                if let Some(frame) = frame {
+                    channel.encode_redundant(
+                        &mut writer,
+                        frame,
+                        if i > 0 && previous[i - 1].is_some() {
+                            PitchCoding::Conditional
+                        } else {
+                            PitchCoding::Independent
+                        },
+                    )?;
+                }
+            }
             flags = 0;
         }
         assert_eq!(writer.tell(), v[16] as u32);
@@ -178,8 +271,26 @@ fn unchanged_public_native_channel_frames_packets_and_pcm_match() -> Result<()> 
             frames_per_packet: v[12] as u8,
             redundancy: v[13] != 0,
         };
+        let fec_controls = if with_fec && fec_metadata[0] != 0 {
+            Some(RedundancyControls {
+                gain_increase: fec_metadata[1] as u8,
+                reset_gain_history: fec_metadata[2] != 0,
+            })
+        } else {
+            None
+        };
         let result = channel
-            .encode(&mut writer, &input, controls)
+            .encode_with_redundancy(
+                &mut writer,
+                &input,
+                controls,
+                if with_fec {
+                    1275 * 8
+                } else {
+                    controls.max_bits
+                },
+                fec_controls,
+            )
             .map_err(|e| format!("frame line {}: {e}", line_number + 1))?;
         assert_eq!(
             [writer.tell(), writer.tell_frac(), writer.range()],
@@ -188,6 +299,36 @@ fn unchanged_public_native_channel_frames_packets_and_pcm_match() -> Result<()> 
             line_number + 1
         );
         assert_eq!(result.bits(), writer.tell());
+        soft_target_overruns += usize::from(writer.tell() > controls.max_bits);
+        if with_fec {
+            assert_eq!(
+                result.redundancy().is_some(),
+                fec_metadata[4] != 0,
+                "redundancy presence line{}",
+                line_number + 1
+            );
+            if let Some(redundant) = result.redundancy() {
+                assert_eq!(
+                    indices(redundant.indices()),
+                    fec_metadata[5..38],
+                    "redundant indices line{}",
+                    line_number + 1
+                );
+                assert_eq!(
+                    redundant
+                        .pulses()
+                        .iter()
+                        .map(|&v| i32::from(v))
+                        .collect::<Vec<_>>(),
+                    fec_metadata[38..],
+                    "redundant pulses line{}",
+                    line_number + 1
+                );
+                assert_eq!(i32::from(channel.redundant_gain), fec_metadata[3]);
+                redundant_count += 1;
+            }
+            redundant_frames.push(result.redundancy().cloned());
+        }
         assert_eq!(i64::from(channel.gains.previous_index()), v[27]);
         assert_eq!(
             i64::from(result.quantizer_calls()) + i64::from(result.used_damage_control()),
@@ -237,10 +378,94 @@ fn unchanged_public_native_channel_frames_packets_and_pcm_match() -> Result<()> 
         damage += usize::from(result.used_damage_control());
         conditional += usize::from(controls.coding == PitchCoding::Conditional);
     }
-    assert_eq!((frames, packets, conditional), (504, 288, 216));
-    assert!(retries > 100);
-    assert_eq!(damage, 1);
-    assert!(rate_changes > 0);
+    if with_fec {
+        assert_eq!((frames, packets, conditional), (483, 281, 202));
+        assert_eq!(native_overflows, 1);
+        assert_eq!(recovery_count, 280);
+        assert_eq!(recovered_losses, 93);
+        assert_eq!(protected_recoveries, 46);
+        assert!(soft_target_overruns > 0);
+        assert!(redundant_count > 100);
+        assert!(retries > 0);
+    } else {
+        assert_eq!((frames, packets, conditional), (504, 288, 216));
+        assert_eq!(native_overflows, 0);
+        assert!(retries > 100);
+        assert_eq!(damage, 1);
+        assert!(rate_changes > 0);
+    }
+    Ok(())
+}
+#[test]
+fn redundant_quantization_isolated_from_main_and_errors_are_atomic() -> Result<()> {
+    let mut main = ChannelFrameEncoder::new(SilkRate::Khz8);
+    let mut redundant = main.clone();
+    let mut main_writer = header(1275)?;
+    let mut redundant_writer = main_writer.clone();
+    let input: Vec<i16> = (0..160).map(|i| ((i % 80) as i16 - 40) * 200).collect();
+    let c = controls(FrameDuration::Ms20);
+    let fec = Some(RedundancyControls {
+        gain_increase: 7,
+        reset_gain_history: true,
+    });
+    let ordinary = main.encode(&mut main_writer, &input, c)?;
+    let protected =
+        redundant.encode_with_redundancy(&mut redundant_writer, &input, c, c.max_bits, fec)?;
+    assert_eq!(ordinary.indices(), protected.indices());
+    assert_eq!(ordinary.pulses(), protected.pulses());
+    assert_eq!(main.nsq, redundant.nsq);
+    assert_eq!(main.gains, redundant.gains);
+    assert_eq!(main_writer, redundant_writer);
+    let frame = protected.redundancy().ok_or("missing redundant frame")?;
+    let saved = redundant.clone();
+    let original_writer = redundant_writer.clone();
+    assert!(
+        redundant
+            .encode_with_redundancy(
+                &mut redundant_writer,
+                &input,
+                c,
+                c.max_bits,
+                Some(RedundancyControls {
+                    gain_increase: 8,
+                    reset_gain_history: true
+                })
+            )
+            .is_err()
+    );
+    assert!(
+        redundant
+            .encode_with_redundancy(&mut redundant_writer, &input, c, c.max_bits - 1, fec)
+            .is_err()
+    );
+    let tiny = FrameControls { max_bits: 16, ..c };
+    assert!(
+        redundant
+            .encode_with_redundancy(&mut redundant_writer, &input, tiny, 16, fec)
+            .is_err()
+    );
+    assert_eq!(redundant, saved);
+    assert_eq!(redundant_writer, original_writer);
+    let mut fresh = ChannelFrameEncoder::new(SilkRate::Khz8);
+    let before = fresh.clone();
+    let mut writer = header(1275)?;
+    let before_writer = writer.clone();
+    assert!(
+        fresh
+            .encode_redundant(&mut writer, frame, PitchCoding::Conditional)
+            .is_err()
+    );
+    assert_eq!(fresh, before);
+    assert_eq!(writer, before_writer);
+    writer.finish()?;
+    let finished = writer.clone();
+    assert!(
+        redundant
+            .encode_redundant(&mut writer, frame, PitchCoding::Independent)
+            .is_err()
+    );
+    assert_eq!(redundant, saved);
+    assert_eq!(writer, finished);
     Ok(())
 }
 fn controls(duration: FrameDuration) -> FrameControls {

@@ -7,6 +7,21 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Add native pre-search LBRR quantization to the SILK channel core, using copied
+  NSQ state and separate redundant gain history. Return saved redundant frames
+  and serialize them with active redundancy entropy contexts in a later packet.
+- Distinguish native per-frame RDO targets from an explicit hard packet bound
+  in the new channel API; preserve the original `encode` strict-bound contract.
+- Match 483 main frames, 243 redundant frames and 281 complete native packets,
+  including exact symbols/pulses, entropy bytes and full main NSQ fingerprints.
+  Match 280 independent recovery/continuation PCM results, including 93 loss
+  requests (46 with LBRR, 47 without). Retain the native oversized-LBRR/PLC case.
+- All seven required offline checks pass, including 19 Python tool tests;
+  the complete FEC trace regenerates byte for byte against unchanged native code.
+- This is channel-core work: fixed-bandwidth PCM frontends and CLI do not yet
+  emit FEC. Previous-packet queue/admission policy, stereo and adaptive bandwidth
+  remain in the full SILK task. No complete FEC encoder claim is made.
+
 ## [0.1.69] - 2026-11-02
 
 - Add opt-in mono/stereo SILK DTX through `set_dtx` / `in_dtx` and CLI

@@ -13,7 +13,7 @@ use super::{
 use crate::{
     range::{EncoderError, RangeEncoder},
     silk::{
-        gains::{FrameActivity, FrameDuration, SignalType},
+        gains::{FrameActivity, FrameDuration, SignalType, linear_gain, reconstruct_index},
         pitch::{PitchCoding, SilkRate, tables::SCALES_Q14},
     },
 };
@@ -37,7 +37,9 @@ pub struct FrameControls {
     pub fill_budget: bool,
     /// Independent/conditional gain, lag and LTP-scale signaling.
     pub coding: PitchCoding,
-    /// Maximum total entropy tell(), including already-written packet headers; cannot exceed writer capacity * 8.
+    /// Total entropy tell() target, including preceding packet fields. This is
+    /// a hard bound for `encode`; `encode_with_redundancy` takes a separate hard
+    /// packet bound to allow native damage control past a partial-frame quota.
     pub max_bits: u32,
     /// Expected packet loss percentage, 0..=100, for LTP scaling.
     pub packet_loss_percent: u8,
@@ -113,8 +115,15 @@ pub struct EncodedFrame {
     iterations: u8,
     calls: u8,
     damaged: bool,
+    redundant: Option<RedundantFrame>,
 }
 impl EncodedFrame {
+    /// Lower-rate redundancy captured before main bitrate search, if requested
+    /// and speech activity exceeded the native LBRR threshold. The enclosing
+    /// packet encoder must retain this for the following packet.
+    pub fn redundancy(&self) -> Option<&RedundantFrame> {
+        self.redundant.as_ref()
+    }
     /// Actual selected/transmitted side information, including the winning seed.
     pub fn indices(&self) -> &FrameIndices {
         &self.indices
@@ -145,6 +154,36 @@ impl EncodedFrame {
         self.damaged
     }
 }
+/// Native lower-rate redundant quantization controls for one analyzed frame.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct RedundancyControls {
+    /// First gain-symbol increase, 0..=7. Native packet policy starts at seven
+    /// and adapts to 3..=7 based on packet loss percentage.
+    pub gain_increase: u8,
+    /// First redundant frame in the packet or after a nonredundant frame.
+    /// Rebase redundant gain history on this frame's main quantized gain index.
+    pub reset_gain_history: bool,
+}
+/// Lower-rate redundant frame, to be carried by the following packet. Its NSQ
+/// starts from a copy of the main pre-search state and never replaces that state.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RedundantFrame {
+    rate: SilkRate,
+    duration: FrameDuration,
+    indices: FrameIndices,
+    pulses: [i8; 320],
+    length: usize,
+}
+impl RedundantFrame {
+    /// Quantized symbols, including the redundant quantizer's winning seed.
+    pub fn indices(&self) -> &FrameIndices {
+        &self.indices
+    }
+    /// Lower-rate excitation pulses.
+    pub fn pulses(&self) -> &[i8] {
+        &self.pulses[..self.length]
+    }
+}
 /// One fixed-internal-rate encoder channel. PCM has already passed the input
 /// front end; activity describes the undelayed VAD frame. Maintains the native
 /// fixed 5 ms input delay, independent of the complexity-dependent shape window.
@@ -161,6 +200,7 @@ pub struct ChannelFrameEncoder {
     gains: GainProcessState,
     nsq: NoiseShapingQuantizer,
     entropy: FrameEncoderState,
+    redundant_gain: u8,
 }
 impl ChannelFrameEncoder {
     /// Start a fresh channel at an internal rate. All external-rate conversion
@@ -178,6 +218,7 @@ impl ChannelFrameEncoder {
             gains: GainProcessState::default(),
             nsq: NoiseShapingQuantizer::default(),
             entropy: FrameEncoderState::default(),
+            redundant_gain: 0,
         }
     }
     /// Clear every channel history while retaining the internal rate.
@@ -219,6 +260,24 @@ impl ChannelFrameEncoder {
         input: &[i16],
         controls: FrameControls,
     ) -> Result<EncodedFrame, FrameError> {
+        self.encode_with_redundancy(writer, input, controls, controls.max_bits, None)
+    }
+    /// Encode with optional native LBRR generation before the main bitrate
+    /// search. Redundancy does not enter this packet automatically; the returned
+    /// frame belongs in the next packet. `FrameControls::redundancy` separately
+    /// selects the existing LTP loss-scaling policy. Errors preserve both writer
+    /// and all main/redundant channel histories. `controls.max_bits` is the native
+    /// RDO frame target. `packet_max_bits` is a separate hard bound, at least that
+    /// target: final damage control may exceed a partial-frame quota after an
+    /// LBRR prefix, but must still fit the enclosing packet.
+    pub fn encode_with_redundancy(
+        &mut self,
+        writer: &mut RangeEncoder,
+        input: &[i16],
+        controls: FrameControls,
+        packet_max_bits: u32,
+        redundancy: Option<RedundancyControls>,
+    ) -> Result<EncodedFrame, FrameError> {
         let count = subframes(controls.duration);
         let khz = self.rate.khz() as usize;
         let length = count * 5 * khz;
@@ -230,15 +289,18 @@ impl ChannelFrameEncoder {
             || controls.packet_loss_percent > 100
             || !(1..=3).contains(&controls.frames_per_packet)
             || controls.max_bits == 0
-            || controls.max_bits > writer.capacity() as u32 * 8
+            || controls.max_bits > packet_max_bits
+            || packet_max_bits > writer.capacity() as u32 * 8
             || controls.activity.quality_bands_q15.iter().any(|&v| v < 0)
+            || redundancy.is_some_and(|r| r.gain_increase > 7)
+            || (redundancy.is_some() && !controls.active && controls.activity.probability_q8 > 77)
         {
             return Err(FrameError::InvalidControls);
         }
         if writer.is_finished() {
             return Err(SilkEncodeError::Entropy(EncoderError::Finished).into());
         }
-        if writer.tell() >= controls.max_bits {
+        if writer.tell() >= packet_max_bits {
             return Err(FrameError::BitBudgetExceeded);
         }
         if controls.coding == PitchCoding::Conditional && self.first {
@@ -349,6 +411,56 @@ impl ChannelFrameEncoder {
         };
         let mut current_pcm = [0i16; 320];
         current_pcm[..length].copy_from_slice(&staged.history[20 * khz..20 * khz + length]);
+        let redundant = if let Some(r) =
+            redundancy.filter(|_| controls.activity.probability_q8 > 77)
+        {
+            let mut redundant_indices = indices.clone();
+            redundant_indices.gains[..count].copy_from_slice(processed.quantized().indices());
+            let mut redundant_parameters = parameters.clone();
+            if r.reset_gain_history {
+                staged.redundant_gain = staged.gains.quantized_index();
+                redundant_indices.gains[0] = (redundant_indices.gains[0] + r.gain_increase).min(63);
+            }
+            for k in 0..count {
+                staged.redundant_gain = reconstruct_index(
+                    staged.redundant_gain,
+                    redundant_indices.gains[k],
+                    k == 0 && !conditional,
+                );
+                redundant_parameters.gains_q16[k] = linear_gain(staged.redundant_gain);
+            }
+            let mut quantizer = staged.nsq.clone();
+            let states = decision_states(controls.complexity);
+            let quantized = if states > 1 || shape.warping_q16() > 0 {
+                quantizer.quantize_delayed(
+                    self.rate,
+                    controls.duration,
+                    &current_pcm[..length],
+                    &redundant_parameters,
+                    states,
+                    shape.warping_q16(),
+                )?
+            } else {
+                quantizer.quantize(
+                    self.rate,
+                    controls.duration,
+                    &current_pcm[..length],
+                    &redundant_parameters,
+                )?
+            };
+            redundant_indices.seed = quantized.seed();
+            let mut pulses = [0i8; 320];
+            pulses[..length].copy_from_slice(quantized.pulses());
+            Some(RedundantFrame {
+                rate: self.rate,
+                duration: controls.duration,
+                indices: redundant_indices,
+                pulses,
+                length,
+            })
+        } else {
+            None
+        };
         let data = SearchData {
             context,
             input: &current_pcm[..length],
@@ -358,6 +470,7 @@ impl ChannelFrameEncoder {
             processed: &processed,
             controls,
             warping: shape.warping_q16(),
+            packet_max_bits,
         };
         let selected = staged.search(writer, data)?;
         let Trial {
@@ -387,10 +500,37 @@ impl ChannelFrameEncoder {
             iterations: selected.iterations,
             calls: selected.calls,
             damaged,
+            redundant,
         };
         *writer = next;
         *self = staged;
         Ok(result)
+    }
+    /// Serialize a saved redundant frame before the current packet's normal
+    /// frames, after its header/mask/stereo fields. Conditional coding requires
+    /// a preceding redundant frame for this channel. The caller owns packet
+    /// ordering; errors preserve entropy writer and all channel state.
+    pub fn encode_redundant(
+        &mut self,
+        writer: &mut RangeEncoder,
+        frame: &RedundantFrame,
+        coding: PitchCoding,
+    ) -> Result<(), FrameError> {
+        if frame.rate != self.rate || coding == PitchCoding::IndependentWithoutScaling {
+            return Err(FrameError::InvalidControls);
+        }
+        self.entropy.encode(
+            writer,
+            FrameContext {
+                rate: frame.rate,
+                duration: frame.duration,
+                activity: FrameActivity::Redundant,
+                coding,
+            },
+            &frame.indices,
+            frame.pulses(),
+        )?;
+        Ok(())
     }
     fn insert(&mut self, input: &[i16]) {
         let start = 25 * self.rate.khz() as usize;
@@ -406,6 +546,14 @@ fn subframes(duration: FrameDuration) -> usize {
         2
     } else {
         4
+    }
+}
+fn decision_states(complexity: u8) -> u8 {
+    match complexity {
+        0 | 1 => 1,
+        2..=5 => 2,
+        6..=7 => 3,
+        _ => 4,
     }
 }
 fn ltp_scale(signal: SignalType, gain: i32, c: FrameControls) -> u8 {
@@ -448,6 +596,7 @@ struct SearchData<'a> {
     processed: &'a ProcessedGains,
     controls: FrameControls,
     warping: i16,
+    packet_max_bits: u32,
 }
 impl ChannelFrameEncoder {
     fn search(
@@ -498,7 +647,7 @@ impl ChannelFrameEncoder {
                 let bits = trial.bits;
                 current = Some(trial);
                 if !data.controls.fill_budget && iteration == 0 && bits <= maximum {
-                    return select(current, iteration, calls, maximum);
+                    return select(current, iteration, calls, data.packet_max_bits);
                 }
                 bits
             };
@@ -508,7 +657,7 @@ impl ChannelFrameEncoder {
                         current = Some(trial);
                     }
                 }
-                return select(current, iteration, calls, maximum);
+                return select(current, iteration, calls, data.packet_max_bits);
             }
             if bits > maximum {
                 if lower.is_none() && iteration >= 2 {
@@ -533,7 +682,7 @@ impl ChannelFrameEncoder {
                     previous.2 = bits;
                 }
             } else {
-                return select(current, iteration, calls, maximum);
+                return select(current, iteration, calls, data.packet_max_bits);
             }
             if lower.is_none() && bits > maximum {
                 let pulses = &current
@@ -594,12 +743,7 @@ impl ChannelFrameEncoder {
         let length = data.input.len();
         let mut parameters = data.parameters.clone();
         parameters.gains_q16[..count].copy_from_slice(data.quantized.gains_q16());
-        let states = match data.controls.complexity {
-            0 | 1 => 1,
-            2..=5 => 2,
-            6..=7 => 3,
-            _ => 4,
-        };
+        let states = decision_states(data.controls.complexity);
         let mut nsq = self.nsq.clone();
         let quantized = if states > 1 || data.warping > 0 {
             nsq.quantize_delayed(

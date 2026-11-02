@@ -124,6 +124,9 @@ pub struct GainProcessState {
     pub(super) quantizer: GainQuantizer,
 }
 impl GainProcessState {
+    pub(in crate::silk::encoder) fn quantized_index(&self) -> u8 {
+        self.quantizer.previous_index()
+    }
     pub(in crate::silk::encoder) fn retry(
         &mut self,
         processed: &ProcessedGains,

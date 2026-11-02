@@ -1655,3 +1655,11 @@ revision. Existing SILK/Opus terms above apply. The optional DTX oracle wraps
 unchanged public VAD calls and extracts the original outer decision function;
 it also retains a minimal original modified-Burg near-silence probe. Captured
 synthetic traces and generated packets add no native build/test dependency.
+
+The SILK channel encoder's LBRR branch follows `silk_LBRR_encode_FIX` in
+`silk/fixed/encode_frame_FIX.c`, with shared gain reconstruction from
+`silk/gain_quant.c` and later packet serialization order from `silk/enc_API.c`,
+at the same pinned revision and under the SILK terms above. The optional oracle
+extends the existing unchanged public frame wrapper and public decoder calls;
+it retains native entropy overflow diagnostics and the actual padded PLC packet,
+without substituting codec algorithms or changing reference source.

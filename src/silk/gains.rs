@@ -205,7 +205,7 @@ impl GainState {
 }
 
 // Inputs are bounded: previous 0..63, independent index 0..63, delta 0..40.
-fn reconstruct_index(previous: u8, index: u8, independent: bool) -> u8 {
+pub(super) fn reconstruct_index(previous: u8, index: u8, independent: bool) -> u8 {
     let previous = i32::from(previous);
     let index = i32::from(index);
     if independent {
