@@ -207,7 +207,7 @@ impl<W: Write> Writer<W> {
     }
     pub fn packet(&mut self, packet: &[u8], granule: u64, eos: bool) -> io::Result<()> {
         let segments = packet.len() / 255 + 1;
-        if packet.is_empty() || packet.len() > 1276 || granule < self.granule {
+        if packet.is_empty() || packet.len() > 1276 * 48 || granule < self.granule {
             return Err(invalid("invalid encoder Ogg packet/granule"));
         }
         if !self.laces.is_empty()
@@ -233,6 +233,36 @@ impl<W: Write> Writer<W> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn grouped_encoder_packets_fit_pages_and_preserve_lacing_crc_and_duration() -> io::Result<()> {
+        let mut bytes = Vec::new();
+        {
+            let mut output = Writer::new(&mut bytes, 2, 48000)?;
+            for (i, size) in [1275, 1276, 1277, 61248].into_iter().enumerate() {
+                output.packet(&vec![0x55; size], (i as u64 + 1) * 5760, i == 3)?;
+            }
+        }
+        let mut reader = Reader::new(bytes.as_slice());
+        let mut sizes = Vec::new();
+        let mut last = 0;
+        while let Some(page) = reader.page()? {
+            sizes.extend(page.packets.iter().map(Vec::len));
+            last = page.granule.unwrap_or(last);
+        }
+        assert_eq!(
+            sizes,
+            vec![
+                19,
+                16 + concat!("opura ", env!("CARGO_PKG_VERSION")).len(),
+                1275,
+                1276,
+                1277,
+                61248
+            ]
+        );
+        assert_eq!(last, 23040);
+        Ok(())
+    }
     fn page(flags: u8, sequence: u32, granule: u64, laces: &[u8], body: &[u8]) -> Vec<u8> {
         let mut h = vec![0u8; 27];
         h[..4].copy_from_slice(b"OggS");

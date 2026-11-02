@@ -1,0 +1,191 @@
+{
+  "status": "pass",
+  "baseline_version": "0.1.80",
+  "baseline_tag_commit": "a701d3b3b79a9a6ccb715979d1057eb8a061c683",
+  "old_binary_sha256": "7f0fcc0f8a17076dcb87c1f3e65d9c2d5711526db9360e8af4b1186cffea053e",
+  "version": "0.1.81",
+  "binary_sha256": "2c8c608837ecac9b972fead67589f9454ffee150f4aef80676c9f0049998142f",
+  "packet_hash_format": "SHA256 of concatenated audio packets, without length headers",
+  "cases": [
+    {
+      "recording": "speech_orig",
+      "profile": "celt",
+      "packets": 541,
+      "skip": 120,
+      "packet_sha256": "1ff41480621fb9435461279e5ee0f5c590addae6353ab92b82afe5254a2af7c5",
+      "wav_sha256": "a3d2e1cc00a3cf88ca419cb50d32a2f6e56ecdc844d3576a9b1cd7f8f1abc4f9",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "profile": "silk-fixed",
+      "packets": 541,
+      "skip": 312,
+      "packet_sha256": "8ce356ecfbe122d47adc661e47a4ba301e830d0269f31851ee17a6208b359e68",
+      "wav_sha256": "2925b84ed43af00257893e0a295c61f255f167a602f675d4a470ed673f87faf6",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "profile": "silk-auto",
+      "packets": 541,
+      "skip": 312,
+      "packet_sha256": "8ce356ecfbe122d47adc661e47a4ba301e830d0269f31851ee17a6208b359e68",
+      "wav_sha256": "2925b84ed43af00257893e0a295c61f255f167a602f675d4a470ed673f87faf6",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "profile": "celt-vbr",
+      "packets": 541,
+      "skip": 120,
+      "packet_sha256": "0cc3ea065889135397c3fd1b3783b42743a25ce592d3c4ec257251112e9e5503",
+      "wav_sha256": "868c830d7fb88cabde419e6d5966bd888812a63a0dc4ecf6525e44002bc3874b",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "profile": "celt-cvbr",
+      "packets": 541,
+      "skip": 120,
+      "packet_sha256": "6aa37a3147a004e0a16800891e41dcc9052056a2e8f87fb1be3131270be5ba82",
+      "wav_sha256": "db135a9466726024ed30a66556ffbd65fa4cbdc6aea641307df24994898ef4fc",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "profile": "hybrid",
+      "packets": 541,
+      "skip": 312,
+      "packet_sha256": "b27e327a1172ed93fe90ac6e907ef768863c8fb493b6a12258ff64527baf2626",
+      "wav_sha256": "b1584e3e77e71840d19311ad48dfef946c48e03f5dff0c00018bd4e21a009415",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "profile": "hybrid-fec-dtx",
+      "packets": 541,
+      "skip": 312,
+      "packet_sha256": "bfffce622aa5352969d4cb609404006cdb63be698c61da5a37ae28bd0101595a",
+      "wav_sha256": "9438773de8efa1c5d32f4c423a3448ce892660db91f3a44a4c3bc4ce241d08a8",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "profile": "hybrid-vbr",
+      "packets": 541,
+      "skip": 312,
+      "packet_sha256": "a0f7f89175702bc43d834617496d1c085371f4f7d3f2ee4f54df9a947cc4f7af",
+      "wav_sha256": "8152920338d3cbf3b5b924acd8f04fc6b39e8a600aec556443de98f68d62674f",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "profile": "hybrid-vbr-fec-dtx",
+      "packets": 541,
+      "skip": 312,
+      "packet_sha256": "0e8c55a89766ed9a6c4d6b720001f2581eeb78ec9b263fe36e4a9ed280386b5c",
+      "wav_sha256": "79acfc6bcdd0cd53859e80f1983d7a8f58d230e482a60b8f66cea5f7dc95ea82",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "music_orig",
+      "profile": "celt",
+      "packets": 4540,
+      "skip": 120,
+      "packet_sha256": "a564266950ee53863c4b1acc86c049776c2481e135be19fc1c795199367894e0",
+      "wav_sha256": "6c503c3229faac7322f4e509f1bfbfde035929ce6e5ed09ab1502d3635ec2e0a",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "music_orig",
+      "profile": "silk-fixed",
+      "packets": 4541,
+      "skip": 312,
+      "packet_sha256": "c990c07fb1c33f49f643ece4d0821573af58583858db91551d45a1a8bb021496",
+      "wav_sha256": "0cd73913c05855abcd3179450a664fdd069f862753305789a0c0bc3fc52e373d",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "music_orig",
+      "profile": "silk-auto",
+      "packets": 4541,
+      "skip": 312,
+      "packet_sha256": "c990c07fb1c33f49f643ece4d0821573af58583858db91551d45a1a8bb021496",
+      "wav_sha256": "0cd73913c05855abcd3179450a664fdd069f862753305789a0c0bc3fc52e373d",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "music_orig",
+      "profile": "celt-vbr",
+      "packets": 4540,
+      "skip": 120,
+      "packet_sha256": "7f76966922b6265b193629773615e7241c830aff48c30f897b785b8507b5abd3",
+      "wav_sha256": "bf38175c8dc44a2d120cdbf287bc494cbb56fdeef46d2161d86accdc99b43d66",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "music_orig",
+      "profile": "celt-cvbr",
+      "packets": 4540,
+      "skip": 120,
+      "packet_sha256": "7b80fa71d0b5ec47d892a07a4fb2c12dc44399b80c0aea42592051ffa181f9d1",
+      "wav_sha256": "03e6fb0a62bee325c6eb631acd836e91cac73b421ddc43df23740123c0328824",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "music_orig",
+      "profile": "hybrid",
+      "packets": 4541,
+      "skip": 312,
+      "packet_sha256": "b61d4df10d06a2ba919ce9a1d34a63c4d437e8cc8bf1d1be1eaa29a716eee099",
+      "wav_sha256": "a2fa5129b65818c8d9f18c8990ef8cda496f2c4b82082f9875b34a89e5804c1d",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "music_orig",
+      "profile": "hybrid-fec-dtx",
+      "packets": 4541,
+      "skip": 312,
+      "packet_sha256": "4eb61914febcd86485b487d15165652b049f0b657a41b8365cfeaed53ab554f7",
+      "wav_sha256": "51d2ebe21e8f7e74acc0fac3332331859676d2dde4dc8d76d5ffd92207f6a502",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "music_orig",
+      "profile": "hybrid-vbr",
+      "packets": 4541,
+      "skip": 312,
+      "packet_sha256": "3ad4f01cd72e13b8db9c3a673bb4b7ff15937cf8a8cfa4076b7e55b6c3a78b22",
+      "wav_sha256": "ce87b38e038e7520a5e067d0a7224d0d4b30c7847ef1bc61fda5e8ce65051e3e",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "music_orig",
+      "profile": "hybrid-vbr-fec-dtx",
+      "packets": 4541,
+      "skip": 312,
+      "packet_sha256": "37966a1b3e6360dd00eea446eba3f389d19a96902ae776d04e13cbf61d429557",
+      "wav_sha256": "797a05bda67585b8678e368c1f606b6048d48e33524f7e6c93205efe2d46294a",
+      "packets_match": true,
+      "wav_match": true
+    }
+  ]
+}

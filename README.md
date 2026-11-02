@@ -57,13 +57,24 @@ are 2.5, 5, 10 or 20 ms; defaults are 20 ms and 64,000 bits/s. Bitrate includes
 Opus packet TOC bytes and excludes Ogg overhead; fractional byte budgets carry
 between CBR packets. Add `--vbr` for unconstrained variable rate or `--cvbr`
 for native constrained capacity/reservoir/drift feedback. Their separate hard
-packet cap is `--max-packet-bytes` (default1276, including TOC); silence can
-use three-byte packets. CBR remains the default. Library users call
+packet cap is `--max-packet-bytes` (default1276 for one frame, including TOC);
+single-frame silence can use three-byte packets. CBR remains the default. Library users call
 `CeltEncoder::encode_vbr` with `VbrOptions`, whose payload cap excludes TOC.
 The nominal rate includes TOC and can be limited by channel/capacity bounds;
 unattainable budgets fail explicitly. See [CELT VBR validation](docs/validation/celt-vbr.md).
 The encoder flushes its 120-sample delay at 48 kHz; pre-skip
 and the final granule preserve the exact input duration after resampling.
+
+Add `--packet-ms 120` to assemble compatible frames into longer packets.
+It must be a positive multiple of `--frame-ms` and at most120ms. The final
+group and a SILK bandwidth change can close a shorter packet. CBR counts the
+complete packet header and padding; all-DTX groups stay compact. VBR/CVBR
+`--max-packet-bytes` caps the whole group, defaulting to1276 bytes per planned
+component frame (at most61248 bytes). Tight caps can reduce the nominal rate
+or fail admission. Existing one-frame defaults retain their audio bytes.
+The library's allocation-free `repacketizer::Repacketizer` assembles borrowed
+compatible frames, selects ranges and writes exact padded lengths with atomic
+append/write errors. See [multi-frame validation](docs/validation/grouped-packets.md).
 
 Speech can be encoded through SILK:
 
@@ -75,8 +86,9 @@ SILK supports mono/stereo input, 10/20/40/60 ms packets and `--bandwidth nb|mb|w
 Bandwidth defaults to NB for 8 kHz, MB for 12 kHz and WB for higher input rates.
 Its default bitrate is 24,000 bits/s for mono and 48,000 bits/s for stereo. Pre-skip is 312 samples at 48 kHz (6.5 ms);
 lookahead flushing and final granules preserve exact source duration.
-Add `--dtx` to suppress silence while retaining timing. Suppressed packets are
-one byte even in CBR; periodic full packets refresh decoder state. DTX is off by
+Add `--dtx` to suppress silence while retaining timing. Suppressed single-frame
+packets are one byte even in CBR; all-DTX groups use at most two bytes.
+Periodic full packets refresh decoder state. DTX is off by
 default and still runs full encoder analysis. Library users call `set_dtx(true)`
 on the mono/stereo encoder; `in_dtx()` describes its last successful packet.
 See the [DTX validation record](docs/validation/silk-dtx.md).
@@ -110,7 +122,7 @@ Use `--mode silk --bandwidth auto` or `set_automatic_bandwidth(true)` to select
 NB/MB/WB from packet bitrate, complexity, loss and native AUDIO thresholds. FEC
 can lower the target, while channel layout stays fixed. Reset retains the mode.
 Automatic-mode packet overflow follows native PLC signaling; `used_plc()` and the
-CLI PLC packet count distinguish this from DTX. The
+CLI PLC packet count distinguish this from DTX (component-frame count when grouping). The
 [automatic bandwidth record](docs/validation/silk-automatic-bandwidth.md) retains
 stress-case concealment counts and limitations. General mode/channel selection
 and quality/performance

@@ -7,6 +7,23 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.81] - 2026-11-03
+
+- Add allocation-free borrowed Opus repacketization with canonical code0/1/2/3
+  framing, range selection and exact padding, up to48 compatible frames/120ms.
+  Append/write errors preserve buffered state and destination bytes.
+- Connect actual CELT/SILK/Hybrid CLI grouping through `--packet-ms`. Preserve
+  per-frame histories, exact aggregate CBR credit, VBR/CVBR group caps, compact
+  all-DTX output and source duration/pre-skip. Final or incompatible-TOC groups
+  close early; one-frame defaults retain exact audio bytes. Bound encoder Ogg
+  packets to61248 bytes. General cross-mode/channel adaptation remains work.
+- Validate32816 unchanged-native framing/padding results,216 grouped CLI cases,
+  empty/partial/silence/configuration boundaries,34 native recording files
+  (33636 packets) and9672 native PCM/range/loss/FEC replay records.18 default
+  full-file regressions preserve packets/PCM against rebuilt0.1.80. All seven
+  required offline gates pass, including23 Python tests. See
+  docs/validation/grouped-packets.md for reproducible evidence and limits.
+
 ## [0.1.80] - 2026-11-02
 
 - Fix Hybrid VBR high-band dynamic analysis incorrectly using CBR halving and

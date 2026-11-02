@@ -849,6 +849,192 @@ fn celt_vbr_cvbr_cli_caps_silence_duration_and_rejects_conflicts() -> Result<()>
     }
     Ok(())
 }
+
+#[test]
+fn grouped_audio_packets_preserve_duration_rate_caps_and_compatible_frames() -> Result<()> {
+    let temp = Temporary::new()?;
+    for rate in [8000, 12000, 16000, 24000, 48000] {
+        for channels in [1u16, 2] {
+            let input = temp.0.join(format!("group-{rate}-{channels}.wav"));
+            let count = rate as usize / 4 + 1;
+            fs::write(&input, wave(rate, channels, count))?;
+            let mut profiles: Vec<(&str, &str, &str, Vec<&str>)> = Vec::new();
+            for (ms, packet_ms) in [("2.5", "7.5"), ("5", "20"), ("10", "60"), ("20", "120")] {
+                for flags in [vec![], vec!["--vbr"], vec!["--cvbr"]] {
+                    profiles.push(("celt", ms, packet_ms, flags));
+                }
+            }
+            for (ms, packet_ms) in [("10", "120"), ("20", "100"), ("40", "80"), ("60", "120")] {
+                profiles.push(("silk", ms, packet_ms, vec!["--fec", "20", "--dtx"]));
+                profiles.push((
+                    "silk",
+                    ms,
+                    packet_ms,
+                    vec!["--bandwidth", "auto", "--fec", "20", "--dtx"],
+                ));
+            }
+            if rate >= 24000 {
+                for (ms, packet_ms) in [("10", "60"), ("20", "120")] {
+                    profiles.push(("hybrid", ms, packet_ms, vec!["--fec", "20", "--dtx"]));
+                    profiles.push((
+                        "hybrid",
+                        ms,
+                        packet_ms,
+                        vec!["--vbr", "--fec", "20", "--dtx"],
+                    ));
+                }
+            }
+            for (case, (mode, ms, packet_ms, flags)) in profiles.iter().enumerate() {
+                let opus = temp.0.join(format!("group-{rate}-{channels}-{case}.opus"));
+                let output = opus.with_extension("wav");
+                let bitrate = if channels == 1 { 32001u64 } else { 64001 };
+                let variable = flags.contains(&"--vbr") || flags.contains(&"--cvbr");
+                let mut command = cli();
+                command
+                    .arg("encode")
+                    .arg(&input)
+                    .arg(&opus)
+                    .args([
+                        "--mode",
+                        mode,
+                        "--frame-ms",
+                        ms,
+                        "--packet-ms",
+                        packet_ms,
+                        "--bitrate",
+                        &bitrate.to_string(),
+                    ])
+                    .args(flags);
+                if variable {
+                    command.args(["--max-packet-bytes", "1200"]);
+                }
+                success(&mut command)?;
+                success(cli().arg("decode").arg(&opus).arg(&output))?;
+                output_pcm(
+                    &fs::read(&output)?,
+                    channels,
+                    count * (48000 / rate) as usize,
+                )?;
+                let packets = audio_packets(&fs::read(&opus)?)?;
+                let maximum_samples = (packet_ms.parse::<f64>()? * 48.0) as u16;
+                let mut credit = 384000u64 / 2;
+                let mut multiple = 0;
+                for bytes in &packets {
+                    let packet = opura::Packet::parse(bytes)?;
+                    assert!(packet.duration_samples() <= maximum_samples);
+                    multiple += usize::from(packet.frames().len() > 1);
+                    credit += bitrate * u64::from(packet.duration_samples());
+                    let target = credit / 384000;
+                    credit %= 384000;
+                    if variable {
+                        assert!(bytes.len() <= 1200);
+                    } else if !packet.frames().iter().all(|f| f.is_empty()) {
+                        assert_eq!(
+                            bytes.len() as u64,
+                            target,
+                            "{rate}/{channels}/{mode}/{ms}/{packet_ms}"
+                        );
+                    }
+                }
+                assert!(
+                    multiple > 0,
+                    "missing grouping {rate}/{channels}/{mode}/{ms}/{packet_ms}"
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn grouped_cli_rejects_bad_durations_and_impossible_caps_before_output() -> Result<()> {
+    let temp = Temporary::new()?;
+    let input = temp.0.join("group-invalid.wav");
+    fs::write(&input, wave(48000, 1, 960))?;
+    for args in [
+        vec!["--packet-ms", "0"],
+        vec!["--packet-ms", "120.5"],
+        vec!["--packet-ms", "NaN"],
+        vec!["--packet-ms", "10"],
+        vec!["--packet-ms", "30", "--frame-ms", "20"],
+        vec!["--packet-ms", "120", "--packet-ms", "120"],
+        vec!["--packet-ms", "120", "--vbr", "--max-packet-bytes", "14"],
+        vec!["--packet-ms", "120", "--vbr", "--max-packet-bytes", "7657"],
+        vec!["--packet-ms", "120", "--bitrate", "1200"],
+    ] {
+        let output = temp.0.join("group-invalid.opus");
+        assert!(
+            !cli()
+                .arg("encode")
+                .arg(&input)
+                .arg(&output)
+                .args(args)
+                .output()?
+                .status
+                .success()
+        );
+        assert!(!output.exists());
+    }
+    Ok(())
+}
+
+#[test]
+fn grouped_empty_partial_and_silence_resume_files_preserve_timing() -> Result<()> {
+    let temp = Temporary::new()?;
+    for mode in ["celt", "silk", "hybrid"] {
+        for channels in [1u16, 2] {
+            for (case, count) in [0, 1, 48000 * 3 + 13].into_iter().enumerate() {
+                let source = temp
+                    .0
+                    .join(format!("group-tail-{mode}-{channels}-{case}.wav"));
+                let opus = source.with_extension("opus");
+                let output = source.with_extension("decoded.wav");
+                let mut data = wave(48000, channels, count);
+                if case == 2 {
+                    data[44 + 12000 * usize::from(channels) * 2
+                        ..44 + 132000 * usize::from(channels) * 2]
+                        .fill(0);
+                }
+                fs::write(&source, data)?;
+                let mut command = cli();
+                command.arg("encode").arg(&source).arg(&opus).args([
+                    "--mode",
+                    mode,
+                    "--frame-ms",
+                    "20",
+                    "--packet-ms",
+                    "120",
+                    "--bitrate",
+                    if channels == 1 { "32001" } else { "64001" },
+                ]);
+                if mode == "celt" {
+                    command.arg("--cvbr");
+                } else {
+                    command.args(["--fec", "20", "--dtx"]);
+                }
+                success(&mut command)?;
+                success(cli().arg("decode").arg(&opus).arg(&output))?;
+                output_pcm(&fs::read(output)?, channels, count)?;
+                if case == 2 && mode != "celt" {
+                    let packets = audio_packets(&fs::read(opus)?)?;
+                    let mut dtx = 0;
+                    let mut primary = 0;
+                    for bytes in packets {
+                        let p = opura::Packet::parse(&bytes)?;
+                        if p.frames().iter().all(|f| f.is_empty()) {
+                            dtx += 1;
+                            assert!(bytes.len() <= 2);
+                        } else {
+                            primary += 1;
+                        }
+                    }
+                    assert!(dtx > 2 && primary > 2);
+                }
+            }
+        }
+    }
+    Ok(())
+}
 #[test]
 fn silk_cli_fec_emits_redundancy_and_combines_with_dtx() -> Result<()> {
     let temp = Temporary::new()?;

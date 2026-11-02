@@ -24,6 +24,7 @@ pub mod celt;
 pub mod decoder;
 pub mod hybrid;
 pub mod range;
+pub mod repacketizer;
 pub mod silk;
 
 use std::fmt;

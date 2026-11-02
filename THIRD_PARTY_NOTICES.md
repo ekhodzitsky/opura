@@ -1739,3 +1739,10 @@ Native digital silence includes the preceding raw input overlap and resets
 active reconstructed energies after quantization. Optional oracles compile
 unchanged arithmetic blocks with controlled inputs; no native codec dependency
 is introduced. Existing constituent notices and licenses apply.
+
+The borrowing RFC6716 repacketizer follows compatible-TOC grouping, canonical
+code0/1/2/3 frame-count/length packing, range selection and exact transport
+padding in Opus v1.6.1 `src/repacketizer.c`, copyright (c) 2011 Xiph.Org
+Foundation, written by Jean-Marc Valin, under the existing BSD license above.
+Native sources remain optional external byte-oracle inputs. Incoming padding
+extensions, self-delimited framing and multistream are outside this API.

@@ -1,0 +1,1235 @@
+{
+  "status": "pass",
+  "reference_revision": "22244de5a79bd1d6d623c32e72bf1954b56235be",
+  "version": "opura 0.1.81",
+  "binary_sha256": "2c8c608837ecac9b972fead67589f9454ffee150f4aef80676c9f0049998142f",
+  "replay_sha256": "6464da573fe0009301275af8a766db1dbff7ec53c3dd37f6b5787954060d302d",
+  "tool_sha256": "623f52d4841344ff1641c7feeef08a549bdc43e61c9d911131d90ad18dce65a2",
+  "scope": "actual grouped CLI/native decode PCM/range/loss/FEC and framing/rate diagnostics only; no native encoder quality/speed claim",
+  "cases": [
+    {
+      "recording": "speech_orig",
+      "corpus_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "mode": "celt",
+      "channels": 1,
+      "frame_ms": 2.5,
+      "packet_ms": 120.0,
+      "policy": "cbr",
+      "bandwidth": "",
+      "fec_loss_percent": 0,
+      "dtx": false,
+      "bitrate": 64001,
+      "max_packet_bytes": 61248,
+      "samples_per_channel": 518400,
+      "skip": 120,
+      "packets": 91,
+      "packet_bytes": 86421,
+      "min_packet_bytes": 20,
+      "max_actual_packet_bytes": 961,
+      "packet_durations_samples": [
+        120,
+        5760
+      ],
+      "frame_counts": [
+        1,
+        48
+      ],
+      "configurations": [
+        28
+      ],
+      "dtx_packets": 0,
+      "lbrr_packets": 0,
+      "opus_sha256": "b0b2136c3056195e3354e162d7810a7707ecd2d1ae5f89b17ec2608facaa1538",
+      "pcm_sha256": "f63d43acd130498fbf15fa1252d56a79bbddae927cf728e496bb4cde3a519fb5",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "corpus_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "mode": "celt",
+      "channels": 1,
+      "frame_ms": 2.5,
+      "packet_ms": 120.0,
+      "policy": "cvbr",
+      "bandwidth": "",
+      "fec_loss_percent": 0,
+      "dtx": false,
+      "bitrate": 64001,
+      "max_packet_bytes": 9216,
+      "samples_per_channel": 518400,
+      "skip": 120,
+      "packets": 91,
+      "packet_bytes": 86230,
+      "min_packet_bytes": 22,
+      "max_actual_packet_bytes": 980,
+      "packet_durations_samples": [
+        120,
+        5760
+      ],
+      "frame_counts": [
+        1,
+        48
+      ],
+      "configurations": [
+        28
+      ],
+      "dtx_packets": 0,
+      "lbrr_packets": 0,
+      "opus_sha256": "3e9c653c68daf6b63b83eb0bc870dd3d844a4e9e0ddb4d904e6a6bc9ae6ad96b",
+      "pcm_sha256": "e10a16d6bec064337e9fa7d50d00d7b61a464ef224399b50f4e8ef63ba6be72b",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "corpus_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "mode": "celt",
+      "channels": 1,
+      "frame_ms": 5.0,
+      "packet_ms": 40.0,
+      "policy": "cbr",
+      "bandwidth": "",
+      "fec_loss_percent": 0,
+      "dtx": false,
+      "bitrate": 64001,
+      "max_packet_bytes": 10208,
+      "samples_per_channel": 518400,
+      "skip": 120,
+      "packets": 271,
+      "packet_bytes": 86441,
+      "min_packet_bytes": 40,
+      "max_actual_packet_bytes": 321,
+      "packet_durations_samples": [
+        240,
+        1920
+      ],
+      "frame_counts": [
+        1,
+        8
+      ],
+      "configurations": [
+        29
+      ],
+      "dtx_packets": 0,
+      "lbrr_packets": 0,
+      "opus_sha256": "a86c83477b18c4195e7ad3de3faff52ce1b140823ff644e332de9222dfb977ab",
+      "pcm_sha256": "5ceda99a0d8032ccdbafdb008dc0c17edc3712bab4f7a75503334b7f0eaa88e1",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "corpus_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "mode": "celt",
+      "channels": 1,
+      "frame_ms": 5.0,
+      "packet_ms": 40.0,
+      "policy": "cvbr",
+      "bandwidth": "",
+      "fec_loss_percent": 0,
+      "dtx": false,
+      "bitrate": 64001,
+      "max_packet_bytes": 1536,
+      "samples_per_channel": 518400,
+      "skip": 120,
+      "packets": 271,
+      "packet_bytes": 86279,
+      "min_packet_bytes": 57,
+      "max_actual_packet_bytes": 360,
+      "packet_durations_samples": [
+        240,
+        1920
+      ],
+      "frame_counts": [
+        1,
+        8
+      ],
+      "configurations": [
+        29
+      ],
+      "dtx_packets": 0,
+      "lbrr_packets": 0,
+      "opus_sha256": "2919dad9caf9af466303edb5fd6aaf125cf0cb22b7435e2e70f4a5b870c12a41",
+      "pcm_sha256": "d8d5e1034688e22e36bb14020f0851557d402b3cf1c59776326f81667dbfb9f4",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "corpus_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "mode": "celt",
+      "channels": 1,
+      "frame_ms": 10.0,
+      "packet_ms": 80.0,
+      "policy": "cbr",
+      "bandwidth": "",
+      "fec_loss_percent": 0,
+      "dtx": false,
+      "bitrate": 64001,
+      "max_packet_bytes": 10208,
+      "samples_per_channel": 518400,
+      "skip": 120,
+      "packets": 136,
+      "packet_bytes": 86481,
+      "min_packet_bytes": 80,
+      "max_actual_packet_bytes": 641,
+      "packet_durations_samples": [
+        480,
+        3840
+      ],
+      "frame_counts": [
+        1,
+        8
+      ],
+      "configurations": [
+        30
+      ],
+      "dtx_packets": 0,
+      "lbrr_packets": 0,
+      "opus_sha256": "27fb527025d91e0454ae99e75480339d9dc20e254f22bf867b697af540db06a9",
+      "pcm_sha256": "d85dd68a082f10fd1617e6b679767740784662eb357b135ccbda1c18167f0902",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "corpus_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "mode": "celt",
+      "channels": 1,
+      "frame_ms": 10.0,
+      "packet_ms": 80.0,
+      "policy": "cvbr",
+      "bandwidth": "",
+      "fec_loss_percent": 0,
+      "dtx": false,
+      "bitrate": 64001,
+      "max_packet_bytes": 1536,
+      "samples_per_channel": 518400,
+      "skip": 120,
+      "packets": 136,
+      "packet_bytes": 86540,
+      "min_packet_bytes": 124,
+      "max_actual_packet_bytes": 720,
+      "packet_durations_samples": [
+        480,
+        3840
+      ],
+      "frame_counts": [
+        1,
+        8
+      ],
+      "configurations": [
+        30
+      ],
+      "dtx_packets": 0,
+      "lbrr_packets": 0,
+      "opus_sha256": "5c4d11bf5531b45f83461c68e533dd8072b99b2c1bde1568007ddffb1d69d2e9",
+      "pcm_sha256": "81558568cbf96a5462fe3298cb8858fb38b3d729565fdb10eb94959fb868a6cd",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "corpus_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "mode": "celt",
+      "channels": 1,
+      "frame_ms": 20.0,
+      "packet_ms": 120.0,
+      "policy": "cbr",
+      "bandwidth": "",
+      "fec_loss_percent": 0,
+      "dtx": false,
+      "bitrate": 64001,
+      "max_packet_bytes": 7656,
+      "samples_per_channel": 518400,
+      "skip": 120,
+      "packets": 91,
+      "packet_bytes": 86561,
+      "min_packet_bytes": 160,
+      "max_actual_packet_bytes": 961,
+      "packet_durations_samples": [
+        960,
+        5760
+      ],
+      "frame_counts": [
+        1,
+        6
+      ],
+      "configurations": [
+        31
+      ],
+      "dtx_packets": 0,
+      "lbrr_packets": 0,
+      "opus_sha256": "3358707c45eefb78d257dbec77dc536b14279c5c4a2b8d5cc9bee9f08d6a6ddc",
+      "pcm_sha256": "8c3fc5f25e66cab30f71a84caa01923660377ffb1e774d565726b189891fcdd6",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "corpus_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "mode": "celt",
+      "channels": 1,
+      "frame_ms": 20.0,
+      "packet_ms": 120.0,
+      "policy": "cvbr",
+      "bandwidth": "",
+      "fec_loss_percent": 0,
+      "dtx": false,
+      "bitrate": 64001,
+      "max_packet_bytes": 1200,
+      "samples_per_channel": 518400,
+      "skip": 120,
+      "packets": 91,
+      "packet_bytes": 86674,
+      "min_packet_bytes": 199,
+      "max_actual_packet_bytes": 1120,
+      "packet_durations_samples": [
+        960,
+        5760
+      ],
+      "frame_counts": [
+        1,
+        6
+      ],
+      "configurations": [
+        31
+      ],
+      "dtx_packets": 0,
+      "lbrr_packets": 0,
+      "opus_sha256": "9e94946124e7225c9560bd9147c88c282f0c0f6b9e451a05d8249d59f8dc9325",
+      "pcm_sha256": "3584a0e479b9cba58a556d6e56a657c47aa326dce0dee3c76bc8d3cb91860ac8",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "corpus_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "mode": "celt",
+      "channels": 1,
+      "frame_ms": 2.5,
+      "packet_ms": 7.5,
+      "policy": "vbr",
+      "bandwidth": "",
+      "fec_loss_percent": 0,
+      "dtx": false,
+      "bitrate": 64001,
+      "max_packet_bytes": 1200,
+      "samples_per_channel": 518400,
+      "skip": 120,
+      "packets": 1441,
+      "packet_bytes": 89879,
+      "min_packet_bytes": 22,
+      "max_actual_packet_bytes": 82,
+      "packet_durations_samples": [
+        120,
+        360
+      ],
+      "frame_counts": [
+        1,
+        3
+      ],
+      "configurations": [
+        28
+      ],
+      "dtx_packets": 0,
+      "lbrr_packets": 0,
+      "opus_sha256": "1d2e0e602b22d9c916283ab1300c606f21b2474fad5de7a3c86737dfe6d66009",
+      "pcm_sha256": "911cff75899b422164f00f5dabd9837bf77bb356b8b41232c5219f6a8df6926b",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "corpus_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "mode": "celt",
+      "channels": 1,
+      "frame_ms": 20.0,
+      "packet_ms": 60.0,
+      "policy": "vbr",
+      "bandwidth": "",
+      "fec_loss_percent": 0,
+      "dtx": false,
+      "bitrate": 64001,
+      "max_packet_bytes": 1200,
+      "samples_per_channel": 518400,
+      "skip": 120,
+      "packets": 181,
+      "packet_bytes": 101055,
+      "min_packet_bytes": 302,
+      "max_actual_packet_bytes": 892,
+      "packet_durations_samples": [
+        960,
+        2880
+      ],
+      "frame_counts": [
+        1,
+        3
+      ],
+      "configurations": [
+        31
+      ],
+      "dtx_packets": 0,
+      "lbrr_packets": 0,
+      "opus_sha256": "d50087bc0e9c789285670f40a4d429e255c51c8c43b3968e54cfa59432161bfa",
+      "pcm_sha256": "3d9ce71885a9b4d0f0fcbb5f62883612c48f2fc65b1e99d57f59daf9b7c788c7",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "corpus_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "mode": "silk",
+      "channels": 1,
+      "frame_ms": 10.0,
+      "packet_ms": 120.0,
+      "policy": "cbr",
+      "bandwidth": "wb",
+      "fec_loss_percent": 20,
+      "dtx": true,
+      "bitrate": 32001,
+      "max_packet_bytes": 15312,
+      "samples_per_channel": 518400,
+      "skip": 312,
+      "packets": 91,
+      "packet_bytes": 42285,
+      "min_packet_bytes": 2,
+      "max_actual_packet_bytes": 481,
+      "packet_durations_samples": [
+        480,
+        5760
+      ],
+      "frame_counts": [
+        1,
+        12
+      ],
+      "configurations": [
+        8
+      ],
+      "dtx_packets": 2,
+      "lbrr_packets": 71,
+      "opus_sha256": "d7ac639e002e6a723267afb3e027c6cf6842376f7e09c9f95567c59f72f7a84c",
+      "pcm_sha256": "8ec9eb7f1945b37febb1362638e3b7f3527c7e4874fab4ad1d56edcc2e0a9f61",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "corpus_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "mode": "silk",
+      "channels": 1,
+      "frame_ms": 20.0,
+      "packet_ms": 100.0,
+      "policy": "cbr",
+      "bandwidth": "auto",
+      "fec_loss_percent": 20,
+      "dtx": true,
+      "bitrate": 32001,
+      "max_packet_bytes": 6380,
+      "samples_per_channel": 518400,
+      "skip": 312,
+      "packets": 109,
+      "packet_bytes": 43281,
+      "min_packet_bytes": 80,
+      "max_actual_packet_bytes": 401,
+      "packet_durations_samples": [
+        960,
+        4800
+      ],
+      "frame_counts": [
+        1,
+        5
+      ],
+      "configurations": [
+        9
+      ],
+      "dtx_packets": 0,
+      "lbrr_packets": 84,
+      "opus_sha256": "b57cd689cc8bee84b6eb2d61dff661f829cba168a414a15440dbd532e213196d",
+      "pcm_sha256": "42acd5f65ed18c08604adf5d3e748f0ea021d706a059d517434b0bd214dea127",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "corpus_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "mode": "silk",
+      "channels": 1,
+      "frame_ms": 40.0,
+      "packet_ms": 80.0,
+      "policy": "cbr",
+      "bandwidth": "wb",
+      "fec_loss_percent": 20,
+      "dtx": true,
+      "bitrate": 32001,
+      "max_packet_bytes": 2552,
+      "samples_per_channel": 518400,
+      "skip": 312,
+      "packets": 136,
+      "packet_bytes": 43361,
+      "min_packet_bytes": 160,
+      "max_actual_packet_bytes": 321,
+      "packet_durations_samples": [
+        1920,
+        3840
+      ],
+      "frame_counts": [
+        1,
+        2
+      ],
+      "configurations": [
+        10
+      ],
+      "dtx_packets": 0,
+      "lbrr_packets": 112,
+      "opus_sha256": "26d060d7da41fe381bb29a06f7c871946f5808daaab792896cd6d23c17007f0b",
+      "pcm_sha256": "dcb896e0de1090ed4880e7005ebfb4d0cd4a890379b2a9899ad49de454f308a7",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "corpus_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "mode": "silk",
+      "channels": 1,
+      "frame_ms": 60.0,
+      "packet_ms": 120.0,
+      "policy": "cbr",
+      "bandwidth": "auto",
+      "fec_loss_percent": 20,
+      "dtx": true,
+      "bitrate": 32001,
+      "max_packet_bytes": 2552,
+      "samples_per_channel": 518400,
+      "skip": 312,
+      "packets": 91,
+      "packet_bytes": 43441,
+      "min_packet_bytes": 240,
+      "max_actual_packet_bytes": 481,
+      "packet_durations_samples": [
+        2880,
+        5760
+      ],
+      "frame_counts": [
+        1,
+        2
+      ],
+      "configurations": [
+        11
+      ],
+      "dtx_packets": 0,
+      "lbrr_packets": 76,
+      "opus_sha256": "75ad6b9b3676f7c8f3acf46dc6e342118c821f51c09b5b7e93049a07fe6faed6",
+      "pcm_sha256": "69ad5ce66b770e440817e3e8659df9c7142afa3113c81780e5210aafafe74ac0",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "corpus_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "mode": "hybrid",
+      "channels": 1,
+      "frame_ms": 10.0,
+      "packet_ms": 60.0,
+      "policy": "cbr",
+      "bandwidth": "fb",
+      "fec_loss_percent": 20,
+      "dtx": true,
+      "bitrate": 32001,
+      "max_packet_bytes": 7656,
+      "samples_per_channel": 518400,
+      "skip": 312,
+      "packets": 181,
+      "packet_bytes": 42051,
+      "min_packet_bytes": 2,
+      "max_actual_packet_bytes": 241,
+      "packet_durations_samples": [
+        480,
+        2880
+      ],
+      "frame_counts": [
+        1,
+        6
+      ],
+      "configurations": [
+        14
+      ],
+      "dtx_packets": 5,
+      "lbrr_packets": 0,
+      "opus_sha256": "1dc33aa32d8fe61a6ca92ea3c54c998199e5899eecc033319d063b9d4f17f91d",
+      "pcm_sha256": "31a4151b8587050615c7fc56dfd6aafc3e2feaa89833df6d8f9c814fbbfa0ee1",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "corpus_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "mode": "hybrid",
+      "channels": 1,
+      "frame_ms": 20.0,
+      "packet_ms": 120.0,
+      "policy": "vbr",
+      "bandwidth": "fb",
+      "fec_loss_percent": 20,
+      "dtx": true,
+      "bitrate": 32001,
+      "max_packet_bytes": 1200,
+      "samples_per_channel": 518400,
+      "skip": 312,
+      "packets": 91,
+      "packet_bytes": 39934,
+      "min_packet_bytes": 41,
+      "max_actual_packet_bytes": 520,
+      "packet_durations_samples": [
+        960,
+        5760
+      ],
+      "frame_counts": [
+        1,
+        6
+      ],
+      "configurations": [
+        15
+      ],
+      "dtx_packets": 0,
+      "lbrr_packets": 74,
+      "opus_sha256": "30aa617529da36469adba56566a1bf1d4b0aed8e4533f28c23e3e0aa7a6557b6",
+      "pcm_sha256": "cc8dbfed594bc1abf9652d2e4c8d66a9b0a9aac9218673a60204f70c6942739f",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "corpus_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "mode": "hybrid",
+      "channels": 1,
+      "frame_ms": 20.0,
+      "packet_ms": 120.0,
+      "policy": "cbr",
+      "bandwidth": "fb",
+      "fec_loss_percent": 0,
+      "dtx": true,
+      "bitrate": 32001,
+      "max_packet_bytes": 7656,
+      "samples_per_channel": 518400,
+      "skip": 312,
+      "packets": 91,
+      "packet_bytes": 43281,
+      "min_packet_bytes": 80,
+      "max_actual_packet_bytes": 481,
+      "packet_durations_samples": [
+        960,
+        5760
+      ],
+      "frame_counts": [
+        1,
+        6
+      ],
+      "configurations": [
+        15
+      ],
+      "dtx_packets": 0,
+      "lbrr_packets": 0,
+      "opus_sha256": "9ee6fdd217679e0b2f800779928d940cea3041d4b468ba236192ea4ecbe311ea",
+      "pcm_sha256": "e71c561baa395bd136e85f127fa1b93abf8c07c1bd30d94515f5a2741f8e398e",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "music_orig",
+      "corpus_sha256": "ccc1fef039e7c77a0e3d3a8719cf5ec0a775dce5849113b7646a910d11a7b869",
+      "mode": "celt",
+      "channels": 2,
+      "frame_ms": 2.5,
+      "packet_ms": 120.0,
+      "policy": "cbr",
+      "bandwidth": "",
+      "fec_loss_percent": 0,
+      "dtx": false,
+      "bitrate": 128001,
+      "max_packet_bytes": 61248,
+      "samples_per_channel": 4358219,
+      "skip": 120,
+      "packets": 757,
+      "packet_bytes": 1452811,
+      "min_packet_bytes": 1280,
+      "max_actual_packet_bytes": 1921,
+      "packet_durations_samples": [
+        3840,
+        5760
+      ],
+      "frame_counts": [
+        32,
+        48
+      ],
+      "configurations": [
+        28
+      ],
+      "dtx_packets": 0,
+      "lbrr_packets": 0,
+      "opus_sha256": "18e5b7f5a72ad1634c9153d3be6f00edf01b17e3483f3fdc1c815ebc69fa3359",
+      "pcm_sha256": "ffac86da5e6a2062cdc91b781c585ea1765418e8142f97c343f65a84df78a096",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "music_orig",
+      "corpus_sha256": "ccc1fef039e7c77a0e3d3a8719cf5ec0a775dce5849113b7646a910d11a7b869",
+      "mode": "celt",
+      "channels": 2,
+      "frame_ms": 2.5,
+      "packet_ms": 120.0,
+      "policy": "cvbr",
+      "bandwidth": "",
+      "fec_loss_percent": 0,
+      "dtx": false,
+      "bitrate": 128001,
+      "max_packet_bytes": 9216,
+      "samples_per_channel": 4358219,
+      "skip": 120,
+      "packets": 757,
+      "packet_bytes": 1452852,
+      "min_packet_bytes": 1281,
+      "max_actual_packet_bytes": 1960,
+      "packet_durations_samples": [
+        3840,
+        5760
+      ],
+      "frame_counts": [
+        32,
+        48
+      ],
+      "configurations": [
+        28
+      ],
+      "dtx_packets": 0,
+      "lbrr_packets": 0,
+      "opus_sha256": "81c1aeb4e803cfba9405533766087cf8b55a020fa6112c60c2fec9111ab740a6",
+      "pcm_sha256": "be2bf43ae58d60fac425d74ef5a08213dc856b3d9e66fdd8cabc814c85a9ca85",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "music_orig",
+      "corpus_sha256": "ccc1fef039e7c77a0e3d3a8719cf5ec0a775dce5849113b7646a910d11a7b869",
+      "mode": "celt",
+      "channels": 2,
+      "frame_ms": 5.0,
+      "packet_ms": 40.0,
+      "policy": "cbr",
+      "bandwidth": "",
+      "fec_loss_percent": 0,
+      "dtx": false,
+      "bitrate": 128001,
+      "max_packet_bytes": 10208,
+      "samples_per_channel": 4358219,
+      "skip": 120,
+      "packets": 2270,
+      "packet_bytes": 1452811,
+      "min_packet_bytes": 640,
+      "max_actual_packet_bytes": 641,
+      "packet_durations_samples": [
+        1920
+      ],
+      "frame_counts": [
+        8
+      ],
+      "configurations": [
+        29
+      ],
+      "dtx_packets": 0,
+      "lbrr_packets": 0,
+      "opus_sha256": "2f4c20143b77b5cf5ebd70e732ae6762b415246782ce373f802e666d5c63b70d",
+      "pcm_sha256": "477d7def078738b6942fe29e35743f6ec599061b2c64a7f6a3b5a47435359e58",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "music_orig",
+      "corpus_sha256": "ccc1fef039e7c77a0e3d3a8719cf5ec0a775dce5849113b7646a910d11a7b869",
+      "mode": "celt",
+      "channels": 2,
+      "frame_ms": 5.0,
+      "packet_ms": 40.0,
+      "policy": "cvbr",
+      "bandwidth": "",
+      "fec_loss_percent": 0,
+      "dtx": false,
+      "bitrate": 128001,
+      "max_packet_bytes": 1536,
+      "samples_per_channel": 4358219,
+      "skip": 120,
+      "packets": 2270,
+      "packet_bytes": 1451122,
+      "min_packet_bytes": 588,
+      "max_actual_packet_bytes": 720,
+      "packet_durations_samples": [
+        1920
+      ],
+      "frame_counts": [
+        8
+      ],
+      "configurations": [
+        29
+      ],
+      "dtx_packets": 0,
+      "lbrr_packets": 0,
+      "opus_sha256": "8ef66b7860fd047fcb33aca7efa18ed250044ef12f41bc2871df88956b6c9003",
+      "pcm_sha256": "0096202e6af4aa65be7c15d96cd7a280f5b0032c02dcefc43b73ed9b3ddc8e36",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "music_orig",
+      "corpus_sha256": "ccc1fef039e7c77a0e3d3a8719cf5ec0a775dce5849113b7646a910d11a7b869",
+      "mode": "celt",
+      "channels": 2,
+      "frame_ms": 10.0,
+      "packet_ms": 80.0,
+      "policy": "cbr",
+      "bandwidth": "",
+      "fec_loss_percent": 0,
+      "dtx": false,
+      "bitrate": 128001,
+      "max_packet_bytes": 10208,
+      "samples_per_channel": 4358219,
+      "skip": 120,
+      "packets": 1135,
+      "packet_bytes": 1452811,
+      "min_packet_bytes": 1280,
+      "max_actual_packet_bytes": 1281,
+      "packet_durations_samples": [
+        3840
+      ],
+      "frame_counts": [
+        8
+      ],
+      "configurations": [
+        30
+      ],
+      "dtx_packets": 0,
+      "lbrr_packets": 0,
+      "opus_sha256": "51f752b49ec39df98b36875d0f130dba0811319dad7d814c983b0624edbbdca4",
+      "pcm_sha256": "881fa5e8bb9a3046953fbb2b565d3a0fa4686cd9c0712293036c38a7671d18a0",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "music_orig",
+      "corpus_sha256": "ccc1fef039e7c77a0e3d3a8719cf5ec0a775dce5849113b7646a910d11a7b869",
+      "mode": "celt",
+      "channels": 2,
+      "frame_ms": 10.0,
+      "packet_ms": 80.0,
+      "policy": "cvbr",
+      "bandwidth": "",
+      "fec_loss_percent": 0,
+      "dtx": false,
+      "bitrate": 128001,
+      "max_packet_bytes": 1536,
+      "samples_per_channel": 4358219,
+      "skip": 120,
+      "packets": 1135,
+      "packet_bytes": 1451681,
+      "min_packet_bytes": 1156,
+      "max_actual_packet_bytes": 1440,
+      "packet_durations_samples": [
+        3840
+      ],
+      "frame_counts": [
+        8
+      ],
+      "configurations": [
+        30
+      ],
+      "dtx_packets": 0,
+      "lbrr_packets": 0,
+      "opus_sha256": "7bda1363a066cbf11b6c99642d8f9ea59a2d79e8920a8923d26a31afea4a2156",
+      "pcm_sha256": "c8c96fcffcdcf763e02d2859275928dac70f79426f99976edb9e07ffdf8bc2b4",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "music_orig",
+      "corpus_sha256": "ccc1fef039e7c77a0e3d3a8719cf5ec0a775dce5849113b7646a910d11a7b869",
+      "mode": "celt",
+      "channels": 2,
+      "frame_ms": 20.0,
+      "packet_ms": 120.0,
+      "policy": "cbr",
+      "bandwidth": "",
+      "fec_loss_percent": 0,
+      "dtx": false,
+      "bitrate": 128001,
+      "max_packet_bytes": 7656,
+      "samples_per_channel": 4358219,
+      "skip": 120,
+      "packets": 757,
+      "packet_bytes": 1452811,
+      "min_packet_bytes": 1280,
+      "max_actual_packet_bytes": 1921,
+      "packet_durations_samples": [
+        3840,
+        5760
+      ],
+      "frame_counts": [
+        4,
+        6
+      ],
+      "configurations": [
+        31
+      ],
+      "dtx_packets": 0,
+      "lbrr_packets": 0,
+      "opus_sha256": "6f2cc43962989919abd7226fa00a05cb8f35816b5d0ecae22dba6913fccfb6b9",
+      "pcm_sha256": "5a1a1dcade6513cffa25cac061eb4e9e5719e5f6041b121ff6049e9094a1b580",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "music_orig",
+      "corpus_sha256": "ccc1fef039e7c77a0e3d3a8719cf5ec0a775dce5849113b7646a910d11a7b869",
+      "mode": "celt",
+      "channels": 2,
+      "frame_ms": 20.0,
+      "packet_ms": 120.0,
+      "policy": "cvbr",
+      "bandwidth": "",
+      "fec_loss_percent": 0,
+      "dtx": false,
+      "bitrate": 128001,
+      "max_packet_bytes": 1200,
+      "samples_per_channel": 4358219,
+      "skip": 120,
+      "packets": 757,
+      "packet_bytes": 900434,
+      "min_packet_bytes": 794,
+      "max_actual_packet_bytes": 1190,
+      "packet_durations_samples": [
+        3840,
+        5760
+      ],
+      "frame_counts": [
+        4,
+        6
+      ],
+      "configurations": [
+        31
+      ],
+      "dtx_packets": 0,
+      "lbrr_packets": 0,
+      "opus_sha256": "1c4cb1f8e1a2ca53e7f4e4bff00d819183f2e4847d2abacc2c72c7f4b9993dbc",
+      "pcm_sha256": "0c0f6a80e388cfb6cc34e4e9065af0adf68a268a52050cb50172f6b249854f36",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "music_orig",
+      "corpus_sha256": "ccc1fef039e7c77a0e3d3a8719cf5ec0a775dce5849113b7646a910d11a7b869",
+      "mode": "celt",
+      "channels": 2,
+      "frame_ms": 2.5,
+      "packet_ms": 7.5,
+      "policy": "vbr",
+      "bandwidth": "",
+      "fec_loss_percent": 0,
+      "dtx": false,
+      "bitrate": 128001,
+      "max_packet_bytes": 1200,
+      "samples_per_channel": 4358219,
+      "skip": 120,
+      "packets": 12107,
+      "packet_bytes": 1558858,
+      "min_packet_bytes": 68,
+      "max_actual_packet_bytes": 209,
+      "packet_durations_samples": [
+        240,
+        360
+      ],
+      "frame_counts": [
+        2,
+        3
+      ],
+      "configurations": [
+        28
+      ],
+      "dtx_packets": 0,
+      "lbrr_packets": 0,
+      "opus_sha256": "30a19d8b4489c08edb5059f01c823a42a7241f8354bb0210030c655577d7ad4f",
+      "pcm_sha256": "851ea73d2ae28436a2137da9f73b75de5f364afc4e76ea2bb5a3f5a104b56dce",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "music_orig",
+      "corpus_sha256": "ccc1fef039e7c77a0e3d3a8719cf5ec0a775dce5849113b7646a910d11a7b869",
+      "mode": "celt",
+      "channels": 2,
+      "frame_ms": 20.0,
+      "packet_ms": 60.0,
+      "policy": "vbr",
+      "bandwidth": "",
+      "fec_loss_percent": 0,
+      "dtx": false,
+      "bitrate": 128001,
+      "max_packet_bytes": 1200,
+      "samples_per_channel": 4358219,
+      "skip": 120,
+      "packets": 1514,
+      "packet_bytes": 1482860,
+      "min_packet_bytes": 257,
+      "max_actual_packet_bytes": 1196,
+      "packet_durations_samples": [
+        960,
+        2880
+      ],
+      "frame_counts": [
+        1,
+        3
+      ],
+      "configurations": [
+        31
+      ],
+      "dtx_packets": 0,
+      "lbrr_packets": 0,
+      "opus_sha256": "fd6a01e3d5666aa768438319098ab059e00bcc6a5a37a347fb4f81fb98a69044",
+      "pcm_sha256": "ce76429bef2c28c58402a7c05cb3b9764acfe9b00379fa4be31c802538839479",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "music_orig",
+      "corpus_sha256": "ccc1fef039e7c77a0e3d3a8719cf5ec0a775dce5849113b7646a910d11a7b869",
+      "mode": "silk",
+      "channels": 2,
+      "frame_ms": 10.0,
+      "packet_ms": 120.0,
+      "policy": "cbr",
+      "bandwidth": "wb",
+      "fec_loss_percent": 20,
+      "dtx": true,
+      "bitrate": 64001,
+      "max_packet_bytes": 15312,
+      "samples_per_channel": 4358219,
+      "skip": 312,
+      "packets": 757,
+      "packet_bytes": 720743,
+      "min_packet_bytes": 2,
+      "max_actual_packet_bytes": 961,
+      "packet_durations_samples": [
+        4320,
+        5760
+      ],
+      "frame_counts": [
+        9,
+        12
+      ],
+      "configurations": [
+        8
+      ],
+      "dtx_packets": 6,
+      "lbrr_packets": 711,
+      "opus_sha256": "4b25726bf77d304487514d3b59448743222c5637dfd9332bf6df89bbde5fa591",
+      "pcm_sha256": "77ce17c8f51965cfdf348f52ae03edbd0f031aafbd46cdc232a9779fe951f48f",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "music_orig",
+      "corpus_sha256": "ccc1fef039e7c77a0e3d3a8719cf5ec0a775dce5849113b7646a910d11a7b869",
+      "mode": "silk",
+      "channels": 2,
+      "frame_ms": 20.0,
+      "packet_ms": 100.0,
+      "policy": "cbr",
+      "bandwidth": "auto",
+      "fec_loss_percent": 20,
+      "dtx": true,
+      "bitrate": 64001,
+      "max_packet_bytes": 6380,
+      "samples_per_channel": 4358219,
+      "skip": 312,
+      "packets": 909,
+      "packet_bytes": 717793,
+      "min_packet_bytes": 2,
+      "max_actual_packet_bytes": 801,
+      "packet_durations_samples": [
+        960,
+        4800
+      ],
+      "frame_counts": [
+        1,
+        5
+      ],
+      "configurations": [
+        9
+      ],
+      "dtx_packets": 11,
+      "lbrr_packets": 859,
+      "opus_sha256": "c788aa7293f7b2115764109032619bb1c5302cb9c9df22fca7783956485b5bd6",
+      "pcm_sha256": "0aaeeacc29841f6dc839e94e0d0ffadfaf600ddfa9d997f087555040b70c8b9a",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "music_orig",
+      "corpus_sha256": "ccc1fef039e7c77a0e3d3a8719cf5ec0a775dce5849113b7646a910d11a7b869",
+      "mode": "silk",
+      "channels": 2,
+      "frame_ms": 40.0,
+      "packet_ms": 80.0,
+      "policy": "cbr",
+      "bandwidth": "wb",
+      "fec_loss_percent": 20,
+      "dtx": true,
+      "bitrate": 64001,
+      "max_packet_bytes": 2552,
+      "samples_per_channel": 4358219,
+      "skip": 312,
+      "packets": 1136,
+      "packet_bytes": 717146,
+      "min_packet_bytes": 1,
+      "max_actual_packet_bytes": 641,
+      "packet_durations_samples": [
+        1920,
+        3840
+      ],
+      "frame_counts": [
+        1,
+        2
+      ],
+      "configurations": [
+        10
+      ],
+      "dtx_packets": 15,
+      "lbrr_packets": 1082,
+      "opus_sha256": "7bc0dc6c3167e41549e0321a0992c440817aff82dbfca282212cf19b65561b05",
+      "pcm_sha256": "22cc16fb933c7d0d0734491f648f752ba32dd9af23d6557f8967582f8900745f",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "music_orig",
+      "corpus_sha256": "ccc1fef039e7c77a0e3d3a8719cf5ec0a775dce5849113b7646a910d11a7b869",
+      "mode": "silk",
+      "channels": 2,
+      "frame_ms": 60.0,
+      "packet_ms": 120.0,
+      "policy": "cbr",
+      "bandwidth": "auto",
+      "fec_loss_percent": 20,
+      "dtx": true,
+      "bitrate": 64001,
+      "max_packet_bytes": 2552,
+      "samples_per_channel": 4358219,
+      "skip": 312,
+      "packets": 757,
+      "packet_bytes": 719059,
+      "min_packet_bytes": 1,
+      "max_actual_packet_bytes": 961,
+      "packet_durations_samples": [
+        5760
+      ],
+      "frame_counts": [
+        2
+      ],
+      "configurations": [
+        11
+      ],
+      "dtx_packets": 8,
+      "lbrr_packets": 713,
+      "opus_sha256": "dd2e13da5828336d8b28ac76b9f0ea0b4c0cf9477b5ecdb95c63c6876c4ce2f3",
+      "pcm_sha256": "1611ee93747eb8ec8b4c54645c63334a492a56ad718bfb2ba741cfa236a2a97d",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "music_orig",
+      "corpus_sha256": "ccc1fef039e7c77a0e3d3a8719cf5ec0a775dce5849113b7646a910d11a7b869",
+      "mode": "hybrid",
+      "channels": 2,
+      "frame_ms": 10.0,
+      "packet_ms": 60.0,
+      "policy": "cbr",
+      "bandwidth": "fb",
+      "fec_loss_percent": 20,
+      "dtx": true,
+      "bitrate": 64001,
+      "max_packet_bytes": 7656,
+      "samples_per_channel": 4358219,
+      "skip": 312,
+      "packets": 1514,
+      "packet_bytes": 716453,
+      "min_packet_bytes": 2,
+      "max_actual_packet_bytes": 481,
+      "packet_durations_samples": [
+        1440,
+        2880
+      ],
+      "frame_counts": [
+        3,
+        6
+      ],
+      "configurations": [
+        14
+      ],
+      "dtx_packets": 21,
+      "lbrr_packets": 1418,
+      "opus_sha256": "26627af12adfc715f0fd561323a1e2c0eeaa24e9d25c327319a13e835ecfbe7d",
+      "pcm_sha256": "eed8b1d2a03489b7aeb3f50d252e3981e0f66b5cf136aa5f5c709e3f3e25116e",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "music_orig",
+      "corpus_sha256": "ccc1fef039e7c77a0e3d3a8719cf5ec0a775dce5849113b7646a910d11a7b869",
+      "mode": "hybrid",
+      "channels": 2,
+      "frame_ms": 20.0,
+      "packet_ms": 120.0,
+      "policy": "vbr",
+      "bandwidth": "fb",
+      "fec_loss_percent": 20,
+      "dtx": true,
+      "bitrate": 64001,
+      "max_packet_bytes": 1200,
+      "samples_per_channel": 4358219,
+      "skip": 312,
+      "packets": 757,
+      "packet_bytes": 634474,
+      "min_packet_bytes": 2,
+      "max_actual_packet_bytes": 1044,
+      "packet_durations_samples": [
+        4800,
+        5760
+      ],
+      "frame_counts": [
+        5,
+        6
+      ],
+      "configurations": [
+        15
+      ],
+      "dtx_packets": 8,
+      "lbrr_packets": 713,
+      "opus_sha256": "2623c5816b4aeda644f82726ce49733ba887fc0307b185047fd4897ffd0d3ad7",
+      "pcm_sha256": "b5c85773668f31fcef16cb7c2f8514254931fe2b2a06d193850ae0b8a5f6f366",
+      "native_pcm_match": true
+    },
+    {
+      "recording": "music_orig",
+      "corpus_sha256": "ccc1fef039e7c77a0e3d3a8719cf5ec0a775dce5849113b7646a910d11a7b869",
+      "mode": "hybrid",
+      "channels": 2,
+      "frame_ms": 20.0,
+      "packet_ms": 120.0,
+      "policy": "cbr",
+      "bandwidth": "fb",
+      "fec_loss_percent": 0,
+      "dtx": true,
+      "bitrate": 64001,
+      "max_packet_bytes": 7656,
+      "samples_per_channel": 4358219,
+      "skip": 312,
+      "packets": 757,
+      "packet_bytes": 718907,
+      "min_packet_bytes": 2,
+      "max_actual_packet_bytes": 961,
+      "packet_durations_samples": [
+        4800,
+        5760
+      ],
+      "frame_counts": [
+        5,
+        6
+      ],
+      "configurations": [
+        15
+      ],
+      "dtx_packets": 8,
+      "lbrr_packets": 0,
+      "opus_sha256": "0947070e0b1b9825eaed941bfbcfc8f4331053093b47e57ab722f70dcf638054",
+      "pcm_sha256": "605daa32532285fe6ce6f3fc9ec0ec9e1d261965d58e3a9a0034bfe7487d6ad6",
+      "native_pcm_match": true
+    }
+  ],
+  "codec_source_sha256": "c4ae3d89bba095014c20dbf333c7dda1e388595ba953946d82461d93e2a53807",
+  "replay": {
+    "streams": 102,
+    "records": 9672,
+    "lost": 238,
+    "fec_requests": 298,
+    "fec_requests_with_any_lbrr": 78,
+    "input_sha256": "a44f01dc78cce42b455db02866fcaa346747e80d60a41d0ad5a58b000744a9c9",
+    "results_sha256": "2438e2219116cfde47a5b866998ab48645d94fdefde239821770e89189709abb"
+  }
+}
