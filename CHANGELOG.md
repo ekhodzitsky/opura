@@ -7,6 +7,26 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.58] - 2026-11-02
+
+- Add bounded immutable native CELT dynamic-allocation analysis: noise/masking,
+  median/stereo followers, importance/spread weights, tone compensation and
+  CBR/CVBR caps. Preserve exact raw requests, including negative cap remainders;
+  prove 0..255 writer adaptation equivalent across all 168 standard cap cells.
+- Add independent opt-in dynamic packet analysis, native transient long-window
+  comparison/scaling, previous-energy ordering, perceptual TF weights and boost
+  requests. Reset retains all settings; the three previous packet modes remain
+  byte-exact. Normal spreading and trim five remain explicit policies.
+- Match 21,889 original analyses, 24,579 importance scalars, 270 median cases and
+  canonical constants; verify bounded random/invalid contexts and cap endpoints.
+  Match 960 full packets and 9,600 original public PCM/range/history decodes;
+  512 additional threshold frames and eight-setting late rollback/reset pass.
+  All 40 targeted mutations are detected. Previous and new optional evidence
+  reproduce and all seven offline gates pass with zero dependencies.
+- Further adaptive spreading/trim/pitch, SILK/Hybrid encoding and representative
+  quality/performance comparisons remain work. Compatibility establishes no
+  encoder quality or speed superiority.
+
 ## [0.1.57] - 2026-11-02
 
 - Add bounded immutable CELT TF analysis: native biased L1/Haar levels,

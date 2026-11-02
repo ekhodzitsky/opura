@@ -15,9 +15,12 @@ pub struct TransientAnalysis {
 impl TransientAnalysis {
     // Native TF gating reduces tone confidence when temporal masking is strong.
     pub(crate) fn tf_tonal(self) -> bool {
+        self.adjusted_toneishness() >= TONE_GUARD
+    }
+
+    pub(crate) fn adjusted_toneishness(self) -> i32 {
         self.toneishness
             .min((1 << 29) - (i32::from(self.estimate) << 15))
-            >= TONE_GUARD
     }
 
     /// Native temporal-mask metric after the tonal guard (zero when suppressed).

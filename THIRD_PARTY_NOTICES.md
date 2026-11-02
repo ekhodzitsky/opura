@@ -1473,3 +1473,16 @@ input, fixed storage and typed validation. Packet integration follows native
 budget/tone gating and switching cost with explicit neutral importance. The
 optional read-only metric observer cross-checks ordinary decisions/select
 against unchanged original analysis; native code is never a Cargo dependency.
+
+
+# CELT perceptual dynamic-allocation analysis attribution
+
+`src/celt/analysis/dynalloc.rs` and canonical constants follow
+`celt/celt_encoder.c::dynalloc_analysis`, `median_of_3` and `median_of_5` at the
+pinned revision. Existing CELT encoder/rate/math/table notices and terms apply.
+Importance uses the existing classic exponent path selected by the original
+non-QEXT build. Rust bounds immutable logs/controls, retains exact raw cap-hit
+requests, and supplies counts clamped to 0..255 with a standard-cap wire proof.
+Optional packet integration follows native transient long-window comparison,
+energy-history ordering and perceptual TF weighting under explicit CBR controls.
+All reference code remains an optional external validation tool.

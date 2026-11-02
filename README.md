@@ -7,7 +7,7 @@ The separate SILK/CELT/Hybrid APIs and their component stages remain available.
 **A baseline CELT-only encoder now accepts signed16 PCM at all five standard
 input rates and emits complete one-frame Opus packets.** Its current policy uses
 long windows by default, with optional native transient detection/short windows
-and per-band TF analysis. Further adaptive decisions and SILK/Hybrid encoding
+and per-band TF/dynamic-allocation analysis. Further adaptive decisions and SILK/Hybrid encoding
 remain work.
 **The decoder passes all120 official RFC8251 vector/rate/channel cases.**
 The first complete-decoder benchmark is recorded: Opura trails the pinned scalar
@@ -2438,8 +2438,7 @@ transient detection; `tf_analysis()` reports the setting and reset retains it.
 The native gate requires at least 15 payload bytes/channel and excludes strong
 tones after temporal-estimate confidence adjustment. Penalty is
 `max(80,20480/payload_bytes+2)`; the detector selects the analysis channel.
-Importance is explicitly neutral 13 until perceptual dynamic-allocation analysis
-is implemented. Both settings default false, preserving baseline packet bytes;
+Importance is neutral 13 unless perceptual dynamic-allocation analysis is enabled. Both settings default false, preserving baseline packet bytes;
 transient-only packets also retain their previous bytes.
 
 All 672 original normalized contexts match 7,056 long/short/penalty/weight
@@ -2467,3 +2466,78 @@ diff -u tests/celt-encoder-tf-fixtures.txt /tmp/celt-encoder-tf-fixtures.txt
 A separate original TF observer reads only internal metrics and cross-checks
 ordinary decisions/select against unchanged original analysis for every context.
 All native code remains optional external validation, with no Cargo dependencies.
+
+
+## CELT perceptual dynamic allocation
+
+`celt::analysis::analyze_dynalloc` analyzes immutable current, comparison and
+previous Q24 band logs. `DynallocInput` borrows three `[[i32;21];2]` arrays;
+`BandLayout` selects one/two channels and a nonempty interval with end>=3 for
+median windows. Every active channel's logs in bins0..end must be in [-32,32]
+log units, including bins preceding the selected start. Inactive channels/tails
+are ignored. Options bound payload to 2..1275 bytes, precision to 8..24 bits,
+selected surround boosts to 0..4 Q24, tone confidence to 0..1 Q29 and Q13 tone
+frequency to -1..25736. LM0 cannot be transient. Invalid controls/logs return
+errors; inputs remain unchanged and all output/scratch uses fixed storage.
+
+Native analysis combines the noise floor, forward/backward masking, median
+followers, stereo cross-talk, surround requests and tone compensation. It returns
+raw requests, writer-ready counts, TF importance, spreading weights, maximum
+signal depth and intended eighth-bit boost. Importance precedes CBR halving and
+frequency-dependent boost weighting. CBR and constrained non-transient VBR use
+the original two-thirds budget cap; low budgets and LFE retain neutral importance.
+
+Raw cap-hit requests can be negative because the native comparison first rounds
+the cumulative boost down to whole bytes. Negative requests emit no positive
+flags. `boosts()` clamps raw requests to 0..255 for the existing allocation API;
+`requested_boosts()` preserves exact native diagnostics. Original caps match Rust
+across all 168 standard band/channel/duration cells and admit at most 66 positive
+symbols, proving larger counts are indistinguishable at the writer. Raw requests
+and intended totals are distinct from effective entropy-limited allocation.
+
+`CeltEncoder::set_dynamic_allocation(true)` independently enables perceptual
+analysis; `dynamic_allocation()` reports it. Reset retains this setting and clears
+histories. Packet policy uses signed16 precision, CBR, no LFE/surround adjustment,
+and adjusted tone confidence. For transient frames, a second long MDCT supplies
+comparison energies with native LM/2 scaling. Analysis uses previous quantized
+energy before current coarse quantization and stable-energy feedback. Boost
+counts feed allocation; TF, when enabled, consumes perceptual importance.
+Spreading remains Normal and trim remains five. All settings default disabled,
+preserving the three previous baseline/transient/TF packet corpora.
+
+The independent original corpus matches 21,889 analyses over 2,737 contexts:
+masking, depth, requests, importance and spreading weights, including exact
+budget/tonal/rising-band boundaries and a retained second-channel follower index.
+Extreme inactive slots verify prefix-only inspection. Native scalar checks cover
+24,579 importance-rounding inputs, 270 median cases and canonical constants.
+All 40 targeted mutations are detected, including cap units/clipping, median/masking
+boundaries, old-energy ordering, long-window scaling and perceptual TF weights.
+Another 1,024 bounded random contexts and typed invalid/domain endpoints are
+checked. The adapter retains native negative and large cap-hit requests as raw
+observations while supplying wire-equivalent counts.
+
+All 960 complete original-component dynamic-policy packets match bytes, complete
+histories, TF diagnostics, perceptual analysis and accounting; 242 frames request
+positive boosts. Unchanged public libopus agrees in 9,600 PCM/range/energy-history
+decodes, with no native history differences in this corpus. Another 512 frames
+exercise every dynamic threshold and independent TF/window choices. Reset,
+toggles, immutable input and pre/post-finalization failure rollback are verified
+for all eight setting combinations. These results establish implementation and
+packet compatibility; quality and speed comparisons remain separate work.
+
+```sh
+python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --dynalloc-analysis > /tmp/celt-dynalloc-analysis-fixtures.txt
+diff -u tests/celt-dynalloc-analysis-fixtures.txt /tmp/celt-dynalloc-analysis-fixtures.txt
+python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --dynalloc-math > /tmp/celt-dynalloc-math-fixtures.txt
+diff -u tests/celt-dynalloc-math-fixtures.txt /tmp/celt-dynalloc-math-fixtures.txt
+python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --dynalloc-tables > /tmp/dynalloc_tables.rs
+rustfmt --edition 2024 /tmp/dynalloc_tables.rs
+diff -u src/celt/analysis/dynalloc_tables.rs /tmp/dynalloc_tables.rs
+python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --dynalloc-packets > /tmp/celt-encoder-dynalloc-fixtures.txt
+diff -u tests/celt-encoder-dynalloc-fixtures.txt /tmp/celt-encoder-dynalloc-fixtures.txt
+```
+
+External original analysis and full packet writing consume raw native requests;
+the reference checkout stays unchanged. No native code enters Cargo builds/tests.
+Adaptive spreading/trim/pitch, complete SILK/Hybrid encoding and representative
+quality/performance evaluation remain in development.

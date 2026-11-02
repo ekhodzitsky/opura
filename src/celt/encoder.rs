@@ -1,5 +1,5 @@
 //! Stateful signed16 PCM to single-frame CELT-only Opus packets.
-//! All-long default with optional transient windows and per-band TF analysis.
+//! All-long default with optional transient, TF and dynamic-allocation analysis.
 //! Further adaptive decisions and SILK/Hybrid encoding remain separate work.
 //! See THIRD_PARTY_NOTICES.md for constituent algorithms.
 //! Copyright (c) 2007-2008 CSIRO; 2007-2010 Xiph.Org Foundation;
@@ -176,6 +176,7 @@ pub struct CeltEncoder {
     first: bool,
     detect_transients: bool,
     analyze_tf: bool,
+    analyze_dynamic: bool,
     transient_streak: u8,
 }
 impl CeltEncoder {
@@ -195,6 +196,7 @@ impl CeltEncoder {
             first: true,
             detect_transients: false,
             analyze_tf: false,
+            analyze_dynamic: false,
             transient_streak: 0,
         })
     }
@@ -219,11 +221,23 @@ impl CeltEncoder {
     pub fn tf_analysis(&self) -> bool {
         self.analyze_tf
     }
-    /// Enable native TF analysis with neutral importance (initially disabled).
+    /// Enable native TF analysis (initially disabled).
     /// Native budget/tone gating applies; histories and transient setting persist.
-    /// Reset retains this setting. Dynamic perceptual importance is separate work.
+    /// Reset retains this setting. Importance is neutral unless dynamic-allocation
+    /// analysis is enabled.
     pub fn set_tf_analysis(&mut self, enabled: bool) {
         self.analyze_tf = enabled;
+    }
+    /// Whether native perceptual dynamic-allocation analysis is enabled.
+    pub fn dynamic_allocation(&self) -> bool {
+        self.analyze_dynamic
+    }
+    /// Enable native spectral masking/boost analysis (initially disabled).
+    /// Native long-window comparison is used for transients. TF, if enabled,
+    /// consumes perceptual importance instead of neutral weights. Reset retains
+    /// the setting; Normal spreading and trim five remain the packet policies.
+    pub fn set_dynamic_allocation(&mut self, enabled: bool) {
+        self.analyze_dynamic = enabled;
     }
     /// Last completed packet final range, initially zero.
     pub fn final_range(&self) -> u32 {
@@ -306,7 +320,10 @@ impl CeltEncoder {
             writer.encode_bit_logp(false, 1)?;
         }
         let transient_allowed = size != FrameSize::Ms2_5 && writer.tell() + 3 <= budget;
-        let diagnostics = if (self.detect_transients && transient_allowed) || self.analyze_tf {
+        let diagnostics = if (self.detect_transients && transient_allowed)
+            || self.analyze_tf
+            || self.analyze_dynamic
+        {
             Some(analysis::analyze_transients(
                 size,
                 &context[..self.channels * stride],
@@ -343,6 +360,52 @@ impl CeltEncoder {
         for c in 0..self.channels {
             target[c] = *bands.log_energies(c).ok_or(EncoderError::InvalidChannels)?;
             amplitudes[c] = *bands.amplitudes(c).ok_or(EncoderError::InvalidChannels)?;
+        }
+        let dynamic = if self.analyze_dynamic {
+            let d = diagnostics.ok_or(EncoderError::Analysis(
+                AnalysisError::InvalidDynallocParameters,
+            ))?;
+            let mut comparison = target;
+            if transient {
+                let long = analysis::analyze_frame(
+                    size,
+                    &context[..self.channels * stride],
+                    self.channels,
+                    self.channels,
+                    self.rate,
+                    false,
+                )?;
+                let long_bands =
+                    analysis::analyze_bands(size, long.values(), self.channels, end, end)?;
+                for (c, logs) in comparison[..self.channels].iter_mut().enumerate() {
+                    *logs = *long_bands
+                        .log_energies(c)
+                        .ok_or(EncoderError::InvalidChannels)?;
+                    for value in &mut logs[..end] {
+                        *value += (size.lm() as i32) << 23;
+                    }
+                }
+            }
+            Some(analysis::analyze_dynalloc(
+                size,
+                layout,
+                analysis::DynallocInput {
+                    current: &target,
+                    comparison: &comparison,
+                    previous: self.energy.energies().values(),
+                },
+                analysis::DynallocOptions {
+                    payload_bytes: payload_bytes as u16,
+                    transient,
+                    tone_frequency: d.tone_frequency(),
+                    toneishness: d.adjusted_toneishness(),
+                    ..analysis::DynallocOptions::default()
+                },
+            )?)
+        } else {
+            None
+        };
+        for (c, target) in target[..self.channels].iter_mut().enumerate() {
             let previous = self
                 .energy
                 .energies()
@@ -353,8 +416,8 @@ impl CeltEncoder {
                 .residuals(c)
                 .ok_or(EncoderError::InvalidChannels)?;
             for i in 0..end {
-                if (i64::from(target[c][i]) - i64::from(previous[i])).abs() < 2 << 24 {
-                    target[c][i] -= residual[i].clamp(-(1 << 23), 1 << 23) >> 2;
+                if (i64::from(target[i]) - i64::from(previous[i])).abs() < 2 << 24 {
+                    target[i] -= residual[i].clamp(-(1 << 23), 1 << 23) >> 2;
                 }
             }
         }
@@ -386,7 +449,7 @@ impl CeltEncoder {
                     transient,
                     lambda: (20480 / payload_bytes + 2).max(80) as u16,
                     estimate: d.tf_estimate(),
-                    importance: [13; 21],
+                    importance: dynamic.as_ref().map_or([13; 21], |d| *d.importance()),
                 },
             )?;
             decisions = *analyzed.decisions();
@@ -400,7 +463,7 @@ impl CeltEncoder {
             layout,
             transient,
             AllocationEncoding {
-                boosts: [0; 21],
+                boosts: dynamic.as_ref().map_or([0; 21], |d| *d.boosts()),
                 trim: 5,
                 intensity: end,
                 dual_stereo: false,
@@ -484,7 +547,9 @@ mod tests {
     -> Result<(), Box<dyn std::error::Error>> {
         for detect in [false, true] {
             for tf in [false, true] {
-                verify_finalization_failure(detect, tf)?;
+                for dynamic in [false, true] {
+                    verify_finalization_failure(detect, tf, dynamic)?;
+                }
             }
         }
         Ok(())
@@ -492,10 +557,12 @@ mod tests {
     fn verify_finalization_failure(
         detect: bool,
         tf: bool,
+        dynamic: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut encoder = CeltEncoder::new(InputRate::Khz48, 2)?;
         encoder.set_transient_detection(detect);
         encoder.set_tf_analysis(tf);
+        encoder.set_dynamic_allocation(dynamic);
         encoder.encode(FrameSize::Ms10, &[0; 960], 128)?;
         let before = encoder.clone();
         let mut input = vec![0; 1920];
@@ -532,6 +599,7 @@ mod tests {
             include_str!("../../tests/celt-encoder-fixtures.txt"),
             false,
             false,
+            false,
         )
     }
     #[test]
@@ -540,6 +608,7 @@ mod tests {
         verify_packets(
             include_str!("../../tests/celt-encoder-transient-fixtures.txt"),
             true,
+            false,
             false,
         )
     }
@@ -550,12 +619,24 @@ mod tests {
             include_str!("../../tests/celt-encoder-tf-fixtures.txt"),
             true,
             true,
+            false,
+        )
+    }
+    #[test]
+    fn original_dynamic_packets_histories_and_accounting_match()
+    -> Result<(), Box<dyn std::error::Error>> {
+        verify_packets(
+            include_str!("../../tests/celt-encoder-dynalloc-fixtures.txt"),
+            true,
+            true,
+            true,
         )
     }
     fn verify_packets(
         fixtures: &str,
         detect: bool,
         tf_analysis: bool,
+        dynamic_analysis: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
         use crate::{celt::energy::EnergyState, range::RangeDecoder};
         let sizes = [
@@ -567,6 +648,7 @@ mod tests {
         let mut encoder = CeltEncoder::new(InputRate::Khz48, 1)?;
         encoder.set_transient_detection(detect);
         encoder.set_tf_analysis(tf_analysis);
+        encoder.set_dynamic_allocation(dynamic_analysis);
         let mut decoded_energy = EnergyState::default();
         let mut lines = fixtures.lines().filter(|l| !l.starts_with('#'));
         let mut rows = 0;
@@ -595,7 +677,9 @@ mod tests {
             let state = numbers(lines.next().ok_or("state")?)?;
             assert_eq!(
                 state.len(),
-                if tf_analysis {
+                if dynamic_analysis {
+                    443
+                } else if tf_analysis {
                     378
                 } else if detect {
                     334
@@ -607,6 +691,7 @@ mod tests {
                 encoder = CeltEncoder::new(rate, channels)?;
                 encoder.set_transient_detection(detect);
                 encoder.set_tf_analysis(tf_analysis);
+                encoder.set_dynamic_allocation(dynamic_analysis);
                 decoded_energy.reset();
             } else if f[1] == "1" {
                 encoder.reset();
@@ -635,6 +720,79 @@ mod tests {
                     state[334],
                     "TF gate frame{rows}"
                 );
+                if dynamic_analysis {
+                    let transient = state[332] != 0;
+                    let frame = analysis::analyze_frame(
+                        size, &context, channels, channels, rate, transient,
+                    )?;
+                    let end = match rate {
+                        InputRate::Khz8 => 13,
+                        InputRate::Khz12 | InputRate::Khz16 => 17,
+                        InputRate::Khz24 => 19,
+                        InputRate::Khz48 => 21,
+                    };
+                    let measured =
+                        analysis::analyze_bands(size, frame.values(), channels, end, end)?;
+                    let mut current = [[0; 21]; 2];
+                    for (c, logs) in current[..channels].iter_mut().enumerate() {
+                        *logs = *measured.log_energies(c).ok_or("current logs")?;
+                    }
+                    let mut comparison = current;
+                    if transient {
+                        let long = analysis::analyze_frame(
+                            size, &context, channels, channels, rate, false,
+                        )?;
+                        let long_bands =
+                            analysis::analyze_bands(size, long.values(), channels, end, end)?;
+                        for (c, logs) in comparison[..channels].iter_mut().enumerate() {
+                            *logs = *long_bands.log_energies(c).ok_or("long logs")?;
+                            for value in &mut logs[..end] {
+                                *value += (size.lm() as i32) << 23;
+                            }
+                        }
+                    }
+                    let analyzed = analysis::analyze_dynalloc(
+                        size,
+                        BandLayout::new(channels, 0, end)?,
+                        analysis::DynallocInput {
+                            current: &current,
+                            comparison: &comparison,
+                            previous: encoder.energy.energies().values(),
+                        },
+                        analysis::DynallocOptions {
+                            payload_bytes: bytes as u16,
+                            transient,
+                            tone_frequency: diagnostics.tone_frequency(),
+                            toneishness: diagnostics.adjusted_toneishness(),
+                            ..analysis::DynallocOptions::default()
+                        },
+                    )?;
+                    assert_eq!(
+                        [
+                            i64::from(analyzed.max_depth()),
+                            i64::from(analyzed.total_boost())
+                        ],
+                        state[378..380],
+                        "dynamic depth/total frame{rows}"
+                    );
+                    for i in 0..21 {
+                        assert_eq!(
+                            i64::from(analyzed.requested_boosts()[i]),
+                            state[380 + i],
+                            "dynamic requests frame{rows} band{i}"
+                        );
+                        assert_eq!(
+                            i64::from(analyzed.importance()[i]),
+                            state[401 + i],
+                            "dynamic importance frame{rows} band{i}"
+                        );
+                        assert_eq!(
+                            i64::from(analyzed.spread_weights()[i]),
+                            state[422 + i],
+                            "dynamic spread frame{rows} band{i}"
+                        );
+                    }
+                }
             }
             let packet = encoder.encode(size, &input, bytes)?;
             assert_eq!(packet.as_bytes(), expected, "packet frame{rows}");
@@ -682,6 +840,7 @@ mod tests {
             }
             assert_eq!(encoder.transient_detection(), detect);
             assert_eq!(encoder.tf_analysis(), tf_analysis);
+            assert_eq!(encoder.dynamic_allocation(), dynamic_analysis);
             let end = match rate {
                 InputRate::Khz8 => 13,
                 InputRate::Khz12 | InputRate::Khz16 => 17,

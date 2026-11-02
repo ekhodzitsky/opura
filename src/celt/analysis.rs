@@ -11,6 +11,9 @@ use super::{
 };
 use std::fmt;
 
+mod dynalloc;
+mod dynalloc_tables;
+pub use dynalloc::{DynallocAnalysis, DynallocInput, DynallocOptions, analyze_dynalloc};
 mod tf;
 pub use tf::{TfAnalysis, TfAnalysisOptions, analyze_tf};
 mod transient;
@@ -30,6 +33,8 @@ pub enum AnalysisError {
     InvalidBands,
     /// TF estimate is outside Q14 unit range or LM0 is marked transient.
     InvalidTfParameters,
+    /// Dynamic-allocation budget, precision, tone or surround controls are invalid.
+    InvalidDynallocParameters,
     /// Signal magnitude, headroom or accumulation exceeds the stage's
     /// documented checked arithmetic domain.
     ArithmeticOverflow,
@@ -42,6 +47,9 @@ impl fmt::Display for AnalysisError {
             Self::InvalidGeometry => f.write_str("invalid CELT analysis channel geometry"),
             Self::Transform(e) => write!(f, "CELT frame analysis: {e}"),
             Self::InvalidBands => f.write_str("invalid CELT analysis band ends"),
+            Self::InvalidDynallocParameters => {
+                f.write_str("invalid CELT dynamic analysis controls")
+            }
             Self::InvalidTfParameters => f.write_str("invalid CELT TF analysis controls"),
             Self::ArithmeticOverflow => {
                 f.write_str("CELT analysis exceeds checked arithmetic domain")
