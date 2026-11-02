@@ -7,6 +7,32 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.71] - 2026-11-02
+
+- Add `bandwidth` / `set_bandwidth` to mono/stereo SILK PCM encoders for forced
+  packet-boundary NB/MB/WB changes. Convert buffered history through the API rate,
+  prime live input resamplers, reset native prediction/shape/NSQ state and retain
+  stream counters, VAD/DC, stereo, DTX and reservoir history. Clear incompatible
+  queued FEC; same-band calls are no-ops and failed changes preserve all state.
+- Add native SILK bandwidth handshake and variable-cutoff low-pass transition
+  components. Retain readiness, direction reversals, signed interpolation and
+  transition budget reservation; raw automatic policy/taper scheduling remains
+  separate from the forced setters.
+- Match 2400 unchanged native control decisions and 4626 complete LP PCM/state
+  fingerprints, plus all 90 history migration combinations and 720 subsequent
+  resampler PCM blocks. The existing channel golden now exercises actual rate
+  migration instead of injecting native-converted history at rate changes.
+- Validate dynamic-band normal/loss/FEC/DTX streams across all input rates and
+  packet geometries, including simultaneous duration changes, stereo omission,
+  direct and neighboring rate jumps, toggles and abrupt byte budgets.
+- All seven mandatory offline gates pass, including 19 Python tests. Independent
+  libopus matches 48000 dynamic-band decoded records and 7920 FEC requests.
+  Existing 28320 no-FEC packets, 48000 FEC replay records and all 480 CLI PCM
+  hashes remain unchanged; every CLI report matches the current executable.
+- Automatic bandwidth/mode selection, Hybrid encoding and representative quality/
+  speed evidence remain unfinished. Forced-rate interoperability is not a
+  click-free quality or SOTA claim.
+
 ## [0.1.70] - 2026-11-02
 
 - Add opt-in in-band FEC to mono/stereo SILK PCM encoders through

@@ -467,10 +467,10 @@ impl StereoPacket {
         self.packet.final_range()
     }
 }
-/// Raw interleaved stereo PCM to fixed-bandwidth SILK Opus packets. Supports
+/// Raw interleaved stereo PCM to explicit-bandwidth SILK Opus packets. Supports
 /// adaptive M/S prediction/width, panned mid-only omission and side restarts.
-/// External/internal rates and channel count remain fixed for this stream;
-/// Supports opt-in DTX/FEC; adaptive bandwidth transitions remain separate work.
+/// External rate/channel count remain fixed; internal bandwidth can be changed
+/// at packet boundaries. Supports DTX/FEC; automatic taper scheduling is separate.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StereoEncoder {
     input: OutputRate,
@@ -507,6 +507,33 @@ impl StereoEncoder {
     /// Nominal pre-skip on the48kHz clock, including stereo/input compensation.
     pub fn lookahead_48k(&self) -> u32 {
         312
+    }
+    /// Current internal SILK bandwidth used for subsequent packets.
+    pub fn bandwidth(&self) -> SilkRate {
+        self.internal
+    }
+    /// Force a fixed bandwidth at a packet boundary. Both channel histories and
+    /// live resamplers migrate atomically; stereo predictors, VAD/DC, counters,
+    /// DTX and reservoir persist. Incompatible queued FEC is cleared. Last-packet
+    /// diagnostics keep their meaning. Adaptive taper scheduling is separate.
+    /// Same-band calls are no-ops; errors preserve the entire stream.
+    pub fn set_bandwidth(&mut self, rate: SilkRate) -> Result<(), StereoPacketError> {
+        if rate == self.internal {
+            return Ok(());
+        }
+        let mut next = self.clone();
+        for ch in 0..2 {
+            next.channels[ch].change_rate(
+                self.input,
+                rate,
+                self.fec.previous_frame_duration(),
+                &mut next.resampler[ch],
+            )?;
+        }
+        next.internal = rate;
+        next.fec.clear_pending();
+        *self = next;
+        Ok(())
     }
     /// Enable native silence suppression. Disabled by default. Suppressed packets
     /// contain only TOC (one byte), with final range zero, even in CBR mode.

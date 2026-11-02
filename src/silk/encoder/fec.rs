@@ -46,6 +46,12 @@ impl<const CHANNELS: usize> Default for FecState<CHANNELS> {
     }
 }
 impl<const CHANNELS: usize> FecState<CHANNELS> {
+    pub fn previous_frame_duration(&self) -> crate::silk::gains::FrameDuration {
+        // Geometry is tracked even with FEC off and the stereo side omitted.
+        self.duration
+            .unwrap_or(PacketDuration::Ms20)
+            .frame_duration()
+    }
     pub fn has_pending(&self, duration: PacketDuration) -> bool {
         self.duration == Some(duration) && self.pending.iter().flatten().any(Option::is_some)
     }

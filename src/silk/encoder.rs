@@ -6,6 +6,7 @@
 //! ordering and final packet termination belong to the enclosing encoder.
 //! Adapted from Opus v1.6.1; see THIRD_PARTY_NOTICES.md.
 pub mod analysis;
+pub mod bandwidth;
 pub mod channel;
 mod dtx;
 mod fec;

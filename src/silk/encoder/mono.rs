@@ -1,4 +1,4 @@
-//! Mono PCM-to-Opus packets with fixed SILK bandwidth and explicit byte budgets.
+//! Mono PCM-to-Opus packets with explicit SILK bandwidth and explicit byte budgets.
 use super::{
     analysis::VoiceActivityDetector,
     channel::{ChannelFrameEncoder, FrameControls, FrameError},
@@ -144,7 +144,7 @@ impl MonoPacket {
         self.range
     }
 }
-/// Fixed-bandwidth mono PCM encoder for all five external rates. Uses native
+/// Explicit-bandwidth mono PCM encoder for all five external rates. Uses native
 /// DC rejection, encoder resampling, VAD, SNR tables and packet bit reservoir.
 /// Supports opt-in DTX/FEC; adaptive bandwidth switching remains separate work.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -180,6 +180,31 @@ impl MonoEncoder {
     /// SILK input/resampling compensation and fixed channel lookahead.
     pub fn lookahead_48k(&self) -> u32 {
         312
+    }
+    /// Current internal SILK bandwidth used for subsequent packets.
+    pub fn bandwidth(&self) -> SilkRate {
+        self.internal
+    }
+    /// Force a fixed bandwidth at a packet boundary, retaining converted input
+    /// history, VAD/DC, frame counters, DTX and rate-control history. Incompatible
+    /// pending FEC is cleared; last-packet diagnostics retain their meaning.
+    /// Adaptive selection/taper scheduling belongs to the outer controller.
+    /// Same-band calls are no-ops; errors preserve the entire stream.
+    pub fn set_bandwidth(&mut self, rate: SilkRate) -> Result<(), MonoError> {
+        if rate == self.internal {
+            return Ok(());
+        }
+        let mut next = self.clone();
+        next.channel.change_rate(
+            self.input,
+            rate,
+            self.fec.previous_frame_duration(),
+            &mut next.resampler,
+        )?;
+        next.internal = rate;
+        next.fec.clear_pending();
+        *self = next;
+        Ok(())
     }
     /// Enable native silence suppression. Disabled by default. Suppressed packets
     /// contain only TOC (one byte), with final range zero, even in CBR mode.

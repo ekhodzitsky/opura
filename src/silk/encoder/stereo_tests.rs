@@ -1,6 +1,39 @@
 use super::*;
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 #[test]
+fn band_change_preserves_stereo_vad_and_rate_history_and_is_atomic() -> Result<()> {
+    let options = StereoOptions {
+        complexity: 0,
+        packet_loss_percent: 20,
+        ..StereoOptions::default()
+    };
+    let mut e = StereoEncoder::new(OutputRate::Khz48, SilkRate::Khz16);
+    e.set_inband_fec(true);
+    e.set_dtx(true);
+    let pcm: Vec<i16> = (0..2880)
+        .flat_map(|i| [((i % 80) as i16 - 40) * 400, ((i % 53) as i16 - 26) * 500])
+        .collect();
+    e.encode(PacketDuration::Ms60, &pcm, 480, options)?;
+    let before = e.clone();
+    e.set_bandwidth(SilkRate::Khz16)?;
+    assert_eq!(e, before);
+    e.set_bandwidth(SilkRate::Khz8)?;
+    assert_eq!(e.bandwidth(), SilkRate::Khz8);
+    assert_eq!(e.stereo, before.stereo);
+    assert_eq!(e.vad, before.vad);
+    assert_eq!(e.dc, before.dc);
+    assert_eq!(e.activity, before.activity);
+    assert_eq!(e.previous_mid_only, before.previous_mid_only);
+    assert_eq!(e.dtx, before.dtx);
+    assert_eq!(e.excess, before.excess);
+    assert!(!e.fec.has_pending(PacketDuration::Ms60));
+    e.resampler[1] = EncoderResamplerState::new(OutputRate::Khz8, SilkRate::Khz8);
+    let saved = e.clone();
+    assert!(e.set_bandwidth(SilkRate::Khz12).is_err());
+    assert_eq!(e, saved);
+    Ok(())
+}
+#[test]
 fn oversized_stereo_fec_retries_all_channel_histories_from_same_input() -> Result<()> {
     let duration = PacketDuration::Ms60;
     let pcm: Vec<i16> = (0..2880)

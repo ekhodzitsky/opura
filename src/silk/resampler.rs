@@ -138,6 +138,9 @@ pub struct EncoderResamplerState {
     core: ResamplerCore<48, 36, 516>,
 }
 impl EncoderResamplerState {
+    pub(super) fn has_rates(&self, input: OutputRate, internal: SilkRate) -> bool {
+        self.input == input && self.core.output == pcm_rate(internal)
+    }
     /// Start a channel converter at fixed external and internal sampling rates.
     pub fn new(input: OutputRate, internal: SilkRate) -> Self {
         Self {

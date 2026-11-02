@@ -1673,3 +1673,12 @@ selection is outside these fixed-bandwidth APIs. The bounded primary-preserving
 packet retry is Opura's admission policy. Existing Opus/SILK terms above apply.
 The optional policy oracle extracts unchanged native functions/tables; generated
 Rust packet/recovery traces and external library probes are validation only.
+
+
+SILK bandwidth switching additionally follows `silk/control_audio_bandwidth.c`,
+`silk/LP_variable_cutoff.c`, `silk/biquad_alt.c` and the transition coefficients
+in `silk/tables_other.c`, at the same pinned revision and SILK terms above.
+Channel history migration and resampler priming follow `silk_setup_resamplers`
+and prediction resets in `silk_setup_fs`, both in `silk/control_codec.c`.
+Optional oracles call unchanged original functions and retain synthetic
+PCM/state fingerprints; they add no native build/test dependency.

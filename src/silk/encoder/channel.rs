@@ -15,6 +15,7 @@ use crate::{
     silk::{
         gains::{FrameActivity, FrameDuration, SignalType, linear_gain, reconstruct_index},
         pitch::{PitchCoding, SilkRate, tables::SCALES_Q14},
+        resampler::{EncoderResamplerState, OutputRate, ResampleError, ResamplerState},
     },
 };
 use std::fmt;
@@ -64,6 +65,8 @@ pub enum FrameError {
     Quantizer(NsqError),
     /// Header lifecycle or frame entropy encoding failed.
     Serialization(SilkEncodeError),
+    /// Channel-history conversion or input-resampler priming failed.
+    Resampler(ResampleError),
 }
 impl fmt::Display for FrameError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -76,6 +79,7 @@ impl fmt::Display for FrameError {
             Self::Analysis(e) => write!(f, "SILK frame analysis: {e}"),
             Self::Quantizer(e) => write!(f, "SILK frame quantization: {e}"),
             Self::Serialization(e) => write!(f, "SILK frame serialization: {e}"),
+            Self::Resampler(e) => write!(f, "SILK channel rate change: {e}"),
         }
     }
 }
@@ -85,6 +89,7 @@ impl std::error::Error for FrameError {
             Self::Analysis(e) => Some(e),
             Self::Quantizer(e) => Some(e),
             Self::Serialization(e) => Some(e),
+            Self::Resampler(e) => Some(e),
             _ => None,
         }
     }
@@ -102,6 +107,11 @@ impl From<NsqError> for FrameError {
 impl From<SilkEncodeError> for FrameError {
     fn from(e: SilkEncodeError) -> Self {
         Self::Serialization(e)
+    }
+}
+impl From<ResampleError> for FrameError {
+    fn from(e: ResampleError) -> Self {
+        Self::Resampler(e)
     }
 }
 /// Selected frame symbols/pulses and bounded-search accounting.
@@ -224,6 +234,57 @@ impl ChannelFrameEncoder {
     /// Clear every channel history while retaining the internal rate.
     pub fn reset(&mut self) {
         *self = Self::new(self.rate);
+    }
+    /// Currently configured internal PCM rate.
+    pub fn internal_rate(&self) -> SilkRate {
+        self.rate
+    }
+    /// Change internal rate at a packet boundary while migrating native channel
+    /// history through old internal -> external API -> new internal resampling.
+    /// `previous_duration` is the previous configured internal frame duration,
+    /// including for an omitted side channel; it is not the next packet duration.
+    /// The supplied input resampler must match this channel's old rates. It is
+    /// replaced by the new, history-primed state only on success. Prediction,
+    /// shaping and NSQ restart; frame count, entropy and redundant gain history
+    /// are retained. VAD, stereo, DTX, LP state and pending FEC belong to the
+    /// enclosing encoder and must follow their own native switching rules.
+    /// Same-rate calls are no-ops. Any error preserves both states.
+    pub fn change_rate(
+        &mut self,
+        input: OutputRate,
+        rate: SilkRate,
+        previous_duration: FrameDuration,
+        resampler: &mut EncoderResamplerState,
+    ) -> Result<(), FrameError> {
+        if !resampler.has_rates(input, self.rate) {
+            return Err(FrameError::InvalidControls);
+        }
+        if rate == self.rate {
+            return Ok(());
+        }
+        let ms = if previous_duration == FrameDuration::Ms10 {
+            25
+        } else {
+            45
+        };
+        let old_length = ms * self.rate.khz() as usize;
+        let api_length = ms * input.hz() as usize / 1000;
+        let new_length = ms * rate.khz() as usize;
+        let mut api = [0i16; 2160];
+        let mut bridge = ResamplerState::new(input);
+        bridge.process(
+            self.rate,
+            &self.history[..old_length],
+            &mut api[..api_length],
+        )?;
+        let mut next = self.clone();
+        let mut converted = EncoderResamplerState::new(input, rate);
+        converted.process(&api[..api_length], &mut next.history[..new_length])?;
+        next.rate = rate;
+        next.restart_prediction();
+        *self = next;
+        *resampler = converted;
+        Ok(())
     }
     // Native side restart clears prediction/shape state while preserving input
     // delay, frame counter and entropy history. Independent-without-scaling

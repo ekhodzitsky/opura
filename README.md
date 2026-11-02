@@ -7,7 +7,8 @@ The separate SILK/CELT/Hybrid APIs and their component stages remain available.
 **The CELT encoder accepts mono/stereo PCM at all five standard input rates.
 The fixed-bandwidth SILK encoder accepts mono/stereo PCM and emits 10/20/40/60 ms
 NB/MB/WB Opus packets.** Both paths are available through the WAV/Ogg CLI.
-SILK supports opt-in DTX and in-band FEC; adaptive bandwidth and Hybrid encoding remain in progress.
+SILK supports opt-in DTX/FEC and explicit packet-boundary bandwidth changes;
+automatic bandwidth selection and Hybrid encoding remain in progress.
 **The decoder passes all120 official RFC8251 vector/rate/channel cases.**
 The first complete-decoder benchmark is recorded: Opura trails the pinned scalar
 libopus reference in all ten configurations; complete adaptive encoding remains under development. The accepted direction is a complete decoder first, then an encoder,
@@ -79,6 +80,13 @@ successful packet. Explicit bandwidth stays fixed. If pending redundancy cannot
 fit alongside primary audio, it is omitted; CBR bytes/duration remain intact.
 The [FEC validation record](docs/validation/silk-fec-packets.md) describes loss
 recovery, queue transitions, bounded retry and independent decoding.
+
+Library streams can call `set_bandwidth(SilkRate::Khz8/Khz12/Khz16)` between
+packets and inspect `bandwidth()`. Input history and live resamplers migrate;
+VAD/stereo/DTX state persists and incompatible pending FEC is cleared. This is a
+forced change. Automatic rate policy and LP taper scheduling remain separate;
+the CLI still uses one selected bandwidth per file. See
+[bandwidth switching validation](docs/validation/silk-bandwidth-switching.md).
 
 Decoding accepts SILK, Hybrid and CELT in one mono/stereo Ogg Opus stream
 (mapping family zero, zero header output gain), and writes PCM16 WAV at 48 kHz.

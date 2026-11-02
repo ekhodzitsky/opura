@@ -90,10 +90,10 @@ def main():
             try:
                 with args.vectors.open('rb') as vectors:
                     magic = vectors.read(8)
-                    if magic not in [b'OPURAM01', b'OPURAS01', b'OPURAD01', b'OPURAD02', b'OPURAF01', b'OPURAF02']:
+                    if magic not in [b'OPURAM01', b'OPURAS01', b'OPURAD01', b'OPURAD02', b'OPURAF01', b'OPURAF02', b'OPURAB01', b'OPURAB02']:
                         raise SystemExit('Invalid Rust vector header')
-                    channels = 1 if magic in [b'OPURAM01', b'OPURAD01', b'OPURAF01'] else 2
-                    expected_packets = 12000 if magic.startswith((b'OPURAD', b'OPURAF')) else 1440 if channels == 1 else 2880
+                    channels = 1 if magic in [b'OPURAM01', b'OPURAD01', b'OPURAF01', b'OPURAB01'] else 2
+                    expected_packets = 12000 if magic.startswith((b'OPURAD', b'OPURAF', b'OPURAB')) else 1440 if channels == 1 else 2880
                     while header := vectors.read(17):
                         if len(header) != 17:
                             raise SystemExit('Truncated vector metadata')
@@ -101,8 +101,8 @@ def main():
                         packet = vectors.read(length)
                         if len(packet) != length:
                             raise SystemExit('Truncated packet')
-                        fec = bool(reset & 2) if magic.startswith(b'OPURAF') else False
-                        if reset & ~(3 if magic.startswith(b'OPURAF') else 1):
+                        fec = bool(reset & 2) if magic.startswith((b'OPURAF', b'OPURAB')) else False
+                        if reset & ~(3 if magic.startswith((b'OPURAF', b'OPURAB')) else 1):
                             raise SystemExit('Invalid vector flags')
                         if reset & 1:
                             if decoder:

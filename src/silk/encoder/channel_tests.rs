@@ -183,11 +183,19 @@ fn native_channel_corpus(fixtures: &str, with_fec: bool) -> Result<()> {
             redundant_frames.clear();
         }
         if channel.rate != r {
-            // Midstream input-rate history conversion belongs to the enclosing
-            // frontend; supply its unchanged native result to this fixed-rate core.
-            channel = ChannelFrameEncoder::new(r);
-            channel.history[..25 * khz].copy_from_slice(&history);
-            channel.counter = v[14] as u32;
+            // The public native corpus uses48kHz API input. A rate change
+            // replaces the old live resampler; it does not read that state.
+            let mut resampler = EncoderResamplerState::new(OutputRate::Khz48, channel.rate);
+            channel.change_rate(
+                OutputRate::Khz48,
+                r,
+                if count == 2 {
+                    FrameDuration::Ms10
+                } else {
+                    FrameDuration::Ms20
+                },
+                &mut resampler,
+            )?;
             redundant_frames.clear();
             rate_changes += 1;
         }
@@ -466,6 +474,114 @@ fn redundant_quantization_isolated_from_main_and_errors_are_atomic() -> Result<(
     );
     assert_eq!(redundant, saved);
     assert_eq!(writer, finished);
+    Ok(())
+}
+#[test]
+fn native_history_migration_and_primed_resampler_pcm_match() -> Result<()> {
+    let mut cases = 0;
+    for line in include_str!("../../../tests/silk-encoder-rate-change-fixtures.txt").lines() {
+        if line.starts_with('#') {
+            continue;
+        }
+        let values: Vec<u64> = line
+            .split_whitespace()
+            .map(|s| s.parse())
+            .collect::<std::result::Result<_, _>>()?;
+        let old = rate(values[0] as i64);
+        let next = rate(values[1] as i64);
+        let input = match values[2] {
+            8000 => OutputRate::Khz8,
+            12000 => OutputRate::Khz12,
+            16000 => OutputRate::Khz16,
+            24000 => OutputRate::Khz24,
+            _ => OutputRate::Khz48,
+        };
+        let duration = if values[3] == 10 {
+            FrameDuration::Ms10
+        } else {
+            FrameDuration::Ms20
+        };
+        let mut channel = ChannelFrameEncoder::new(old);
+        channel.counter = 41;
+        let mut history_random = values[4] as u32;
+        for sample in &mut channel.history {
+            history_random = history_random
+                .wrapping_mul(1664525)
+                .wrapping_add(1013904223);
+            *sample = ((history_random >> 16) as i32 - 32768) as i16;
+        }
+        let mut random = values[5] as u32;
+        let mut samples = |length: usize| -> Vec<i16> {
+            (0..length)
+                .map(|_| {
+                    random = random.wrapping_mul(1664525).wrapping_add(1013904223);
+                    ((random >> 16) as i32 - 32768) as i16
+                })
+                .collect()
+        };
+        let mut resampler = EncoderResamplerState::new(input, old);
+        let mut out = [0i16; 320];
+        resampler.process(
+            &samples(values[3] as usize * input.hz() as usize / 1000),
+            &mut out,
+        )?;
+        channel.change_rate(input, next, duration, &mut resampler)?;
+        assert_eq!(channel.internal_rate(), next);
+        assert_eq!(channel.counter, 41);
+        assert_eq!(fingerprint(&channel.history), values[6]);
+        for block in 0..8 {
+            let ms = if block % 2 == 0 { 10 } else { 20 };
+            let n = resampler.process(&samples(ms * input.hz() as usize / 1000), &mut out)?;
+            assert_eq!(n, ms * next.khz() as usize);
+            assert_eq!(fingerprint(&out[..n]), values[7 + block]);
+        }
+        cases += 1;
+    }
+    assert_eq!(cases, 90);
+    Ok(())
+}
+#[test]
+fn rate_change_clears_prediction_keeps_stream_state_and_validates_resampler() -> Result<()> {
+    let mut channel = ChannelFrameEncoder::new(SilkRate::Khz8);
+    let pcm: Vec<i16> = (0..160).map(|i| ((i % 80) as i16 - 40) * 200).collect();
+    let mut writer = header(1275)?;
+    channel.encode(&mut writer, &pcm, controls(FrameDuration::Ms20))?;
+    let before = channel.clone();
+    let mut mismatch = EncoderResamplerState::new(OutputRate::Khz48, SilkRate::Khz16);
+    let saved = mismatch.clone();
+    assert_eq!(
+        channel.change_rate(
+            OutputRate::Khz48,
+            SilkRate::Khz12,
+            FrameDuration::Ms20,
+            &mut mismatch
+        ),
+        Err(FrameError::InvalidControls)
+    );
+    assert_eq!(channel, before);
+    assert_eq!(mismatch, saved);
+    let mut resampler = EncoderResamplerState::new(OutputRate::Khz48, SilkRate::Khz8);
+    let saved = resampler.clone();
+    channel.change_rate(
+        OutputRate::Khz48,
+        SilkRate::Khz8,
+        FrameDuration::Ms20,
+        &mut resampler,
+    )?;
+    assert_eq!(channel, before);
+    assert_eq!(resampler, saved);
+    channel.change_rate(
+        OutputRate::Khz48,
+        SilkRate::Khz16,
+        FrameDuration::Ms20,
+        &mut resampler,
+    )?;
+    assert_eq!(channel.counter, before.counter);
+    assert_eq!(channel.entropy, before.entropy);
+    assert_eq!(channel.redundant_gain, before.redundant_gain);
+    assert_eq!(channel.ltp, before.ltp);
+    assert!(channel.first);
+    assert_eq!(channel.nsq, NoiseShapingQuantizer::default());
     Ok(())
 }
 fn controls(duration: FrameDuration) -> FrameControls {

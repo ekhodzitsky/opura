@@ -2,6 +2,52 @@ use super::*;
 use crate::{Packet, decoder::OpusDecoder, silk::decoder::PcmChannels};
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 #[test]
+fn cold_band_selection_matches_constructor_and_live_change_keeps_stream_history() -> Result<()> {
+    let options = MonoOptions {
+        complexity: 0,
+        packet_loss_percent: 20,
+        ..MonoOptions::default()
+    };
+    for input in [
+        OutputRate::Khz8,
+        OutputRate::Khz12,
+        OutputRate::Khz16,
+        OutputRate::Khz24,
+        OutputRate::Khz48,
+    ] {
+        for rate in [SilkRate::Khz8, SilkRate::Khz12, SilkRate::Khz16] {
+            let mut changed = MonoEncoder::new(input, SilkRate::Khz8);
+            let mut fresh = MonoEncoder::new(input, rate);
+            changed.set_bandwidth(rate)?;
+            let pcm: Vec<i16> = (0..input.hz() as usize / 50)
+                .map(|i| ((i % 80) as i16 - 40) * 200)
+                .collect();
+            assert_eq!(
+                changed.encode(PacketDuration::Ms20, &pcm, 160, options)?,
+                fresh.encode(PacketDuration::Ms20, &pcm, 160, options)?
+            );
+            assert_eq!(changed, fresh);
+        }
+    }
+    let mut e = MonoEncoder::new(OutputRate::Khz48, SilkRate::Khz16);
+    e.set_inband_fec(true);
+    e.set_dtx(true);
+    let pcm: Vec<i16> = (0..2880).map(|i| ((i % 80) as i16 - 40) * 500).collect();
+    e.encode(PacketDuration::Ms60, &pcm, 480, options)?;
+    let before = e.clone();
+    e.set_bandwidth(SilkRate::Khz16)?;
+    assert_eq!(e, before);
+    e.set_bandwidth(SilkRate::Khz8)?;
+    assert_eq!(e.bandwidth(), SilkRate::Khz8);
+    assert_eq!(e.vad, before.vad);
+    assert_eq!(e.dc, before.dc);
+    assert_eq!(e.previous, before.previous);
+    assert_eq!(e.dtx, before.dtx);
+    assert_eq!(e.excess, before.excess);
+    assert!(!e.fec.has_pending(PacketDuration::Ms60));
+    Ok(())
+}
+#[test]
 fn oversized_fec_retries_identical_input_without_prefix() -> Result<()> {
     let duration = PacketDuration::Ms60;
     let pcm: Vec<i16> = (0..2880).map(|i| ((i % 80) as i16 - 40) * 500).collect();
