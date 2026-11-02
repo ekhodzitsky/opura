@@ -24,7 +24,7 @@ pub fn encode_band(
     if !matches!(blocks, 1 | 2 | 4 | 8) {
         return Err(PvqError::InvalidBlocks);
     }
-    encode_partition_band(entropy, codebook, input, spread, blocks, gain)
+    encode_inner(entropy, codebook, input, spread, blocks, gain, 1 << 49)
 }
 pub(crate) fn encode_partition_band(
     entropy: &mut RangeEncoder,
@@ -33,6 +33,19 @@ pub(crate) fn encode_partition_band(
     spread: Spread,
     blocks: usize,
     gain: i32,
+) -> Result<NormalizedBand, PvqError> {
+    // Stereo/TF mixing can raise squared norm above the public leaf domain.
+    // Norm <=3 retains a wide margin below the signed-Q14 search limit.
+    encode_inner(entropy, codebook, input, spread, blocks, gain, 3 << 48)
+}
+fn encode_inner(
+    entropy: &mut RangeEncoder,
+    codebook: PulseCodebook,
+    input: &[i32],
+    spread: Spread,
+    blocks: usize,
+    gain: i32,
+    limit: i64,
 ) -> Result<NormalizedBand, PvqError> {
     if codebook.pulses() == 0 {
         return Err(PvqError::NoPulses);
@@ -47,7 +60,7 @@ pub(crate) fn encode_partition_band(
     if input.len() != n {
         return Err(PvqError::InvalidInput);
     }
-    squared_sum(input, 1 << 49).ok_or(PvqError::InvalidInput)?;
+    squared_sum(input, limit).ok_or(PvqError::InvalidInput)?;
     let mut work = [0i32; 176];
     work[..n].copy_from_slice(input);
     spread_vector(&mut work[..n], blocks, codebook.pulses(), spread, false)?;

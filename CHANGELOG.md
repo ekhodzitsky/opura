@@ -7,6 +7,22 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.51] - 2026-11-02
+
+- Add atomic fixed-storage CELT mono/stereo band encoding with raw signs,
+  forward TF, stereo theta candidates, intensity mixing, inversion and native
+  N=2 orientation. Return reconstructed channels, folding basis and collapse mask.
+- Share validated band domains and TF reconstruction between encoder and decoder.
+  Keep public PVQ and mono partition norm bounds; bound band inputs at squared
+  norm 5/4 and private mixed-vector search at 3.
+- Match 22,176 complete original band encodings across 924 configurations and
+  5,376 intermediate stereo mixing cases. Verify 6,720 PCM-analysis band round
+  trips, invalid/late rollback and 23 targeted mutations, including a constant
+  error hidden by subsequent quantization in the initial complete-band corpus.
+- New/prior optional fixtures reproduce and all seven offline gates pass with
+  zero dependencies. Full-spectrum decisions, packet encoding and encoder quality
+  comparisons remain subsequent work.
+
 ## [0.1.50] - 2026-11-02
 
 - Add safe fixed-storage recursive mono CELT partition encoding: measured theta,

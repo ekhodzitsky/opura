@@ -2112,3 +2112,50 @@ diff -u tests/celt-angle-fixtures.txt /tmp/celt-angle-fixtures.txt
 
 TF/stereo and full-spectrum encoding, frame controls and complete audio packet
 encoding remain under development. Original probes remain external to Cargo.
+
+
+## CELT mono/stereo TF band encoding
+
+`opura::celt::partition::encode_band` accepts immutable normalized mono/left and
+optional right vectors, existing `BandControls`/`PartitionState`, optional folding
+input and `BandEncoding` decisions. Right input is present exactly for stereo.
+The result is the existing `Band`: reconstructed channels in frequency-interleaved
+order, scaled folding basis and combined collapse mask. No allocation occurs;
+the full entropy writer and shared budget/seed commit together only on success.
+
+Each input squared Q24 norm is at most 5/4 (`sum(x*x)<=5*2^46`), including rounding
+margin for native band analysis. Options supply nonnegative linear amplitudes,
+mono split-noise protection and stereo theta rounding (-1 biased down, 0 nearest,
++1 biased up). The caller chooses frame-wide controls and candidates. Band
+geometry, gain, fold, TF and physical/requested/shared budgets follow decoding.
+The public PVQ norm bound of two and mono partition bound of two are unchanged;
+private stereo/TF mixed vectors allow squared norm up to three to accommodate
+mixing while preserving bounded adaptive Q14 search arithmetic.
+
+Encoding handles one-coordinate signs, forward TF, native stereo angle models,
+small-amplitude channel copying, amplitude-weighted intensity, conditional
+inversion, N=2 orientation and stronger-basis coding, larger mid/side budgets and
+three-bit rebalance reserves. Both entropy directions use shared TF validation,
+inverse transforms, fold scaling and collapse reconstruction. Inputs and borrowed
+folds stay unchanged, including invalid domains and late capacity failures.
+
+All 22,176 original complete encodings match bytes, range/tell/tell_frac,
+remaining budget/seed, reconstructed channels, folding output and masks across
+924 band/LM/block/TF/channel configurations. Native and Rust paired decoding
+agree. An additional 4,352 native split pairs and 1,024 intensity mixtures check
+intermediate fixed-point rounding that later pulse quantization can hide.
+All 23 targeted mutations are detected. PCM-derived analysis bands round-trip in
+6,720 cases across every input rate, duration, long/short and channel layout;
+previous mono partition and band decoder evidence stays unchanged.
+
+```sh
+python3 tools/celt_partition_fixtures.py /path/to/opus-v1.6.1 --encode-bands > /tmp/celt-band-encoder-fixtures.txt
+python3 tools/celt_partition_fixtures.py /path/to/opus-v1.6.1 --stereo-math > /tmp/celt-stereo-math-fixtures.txt
+diff -u tests/celt-band-encoder-fixtures.txt /tmp/celt-band-encoder-fixtures.txt
+diff -u tests/celt-stereo-math-fixtures.txt /tmp/celt-stereo-math-fixtures.txt
+```
+
+These are spectral encoding components. Full-spectrum allocation/folding,
+stereo candidate selection, frame controls, complete audio packets and encoder
+quality evaluation remain under development. Original C probes are optional
+external evidence; ordinary Rust builds/tests do not compile or link them.

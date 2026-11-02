@@ -17,7 +17,7 @@ pub use encoder::encode_partition;
 
 mod band;
 mod spectrum;
-pub use band::{Band, BandControls, StereoControls, decode_band};
+pub use band::{Band, BandControls, BandEncoding, StereoControls, decode_band, encode_band};
 pub use spectrum::{AntiCollapseError, Spectrum, decode_spectrum};
 
 /// Invalid geometry/budget/vector or spectral entropy.
@@ -32,7 +32,7 @@ pub enum PartitionError {
     InvalidGain,
     /// Fold input must match the dimension and have bounded Q14 energy.
     InvalidFold,
-    /// Input must match dimension and have normalized Q24 squared norm at most 2.
+    /// Input must match dimension and the encoding operation's Q24 norm bound.
     InvalidInput,
     /// Range/raw encoding failed without committing the writer or shared state.
     Encoding(EncoderError),

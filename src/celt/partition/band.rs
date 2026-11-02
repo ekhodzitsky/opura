@@ -1,10 +1,13 @@
 //! Time-frequency and stereo orchestration over classic partitions.
 use super::{
-    Decoder, Node, PartitionControls, PartitionError, PartitionState, Theta, bands, mul31, validate,
+    Decoder, Node, PartitionControls, PartitionError, PartitionState, Theta, bands, mul31,
+    validate_context,
 };
 use crate::celt::bands::BandError;
 use crate::celt::{control_tables::TF_SELECT, math};
 use crate::range::RangeDecoder;
+mod encoder;
+pub use encoder::{BandEncoding, encode_band};
 
 /// Stereo angle/intensity policy for a decoded band.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -67,22 +70,13 @@ pub fn decode_band(
     fold: Option<&[i32]>,
 ) -> Result<Band, PartitionError> {
     let c = controls.partition;
-    if !(0..=3).contains(&c.lm) || !(c.blocks == 1 || c.blocks == 1usize << c.lm) {
-        return Err(PartitionError::InvalidGeometry);
-    }
-    let n = validate(entropy, state, c, fold, 1)?;
-    let transient = c.blocks > 1;
-    if !TF_SELECT[c.lm as usize][if transient { 4..8 } else { 0..4 }].contains(&controls.tf_change)
-        || u32::from(c.fill) > ((1u32 << c.blocks) - 1)
-    {
-        return Err(PartitionError::InvalidGeometry);
-    }
-    if controls.stereo.is_some_and(|s| s.intensity > 21) {
-        return Err(PartitionError::InvalidGeometry);
-    }
-    if controls.stereo.is_some() && c.gain != i32::MAX {
-        return Err(PartitionError::InvalidGain);
-    }
+    let n = validate_band(
+        entropy.storage_bits(),
+        entropy.tell(),
+        state,
+        controls,
+        fold,
+    )?;
     let mut next = entropy.clone();
     let mut shared = state.clone();
     let mut result = Band {
@@ -164,86 +158,28 @@ impl Decoder<'_, '_> {
     ) -> Result<u32, PartitionError> {
         let Node {
             bits,
-            mut blocks,
+            blocks,
             lm,
             gain,
-            mut fill,
+            fill,
         } = node;
         let n = x.len();
         if n == 1 {
             return self.signs(x, None, out);
         }
-        let long = blocks == 1;
-        let recombine = self.tf_change.max(0) as usize;
-        let mut time_divide = 0;
-        let mut tf = self.tf_change;
-        let mut per = n / blocks;
-        let mut scratch = [0i32; 176];
-        let mut low = if let Some(fold) = fold {
-            scratch[..n].copy_from_slice(fold);
-            Some(&mut scratch[..n])
-        } else {
-            None
-        };
-        for k in 0..recombine {
-            const INTERLEAVE: [u32; 16] = [0, 1, 1, 1, 2, 3, 3, 3, 2, 3, 3, 3, 2, 3, 3, 3];
-            if let Some(low) = low.as_deref_mut() {
-                bands::haar(low, 1 << k)?;
-            }
-            fill = INTERLEAVE[(fill & 15) as usize] | INTERLEAVE[(fill >> 4) as usize] << 2;
-        }
-        blocks >>= recombine;
-        per <<= recombine;
-        while per % 2 == 0 && tf < 0 {
-            if let Some(low) = low.as_deref_mut() {
-                bands::haar(low, blocks)?;
-            }
-            fill |= fill << blocks;
-            blocks <<= 1;
-            per >>= 1;
-            time_divide += 1;
-            tf += 1;
-        }
-        let original_blocks = blocks;
-        if blocks > 1 {
-            if let Some(low) = low.as_deref_mut() {
-                bands::deinterleave(low, blocks << recombine, long)?;
-            }
-        }
-        let mut cm = self.partition(
+        let transform = BandTransform::prepare(None, fold, n, blocks, fill, self.tf_change)?;
+        let cm = self.partition(
             x,
-            low.as_deref(),
+            transform.low(n),
             Node {
                 bits,
-                blocks,
+                blocks: transform.blocks,
                 lm,
                 gain,
-                fill,
+                fill: transform.fill,
             },
         )?;
-        if original_blocks > 1 {
-            bands::interleave(x, original_blocks << recombine, long)?;
-        }
-        for _ in 0..time_divide {
-            blocks >>= 1;
-            cm |= cm >> blocks;
-            bands::haar(x, blocks)?;
-        }
-        for k in 0..recombine {
-            const DEINTERLEAVE: [u32; 16] = [
-                0, 3, 12, 15, 48, 51, 60, 63, 192, 195, 204, 207, 240, 243, 252, 255,
-            ];
-            cm = DEINTERLEAVE[cm as usize];
-            bands::haar(x, 1 << k)?;
-        }
-        blocks <<= recombine;
-        if let Some(out) = out {
-            let scale = math::sqrt((n as i32) << 22).map_err(BandError::from)? as i16;
-            for (out, &value) in out.iter_mut().zip(x.iter()) {
-                *out = ((i64::from(scale) * i64::from(value)) >> 15) as i32;
-            }
-        }
-        Ok(cm & ((1 << blocks) - 1))
+        transform.finish(x, cm, out)
     }
     pub(super) fn stereo_band(
         &mut self,
@@ -392,4 +328,143 @@ impl Decoder<'_, '_> {
         }
         Ok(cm)
     }
+}
+
+// Both entropy directions reconstruct the same TF basis and folding output.
+struct BandTransform {
+    low: [i32; 176],
+    folded: bool,
+    blocks: usize,
+    fill: u32,
+    recombine: usize,
+    time_divide: usize,
+    long: bool,
+}
+impl BandTransform {
+    fn prepare(
+        mut input: Option<&mut [i32]>,
+        fold: Option<&[i32]>,
+        n: usize,
+        mut blocks: usize,
+        mut fill: u32,
+        tf_change: i8,
+    ) -> Result<Self, PartitionError> {
+        let mut low = [0; 176];
+        if let Some(fold) = fold {
+            low[..n].copy_from_slice(fold);
+        }
+        let long = blocks == 1;
+        let recombine = tf_change.max(0) as usize;
+        let mut time_divide = 0;
+        let mut tf = tf_change;
+        let mut per = n / blocks;
+        for k in 0..recombine {
+            const INTERLEAVE: [u32; 16] = [0, 1, 1, 1, 2, 3, 3, 3, 2, 3, 3, 3, 2, 3, 3, 3];
+            if let Some(x) = input.as_deref_mut() {
+                bands::haar(x, 1 << k)?;
+            }
+            if fold.is_some() {
+                bands::haar(&mut low[..n], 1 << k)?;
+            }
+            fill = INTERLEAVE[(fill & 15) as usize] | INTERLEAVE[(fill >> 4) as usize] << 2;
+        }
+        blocks >>= recombine;
+        per <<= recombine;
+        while per % 2 == 0 && tf < 0 {
+            if let Some(x) = input.as_deref_mut() {
+                bands::haar(x, blocks)?;
+            }
+            if fold.is_some() {
+                bands::haar(&mut low[..n], blocks)?;
+            }
+            fill |= fill << blocks;
+            blocks <<= 1;
+            per >>= 1;
+            time_divide += 1;
+            tf += 1;
+        }
+        if blocks > 1 {
+            if let Some(x) = input {
+                bands::deinterleave(x, blocks << recombine, long)?;
+            }
+            if fold.is_some() {
+                bands::deinterleave(&mut low[..n], blocks << recombine, long)?;
+            }
+        }
+        Ok(Self {
+            low,
+            folded: fold.is_some(),
+            blocks,
+            fill,
+            recombine,
+            time_divide,
+            long,
+        })
+    }
+    fn low(&self, n: usize) -> Option<&[i32]> {
+        if self.folded {
+            Some(&self.low[..n])
+        } else {
+            None
+        }
+    }
+    fn finish(
+        &self,
+        x: &mut [i32],
+        mut cm: u32,
+        out: Option<&mut [i32]>,
+    ) -> Result<u32, PartitionError> {
+        let n = x.len();
+        let mut blocks = self.blocks;
+        if blocks > 1 {
+            bands::interleave(x, blocks << self.recombine, self.long)?;
+        }
+        for _ in 0..self.time_divide {
+            blocks >>= 1;
+            cm |= cm >> blocks;
+            bands::haar(x, blocks)?;
+        }
+        for k in 0..self.recombine {
+            const DEINTERLEAVE: [u32; 16] = [
+                0, 3, 12, 15, 48, 51, 60, 63, 192, 195, 204, 207, 240, 243, 252, 255,
+            ];
+            cm = DEINTERLEAVE[cm as usize];
+            bands::haar(x, 1 << k)?;
+        }
+        blocks <<= self.recombine;
+        if let Some(out) = out {
+            let scale = math::sqrt((n as i32) << 22).map_err(BandError::from)? as i16;
+            for (out, &value) in out.iter_mut().zip(x.iter()) {
+                *out = ((i64::from(scale) * i64::from(value)) >> 15) as i32;
+            }
+        }
+        Ok(cm & ((1 << blocks) - 1))
+    }
+}
+
+fn validate_band(
+    storage_bits: u32,
+    tell: u32,
+    state: &PartitionState,
+    controls: BandControls,
+    fold: Option<&[i32]>,
+) -> Result<usize, PartitionError> {
+    let c = controls.partition;
+    if !(0..=3).contains(&c.lm) || !(c.blocks == 1 || c.blocks == 1usize << c.lm) {
+        return Err(PartitionError::InvalidGeometry);
+    }
+    let n = validate_context(storage_bits, tell, state, c, fold, 1)?;
+    let transient = c.blocks > 1;
+    if !TF_SELECT[c.lm as usize][if transient { 4..8 } else { 0..4 }].contains(&controls.tf_change)
+        || u32::from(c.fill) > ((1u32 << c.blocks) - 1)
+    {
+        return Err(PartitionError::InvalidGeometry);
+    }
+    if controls.stereo.is_some_and(|s| s.intensity > 21) {
+        return Err(PartitionError::InvalidGeometry);
+    }
+    if controls.stereo.is_some() && c.gain != i32::MAX {
+        return Err(PartitionError::InvalidGain);
+    }
+    Ok(n)
 }

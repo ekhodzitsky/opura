@@ -1393,3 +1393,14 @@ follow `celt/mathops.h::celt_atan_norm` and `celt_atan2p_norm`. Existing band/vq
 scalar notices and terms apply. Rust shares unchanged zero-pulse reconstruction
 with decoding, validates bounded immutable input and commits complete operations
 atomically. Stereo/TF band encoding is not supplied by this mono primitive.
+
+
+# CELT stereo and time-frequency band encoding attribution
+
+Stereo energy-ratio measurement, amplitude weighting, mid/side transforms,
+angle candidate/model/inversion policy, signs and TF band orchestration follow
+`celt/vq.c::stereo_itheta` and `celt/bands.c::intensity_stereo`, `stereo_split`,
+`compute_theta`, `quant_band_n1`, `quant_band` and `quant_band_stereo` at the pinned
+revision. Existing CELT band/vq/scalar notices and terms apply. Rust shares band
+validation and TF reconstruction between entropy directions, validates bounded
+immutable normalized inputs and commits complete operations atomically.

@@ -12,6 +12,8 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('source',type=Path)
 mode=parser.add_mutually_exclusive_group()
 mode.add_argument('--tables',action='store_true')
+mode.add_argument('--stereo-math',action='store_true',help='Generate original stereo mixing scalar evidence')
+mode.add_argument('--encode-bands',action='store_true',help='Generate mono/stereo TF band encoder evidence')
 mode.add_argument('--encode',action='store_true',help='Generate recursive mono encoder evidence')
 mode.add_argument('--angles',action='store_true',help='Generate refined atan/atan2 math evidence')
 mode.add_argument('--spectra',action='store_true',help='Generate allocation-to-spectrum evidence')
@@ -172,6 +174,43 @@ int encode_partition_probe(int band,int lm,int B,int bits,int gain,int spread,in
     return length;
 }
 '''
+wrapper+=r'''
+int encode_band_probe(int band,int lm,int B,int tf,int stereo,int intensity,int disable,int bits,int gain,int spread,int fill,int remaining,unsigned seed,
+        int folded,int avoid,int rounding,int amp0,int amp1,int prefix_bits,unsigned prefix_value,const int *input,const int *fold,int *out,unsigned char *data) {
+    ec_enc enc;ec_enc_init(&enc,data,1275);
+    if(prefix_bits)ec_enc_uint(&enc,prefix_value,1U<<prefix_bits);
+    int amplitudes[42]={0};amplitudes[band]=amp0;amplitudes[21+band]=amp1;
+    struct band_ctx ctx={0};ctx.encode=1;ctx.resynth=1;ctx.m=&mode48000_960_120;
+    ctx.i=band;ctx.spread=spread;ctx.ec=&enc;ctx.remaining_bits=remaining;ctx.seed=seed;ctx.avoid_split_noise=avoid;
+    ctx.intensity=intensity;ctx.disable_inv=disable;ctx.tf_change=tf;ctx.theta_round=rounding;ctx.bandE=amplitudes;
+    int N=(ctx.m->eBands[band+1]-ctx.m->eBands[band])<<lm;
+    for(int i=0;i<N*(stereo+1);i++)out[7+i]=input[i];
+    int scratch[176]={0};
+    if(stereo)out[0]=quant_band_stereo(&ctx,out+7,out+7+N,N,bits,B,folded?(int*)fold:NULL,lm,out+7+2*N,scratch,fill);
+    else out[0]=quant_band(&ctx,out+7,N,bits,B,folded?(int*)fold:NULL,lm,out+7+2*N,gain,scratch,fill);
+    out[1]=ctx.remaining_bits;out[2]=(int)ctx.seed;out[3]=(int)enc.rng;
+    out[4]=ec_tell(&enc);out[5]=ec_tell_frac(&enc);out[6]=ec_get_error(&enc);
+    int length=IMAX(2,(ec_tell(&enc)+7)/8);ec_enc_shrink(&enc,length);ec_enc_done(&enc);
+    if(ec_get_error(&enc))return -1;
+    ec_dec dec;ec_dec_init(&dec,data,length);
+    if(prefix_bits && ec_dec_uint(&dec,1U<<prefix_bits)!=prefix_value)return -2;
+    struct band_ctx decoded=ctx;decoded.encode=0;decoded.ec=&dec;decoded.remaining_bits=remaining;decoded.seed=seed;
+    int reconstructed[528]={0};unsigned mask;
+    if(stereo)mask=quant_band_stereo(&decoded,reconstructed,reconstructed+N,N,bits,B,folded?(int*)fold:NULL,lm,reconstructed+2*N,scratch,fill);
+    else mask=quant_band(&decoded,reconstructed,N,bits,B,folded?(int*)fold:NULL,lm,reconstructed+2*N,gain,scratch,fill);
+    if(mask!=(unsigned)out[0] || decoded.seed!=ctx.seed || decoded.remaining_bits!=ctx.remaining_bits)return -3;
+    if(dec.rng!=enc.rng || ec_tell(&dec)!=ec_tell(&enc) || ec_tell_frac(&dec)!=ec_tell_frac(&enc) || ec_get_error(&dec))return -4;
+    for(int i=0;i<3*N;i++)if(reconstructed[i]!=out[7+i])return -5;
+    return length;
+}
+'''
+wrapper+=r'''
+void stereo_mix_probe(int amp0,int amp1,int x,int y,int *out) {
+    int amplitudes[42]={0};amplitudes[0]=amp0;amplitudes[21]=amp1;
+    int left=x,right=y;stereo_split(&left,&right,1);out[0]=left;out[1]=right;
+    left=x;intensity_stereo(&mode48000_960_120,&left,&y,amplitudes,0,1);out[2]=left;
+}
+'''
 with tempfile.TemporaryDirectory(prefix='opura-celt-partition-') as temp:
     path=Path(temp);(path/'probe.c').write_text(wrapper)
     subprocess.run(['cc','-shared','-fPIC','-O2','-fwrapv','-DFIXED_POINT','-DVAR_ARRAYS','-DOPUS_BUILD','-DDISABLE_FLOAT_API','-DSMALL_FOOTPRINT',
@@ -204,6 +243,76 @@ with tempfile.TemporaryDirectory(prefix='opura-celt-partition-') as temp:
             random^=(random<<13)&0xffffffff;random^=random>>17;random^=(random<<5)&0xffffffff;y=random&0x7fffffff
             if index%7==0:y=x
             print('case',1,x,y,lib.angle_math(1,x,y))
+        raise SystemExit
+    if args.stereo_math:
+        lib.stereo_mix_probe.argtypes=[c.c_int]*4+[ptr];lib.stereo_mix_probe.restype=None
+        print('# Original stereo_split and intensity_stereo scalars:',REVISION)
+        print('# split X Y MID SIDE; intensity AMP0 AMP1 X Y MIXED')
+        random=0x4d495853
+        def next_random():
+            global random
+            random^=(random<<13)&0xffffffff;random^=random>>17;random^=(random<<5)&0xffffffff
+            return random
+        values=[-(1<<24),-(1<<24)+1,-8193,-8192,-2049,-2048,-1025,-1,0,1,1023,2047,8191,(1<<24)-1,1<<24,18_000_000]
+        pairs=[(x,y) for x in values for y in values]
+        pairs += [(next_random()%36_000_001-18_000_000,next_random()%36_000_001-18_000_000) for _ in range(4096)]
+        out=(c.c_int32*3)()
+        for x,y in pairs:
+            lib.stereo_mix_probe(0,0,x,y,out);print('split',x,y,out[0],out[1])
+        amplitudes=[(0,0),(0,1),(1,0),(1,1),(1,2),(2,1),(2,2),(10,11),(8191,8192),(32767,12345),(65535,65536),(1,2147483647),(2147483647,1),(2147483647,2147483647),(16383,16384),(268435455,268435456)]
+        for amp0,amp1 in amplitudes:
+            for _ in range(64):
+                x=next_random()%36_000_001-18_000_000;y=next_random()%36_000_001-18_000_000
+                lib.stereo_mix_probe(amp0,amp1,x,y,out);print('intensity',amp0,amp1,x,y,out[2])
+        raise SystemExit
+    if args.encode_bands:
+        lib.encode_band_probe.argtypes=[c.c_int]*12+[c.c_uint]+[c.c_int]*6+[c.c_uint,ptr,ptr,ptr,u8]
+        lib.encode_band_probe.restype=c.c_int
+        print('# Original classic quant_band/quant_band_stereo encoding:',REVISION)
+        print('# band BAND LM BLOCKS TF STEREO INTENSITY DISABLE BITS GAIN SPREAD FILL REMAINING SEED FOLDED AVOID ROUND AMP0 AMP1 PREFIX_BITS PREFIX_VALUE HEX INPUT[(1+STEREO)*N] FOLD[N if FOLDED] MASK REMAINING SEED RANGE TELL TELL_FRAC ERROR LEFT[N] RIGHT[N] FOLD_OUT[N]')
+        edges=numbers(declaration(modes,'static const opus_int16 eband5ms[]'))
+        mappings=[[0,-1,0,-1,0,-1,0,-1],[0,-1,0,-2,1,0,1,-1],[0,-2,0,-3,2,0,1,-1],[0,-2,0,-3,3,0,1,-1]]
+        random=0x53544552
+        def next_random():
+            global random
+            random^=(random<<13)&0xffffffff;random^=random>>17;random^=(random<<5)&0xffffffff
+            return random
+        def normalized(n,pattern):
+            if pattern==0:return [0]*n
+            if pattern==1:return [1<<24]+[0]*(n-1)
+            if pattern==2:return [0]*(n-1)+[-(1<<24)]
+            if pattern in [3,4]:return [math.isqrt((1<<48)//n)*(1 if pattern==3 or j%2 else -1) for j in range(n)]
+            if pattern==6:return [1]+[0]*(n-1)
+            values=[c.c_int32(next_random()).value>>16 for _ in range(n)]
+            norm=math.isqrt(sum(x*x for x in values))+1
+            return [x*(1<<24)//norm for x in values]
+        for lm in range(4):
+            for band in range(21):
+                n=(edges[band+1]-edges[band])<<lm
+                for blocks in sorted({1,1<<lm}):
+                    for tf in sorted(set(mappings[lm][4:8] if blocks>1 else mappings[lm][:4])):
+                        for stereo in [0,1]:
+                            for case,bits in enumerate([0,7,8,16,17,24,31,32,64,128,179,180,256,267,437,511,1024,4096,81600,96,181,268,512,2048]):
+                                gain=0x7fffffff if stereo else [0,1,1<<28,1<<30,32767<<16,0x7fffffff][case%6]
+                                remaining=[0,8,16,17,24,256,1024,8191][case%8]
+                                if case%3==2:remaining=8191
+                                spread=case%4;fill=[0,1,(1<<blocks)-1,0x55&((1<<blocks)-1)][case%4]
+                                intensity=[0,band,band+1,21][case%4];disable=(case//4)%2
+                                seed=next_random();folded=case%3!=0;avoid=case%2;rounding=case%3-1
+                                amp0,amp1=[(0,0),(1,2),(2,1),(2,2),(10,20),(8192,8192),(2147483647,1),(1,2147483647),(2147483647,2147483647),(32767,12345),(11,10),(65536,1)][case%12]
+                                prefix_bits=[0,3,9][case%3];prefix_value=next_random()&((1<<prefix_bits)-1)
+                                left=normalized(n,case%8);right=normalized(n,(case//3+2)%8)
+                                if case%8==4:right=left[:]
+                                if case%8==5:right=[-x for x in left]
+                                if case in [22,23] and n>=2:
+                                    left=[1<<24,1<<23]+[0]*(n-2);right=left[:]
+                                values=left+(right if stereo else [])
+                                fold=[0 if case%3==1 else (c.c_int32(next_random()).value>>8)//math.isqrt(n+1) for _ in range(n)]
+                                out=(c.c_int32*(7+3*n))();data=(c.c_ubyte*1275)()
+                                length=lib.encode_band_probe(band,lm,blocks,tf,stereo,intensity,disable,bits,gain,spread,fill,remaining,seed,int(folded),avoid,rounding,amp0,amp1,prefix_bits,prefix_value,(c.c_int32*len(values))(*values),(c.c_int32*n)(*fold),out,data)
+                                if length<0:raise SystemExit(f'Original band roundtrip failure {band,lm,blocks,tf,stereo,case,length}')
+                                result=list(out);result[2]=c.c_uint32(result[2]).value;result[3]=c.c_uint32(result[3]).value
+                                print('band',band,lm,blocks,tf,stereo,intensity,disable,bits,gain,spread,fill,remaining,seed,int(folded),avoid,rounding,amp0,amp1,prefix_bits,prefix_value,bytes(data[:length]).hex(),*values,*(fold if folded else []),*result)
         raise SystemExit
     if args.encode:
         lib.encode_partition_probe.argtypes=[c.c_int]*8+[c.c_uint,c.c_int,c.c_int,c.c_int,c.c_uint,ptr,ptr,ptr,u8]
