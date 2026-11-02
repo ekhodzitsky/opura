@@ -1,5 +1,7 @@
 """Signal diagnostics must expose alignment/gain and undefined silent cases."""
 import math
+import subprocess
+import sys
 from pathlib import Path
 import tempfile
 import unittest
@@ -53,6 +55,22 @@ class SignalDiagnosticsTests(unittest.TestCase):
                 path.write_bytes(data)
                 with self.assertRaises(ValueError):
                     baseline.packets(path)
+
+    def test_packet_budgets_include_rounding_and_dtx_exceptions(self):
+        encoded = [b'x'*n for n in [80, 81, 80, 80]]
+        baseline.validate_packet_budgets(encoded, 32101, 960, False)
+        baseline.validate_packet_budgets([b'x'*80, b'x', b'x'*80, b'x'*80], 32101, 960, True)
+        for packets, dtx in [([b'x'], False), ([b'xx'], True), ([b'x'*80]*4, False)]:
+            with self.assertRaises(ValueError):
+                baseline.validate_packet_budgets(packets, 32101, 960, dtx)
+
+    def test_plc_diagnostics_cannot_hide_nonzero_or_failed_processes(self):
+        command = [sys.executable, '-c', "import sys; print('encoded 10 PLC fallback packets',file=sys.stderr)"]
+        self.assertEqual(baseline.encode_diagnostic(command, 'silk'), 10)
+        with self.assertRaises(ValueError):
+            baseline.encode_diagnostic([sys.executable, '-c', 'pass'], 'silk')
+        with self.assertRaises(subprocess.CalledProcessError):
+            baseline.encode_diagnostic([sys.executable, '-c', 'raise SystemExit(2)'], 'silk')
 
 
 if __name__ == '__main__':

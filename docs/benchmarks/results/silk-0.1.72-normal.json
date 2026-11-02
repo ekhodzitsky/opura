@@ -1,0 +1,1956 @@
+{
+  "schema_version": 1,
+  "status": "pass",
+  "opura_version": "opura 0.1.72",
+  "reference_revision": "22244de5a79bd1d6d623c32e72bf1954b56235be",
+  "reference_cflags": [
+    "-shared",
+    "-fPIC",
+    "-O2",
+    "-fwrapv",
+    "-DVAR_ARRAYS",
+    "-DOPUS_BUILD",
+    "-DFIXED_POINT",
+    "-DDISABLE_FLOAT_API"
+  ],
+  "reference_settings": "restricted-SILK, preferred bandwidth auto, CBR, forced channels, complexity 10, DTX=False, loss/FEC=0",
+  "mode": "silk",
+  "bandwidth": "auto",
+  "dtx": false,
+  "fec_loss_percent": 0,
+  "timing_scope": "Opura process wall time including startup and WAV/Ogg I/O; no native speed comparison",
+  "metric_scope": "aligned PCM signal diagnostics, not perceptual quality scores",
+  "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+  "machine": "x86_64",
+  "python": "3.14.4",
+  "cc": "gcc-15 (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+  "rustc": "rustc 1.87.0 (17067e9ac 2025-05-09)",
+  "binary_sha256": "97899f12ee6fa797c8f52e31d8509e0d7bc3b0c7f30abf2b704ee9c5cf316896",
+  "tool_sha256": "a1db84b3c6c3fa378398feadcb1f30067884f5db6ff433e995db7b428c779b78",
+  "build_profile": "release; actual binary hash recorded",
+  "affinity_cpus": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23
+  ],
+  "rounds": 3,
+  "corpus": [
+    {
+      "name": "speech_orig",
+      "url": "https://media.xiph.org/opus/samples/examples/speech_orig.wav",
+      "sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "channels": 1,
+      "samples": 518400,
+      "rate": 48000,
+      "input_peak": 5741,
+      "input_clipped_samples": 0
+    },
+    {
+      "name": "music_orig",
+      "url": "https://media.xiph.org/opus/samples/examples/music_orig.wav",
+      "sha256": "ccc1fef039e7c77a0e3d3a8719cf5ec0a775dce5849113b7646a910d11a7b869",
+      "channels": 2,
+      "samples": 4358219,
+      "rate": 48000,
+      "input_peak": 32768,
+      "input_clipped_samples": 34
+    }
+  ],
+  "cases": [
+    {
+      "recording": "speech_orig",
+      "bitrate": 12000,
+      "frame_ms": "10",
+      "samples": 518400,
+      "channels": 1,
+      "packets": 1081,
+      "packet_bytes": 16215,
+      "ogg_bytes": 17696,
+      "opura": {
+        "samples_interleaved": 518400,
+        "rmse": 222.22650305772584,
+        "snr_db": 8.59422097716627,
+        "identical": false,
+        "correlation": 0.928347414641528,
+        "rms": 559.1785849243182,
+        "peak": 5258,
+        "clipped_samples": 0,
+        "max_abs_error": 3369,
+        "mean_error": -0.9294598765432098
+      },
+      "libopus": {
+        "samples_interleaved": 518400,
+        "rmse": 222.22650305772584,
+        "snr_db": 8.59422097716627,
+        "identical": false,
+        "correlation": 0.928347414641528,
+        "rms": 559.1785849243182,
+        "peak": 5258,
+        "clipped_samples": 0,
+        "max_abs_error": 3369,
+        "mean_error": -0.9294598765432098
+      },
+      "opura_packet_stats": {
+        "packets": 1081,
+        "packet_bytes": 16215,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "nb": 1081
+        },
+        "mean_packet_bitrate_bps": 12000.0
+      },
+      "libopus_packet_stats": {
+        "packets": 1081,
+        "packet_bytes": 16215,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "nb": 1081
+        },
+        "mean_packet_bitrate_bps": 12000.0
+      },
+      "decoded_matches_reference": true,
+      "packets_match_reference": false,
+      "reference_packets_sha256": "d08991928f2cb10e064f6b150aef747e357db337df2c88e7da61aaa2385f9c9f",
+      "wall_ns": {
+        "encode": [
+          112546532,
+          124203533,
+          140851770
+        ],
+        "decode": [
+          15513781,
+          10852293,
+          15151171
+        ]
+      },
+      "median_realtime_factor": {
+        "encode": 0.01150032712962963,
+        "decode": 0.0014028862037037035
+      },
+      "encoded_sha256": "434b353cc7f05dab74b1c1e3754bca8cf127b2c9765261d24939326e5ce8a1ae",
+      "decoded_sha256": "5b576ef4c1a68ec365d11809f9a6738d46f539ed84d1ca0f32a3adc8a0d58384",
+      "reference_pcm_sha256": "5b576ef4c1a68ec365d11809f9a6738d46f539ed84d1ca0f32a3adc8a0d58384"
+    },
+    {
+      "recording": "speech_orig",
+      "bitrate": 12000,
+      "frame_ms": "20",
+      "samples": 518400,
+      "channels": 1,
+      "packets": 541,
+      "packet_bytes": 16230,
+      "ogg_bytes": 17171,
+      "opura": {
+        "samples_interleaved": 518400,
+        "rmse": 195.92295689525577,
+        "snr_db": 9.68843149101811,
+        "identical": false,
+        "correlation": 0.9447572999562988,
+        "rms": 565.9213970532895,
+        "peak": 4980,
+        "clipped_samples": 0,
+        "max_abs_error": 3236,
+        "mean_error": -1.431184413580247
+      },
+      "libopus": {
+        "samples_interleaved": 518400,
+        "rmse": 195.92295689525577,
+        "snr_db": 9.68843149101811,
+        "identical": false,
+        "correlation": 0.9447572999562988,
+        "rms": 565.9213970532895,
+        "peak": 4980,
+        "clipped_samples": 0,
+        "max_abs_error": 3236,
+        "mean_error": -1.431184413580247
+      },
+      "opura_packet_stats": {
+        "packets": 541,
+        "packet_bytes": 16230,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 541
+        },
+        "mean_packet_bitrate_bps": 12000.0
+      },
+      "libopus_packet_stats": {
+        "packets": 541,
+        "packet_bytes": 16230,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 541
+        },
+        "mean_packet_bitrate_bps": 12000.0
+      },
+      "decoded_matches_reference": true,
+      "packets_match_reference": false,
+      "reference_packets_sha256": "f5ff92e2e4617604b70957893b56ad3ac21b53ab259beb52c48b84e5ece3d368",
+      "wall_ns": {
+        "encode": [
+          301934393,
+          228294102,
+          261563567
+        ],
+        "decode": [
+          14152519,
+          14194648,
+          10640586
+        ]
+      },
+      "median_realtime_factor": {
+        "encode": 0.024218848796296294,
+        "decode": 0.0013104184259259259
+      },
+      "encoded_sha256": "7e9d5a7dcd1def638b70291911b0e70e6747467ab1a158c5c717e145d7b38f70",
+      "decoded_sha256": "afff25b7eb82908406a39ce3e374a2cea2f3032530d0e67499cf4d6886d7f639",
+      "reference_pcm_sha256": "afff25b7eb82908406a39ce3e374a2cea2f3032530d0e67499cf4d6886d7f639"
+    },
+    {
+      "recording": "speech_orig",
+      "bitrate": 12000,
+      "frame_ms": "40",
+      "samples": 518400,
+      "channels": 1,
+      "packets": 271,
+      "packet_bytes": 16260,
+      "ogg_bytes": 16931,
+      "opura": {
+        "samples_interleaved": 518400,
+        "rmse": 191.95081859491836,
+        "snr_db": 9.866338651880769,
+        "identical": false,
+        "correlation": 0.9470448126550166,
+        "rms": 568.7117831550378,
+        "peak": 5507,
+        "clipped_samples": 0,
+        "max_abs_error": 3129,
+        "mean_error": -1.4642438271604938
+      },
+      "libopus": {
+        "samples_interleaved": 518400,
+        "rmse": 191.95081859491836,
+        "snr_db": 9.866338651880769,
+        "identical": false,
+        "correlation": 0.9470448126550166,
+        "rms": 568.7117831550378,
+        "peak": 5507,
+        "clipped_samples": 0,
+        "max_abs_error": 3129,
+        "mean_error": -1.4642438271604938
+      },
+      "opura_packet_stats": {
+        "packets": 271,
+        "packet_bytes": 16260,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 271
+        },
+        "mean_packet_bitrate_bps": 12000.0
+      },
+      "libopus_packet_stats": {
+        "packets": 271,
+        "packet_bytes": 16260,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 271
+        },
+        "mean_packet_bitrate_bps": 12000.0
+      },
+      "decoded_matches_reference": true,
+      "packets_match_reference": false,
+      "reference_packets_sha256": "b2eb374c79cfaf8d3560fbdbca98df12b69e7038caf9f45a2855c313b579c84f",
+      "wall_ns": {
+        "encode": [
+          208424768,
+          200734953,
+          183352829
+        ],
+        "decode": [
+          12358687,
+          12273557,
+          12563801
+        ]
+      },
+      "median_realtime_factor": {
+        "encode": 0.01858656972222222,
+        "decode": 0.0011443228703703703
+      },
+      "encoded_sha256": "008ab622687410048b82914bb0a4cc39dc6ce952d4004337ec90a64e63107a75",
+      "decoded_sha256": "9ce54c445516297238b80c9a403b82c125c827010e8708a798327cd9f404bb4b",
+      "reference_pcm_sha256": "9ce54c445516297238b80c9a403b82c125c827010e8708a798327cd9f404bb4b"
+    },
+    {
+      "recording": "speech_orig",
+      "bitrate": 12000,
+      "frame_ms": "60",
+      "samples": 518400,
+      "channels": 1,
+      "packets": 181,
+      "packet_bytes": 16290,
+      "ogg_bytes": 16871,
+      "opura": {
+        "samples_interleaved": 518400,
+        "rmse": 190.32444501222895,
+        "snr_db": 9.940246581726498,
+        "identical": false,
+        "correlation": 0.9479621677795759,
+        "rms": 569.1392769984333,
+        "peak": 5681,
+        "clipped_samples": 0,
+        "max_abs_error": 3686,
+        "mean_error": -1.8770929783950616
+      },
+      "libopus": {
+        "samples_interleaved": 518400,
+        "rmse": 190.32444501222895,
+        "snr_db": 9.940246581726498,
+        "identical": false,
+        "correlation": 0.9479621677795759,
+        "rms": 569.1392769984333,
+        "peak": 5681,
+        "clipped_samples": 0,
+        "max_abs_error": 3686,
+        "mean_error": -1.8770929783950616
+      },
+      "opura_packet_stats": {
+        "packets": 181,
+        "packet_bytes": 16290,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 181
+        },
+        "mean_packet_bitrate_bps": 12000.0
+      },
+      "libopus_packet_stats": {
+        "packets": 181,
+        "packet_bytes": 16290,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 181
+        },
+        "mean_packet_bitrate_bps": 12000.0
+      },
+      "decoded_matches_reference": true,
+      "packets_match_reference": false,
+      "reference_packets_sha256": "ddcdd04045ae0602b965b897422c59e3003b53049f2d4b5e099e4094d1582b49",
+      "wall_ns": {
+        "encode": [
+          221463398,
+          228065334,
+          179207429
+        ],
+        "decode": [
+          12660844,
+          12652377,
+          9117751
+        ]
+      },
+      "median_realtime_factor": {
+        "encode": 0.020505870185185186,
+        "decode": 0.0011715163888888888
+      },
+      "encoded_sha256": "2b9fc4aa4abd5e58180ba13594b907d9cb9d5b22ed92584626b406f64a0679dc",
+      "decoded_sha256": "fee1584c9c8c189f72362546c8401d5b16ac938f92e7acc753efbead58881121",
+      "reference_pcm_sha256": "fee1584c9c8c189f72362546c8401d5b16ac938f92e7acc753efbead58881121"
+    },
+    {
+      "recording": "speech_orig",
+      "bitrate": 16000,
+      "frame_ms": "10",
+      "samples": 518400,
+      "channels": 1,
+      "packets": 1081,
+      "packet_bytes": 21620,
+      "ogg_bytes": 23101,
+      "opura": {
+        "samples_interleaved": 518400,
+        "rmse": 189.19186846216934,
+        "snr_db": 9.992088696412269,
+        "identical": false,
+        "correlation": 0.9486761213272553,
+        "rms": 559.2906521877638,
+        "peak": 5233,
+        "clipped_samples": 0,
+        "max_abs_error": 2645,
+        "mean_error": -1.3133969907407408
+      },
+      "libopus": {
+        "samples_interleaved": 518400,
+        "rmse": 189.19186846216934,
+        "snr_db": 9.992088696412269,
+        "identical": false,
+        "correlation": 0.9486761213272553,
+        "rms": 559.2906521877638,
+        "peak": 5233,
+        "clipped_samples": 0,
+        "max_abs_error": 2645,
+        "mean_error": -1.3133969907407408
+      },
+      "opura_packet_stats": {
+        "packets": 1081,
+        "packet_bytes": 21620,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 1081
+        },
+        "mean_packet_bitrate_bps": 16000.0
+      },
+      "libopus_packet_stats": {
+        "packets": 1081,
+        "packet_bytes": 21620,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 1081
+        },
+        "mean_packet_bitrate_bps": 16000.0
+      },
+      "decoded_matches_reference": true,
+      "packets_match_reference": false,
+      "reference_packets_sha256": "486546a1b66d173d13b91feb641849b8b60d507f6f338ddf55012b2633c31fe9",
+      "wall_ns": {
+        "encode": [
+          239597651,
+          246777080,
+          224723930
+        ],
+        "decode": [
+          19534528,
+          18885492,
+          16809831
+        ]
+      },
+      "median_realtime_factor": {
+        "encode": 0.022184967685185183,
+        "decode": 0.0017486566666666667
+      },
+      "encoded_sha256": "7a9ee077ba2f8ef8bd6d175684efe9555ecad5a00ca9cf1a578bb599f03fac2b",
+      "decoded_sha256": "e324ac6079942a267cfd65f5894d608ba784ed34ecefef23c3745309da9fc432",
+      "reference_pcm_sha256": "e324ac6079942a267cfd65f5894d608ba784ed34ecefef23c3745309da9fc432"
+    },
+    {
+      "recording": "speech_orig",
+      "bitrate": 16000,
+      "frame_ms": "20",
+      "samples": 518400,
+      "channels": 1,
+      "packets": 541,
+      "packet_bytes": 21640,
+      "ogg_bytes": 22581,
+      "opura": {
+        "samples_interleaved": 518400,
+        "rmse": 178.65412497224565,
+        "snr_db": 10.489877060028604,
+        "identical": false,
+        "correlation": 0.9544109303833235,
+        "rms": 579.6123592659916,
+        "peak": 5678,
+        "clipped_samples": 0,
+        "max_abs_error": 3264,
+        "mean_error": -1.1508912037037038
+      },
+      "libopus": {
+        "samples_interleaved": 518400,
+        "rmse": 178.65412497224565,
+        "snr_db": 10.489877060028604,
+        "identical": false,
+        "correlation": 0.9544109303833235,
+        "rms": 579.6123592659916,
+        "peak": 5678,
+        "clipped_samples": 0,
+        "max_abs_error": 3264,
+        "mean_error": -1.1508912037037038
+      },
+      "opura_packet_stats": {
+        "packets": 541,
+        "packet_bytes": 21640,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 541
+        },
+        "mean_packet_bitrate_bps": 16000.0
+      },
+      "libopus_packet_stats": {
+        "packets": 541,
+        "packet_bytes": 21640,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 541
+        },
+        "mean_packet_bitrate_bps": 16000.0
+      },
+      "decoded_matches_reference": true,
+      "packets_match_reference": false,
+      "reference_packets_sha256": "09ccd878fad7897602a62516249b7f83f8f77abbdb38583787383a072b073e0b",
+      "wall_ns": {
+        "encode": [
+          242070607,
+          327181760,
+          279513424
+        ],
+        "decode": [
+          16630033,
+          15262580,
+          16547659
+        ]
+      },
+      "median_realtime_factor": {
+        "encode": 0.025880872592592592,
+        "decode": 0.001532190648148148
+      },
+      "encoded_sha256": "3a45723cc203858ebab66861c5452e9c253393c6f86ecbd44809074dd8ae316f",
+      "decoded_sha256": "5a47b52c9418c2ff81949b6e5f5e49a531c531703ba4620c53f15a2da5a5c970",
+      "reference_pcm_sha256": "5a47b52c9418c2ff81949b6e5f5e49a531c531703ba4620c53f15a2da5a5c970"
+    },
+    {
+      "recording": "speech_orig",
+      "bitrate": 16000,
+      "frame_ms": "40",
+      "samples": 518400,
+      "channels": 1,
+      "packets": 271,
+      "packet_bytes": 21680,
+      "ogg_bytes": 22351,
+      "opura": {
+        "samples_interleaved": 518400,
+        "rmse": 175.0068143018532,
+        "snr_db": 10.669038837090238,
+        "identical": false,
+        "correlation": 0.9562440563624214,
+        "rms": 578.2730511013075,
+        "peak": 5268,
+        "clipped_samples": 0,
+        "max_abs_error": 3126,
+        "mean_error": -1.0789293981481483
+      },
+      "libopus": {
+        "samples_interleaved": 518400,
+        "rmse": 175.0068143018532,
+        "snr_db": 10.669038837090238,
+        "identical": false,
+        "correlation": 0.9562440563624214,
+        "rms": 578.2730511013075,
+        "peak": 5268,
+        "clipped_samples": 0,
+        "max_abs_error": 3126,
+        "mean_error": -1.0789293981481483
+      },
+      "opura_packet_stats": {
+        "packets": 271,
+        "packet_bytes": 21680,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 271
+        },
+        "mean_packet_bitrate_bps": 16000.0
+      },
+      "libopus_packet_stats": {
+        "packets": 271,
+        "packet_bytes": 21680,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 271
+        },
+        "mean_packet_bitrate_bps": 16000.0
+      },
+      "decoded_matches_reference": true,
+      "packets_match_reference": false,
+      "reference_packets_sha256": "1b945f6097e788bfdcc45319fde034dbe8534dd745d2a22988e2afefab7f35c2",
+      "wall_ns": {
+        "encode": [
+          191866889,
+          207872361,
+          225267991
+        ],
+        "decode": [
+          13232695,
+          13311082,
+          12728199
+        ]
+      },
+      "median_realtime_factor": {
+        "encode": 0.019247440833333334,
+        "decode": 0.0012252495370370369
+      },
+      "encoded_sha256": "2ef5d2f3a0feef709b8d5726a6888dc31aacb4c277ed4a959c8763f5099f85ce",
+      "decoded_sha256": "57972f4a4b4efe02d3826f41042f8cd09fa37598fc17bbe2de18d8c6c6b4a6a3",
+      "reference_pcm_sha256": "57972f4a4b4efe02d3826f41042f8cd09fa37598fc17bbe2de18d8c6c6b4a6a3"
+    },
+    {
+      "recording": "speech_orig",
+      "bitrate": 16000,
+      "frame_ms": "60",
+      "samples": 518400,
+      "channels": 1,
+      "packets": 181,
+      "packet_bytes": 21720,
+      "ogg_bytes": 22301,
+      "opura": {
+        "samples_interleaved": 518400,
+        "rmse": 176.27206403025002,
+        "snr_db": 10.606468226055966,
+        "identical": false,
+        "correlation": 0.9556418115794812,
+        "rms": 580.0438155295061,
+        "peak": 5451,
+        "clipped_samples": 0,
+        "max_abs_error": 3074,
+        "mean_error": -0.9807233796296296
+      },
+      "libopus": {
+        "samples_interleaved": 518400,
+        "rmse": 176.27206403025002,
+        "snr_db": 10.606468226055966,
+        "identical": false,
+        "correlation": 0.9556418115794812,
+        "rms": 580.0438155295061,
+        "peak": 5451,
+        "clipped_samples": 0,
+        "max_abs_error": 3074,
+        "mean_error": -0.9807233796296296
+      },
+      "opura_packet_stats": {
+        "packets": 181,
+        "packet_bytes": 21720,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 181
+        },
+        "mean_packet_bitrate_bps": 16000.0
+      },
+      "libopus_packet_stats": {
+        "packets": 181,
+        "packet_bytes": 21720,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 181
+        },
+        "mean_packet_bitrate_bps": 16000.0
+      },
+      "decoded_matches_reference": true,
+      "packets_match_reference": false,
+      "reference_packets_sha256": "341799402bb5d137103077046d46e144737df2c4f68ec23621dc6b1db56d3bca",
+      "wall_ns": {
+        "encode": [
+          154775891,
+          168313688,
+          146636844
+        ],
+        "decode": [
+          12812467,
+          11102151,
+          8747327
+        ]
+      },
+      "median_realtime_factor": {
+        "encode": 0.014331101018518517,
+        "decode": 0.0010279769444444444
+      },
+      "encoded_sha256": "4ef73df1b5f68f21a4507c52b474cb6967a9bcaaa8a1a59609e56b301bad7f3c",
+      "decoded_sha256": "c2ca55e2ad2fba38e56c95123e8fbd46939df91218b68822c658f51e882cbe2e",
+      "reference_pcm_sha256": "c2ca55e2ad2fba38e56c95123e8fbd46939df91218b68822c658f51e882cbe2e"
+    },
+    {
+      "recording": "speech_orig",
+      "bitrate": 24000,
+      "frame_ms": "10",
+      "samples": 518400,
+      "channels": 1,
+      "packets": 1081,
+      "packet_bytes": 32430,
+      "ogg_bytes": 33911,
+      "opura": {
+        "samples_interleaved": 518400,
+        "rmse": 167.50680617160523,
+        "snr_db": 11.04948886142594,
+        "identical": false,
+        "correlation": 0.9600471026723983,
+        "rms": 582.782350436528,
+        "peak": 5508,
+        "clipped_samples": 0,
+        "max_abs_error": 2998,
+        "mean_error": -0.8853993055555556
+      },
+      "libopus": {
+        "samples_interleaved": 518400,
+        "rmse": 167.50680617160523,
+        "snr_db": 11.04948886142594,
+        "identical": false,
+        "correlation": 0.9600471026723983,
+        "rms": 582.782350436528,
+        "peak": 5508,
+        "clipped_samples": 0,
+        "max_abs_error": 2998,
+        "mean_error": -0.8853993055555556
+      },
+      "opura_packet_stats": {
+        "packets": 1081,
+        "packet_bytes": 32430,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 1081
+        },
+        "mean_packet_bitrate_bps": 24000.0
+      },
+      "libopus_packet_stats": {
+        "packets": 1081,
+        "packet_bytes": 32430,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 1081
+        },
+        "mean_packet_bitrate_bps": 24000.0
+      },
+      "decoded_matches_reference": true,
+      "packets_match_reference": false,
+      "reference_packets_sha256": "b27b891ee9bd3ba23fa20264f3339384cedd8f96e5d310d0f3e6cc8ae60fcdc0",
+      "wall_ns": {
+        "encode": [
+          212973634,
+          238825905,
+          324064967
+        ],
+        "decode": [
+          17643433,
+          16127071,
+          19881257
+        ]
+      },
+      "median_realtime_factor": {
+        "encode": 0.022113509722222223,
+        "decode": 0.0016336512037037035
+      },
+      "encoded_sha256": "9d08ef68e27c810a9f6879bd8daf78549ef02c60ad95bab4bb80a9a34ce05b89",
+      "decoded_sha256": "dd4d9ec538e61a918b70f0fac0a879043297da6ca779ba3bc46b772038752efb",
+      "reference_pcm_sha256": "dd4d9ec538e61a918b70f0fac0a879043297da6ca779ba3bc46b772038752efb"
+    },
+    {
+      "recording": "speech_orig",
+      "bitrate": 24000,
+      "frame_ms": "20",
+      "samples": 518400,
+      "channels": 1,
+      "packets": 541,
+      "packet_bytes": 32460,
+      "ogg_bytes": 33401,
+      "opura": {
+        "samples_interleaved": 518400,
+        "rmse": 165.54107565662508,
+        "snr_db": 11.15202256612486,
+        "identical": false,
+        "correlation": 0.9610967305142203,
+        "rms": 586.5427122822381,
+        "peak": 5408,
+        "clipped_samples": 0,
+        "max_abs_error": 2936,
+        "mean_error": -0.651255787037037
+      },
+      "libopus": {
+        "samples_interleaved": 518400,
+        "rmse": 165.54107565662508,
+        "snr_db": 11.15202256612486,
+        "identical": false,
+        "correlation": 0.9610967305142203,
+        "rms": 586.5427122822381,
+        "peak": 5408,
+        "clipped_samples": 0,
+        "max_abs_error": 2936,
+        "mean_error": -0.651255787037037
+      },
+      "opura_packet_stats": {
+        "packets": 541,
+        "packet_bytes": 32460,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 541
+        },
+        "mean_packet_bitrate_bps": 24000.0
+      },
+      "libopus_packet_stats": {
+        "packets": 541,
+        "packet_bytes": 32460,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 541
+        },
+        "mean_packet_bitrate_bps": 24000.0
+      },
+      "decoded_matches_reference": true,
+      "packets_match_reference": false,
+      "reference_packets_sha256": "d31d667237de754f43a7520fda72494e8489aa7ebe1bf32ad4b7b75b3a72b553",
+      "wall_ns": {
+        "encode": [
+          273596523,
+          276530142,
+          248741963
+        ],
+        "decode": [
+          16676360,
+          13282829,
+          16589297
+        ]
+      },
+      "median_realtime_factor": {
+        "encode": 0.025333011388888885,
+        "decode": 0.0015360460185185184
+      },
+      "encoded_sha256": "04d6279de43a8c9df1d133721b88df8eabeee5583bf19b3e1ffd4b0b3caeda6c",
+      "decoded_sha256": "c58d59af4fc7d27c8b50c148c2606785e44eca60e04ae0bb235bba5e89b19071",
+      "reference_pcm_sha256": "c58d59af4fc7d27c8b50c148c2606785e44eca60e04ae0bb235bba5e89b19071"
+    },
+    {
+      "recording": "speech_orig",
+      "bitrate": 24000,
+      "frame_ms": "40",
+      "samples": 518400,
+      "channels": 1,
+      "packets": 271,
+      "packet_bytes": 32520,
+      "ogg_bytes": 33191,
+      "opura": {
+        "samples_interleaved": 518400,
+        "rmse": 165.01322795835057,
+        "snr_db": 11.179762823624525,
+        "identical": false,
+        "correlation": 0.9613543956004165,
+        "rms": 586.7998132559275,
+        "peak": 5722,
+        "clipped_samples": 0,
+        "max_abs_error": 2925,
+        "mean_error": -0.5948148148148148
+      },
+      "libopus": {
+        "samples_interleaved": 518400,
+        "rmse": 165.01322795835057,
+        "snr_db": 11.179762823624525,
+        "identical": false,
+        "correlation": 0.9613543956004165,
+        "rms": 586.7998132559275,
+        "peak": 5722,
+        "clipped_samples": 0,
+        "max_abs_error": 2925,
+        "mean_error": -0.5948148148148148
+      },
+      "opura_packet_stats": {
+        "packets": 271,
+        "packet_bytes": 32520,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 271
+        },
+        "mean_packet_bitrate_bps": 24000.0
+      },
+      "libopus_packet_stats": {
+        "packets": 271,
+        "packet_bytes": 32520,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 271
+        },
+        "mean_packet_bitrate_bps": 24000.0
+      },
+      "decoded_matches_reference": true,
+      "packets_match_reference": false,
+      "reference_packets_sha256": "557053cdee15ec9a9a875e2c080083500a4d806afba0bb8b0122aadb705ce59f",
+      "wall_ns": {
+        "encode": [
+          252629140,
+          256969485,
+          230263644
+        ],
+        "decode": [
+          13326020,
+          13508572,
+          11654947
+        ]
+      },
+      "median_realtime_factor": {
+        "encode": 0.02339158703703703,
+        "decode": 0.0012338907407407405
+      },
+      "encoded_sha256": "59d56df5e8f287d96bbc701a13c78a723c2276fda498f5a970015ab3ad0d23fb",
+      "decoded_sha256": "af3d730b0e65a9887ac1bd5f889b3e8281e871999728e2ad99dbcf968e15bcc2",
+      "reference_pcm_sha256": "af3d730b0e65a9887ac1bd5f889b3e8281e871999728e2ad99dbcf968e15bcc2"
+    },
+    {
+      "recording": "speech_orig",
+      "bitrate": 24000,
+      "frame_ms": "60",
+      "samples": 518400,
+      "channels": 1,
+      "packets": 181,
+      "packet_bytes": 32580,
+      "ogg_bytes": 33161,
+      "opura": {
+        "samples_interleaved": 518400,
+        "rmse": 165.5348595436962,
+        "snr_db": 11.152348729793937,
+        "identical": false,
+        "correlation": 0.9611164005631321,
+        "rms": 587.0200782515428,
+        "peak": 5694,
+        "clipped_samples": 0,
+        "max_abs_error": 2977,
+        "mean_error": -0.614585262345679
+      },
+      "libopus": {
+        "samples_interleaved": 518400,
+        "rmse": 165.5348595436962,
+        "snr_db": 11.152348729793937,
+        "identical": false,
+        "correlation": 0.9611164005631321,
+        "rms": 587.0200782515428,
+        "peak": 5694,
+        "clipped_samples": 0,
+        "max_abs_error": 2977,
+        "mean_error": -0.614585262345679
+      },
+      "opura_packet_stats": {
+        "packets": 181,
+        "packet_bytes": 32580,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 181
+        },
+        "mean_packet_bitrate_bps": 24000.0
+      },
+      "libopus_packet_stats": {
+        "packets": 181,
+        "packet_bytes": 32580,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 181
+        },
+        "mean_packet_bitrate_bps": 24000.0
+      },
+      "decoded_matches_reference": true,
+      "packets_match_reference": false,
+      "reference_packets_sha256": "b6b6563dd11d9dbdef0322e6c0c337249cbb0ca96943ffff47ac0e083e79a960",
+      "wall_ns": {
+        "encode": [
+          172546603,
+          173730061,
+          201064750
+        ],
+        "decode": [
+          9764263,
+          12425222,
+          13663723
+        ]
+      },
+      "median_realtime_factor": {
+        "encode": 0.016086116759259257,
+        "decode": 0.0011504835185185184
+      },
+      "encoded_sha256": "e0bf48e50cd7284b03d0f97519d92e4e377baa470e34a92dca5ac9ccb56ecd5b",
+      "decoded_sha256": "df408a20b034cb1ad442de3537f32d85b074affa686d4a7bca34c088738bcdb8",
+      "reference_pcm_sha256": "df408a20b034cb1ad442de3537f32d85b074affa686d4a7bca34c088738bcdb8"
+    },
+    {
+      "recording": "music_orig",
+      "bitrate": 24000,
+      "frame_ms": "10",
+      "samples": 4358219,
+      "channels": 2,
+      "packets": 9081,
+      "packet_bytes": 272430,
+      "ogg_bytes": 284071,
+      "opura": {
+        "samples_interleaved": 8716438,
+        "rmse": 2207.4186592755586,
+        "snr_db": 4.235088644413178,
+        "identical": false,
+        "correlation": 0.7964814027109214,
+        "rms": 3248.6367920105804,
+        "peak": 32768,
+        "clipped_samples": 142,
+        "max_abs_error": 48950,
+        "mean_error": 6.727292845999708
+      },
+      "libopus": {
+        "samples_interleaved": 8716438,
+        "rmse": 2207.4186592755586,
+        "snr_db": 4.235088644413178,
+        "identical": false,
+        "correlation": 0.7964814027109214,
+        "rms": 3248.6367920105804,
+        "peak": 32768,
+        "clipped_samples": 142,
+        "max_abs_error": 48950,
+        "mean_error": 6.727292845999708
+      },
+      "opura_packet_stats": {
+        "packets": 9081,
+        "packet_bytes": 272430,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 9081
+        },
+        "mean_packet_bitrate_bps": 24000.0
+      },
+      "libopus_packet_stats": {
+        "packets": 9081,
+        "packet_bytes": 272430,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 9081
+        },
+        "mean_packet_bitrate_bps": 24000.0
+      },
+      "decoded_matches_reference": true,
+      "packets_match_reference": false,
+      "reference_packets_sha256": "f267a575c4c0acbf7ec21eed15600b759917c6e4c1555fe80e2d77bbf7644e30",
+      "wall_ns": {
+        "encode": [
+          3707963796,
+          3908302796,
+          3872974122
+        ],
+        "decode": [
+          177944951,
+          149662696,
+          155151385
+        ]
+      },
+      "median_realtime_factor": {
+        "encode": 0.042655671469469525,
+        "decode": 0.00170878665803623
+      },
+      "encoded_sha256": "5a50cdcddc04a8cd60256cfe8da58efdf071e22926535b597c2fbfa5975ec60a",
+      "decoded_sha256": "cf46c96d073df9efb6ef079ac0be9d3a24bbc7901a0b27b8de4d56b127dc110e",
+      "reference_pcm_sha256": "cf46c96d073df9efb6ef079ac0be9d3a24bbc7901a0b27b8de4d56b127dc110e"
+    },
+    {
+      "recording": "music_orig",
+      "bitrate": 24000,
+      "frame_ms": "20",
+      "samples": 4358219,
+      "channels": 2,
+      "packets": 4541,
+      "packet_bytes": 272460,
+      "ogg_bytes": 279561,
+      "opura": {
+        "samples_interleaved": 8716438,
+        "rmse": 1378.7779029656879,
+        "snr_db": 8.32289653960196,
+        "identical": false,
+        "correlation": 0.9238071521862853,
+        "rms": 3405.1382337789387,
+        "peak": 32768,
+        "clipped_samples": 3,
+        "max_abs_error": 35869,
+        "mean_error": 7.817172909392576
+      },
+      "libopus": {
+        "samples_interleaved": 8716438,
+        "rmse": 1378.7779029656879,
+        "snr_db": 8.32289653960196,
+        "identical": false,
+        "correlation": 0.9238071521862853,
+        "rms": 3405.1382337789387,
+        "peak": 32768,
+        "clipped_samples": 3,
+        "max_abs_error": 35869,
+        "mean_error": 7.817172909392576
+      },
+      "opura_packet_stats": {
+        "packets": 4541,
+        "packet_bytes": 272460,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 4541
+        },
+        "mean_packet_bitrate_bps": 24000.0
+      },
+      "libopus_packet_stats": {
+        "packets": 4541,
+        "packet_bytes": 272460,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 4541
+        },
+        "mean_packet_bitrate_bps": 24000.0
+      },
+      "decoded_matches_reference": true,
+      "packets_match_reference": false,
+      "reference_packets_sha256": "a6c8147aa436f1c9e0d39bdababcd6b7379436f62b2d2153bbcc5400552a1d8f",
+      "wall_ns": {
+        "encode": [
+          3230422674,
+          3305101992,
+          3329426158
+        ],
+        "decode": [
+          150131125,
+          147714284,
+          145362165
+        ]
+      },
+      "median_realtime_factor": {
+        "encode": 0.0364013133842058,
+        "decode": 0.0016268768577255986
+      },
+      "encoded_sha256": "425ba901eff391b17ae5703bc789a095a8a7ead9b6e5aa0b8223b54d6b57f4ea",
+      "decoded_sha256": "1ef165c3df9a81394d5288c8ce266ba8e5eab5d261335e707da75091d2c87003",
+      "reference_pcm_sha256": "1ef165c3df9a81394d5288c8ce266ba8e5eab5d261335e707da75091d2c87003"
+    },
+    {
+      "recording": "music_orig",
+      "bitrate": 24000,
+      "frame_ms": "40",
+      "samples": 4358219,
+      "channels": 2,
+      "packets": 2271,
+      "packet_bytes": 272520,
+      "ogg_bytes": 277351,
+      "opura": {
+        "samples_interleaved": 8716438,
+        "rmse": 1424.7229969771142,
+        "snr_db": 8.038174141409147,
+        "identical": false,
+        "correlation": 0.9184196549111593,
+        "rms": 3389.089443837006,
+        "peak": 32768,
+        "clipped_samples": 13,
+        "max_abs_error": 34149,
+        "mean_error": 10.6629672579556
+      },
+      "libopus": {
+        "samples_interleaved": 8716438,
+        "rmse": 1424.7229969771142,
+        "snr_db": 8.038174141409147,
+        "identical": false,
+        "correlation": 0.9184196549111593,
+        "rms": 3389.089443837006,
+        "peak": 32768,
+        "clipped_samples": 13,
+        "max_abs_error": 34149,
+        "mean_error": 10.6629672579556
+      },
+      "opura_packet_stats": {
+        "packets": 2271,
+        "packet_bytes": 272520,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 2271
+        },
+        "mean_packet_bitrate_bps": 24000.0
+      },
+      "libopus_packet_stats": {
+        "packets": 2271,
+        "packet_bytes": 272520,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 2271
+        },
+        "mean_packet_bitrate_bps": 24000.0
+      },
+      "decoded_matches_reference": true,
+      "packets_match_reference": false,
+      "reference_packets_sha256": "9cf52412773fecf2b34222ac0207f4c7223211ee891f500ffaa3c0c22414ff32",
+      "wall_ns": {
+        "encode": [
+          2705192828,
+          2821912983,
+          2748705343
+        ],
+        "decode": [
+          117800771,
+          131764967,
+          166324479
+        ]
+      },
+      "median_realtime_factor": {
+        "encode": 0.030273342497015413,
+        "decode": 0.0014512162917925879
+      },
+      "encoded_sha256": "9c0bf42d589e25376d8210901624519cec2f9ad8400a479621bf830491f2599e",
+      "decoded_sha256": "6b11ca412dd29210fe55953186e1f8c4c4d6e2d8f163cede0f2797eddf94bdde",
+      "reference_pcm_sha256": "6b11ca412dd29210fe55953186e1f8c4c4d6e2d8f163cede0f2797eddf94bdde"
+    },
+    {
+      "recording": "music_orig",
+      "bitrate": 24000,
+      "frame_ms": "60",
+      "samples": 4358219,
+      "channels": 2,
+      "packets": 1514,
+      "packet_bytes": 272520,
+      "ogg_bytes": 276567,
+      "opura": {
+        "samples_interleaved": 8716438,
+        "rmse": 1415.3663872235802,
+        "snr_db": 8.095405279404227,
+        "identical": false,
+        "correlation": 0.9195547513760426,
+        "rms": 3395.3185295632475,
+        "peak": 32768,
+        "clipped_samples": 8,
+        "max_abs_error": 33494,
+        "mean_error": 17.73171724504895
+      },
+      "libopus": {
+        "samples_interleaved": 8716438,
+        "rmse": 1415.3663872235802,
+        "snr_db": 8.095405279404227,
+        "identical": false,
+        "correlation": 0.9195547513760426,
+        "rms": 3395.3185295632475,
+        "peak": 32768,
+        "clipped_samples": 8,
+        "max_abs_error": 33494,
+        "mean_error": 17.73171724504895
+      },
+      "opura_packet_stats": {
+        "packets": 1514,
+        "packet_bytes": 272520,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 1514
+        },
+        "mean_packet_bitrate_bps": 24000.0
+      },
+      "libopus_packet_stats": {
+        "packets": 1514,
+        "packet_bytes": 272520,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 1514
+        },
+        "mean_packet_bitrate_bps": 24000.0
+      },
+      "decoded_matches_reference": true,
+      "packets_match_reference": false,
+      "reference_packets_sha256": "a949d4a4f42891d646037d994b34cf8c601199c8e0b21165bbf640bfbc52598b",
+      "wall_ns": {
+        "encode": [
+          2315962707,
+          2349795587,
+          2781762870
+        ],
+        "decode": [
+          119024745,
+          134685501,
+          172539069
+        ]
+      },
+      "median_realtime_factor": {
+        "encode": 0.0258798807898364,
+        "decode": 0.0014833820989720804
+      },
+      "encoded_sha256": "c35cbf2143423ad87846931cd766b260dd49b42701caa1e86ae179e1df402efe",
+      "decoded_sha256": "c94e8a6b496afb73dfbf33ed8723dcf491e2423e6a1b4367bc01502cb2a807c6",
+      "reference_pcm_sha256": "c94e8a6b496afb73dfbf33ed8723dcf491e2423e6a1b4367bc01502cb2a807c6"
+    },
+    {
+      "recording": "music_orig",
+      "bitrate": 32000,
+      "frame_ms": "10",
+      "samples": 4358219,
+      "channels": 2,
+      "packets": 9081,
+      "packet_bytes": 363240,
+      "ogg_bytes": 374881,
+      "opura": {
+        "samples_interleaved": 8716438,
+        "rmse": 1356.343083303299,
+        "snr_db": 8.465391689949298,
+        "identical": false,
+        "correlation": 0.9262506925427507,
+        "rms": 3394.1369762038566,
+        "peak": 32768,
+        "clipped_samples": 3,
+        "max_abs_error": 33267,
+        "mean_error": 12.311058255677377
+      },
+      "libopus": {
+        "samples_interleaved": 8716438,
+        "rmse": 1356.343083303299,
+        "snr_db": 8.465391689949298,
+        "identical": false,
+        "correlation": 0.9262506925427507,
+        "rms": 3394.1369762038566,
+        "peak": 32768,
+        "clipped_samples": 3,
+        "max_abs_error": 33267,
+        "mean_error": 12.311058255677377
+      },
+      "opura_packet_stats": {
+        "packets": 9081,
+        "packet_bytes": 363240,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 9081
+        },
+        "mean_packet_bitrate_bps": 32000.0
+      },
+      "libopus_packet_stats": {
+        "packets": 9081,
+        "packet_bytes": 363240,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 9081
+        },
+        "mean_packet_bitrate_bps": 32000.0
+      },
+      "decoded_matches_reference": true,
+      "packets_match_reference": false,
+      "reference_packets_sha256": "0f9d825ec26843aee3fc5ba74d4b8a82a3d126334fbd738736e25590f8b2d1f2",
+      "wall_ns": {
+        "encode": [
+          3540675840,
+          3468074197,
+          3294662893
+        ],
+        "decode": [
+          190445956,
+          171743037,
+          187744110
+        ]
+      },
+      "median_realtime_factor": {
+        "encode": 0.0381962359982369,
+        "decode": 0.0020677522813791595
+      },
+      "encoded_sha256": "3875f2ee4cf205b3ec36358fc34af8bf26c03d5b1dfce217b38487bafdfaa9d1",
+      "decoded_sha256": "2fae237ee486c38981fbdd6e35796aedc2202273f74fceb233e4137f086f7053",
+      "reference_pcm_sha256": "2fae237ee486c38981fbdd6e35796aedc2202273f74fceb233e4137f086f7053"
+    },
+    {
+      "recording": "music_orig",
+      "bitrate": 32000,
+      "frame_ms": "20",
+      "samples": 4358219,
+      "channels": 2,
+      "packets": 4541,
+      "packet_bytes": 363280,
+      "ogg_bytes": 370381,
+      "opura": {
+        "samples_interleaved": 8716438,
+        "rmse": 1149.201893431438,
+        "snr_db": 9.904856173378672,
+        "identical": false,
+        "correlation": 0.9476190763807623,
+        "rms": 3456.6546143075084,
+        "peak": 32768,
+        "clipped_samples": 1,
+        "max_abs_error": 33139,
+        "mean_error": 11.907245597341483
+      },
+      "libopus": {
+        "samples_interleaved": 8716438,
+        "rmse": 1149.201893431438,
+        "snr_db": 9.904856173378672,
+        "identical": false,
+        "correlation": 0.9476190763807623,
+        "rms": 3456.6546143075084,
+        "peak": 32768,
+        "clipped_samples": 1,
+        "max_abs_error": 33139,
+        "mean_error": 11.907245597341483
+      },
+      "opura_packet_stats": {
+        "packets": 4541,
+        "packet_bytes": 363280,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 4541
+        },
+        "mean_packet_bitrate_bps": 32000.000000000004
+      },
+      "libopus_packet_stats": {
+        "packets": 4541,
+        "packet_bytes": 363280,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 4541
+        },
+        "mean_packet_bitrate_bps": 32000.000000000004
+      },
+      "decoded_matches_reference": true,
+      "packets_match_reference": false,
+      "reference_packets_sha256": "2b60d63a765dd188554bba9c92cdb384bb3565191acddcaadc4eda579c314ed5",
+      "wall_ns": {
+        "encode": [
+          3341050808,
+          3289018663,
+          3310905250
+        ],
+        "decode": [
+          138649993,
+          137911378,
+          148689773
+        ]
+      },
+      "median_realtime_factor": {
+        "encode": 0.036465228571579356,
+        "decode": 0.0015270457184459983
+      },
+      "encoded_sha256": "05ebed7a47fd83120df0ada7b2579e51d9854c0246272604d90c2fd4a91fa602",
+      "decoded_sha256": "f0a96f47a2889ecefce175f9906c81dbdfefb095fa6dff51583b1df068b97876",
+      "reference_pcm_sha256": "f0a96f47a2889ecefce175f9906c81dbdfefb095fa6dff51583b1df068b97876"
+    },
+    {
+      "recording": "music_orig",
+      "bitrate": 32000,
+      "frame_ms": "40",
+      "samples": 4358219,
+      "channels": 2,
+      "packets": 2271,
+      "packet_bytes": 363360,
+      "ogg_bytes": 368191,
+      "opura": {
+        "samples_interleaved": 8716438,
+        "rmse": 1199.9689952197177,
+        "snr_db": 9.529382332738699,
+        "identical": false,
+        "correlation": 0.9427793263413737,
+        "rms": 3448.775069785744,
+        "peak": 32768,
+        "clipped_samples": 7,
+        "max_abs_error": 33464,
+        "mean_error": 15.334295614791271
+      },
+      "libopus": {
+        "samples_interleaved": 8716438,
+        "rmse": 1199.9689952197177,
+        "snr_db": 9.529382332738699,
+        "identical": false,
+        "correlation": 0.9427793263413737,
+        "rms": 3448.775069785744,
+        "peak": 32768,
+        "clipped_samples": 7,
+        "max_abs_error": 33464,
+        "mean_error": 15.334295614791271
+      },
+      "opura_packet_stats": {
+        "packets": 2271,
+        "packet_bytes": 363360,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 2271
+        },
+        "mean_packet_bitrate_bps": 32000.0
+      },
+      "libopus_packet_stats": {
+        "packets": 2271,
+        "packet_bytes": 363360,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 2271
+        },
+        "mean_packet_bitrate_bps": 32000.0
+      },
+      "decoded_matches_reference": true,
+      "packets_match_reference": false,
+      "reference_packets_sha256": "36af40e6cabf3109a7f800cfd6d5800179c85ccde42624dea82f9b0895ebe85e",
+      "wall_ns": {
+        "encode": [
+          2590099984,
+          2950426414,
+          2637285794
+        ],
+        "decode": [
+          133689624,
+          170911167,
+          140824509
+        ]
+      },
+      "median_realtime_factor": {
+        "encode": 0.029046203991125733,
+        "decode": 0.0015509951271379433
+      },
+      "encoded_sha256": "bb65036844cfa787bf9cc06f2d6731fe17305ba38e4ef82303ecd5d703d96016",
+      "decoded_sha256": "2032e632c7c7a2368cfa83a5529be4fba7215f9d218c29ecb88b3b6666c6f228",
+      "reference_pcm_sha256": "2032e632c7c7a2368cfa83a5529be4fba7215f9d218c29ecb88b3b6666c6f228"
+    },
+    {
+      "recording": "music_orig",
+      "bitrate": 32000,
+      "frame_ms": "60",
+      "samples": 4358219,
+      "channels": 2,
+      "packets": 1514,
+      "packet_bytes": 363360,
+      "ogg_bytes": 367407,
+      "opura": {
+        "samples_interleaved": 8716438,
+        "rmse": 1176.0512770005073,
+        "snr_db": 9.704257674258779,
+        "identical": false,
+        "correlation": 0.9450659282114281,
+        "rms": 3447.437273414592,
+        "peak": 32182,
+        "clipped_samples": 0,
+        "max_abs_error": 33421,
+        "mean_error": 15.808299215803519
+      },
+      "libopus": {
+        "samples_interleaved": 8716438,
+        "rmse": 1176.0512770005073,
+        "snr_db": 9.704257674258779,
+        "identical": false,
+        "correlation": 0.9450659282114281,
+        "rms": 3447.437273414592,
+        "peak": 32182,
+        "clipped_samples": 0,
+        "max_abs_error": 33421,
+        "mean_error": 15.808299215803519
+      },
+      "opura_packet_stats": {
+        "packets": 1514,
+        "packet_bytes": 363360,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 1514
+        },
+        "mean_packet_bitrate_bps": 32000.0
+      },
+      "libopus_packet_stats": {
+        "packets": 1514,
+        "packet_bytes": 363360,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 1514
+        },
+        "mean_packet_bitrate_bps": 32000.0
+      },
+      "decoded_matches_reference": true,
+      "packets_match_reference": false,
+      "reference_packets_sha256": "389c7000b15899303f24d3f09bf861561626604cacb1a1341e4670b279a43e8d",
+      "wall_ns": {
+        "encode": [
+          2457354819,
+          2686539872,
+          2395199758
+        ],
+        "decode": [
+          189351413,
+          176164796,
+          131651725
+        ]
+      },
+      "median_realtime_factor": {
+        "encode": 0.027064503025662545,
+        "decode": 0.0019402215005716787
+      },
+      "encoded_sha256": "d3d82ced6e0afadf771ca3d25341e41b9532e782d0534017e5e37100949fb84e",
+      "decoded_sha256": "078a48c861115f4117c1af612c1d283071aba15dd9f3d8664adaca99a46d5919",
+      "reference_pcm_sha256": "078a48c861115f4117c1af612c1d283071aba15dd9f3d8664adaca99a46d5919"
+    },
+    {
+      "recording": "music_orig",
+      "bitrate": 48000,
+      "frame_ms": "10",
+      "samples": 4358219,
+      "channels": 2,
+      "packets": 9081,
+      "packet_bytes": 544860,
+      "ogg_bytes": 556501,
+      "opura": {
+        "samples_interleaved": 8716438,
+        "rmse": 1050.2478335200963,
+        "snr_db": 10.686946943979992,
+        "identical": false,
+        "correlation": 0.9564217414709668,
+        "rms": 3475.997473728705,
+        "peak": 32768,
+        "clipped_samples": 2,
+        "max_abs_error": 33907,
+        "mean_error": 13.858907962174458
+      },
+      "libopus": {
+        "samples_interleaved": 8716438,
+        "rmse": 1050.2478335200963,
+        "snr_db": 10.686946943979992,
+        "identical": false,
+        "correlation": 0.9564217414709668,
+        "rms": 3475.997473728705,
+        "peak": 32768,
+        "clipped_samples": 2,
+        "max_abs_error": 33907,
+        "mean_error": 13.858907962174458
+      },
+      "opura_packet_stats": {
+        "packets": 9081,
+        "packet_bytes": 544860,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 9081
+        },
+        "mean_packet_bitrate_bps": 48000.0
+      },
+      "libopus_packet_stats": {
+        "packets": 9081,
+        "packet_bytes": 544860,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 9081
+        },
+        "mean_packet_bitrate_bps": 48000.0
+      },
+      "decoded_matches_reference": true,
+      "packets_match_reference": false,
+      "reference_packets_sha256": "fce886f429a48134bf34edd2cabec525dd0f088d3426050a31dbef00168a87ca",
+      "wall_ns": {
+        "encode": [
+          4201536940,
+          3495946044,
+          3524742974
+        ],
+        "decode": [
+          212488225,
+          213140286,
+          233282153
+        ]
+      },
+      "median_realtime_factor": {
+        "encode": 0.03882036739135872,
+        "decode": 0.002347457465538102
+      },
+      "encoded_sha256": "d36e5546ba495f146914e247c1ec3b32ec64090752d1f1c2b4383348ade092a5",
+      "decoded_sha256": "7ea83720bef5251644f3c7db67d90b72a1c99b5ee40a20e7f9821a049b99f00f",
+      "reference_pcm_sha256": "7ea83720bef5251644f3c7db67d90b72a1c99b5ee40a20e7f9821a049b99f00f"
+    },
+    {
+      "recording": "music_orig",
+      "bitrate": 48000,
+      "frame_ms": "20",
+      "samples": 4358219,
+      "channels": 2,
+      "packets": 4541,
+      "packet_bytes": 544920,
+      "ogg_bytes": 552021,
+      "opura": {
+        "samples_interleaved": 8716438,
+        "rmse": 1009.6144626990912,
+        "snr_db": 11.029671566688975,
+        "identical": false,
+        "correlation": 0.9598101139971587,
+        "rms": 3490.619604361669,
+        "peak": 32388,
+        "clipped_samples": 0,
+        "max_abs_error": 32383,
+        "mean_error": 15.771079539600924
+      },
+      "libopus": {
+        "samples_interleaved": 8716438,
+        "rmse": 1009.6144626990912,
+        "snr_db": 11.029671566688975,
+        "identical": false,
+        "correlation": 0.9598101139971587,
+        "rms": 3490.619604361669,
+        "peak": 32388,
+        "clipped_samples": 0,
+        "max_abs_error": 32383,
+        "mean_error": 15.771079539600924
+      },
+      "opura_packet_stats": {
+        "packets": 4541,
+        "packet_bytes": 544920,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 4541
+        },
+        "mean_packet_bitrate_bps": 48000.0
+      },
+      "libopus_packet_stats": {
+        "packets": 4541,
+        "packet_bytes": 544920,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 4541
+        },
+        "mean_packet_bitrate_bps": 48000.0
+      },
+      "decoded_matches_reference": true,
+      "packets_match_reference": false,
+      "reference_packets_sha256": "d67ef65cddf6dec747a0a87b8e6a2196535fb7b68473d98e2f05a4c4560ef487",
+      "wall_ns": {
+        "encode": [
+          3812005093,
+          3795583601,
+          3676596136
+        ],
+        "decode": [
+          171868942,
+          152675353,
+          254897732
+        ]
+      },
+      "median_realtime_factor": {
+        "encode": 0.041803317558846864,
+        "decode": 0.001892908368303658
+      },
+      "encoded_sha256": "56d3720d90e53ba36ae42c002acd13134139da8ee55313d2ffc0df7bbc797a3e",
+      "decoded_sha256": "b0e78fa4bed0e52b78d7b92fb35b5b5b2763b7a141ff730064029e3a11325fe6",
+      "reference_pcm_sha256": "b0e78fa4bed0e52b78d7b92fb35b5b5b2763b7a141ff730064029e3a11325fe6"
+    },
+    {
+      "recording": "music_orig",
+      "bitrate": 48000,
+      "frame_ms": "40",
+      "samples": 4358219,
+      "channels": 2,
+      "packets": 2271,
+      "packet_bytes": 545040,
+      "ogg_bytes": 549871,
+      "opura": {
+        "samples_interleaved": 8716438,
+        "rmse": 1027.3935362751922,
+        "snr_db": 10.878046249016917,
+        "identical": false,
+        "correlation": 0.9583386540102541,
+        "rms": 3482.1011622896117,
+        "peak": 32642,
+        "clipped_samples": 0,
+        "max_abs_error": 33210,
+        "mean_error": 14.461735630999728
+      },
+      "libopus": {
+        "samples_interleaved": 8716438,
+        "rmse": 1027.3935362751922,
+        "snr_db": 10.878046249016917,
+        "identical": false,
+        "correlation": 0.9583386540102541,
+        "rms": 3482.1011622896117,
+        "peak": 32642,
+        "clipped_samples": 0,
+        "max_abs_error": 33210,
+        "mean_error": 14.461735630999728
+      },
+      "opura_packet_stats": {
+        "packets": 2271,
+        "packet_bytes": 545040,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 2271
+        },
+        "mean_packet_bitrate_bps": 48000.0
+      },
+      "libopus_packet_stats": {
+        "packets": 2271,
+        "packet_bytes": 545040,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 2271
+        },
+        "mean_packet_bitrate_bps": 48000.0
+      },
+      "decoded_matches_reference": true,
+      "packets_match_reference": false,
+      "reference_packets_sha256": "b70427cc8dcd87f89b3506e02ec8d122645b1ea47b23e34fbf98461465a3e6ac",
+      "wall_ns": {
+        "encode": [
+          2695547507,
+          2741610213,
+          2892041861
+        ],
+        "decode": [
+          157371788,
+          161348772,
+          164361098
+        ]
+      },
+      "median_realtime_factor": {
+        "encode": 0.030195199053558348,
+        "decode": 0.0017770426534325146
+      },
+      "encoded_sha256": "ea419d863d2950122fc50f8d8288b3513c917e3c1a902c56463918449d9e23f1",
+      "decoded_sha256": "9efc559bebbe31388bb1b155a01b91bebe08e5a7d3ff4519d82959eca7cade27",
+      "reference_pcm_sha256": "9efc559bebbe31388bb1b155a01b91bebe08e5a7d3ff4519d82959eca7cade27"
+    },
+    {
+      "recording": "music_orig",
+      "bitrate": 48000,
+      "frame_ms": "60",
+      "samples": 4358219,
+      "channels": 2,
+      "packets": 1514,
+      "packet_bytes": 545040,
+      "ogg_bytes": 550601,
+      "opura": {
+        "samples_interleaved": 8716438,
+        "rmse": 1028.793060794248,
+        "snr_db": 10.866222305204808,
+        "identical": false,
+        "correlation": 0.958228848479677,
+        "rms": 3483.772282528348,
+        "peak": 32608,
+        "clipped_samples": 0,
+        "max_abs_error": 33544,
+        "mean_error": 15.067242605293584
+      },
+      "libopus": {
+        "samples_interleaved": 8716438,
+        "rmse": 1028.793060794248,
+        "snr_db": 10.866222305204808,
+        "identical": false,
+        "correlation": 0.958228848479677,
+        "rms": 3483.772282528348,
+        "peak": 32608,
+        "clipped_samples": 0,
+        "max_abs_error": 33544,
+        "mean_error": 15.067242605293584
+      },
+      "opura_packet_stats": {
+        "packets": 1514,
+        "packet_bytes": 545040,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 1514
+        },
+        "mean_packet_bitrate_bps": 48000.0
+      },
+      "libopus_packet_stats": {
+        "packets": 1514,
+        "packet_bytes": 545040,
+        "dtx_packets": 0,
+        "plc_packets": 0,
+        "fec_packets": 0,
+        "bandwidth_packets": {
+          "wb": 1514
+        },
+        "mean_packet_bitrate_bps": 48000.0
+      },
+      "decoded_matches_reference": true,
+      "packets_match_reference": false,
+      "reference_packets_sha256": "45594349bf6cb75541332e2502ab0a05f9d1fbeed89359a5d1ec7115726a7f97",
+      "wall_ns": {
+        "encode": [
+          3580046973,
+          2793422286,
+          2682616609
+        ],
+        "decode": [
+          153963779,
+          157538730,
+          139950089
+        ]
+      },
+      "median_realtime_factor": {
+        "encode": 0.030765840295772198,
+        "decode": 0.0016957067536073796
+      },
+      "encoded_sha256": "f7d899aa4f9dc6fe605fd156dc4c863ef916efdf00052fcac65f2b61a589850f",
+      "decoded_sha256": "a6996a2ca772a8243a8bd5e5f21b07959178d42b014bcde5f635d4af6423d7c3",
+      "reference_pcm_sha256": "a6996a2ca772a8243a8bd5e5f21b07959178d42b014bcde5f635d4af6423d7c3"
+    }
+  ],
+  "codec_source_sha256": "2d2d647cb941862b0dfae3239422a66f0661fe2cd732e3ac808e50003b21905a",
+  "cpu": "AMD Ryzen AI 9 HX 370 w/ Radeon 890M"
+}

@@ -56,9 +56,9 @@ Clippy unwrap/expect lints; do not weaken these gates.
 Maintain `CHANGELOG.md` with user-visible changes and relevant validation.
 Use SemVer: before 1.0, incompatible API changes increment the minor version;
 compatible additions and fixes increment the patch version. Keep Cargo.toml
-and Cargo.lock synchronized. Commit completed, verified changes with descriptive
-English messages. Work locally: the owner has suspended GitHub activity because
-of service limits. Do not push, call the GitHub API, or trigger remote CI until
-the owner explicitly resumes remote work.
+and Cargo.lock synchronized. Commit completed, verified changes using Conventional
+Commits in English (for example, `feat(encoder): add Hybrid encoding`).
+The owner resumed remote work on 2026-11-02. Push completed, verified commits
+and annotated version tags to the configured remote.
 Tag versioned milestones with annotated `vX.Y.Z` tags; never move published tags.
 Keep local Backlog records and machine-specific state out of commits.

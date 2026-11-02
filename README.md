@@ -130,6 +130,13 @@ retains a reproduced default-FFmpeg decoder tail-trimming issue; FFmpeg/libopus
 and the native decoder preserve exact duration.
 Library packet parsing itself does not parse Ogg containers.
 
+The [SILK recording baseline](docs/benchmarks/silk-0.1.72.md) adds 88 matched
+speech/music file cases and 96 deterministic loss scenarios. Unprotected/fixed
+SILK controls match native encoder PCM; protected profiles retain every SNR loss,
+backup-coverage tradeoff and PLC count. These are two-recording waveform
+checks, with process timings and no perceptual or native speed advantage claim.
+Hybrid encoding and general Opus mode/channel adaptation remain unfinished.
+
 ## Development
 
 Rust 1.87.0 is the minimum supported and pinned toolchain. With that toolchain

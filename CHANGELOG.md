@@ -7,6 +7,27 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.73] - 2026-11-02
+
+- Extend the optional recording baseline with matched SILK controls, explicit
+  band/FEC/DTX/PLC inspection, packet budgets, reference artifacts and deterministic
+  repetitions. Add loss replay with a checked output timeline, burst handling,
+  zero-loss baseline equality and identical one-packet FEC wait for both encoders.
+- Retain the measured 0.1.72 codec baseline: 88 SILK recording cases plus four
+  unchanged CELT speech regressions. Actual Opura output decodes exactly through
+  pinned original libopus; all 40 unprotected/fixed SILK cases also equal native
+  encoder PCM. Protected matrices retain every quality loss and backup tradeoff.
+- Retain 96 deterministic loss scenarios: 48 normal cases equal native output;
+  48 protected cases span -0.376 to +5.031 dB SNR difference (6 lower, 18 equal,
+  24 higher). These are two-recording waveform diagnostics with restricted-SILK
+  reference controls, not perceptual, full-Opus or SOTA claims. Process timing
+  includes startup/WAV/Ogg I/O; no native speed ratio is claimed.
+- Rust codec behavior is unchanged. Validation tools use only Python's standard
+  library and optional external reference tools; ordinary builds/tests retain
+  zero third-party dependencies. Resume remote publication and require
+  Conventional Commits as requested by the owner. All seven required offline
+  gates pass, including 23 Python tests.
+
 ## [0.1.72] - 2026-11-02
 
 - Add opt-in automatic SILK bandwidth selection to mono/stereo PCM encoders and
