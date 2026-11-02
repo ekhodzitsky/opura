@@ -12,6 +12,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('source', type=Path)
     parser.add_argument('output', type=Path)
+    parser.add_argument('--vbr', action='store_true')
     args = parser.parse_args()
     source = args.source.resolve()
     if subprocess.check_output(['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip() != REVISION:
@@ -36,6 +37,9 @@ int main(int argc,char **argv){
  if(fclose(out))return 3;return 0;
 }
 '''
+    if args.vbr:
+        program = program.replace('1000/ms,0,MODE_HYBRID', '1000/ms,1,MODE_HYBRID')
+        program = program.replace('retained fixed band REVISION', 'retained fixed band VBR REVISION')
     with tempfile.TemporaryDirectory(prefix='opura-hybrid-fec-policy-') as temp:
         folder = Path(temp)
         (folder/'probe.c').write_text(program.replace('REVISION', REVISION))

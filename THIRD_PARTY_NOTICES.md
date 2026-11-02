@@ -1721,3 +1721,11 @@ attributed above. Fixed-band Hybrid eligibility follows original Hybrid
 only when the original decision retains the requested bandwidth. The native
 policy oracle extracts unchanged functions/tables. Whole-stream prefix-free
 budget retry is Opura's bounded primary-preserving admission policy.
+
+Hybrid VBR follows the original high-band effective-rate, SILK offset/temporal
+bias, transient floor and post-dynalloc/trim minimum-size/shrink blocks in
+`celt/celt_encoder.c`, plus VBR SILK caps and high-band target selection in
+`src/opus_encoder.c`, at the same pinned revision under the existing notices.
+The optional target oracle extracts unchanged native arithmetic blocks. VBR
+Hybrid disables native constrained-CELT drift/reservoir feedback; its target
+and hard capacity remain separate. Existing constituent attributions apply.

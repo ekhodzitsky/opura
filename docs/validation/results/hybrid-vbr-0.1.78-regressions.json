@@ -1,0 +1,68 @@
+{
+  "status": "pass",
+  "baseline_version": "0.1.77",
+  "version": "0.1.78",
+  "binary_sha256": "c7b1af7a4feb06d51639f6dff34de8080745315ef90153d683331dfe04b7d06a",
+  "cases": [
+    {
+      "recording": "speech_orig",
+      "profile": "celt",
+      "packets": 541,
+      "skip": 120,
+      "packet_sha256": "1ff41480621fb9435461279e5ee0f5c590addae6353ab92b82afe5254a2af7c5",
+      "wav_sha256": "a3d2e1cc00a3cf88ca419cb50d32a2f6e56ecdc844d3576a9b1cd7f8f1abc4f9",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "profile": "silk-fixed",
+      "packets": 541,
+      "skip": 312,
+      "packet_sha256": "8ce356ecfbe122d47adc661e47a4ba301e830d0269f31851ee17a6208b359e68",
+      "wav_sha256": "2925b84ed43af00257893e0a295c61f255f167a602f675d4a470ed673f87faf6",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "profile": "silk-auto",
+      "packets": 541,
+      "skip": 312,
+      "packet_sha256": "8ce356ecfbe122d47adc661e47a4ba301e830d0269f31851ee17a6208b359e68",
+      "wav_sha256": "2925b84ed43af00257893e0a295c61f255f167a602f675d4a470ed673f87faf6",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "music_orig",
+      "profile": "celt",
+      "packets": 4540,
+      "skip": 120,
+      "packet_sha256": "a564266950ee53863c4b1acc86c049776c2481e135be19fc1c795199367894e0",
+      "wav_sha256": "6c503c3229faac7322f4e509f1bfbfde035929ce6e5ed09ab1502d3635ec2e0a",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "music_orig",
+      "profile": "silk-fixed",
+      "packets": 4541,
+      "skip": 312,
+      "packet_sha256": "c990c07fb1c33f49f643ece4d0821573af58583858db91551d45a1a8bb021496",
+      "wav_sha256": "0cd73913c05855abcd3179450a664fdd069f862753305789a0c0bc3fc52e373d",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "music_orig",
+      "profile": "silk-auto",
+      "packets": 4541,
+      "skip": 312,
+      "packet_sha256": "c990c07fb1c33f49f643ece4d0821573af58583858db91551d45a1a8bb021496",
+      "wav_sha256": "0cd73913c05855abcd3179450a664fdd069f862753305789a0c0bc3fc52e373d",
+      "packets_match": true,
+      "wav_match": true
+    }
+  ]
+}

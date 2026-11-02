@@ -9,8 +9,8 @@ The fixed-bandwidth SILK encoder accepts mono/stereo PCM and emits 10/20/40/60 m
 NB/MB/WB Opus packets.** Both paths are available through the WAV/Ogg CLI.
 SILK supports opt-in DTX/FEC and explicit, gradual or automatic bandwidth
 selection. **The fixed-band Hybrid encoder accepts mono/stereo24/48kHz PCM for
-10/20ms SWB/FB packets through the library and WAV/Ogg CLI, with opt-in DTX/FEC.** Hybrid VBR
-and general mode/channel adaptation remain in progress.
+10/20ms SWB/FB packets through the library and WAV/Ogg CLI, with opt-in DTX/FEC
+and VBR.** General mode/channel adaptation remains in progress.
 **The decoder passes all120 official RFC8251 vector/rate/channel cases.**
 The first complete-decoder benchmark is recorded: Opura trails the pinned scalar
 libopus reference in all ten configurations; complete adaptive encoding remains under development. The accepted direction is a complete decoder first, then an encoder,
@@ -104,8 +104,8 @@ can lower the target, while channel layout stays fixed. Reset retains the mode.
 Automatic-mode packet overflow follows native PLC signaling; `used_plc()` and the
 CLI PLC packet count distinguish this from DTX. The
 [automatic bandwidth record](docs/validation/silk-automatic-bandwidth.md) retains
-stress-case concealment counts and limitations. General mode/channel selection,
-Hybrid VBR, general mode/channel selection and quality/performance
+stress-case concealment counts and limitations. General mode/channel selection
+and quality/performance
 leadership remain unfinished.
 
 
@@ -122,7 +122,7 @@ independent decoding, exact durations, packet budgets and original native
 mode files. It does not establish perceptual quality or performance leadership.
 The [initial real-recording baseline](docs/benchmarks/audio-0.1.66.md) reports
 speech/music signal diagnostics and Opura file wall time with explicit limits.
-Hybrid VBR and broader subjective/competitive comparisons remain work.
+Broader subjective/competitive comparisons remain work.
 Fixed-bandwidth SILK library paths are available under
 `silk::encoder::mono` and `silk::encoder::stereo`: PCM at any standard input rate to NB/MB/WB packets of
 10/20/40/60 ms, with exact CBR byte budgets or capped variable length. See the
@@ -138,7 +138,7 @@ speech/music file cases and 96 deterministic loss scenarios. Unprotected/fixed
 SILK controls match native encoder PCM; protected profiles retain every SNR loss,
 backup-coverage tradeoff and PLC count. These are two-recording waveform
 checks, with process timings and no perceptual or native speed advantage claim.
-Hybrid VBR and general Opus mode/channel adaptation remain unfinished.
+General Opus mode/channel adaptation remain unfinished.
 
 `hybrid::encoder::HybridEncoder` emits fixed-band CBR Hybrid packets using a
 single shared range writer, WB SILK and CELT bands17..19(SWB)/21(FB).24kHz PCM
@@ -158,8 +158,14 @@ can leave FEC unavailable. `has_fec()` reports actual carried LBRR, and queued
 backups may still be carried once after disabling new protection. Budget errors
 retry once without the old backup, preserving primary encoding and atomic state.
 See [Hybrid FEC validation](docs/validation/hybrid-fec.md).
-Hybrid VBR, cross-mode switching and general mode/channel selection
-remain unfinished. See [Hybrid PCM validation](docs/validation/hybrid-pcm-packets.md).
+Use `encode_vbr(duration, pcm, bitrate, maximum_packet_bytes, options)` for
+unconstrained Hybrid VBR with separate nominal TOC-inclusive bitrate and hard
+packet cap. CLI `--mode hybrid --vbr --bitrate 48000 --max-packet-bytes 200`
+exposes the same behavior. CBR defaults remain unchanged. VBR retains the
+original temporal/SILK-offset target and conservative shared-entropy length
+floors; DTX/FEC and error/reset contracts still apply. See
+[Hybrid VBR validation](docs/validation/hybrid-vbr.md).
+Cross-mode switching and general mode/channel selection remain unfinished. See [Hybrid PCM validation](docs/validation/hybrid-pcm-packets.md).
 
 ```sh
 cargo run --release --offline --locked -- encode input.wav output.opus --mode hybrid --bandwidth fb --bitrate 64000

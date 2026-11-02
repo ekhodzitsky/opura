@@ -1,7 +1,7 @@
 //! Fixed-band Hybrid PCM encoding and native low/high-band rate controls.
 //!
 //! [`HybridEncoder`] connects both layers in one entropy stream for10/20ms
-//! mono/stereo SWB/FB packets with optional DTX/FEC. VBR and general mode/channel adaptation
+//! mono/stereo SWB/FB packets with optional DTX/FEC. General mode/channel adaptation
 //! remain under development. Rate controls are also available independently.
 //! Adapted from Opus v1.6.1 `src/opus_encoder.c`; see THIRD_PARTY_NOTICES.md.
 use crate::{Bandwidth, silk::gains::FrameDuration};

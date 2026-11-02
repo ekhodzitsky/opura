@@ -4,7 +4,7 @@ use crate::{
     Bandwidth,
     celt::{
         FrameSize,
-        encoder::{CeltEncoder, EncoderError as CeltError, HybridControls},
+        encoder::{CeltEncoder, EncoderError as CeltError, HybridControls, HybridVbr},
         input::InputRate,
     },
     range::{EncoderError as EntropyError, RangeEncoder},
@@ -40,7 +40,7 @@ pub enum EncoderError {
     InvalidConfiguration,
     /// PCM length does not match frame duration, input rate and channel count.
     InvalidInput,
-    /// Packet bytes must be3..=1276, complexity0..=10 and loss0..=100.
+    /// Invalid byte cap, nominal VBR rate, complexity or loss percentage.
     InvalidOptions,
     /// Native low/high band rate controls failed.
     Rate(RateError),
@@ -60,7 +60,9 @@ impl fmt::Display for EncoderError {
         match self {
             Self::InvalidConfiguration => f.write_str("invalid Hybrid rate/channels/bandwidth"),
             Self::InvalidInput => f.write_str("Hybrid PCM does not match frame geometry"),
-            Self::InvalidOptions => f.write_str("invalid Hybrid byte budget/complexity/loss"),
+            Self::InvalidOptions => {
+                f.write_str("invalid Hybrid byte budget/nominal bitrate/complexity/loss")
+            }
             Self::Rate(e) => write!(f, "Hybrid rate: {e}"),
             Self::Resampler(e) => write!(f, "Hybrid resampler: {e}"),
             Self::Silk(e) => write!(f, "Hybrid SILK: {e}"),
@@ -84,7 +86,7 @@ impl std::error::Error for EncoderError {
     }
 }
 
-/// Fixed-band CBR Hybrid settings. Enable silence suppression separately with
+/// Fixed-band Hybrid quality/loss settings. Enable silence suppression separately with
 /// [`HybridEncoder::set_dtx`] and FEC with [`HybridEncoder::set_inband_fec`].
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Options {
@@ -129,7 +131,8 @@ impl EncodedPacket {
 ///
 /// Uses one shared range stream, WB SILK, CELT bands17..19(SWB)/21(FB), native
 /// rate allocation,4ms CELT alignment, high-band gain/stereo fades and optional
-/// DTX/FEC. VBR, cross-mode switching and general rate/channel selection remain unfinished.
+/// DTX/FEC and unconstrained VBR. Cross-mode switching and general rate/channel
+/// selection remain unfinished.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HybridEncoder {
     rate: InputRate,
@@ -277,6 +280,40 @@ impl HybridEncoder {
         options: Options,
         finish: impl for<'a> FnOnce(&'a mut RangeEncoder) -> Result<&'a [u8], EntropyError>,
     ) -> Result<EncodedPacket, EncoderError> {
+        self.encode_with_rate(duration, input, packet_bytes, options, None, finish)
+    }
+    /// Encode unconstrained Hybrid VBR at a TOC-inclusive nominal bitrate with
+    /// a separate hard packet cap. DTX/FEC settings apply. The bitrate must be
+    /// at least24 bits per frame and at most1024000bps; physical capacity can
+    /// further cap it. The selected high-band rate must exceed500bps, matching
+    /// the native CELT bitrate-control domain. Unattainable targets/caps fail
+    /// explicitly. Errors preserve all state, including pending backups.
+    pub fn encode_vbr(
+        &mut self,
+        duration: FrameDuration,
+        input: &[i16],
+        bitrate: u32,
+        packet_bytes: usize,
+        options: Options,
+    ) -> Result<EncodedPacket, EncoderError> {
+        self.encode_with_rate(
+            duration,
+            input,
+            packet_bytes,
+            options,
+            Some(bitrate),
+            RangeEncoder::finish,
+        )
+    }
+    fn encode_with_rate(
+        &mut self,
+        duration: FrameDuration,
+        input: &[i16],
+        packet_bytes: usize,
+        options: Options,
+        bitrate: Option<u32>,
+        finish: impl for<'a> FnOnce(&'a mut RangeEncoder) -> Result<&'a [u8], EntropyError>,
+    ) -> Result<EncodedPacket, EncoderError> {
         let samples = self.rate.hz() as usize
             / if duration == FrameDuration::Ms10 {
                 100
@@ -292,6 +329,14 @@ impl HybridEncoder {
         {
             return Err(EncoderError::InvalidOptions);
         }
+        let fps = if duration == FrameDuration::Ms10 {
+            100
+        } else {
+            50
+        };
+        if bitrate.is_some_and(|rate| !(24 * fps..=1024000).contains(&rate)) {
+            return Err(EncoderError::InvalidOptions);
+        }
         let mut next = self.clone();
         let packet_duration = if duration == FrameDuration::Ms10 {
             PacketDuration::Ms10
@@ -299,13 +344,13 @@ impl HybridEncoder {
             PacketDuration::Ms20
         };
         let backup = next.fec.has_pending(packet_duration).then(|| next.clone());
-        let attempt = next.encode_inner(duration, input, packet_bytes, options, true);
+        let attempt = next.encode_inner(duration, input, packet_bytes, options, bitrate, true);
         let prepared = match attempt {
             Err(error) if retryable_budget(&error) && backup.is_some() => {
                 // Exactly one retry from identical complete pre-packet state.
                 // Entropy finalization happens only after an attempt succeeds.
                 next = backup.ok_or(error)?;
-                next.encode_inner(duration, input, packet_bytes, options, false)?
+                next.encode_inner(duration, input, packet_bytes, options, bitrate, false)?
             }
             other => other?,
         };
@@ -319,6 +364,7 @@ impl HybridEncoder {
         input: &[i16],
         packet_bytes: usize,
         options: Options,
+        bitrate: Option<u32>,
         include_fec: bool,
     ) -> Result<PreparedFrame, EncoderError> {
         let short = duration == FrameDuration::Ms10;
@@ -331,6 +377,10 @@ impl HybridEncoder {
         let samples = input.len() / self.channels;
         let internal = if short { 160 } else { 320 };
         let payload_bytes = packet_bytes - 1;
+        let stream_rate = bitrate
+            .unwrap_or(packet_bytes as u32 * 8 * fps as u32)
+            .min(packet_bytes as u32 * 8 * fps as u32);
+        let payload_rate = (stream_rate / fps as u32 - 8) * fps as u32;
         let digital_silence = input.iter().all(|&v| v == 0);
         self.dtx.begin(digital_silence);
         let packet_duration = if short {
@@ -344,13 +394,16 @@ impl HybridEncoder {
             self.bandwidth,
             self.channels,
             duration,
-            packet_bytes,
+            protection::FecRate {
+                bitrate: stream_rate,
+                variable: bitrate.is_some(),
+            },
             options,
         );
         self.fec.begin_with_policy(
             packet_duration,
             SilkRate::Khz16,
-            payload_bytes as i32 * 8 * fps,
+            payload_rate as i32,
             options.packet_loss_percent,
             Some(selected),
         );
@@ -358,12 +411,22 @@ impl HybridEncoder {
             duration,
             bandwidth: self.bandwidth,
             channels: self.channels,
-            bitrate: payload_bytes as u32 * 8 * fps as u32,
+            bitrate: payload_rate,
             payload_bytes,
-            variable_bitrate: false,
+            variable_bitrate: bitrate.is_some(),
             fec: selected,
         })
         .map_err(EncoderError::Rate)?;
+        let vbr_rate = if bitrate.is_some() {
+            Some(
+                stream_rate
+                    .checked_sub(allocation.silk_bitrate())
+                    .filter(|&rate| rate > 500)
+                    .ok_or(EncoderError::InvalidOptions)?,
+            )
+        } else {
+            None
+        };
         let mut filtered = [0i16; 1920];
         let mut pcm = [[0i16; 320]; 2];
         for (c, converted) in pcm.iter_mut().enumerate().take(self.channels) {
@@ -470,6 +533,7 @@ impl HybridEncoder {
         }
         let mut flags = 0;
         let mut voiced = false;
+        let mut offset_q10 = 100;
         for c in 0..self.channels {
             let active = activities[c].is_some_and(|a| a.probability_q8 >= 13);
             flags = (flags << 2) | (u32::from(active) << 1) | u32::from(self.fec.sent[c]);
@@ -517,6 +581,8 @@ impl HybridEncoder {
             self.fec.record(c, 0, encoded.redundancy());
             if c == 0 {
                 voiced = encoded.indices().signal == SignalType::Voiced;
+                offset_q10 = [[100, 240], [32, 100]][usize::from(voiced)]
+                    [usize::from(encoded.indices().offset)];
                 self.activity = activity.probability_q8;
             }
         }
@@ -595,6 +661,10 @@ impl HybridEncoder {
                     complexity: options.complexity,
                     voiced,
                     loss_percent: options.packet_loss_percent,
+                    vbr: vbr_rate.map(|rate| HybridVbr {
+                        rate,
+                        offset: offset_q10,
+                    }),
                 },
             )
             .map_err(EncoderError::Celt)?;
@@ -626,14 +696,17 @@ impl HybridEncoder {
         } else {
             14
         } + u8::from(!short);
+        if payload.len() + 1 > packet_bytes {
+            return Err(EncoderError::Entropy(EntropyError::CapacityExhausted));
+        }
         let mut packet = EncodedPacket {
             bytes: [0; 1276],
-            length: packet_bytes,
+            length: payload.len() + 1,
             range,
             duration,
         };
         packet.bytes[0] = (config << 3) | if self.channels == 2 { 4 } else { 0 };
-        packet.bytes[1..packet_bytes].copy_from_slice(payload);
+        packet.bytes[1..packet.length].copy_from_slice(payload);
         Ok(packet)
     }
     fn suppressed_packet(&self, duration: FrameDuration) -> EncodedPacket {
@@ -658,6 +731,8 @@ fn retryable_budget(error: &EncoderError) -> bool {
         if error.downcast_ref::<EntropyError>() == Some(&EntropyError::CapacityExhausted)
             || error.downcast_ref::<FrameError>() == Some(&FrameError::BitBudgetExceeded)
             || error.downcast_ref::<CeltError>() == Some(&CeltError::BudgetExhausted)
+            || error.downcast_ref::<crate::celt::allocation::AllocationError>()
+                == Some(&crate::celt::allocation::AllocationError::BitBudgetExceeded)
         {
             return true;
         }

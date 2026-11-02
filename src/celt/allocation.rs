@@ -10,7 +10,7 @@ use super::{
 };
 use crate::range::{EncoderError, RangeDecoder, RangeError};
 mod encoder;
-pub(crate) use encoder::encode_analyzed;
+pub(crate) use encoder::encode_analyzed_resized;
 pub use encoder::{AllocationEncoding, encode_allocation};
 use std::fmt;
 
@@ -246,6 +246,9 @@ trait RateEntropy {
     fn keep_band(&mut self, context: SkipContext) -> Result<bool, AllocationError>;
     fn intensity(&mut self, start: usize, coded: usize) -> Result<usize, AllocationError>;
     fn dual(&mut self) -> Result<bool, AllocationError>;
+    fn prepare_allocation(&mut self, _boost_q3: u32) -> Result<(), AllocationError> {
+        Ok(())
+    }
 }
 struct DecodeEntropy<'r, 'data>(&'r mut RangeDecoder<'data>);
 impl RateEntropy for DecodeEntropy<'_, '_> {
@@ -316,6 +319,10 @@ impl<E: RateEntropy> RateEngine<E> {
         if tell + 48 <= total {
             self.result.trim = self.entropy.trim()?;
         }
+        let boost = self.result.offsets[self.start..self.end]
+            .iter()
+            .sum::<i32>();
+        self.entropy.prepare_allocation(boost as u32)?;
         let mut bits = self.entropy.storage_bits() as i32 * 8 - self.entropy.tell_frac() as i32 - 1;
         self.result.anti = self.result.transient && self.lm >= 2 && bits >= ((self.lm + 2) << 3);
         if self.result.anti {

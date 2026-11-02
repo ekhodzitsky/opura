@@ -56,7 +56,8 @@ fn encode_with(
 }
 // Callback side effects belong to the caller's surrounding stream transaction.
 // The shared rate engine invokes it only when the trim symbol fits after boosts.
-pub(crate) fn encode_analyzed(
+#[cfg(test)]
+fn encode_analyzed(
     entropy: &mut RangeEncoder,
     size: FrameSize,
     layout: BandLayout,
@@ -83,6 +84,60 @@ fn encode_with_trim(
     write_bit: impl FnMut(&mut RangeEncoder, bool, u32) -> Result<(), EncoderError>,
     trim: impl FnMut() -> Result<u8, AllocationError>,
 ) -> Result<Allocation, AllocationError> {
+    encode_with_resize(
+        entropy,
+        size,
+        layout,
+        transient,
+        options,
+        EncodeCallbacks {
+            write_bit,
+            trim,
+            resize: |_: &mut RangeEncoder, _: u32| Ok(()),
+        },
+    )
+}
+// The enclosing stream transaction owns callback state on failures.
+pub(crate) fn encode_analyzed_resized(
+    entropy: &mut RangeEncoder,
+    size: FrameSize,
+    layout: BandLayout,
+    transient: bool,
+    options: AllocationEncoding,
+    trim: impl FnMut() -> Result<u8, AllocationError>,
+    resize: impl FnMut(&mut RangeEncoder, u32) -> Result<(), AllocationError>,
+) -> Result<Allocation, AllocationError> {
+    encode_with_resize(
+        entropy,
+        size,
+        layout,
+        transient,
+        options,
+        EncodeCallbacks {
+            write_bit: RangeEncoder::encode_bit_logp,
+            trim,
+            resize,
+        },
+    )
+}
+struct EncodeCallbacks<W, T, R> {
+    write_bit: W,
+    trim: T,
+    resize: R,
+}
+fn encode_with_resize<W, T, R>(
+    entropy: &mut RangeEncoder,
+    size: FrameSize,
+    layout: BandLayout,
+    transient: bool,
+    options: AllocationEncoding,
+    callbacks: EncodeCallbacks<W, T, R>,
+) -> Result<Allocation, AllocationError>
+where
+    W: FnMut(&mut RangeEncoder, bool, u32) -> Result<(), EncoderError>,
+    T: FnMut() -> Result<u8, AllocationError>,
+    R: FnMut(&mut RangeEncoder, u32) -> Result<(), AllocationError>,
+{
     validate_context(entropy.capacity() as u32 * 8, entropy.tell(), layout)?;
     if options.trim > 10
         || options.previous_coded_bands > 21
@@ -102,8 +157,7 @@ fn encode_with_trim(
             entropy: EncodeEntropy {
                 writer: &mut writer,
                 options,
-                write_bit,
-                trim,
+                callbacks,
             },
             c: layout.channels() as i32,
             lm: size.lm() as i32,
@@ -118,17 +172,24 @@ fn encode_with_trim(
     *entropy = writer;
     Ok(result)
 }
-struct EncodeEntropy<'a, W, T> {
+struct EncodeEntropy<'a, W, T, R> {
     writer: &'a mut RangeEncoder,
     options: AllocationEncoding,
-    write_bit: W,
-    trim: T,
+    callbacks: EncodeCallbacks<W, T, R>,
 }
 impl<
     W: FnMut(&mut RangeEncoder, bool, u32) -> Result<(), EncoderError>,
     T: FnMut() -> Result<u8, AllocationError>,
-> RateEntropy for EncodeEntropy<'_, W, T>
+    R: FnMut(&mut RangeEncoder, u32) -> Result<(), AllocationError>,
+> RateEntropy for EncodeEntropy<'_, W, T, R>
 {
+    fn prepare_allocation(&mut self, boost_q3: u32) -> Result<(), AllocationError> {
+        (self.callbacks.resize)(self.writer, boost_q3)?;
+        if self.writer.tell() > self.writer.capacity() as u32 * 8 {
+            return Err(AllocationError::BitBudgetExceeded);
+        }
+        Ok(())
+    }
     fn storage_bits(&self) -> u32 {
         self.writer.capacity() as u32 * 8
     }
@@ -137,11 +198,11 @@ impl<
     }
     fn boost(&mut self, band: usize, successful: i32, logp: u32) -> Result<bool, AllocationError> {
         let flag = successful < i32::from(self.options.boosts[band]);
-        (self.write_bit)(self.writer, flag, logp)?;
+        (self.callbacks.write_bit)(self.writer, flag, logp)?;
         Ok(flag)
     }
     fn trim(&mut self) -> Result<u8, AllocationError> {
-        let trim = (self.trim)()?;
+        let trim = (self.callbacks.trim)()?;
         if trim > 10 {
             return Err(AllocationError::InvalidControls);
         }
@@ -162,7 +223,7 @@ impl<
         let keep = c.coded <= c.start + 2
             || c.band_bits > (((depth * c.band_width) << c.lm << 3) >> 4)
                 && band <= self.options.signal_bandwidth;
-        (self.write_bit)(self.writer, keep, 1)?;
+        (self.callbacks.write_bit)(self.writer, keep, 1)?;
         Ok(keep)
     }
     fn intensity(&mut self, start: usize, coded: usize) -> Result<usize, AllocationError> {
@@ -173,7 +234,7 @@ impl<
     }
     fn dual(&mut self) -> Result<bool, AllocationError> {
         let flag = self.options.dual_stereo;
-        (self.write_bit)(self.writer, flag, 1)?;
+        (self.callbacks.write_bit)(self.writer, flag, 1)?;
         Ok(flag)
     }
 }

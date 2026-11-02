@@ -28,6 +28,10 @@ use super::{
 };
 use crate::range::{EncoderError as EntropyError, RangeEncoder};
 use std::fmt;
+#[path = "hybrid_vbr.rs"]
+mod hybrid_vbr;
+pub(crate) use hybrid_vbr::HybridVbr;
+use hybrid_vbr::VbrBudget;
 
 /// Invalid PCM/geometry/budget or a failed constituent encoding stage.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -206,6 +210,7 @@ pub(crate) struct HybridControls {
     pub complexity: u8,
     pub voiced: bool,
     pub loss_percent: u8,
+    pub vbr: Option<HybridVbr>,
 }
 impl CeltEncoder {
     /// Start a fresh one/two-channel stream at a standard PCM input rate.
@@ -447,12 +452,16 @@ impl CeltEncoder {
         hybrid: Option<HybridControls>,
     ) -> Result<(), EncoderError> {
         let payload_bytes = writer.capacity();
+        let initial_tell_q3 = writer.tell_frac();
         let start = if hybrid.is_some() { 17 } else { 0 };
         let available = if hybrid.is_some() {
             payload_bytes.saturating_sub(((writer.tell() + 4) >> 3) as usize)
         } else {
             payload_bytes
         };
+        let effective_bytes = hybrid
+            .and_then(|h| h.vbr)
+            .map_or(available, |v| v.analysis_bytes(size));
         let n = size.samples();
         let stride = n + 120;
         let mut context = [0; 2160];
@@ -485,7 +494,7 @@ impl CeltEncoder {
                 size,
                 &context[..self.channels * stride],
                 self.channels,
-                hybrid.is_some_and(|h| available < 15 && !h.voiced),
+                hybrid.is_some_and(|h| effective_bytes < 15 && !h.voiced),
             )?)
         } else {
             None
@@ -555,7 +564,7 @@ impl CeltEncoder {
             amplitudes[c] = *bands.amplitudes(c).ok_or(EncoderError::InvalidChannels)?;
         }
         let perceptual = if (self.analyze_dynamic || self.analyze_spreading)
-            && (hybrid.is_none() || available >= 2)
+            && (hybrid.is_none() || effective_bytes >= 2)
         {
             let d = diagnostics.ok_or(EncoderError::Analysis(
                 AnalysisError::InvalidDynallocParameters,
@@ -590,7 +599,7 @@ impl CeltEncoder {
                     previous: self.energy.energies().values(),
                 },
                 analysis::DynallocOptions {
-                    payload_bytes: available as u16,
+                    payload_bytes: effective_bytes as u16,
                     transient,
                     tone_frequency: d.tone_frequency(),
                     toneishness: if hybrid.is_some_and(|h| h.complexity == 0) {
@@ -640,7 +649,7 @@ impl CeltEncoder {
         if let Some(h) = hybrid {
             if diagnostics.is_some_and(|d| d.weak_transient()) {
                 decisions[start..end].fill(true);
-            } else if available < 15 && !h.voiced {
+            } else if effective_bytes < 15 && !h.voiced {
                 decisions[start..end].fill(false);
                 select = transient;
             }
@@ -688,7 +697,12 @@ impl CeltEncoder {
                 filtered.active(),
             )?
         };
-        let rate = analysis::equivalent_rate(size, self.channels, payload_bytes)?;
+        let mut rate = analysis::equivalent_rate(size, self.channels, payload_bytes)?;
+        if let Some(vbr) = hybrid.and_then(|h| h.vbr) {
+            rate = rate.min(
+                vbr.rate as i32 - (40 * self.channels as i32 + 20) * ((400 >> size.lm()) - 50),
+            );
+        }
         let intensity = if self.analyze_allocation && self.channels == 2 {
             self.intensity.select((rate / 1000) as i16, layout)
         } else {
@@ -698,7 +712,21 @@ impl CeltEncoder {
             && self.channels == 2
             && size != FrameSize::Ms2_5
             && analysis::analyze_stereo(size, bands.normalized_values())?;
-        let allocation = allocation::encode_analyzed(
+        let vbr = hybrid.and_then(|h| h.vbr);
+        let vbr_budget = VbrBudget {
+            size,
+            channels: self.channels,
+            capacity: payload_bytes,
+            initial_tell_q3,
+            tell_q3: 0,
+            boost_q3: 0,
+            temporal_q14: if hybrid.is_some_and(|h| h.complexity == 0) {
+                0
+            } else {
+                diagnostics.map_or(0, |d| d.tf_estimate())
+            },
+        };
+        let allocation = allocation::encode_analyzed_resized(
             writer,
             size,
             layout,
@@ -735,7 +763,14 @@ impl CeltEncoder {
                     .map(|d| d.index())
                     .map_err(AllocationError::Analysis)
             },
+            |writer, boost| {
+                if let Some(vbr) = vbr {
+                    vbr.resize(writer, vbr_budget, boost)?;
+                }
+                Ok(())
+            },
         )?;
+        let budget = writer.capacity() as u32 * 8;
         self.energy.fine(writer, layout, allocation.fine_bits())?;
         partition::encode_spectrum(
             writer,

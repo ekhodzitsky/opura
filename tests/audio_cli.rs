@@ -715,6 +715,71 @@ fn hybrid_fec_cli_protects_the_silk_band_and_combines_with_dtx() -> Result<()> {
     }
     Ok(())
 }
+
+#[test]
+fn hybrid_vbr_cli_uses_variable_lengths_with_explicit_caps() -> Result<()> {
+    let temp = Temporary::new()?;
+    for rate in [24000, 48000] {
+        for channels in [1u16, 2] {
+            for ms in ["10", "20"] {
+                let count = rate as usize / 2 + 1;
+                let source = temp.0.join(format!("vbr-{rate}-{channels}-{ms}.wav"));
+                let opus = source.with_extension("opus");
+                let output = source.with_extension("decoded.wav");
+                fs::write(&source, wave(rate, channels, count))?;
+                success(cli().arg("encode").arg(&source).arg(&opus).args([
+                    "--mode",
+                    "hybrid",
+                    "--vbr",
+                    "--bitrate",
+                    if channels == 1 { "32001" } else { "64001" },
+                    "--frame-ms",
+                    ms,
+                    "--max-packet-bytes",
+                    "200",
+                    "--fec",
+                    "20",
+                    "--dtx",
+                ]))?;
+                success(cli().arg("decode").arg(&opus).arg(&output))?;
+                output_pcm(
+                    &fs::read(&output)?,
+                    channels,
+                    count * (48000 / rate) as usize,
+                )?;
+                let packets = audio_packets(&fs::read(&opus)?)?;
+                let sizes: std::collections::BTreeSet<_> = packets.iter().map(Vec::len).collect();
+                assert!(sizes.len() > 2);
+                assert!(sizes.iter().all(|&n| (1..=200).contains(&n)));
+            }
+        }
+    }
+    let source = temp.0.join("invalid-vbr.wav");
+    fs::write(&source, wave(48000, 1, 960))?;
+    for args in [
+        vec!["--vbr"],
+        vec!["--mode", "hybrid", "--max-packet-bytes", "200"],
+        vec!["--mode", "hybrid", "--vbr", "--max-packet-bytes", "2"],
+        vec!["--mode", "hybrid", "--vbr", "--max-packet-bytes", "1277"],
+        vec!["--mode", "hybrid", "--vbr", "--bitrate", "0"],
+        vec!["--mode", "hybrid", "--vbr", "--bitrate", "1024001"],
+        vec!["--mode", "hybrid", "--vbr", "--vbr"],
+    ] {
+        let output = temp.0.join("must-not-create.opus");
+        assert!(
+            !cli()
+                .arg("encode")
+                .arg(&source)
+                .arg(&output)
+                .args(args)
+                .output()?
+                .status
+                .success()
+        );
+        assert!(!output.exists());
+    }
+    Ok(())
+}
 #[test]
 fn silk_cli_fec_emits_redundancy_and_combines_with_dtx() -> Result<()> {
     let temp = Temporary::new()?;

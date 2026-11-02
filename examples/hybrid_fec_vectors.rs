@@ -34,6 +34,11 @@ fn record(
 }
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let path = env::args_os().nth(1).ok_or("expected new output path")?;
+    let vbr = match env::args().nth(2).as_deref() {
+        None => false,
+        Some("vbr") => true,
+        _ => return Err("expected optional vbr".into()),
+    };
     let mut out = BufWriter::new(OpenOptions::new().write(true).create_new(true).open(path)?);
     out.write_all(b"OPURAH02")?;
     let mut protected = 0;
@@ -99,10 +104,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                 })
                                                 .collect();
                                             encoder.set_inband_fec(!(85..95).contains(&frame));
-                                            let packet = encoder.encode(if ms == 10 { FrameDuration::Ms10 } else { FrameDuration::Ms20 }, &input,
-                                                ms * if (112..116).contains(&frame) { 3 } else { rate_kbps / 8 } * channels,
-                                                Options { complexity, packet_loss_percent: loss_percent })
-                                                .map_err(|e| format!("{rate:?}/{bandwidth:?}/{channels}/{default_ms}/{complexity}/{rate_kbps}/{loss_percent}/dtx={dtx}/f{frame}: {e}"))?;
+                                            let duration = if ms == 10 {
+                                                FrameDuration::Ms10
+                                            } else {
+                                                FrameDuration::Ms20
+                                            };
+                                            let options = Options {
+                                                complexity,
+                                                packet_loss_percent: loss_percent,
+                                            };
+                                            let packet = if vbr && !(140..145).contains(&frame) {
+                                                encoder.encode_vbr(duration, &input, if (150..155).contains(&frame) { 1024000 } else { rate_kbps as u32 * 1000 * channels as u32 },
+                                                    if (112..116).contains(&frame) { ms * 3 * channels } else { 1276 }, options)
+                                            } else {
+                                                encoder.encode(duration, &input, ms * if (112..116).contains(&frame) { 3 } else { rate_kbps / 8 } * channels, options)
+                                            }.map_err(|e| format!("{rate:?}/{bandwidth:?}/{channels}/{default_ms}/{complexity}/{rate_kbps}/{loss_percent}/dtx={dtx}/f{frame}: {e}"))?;
                                             protected += usize::from(encoder.has_fec());
                                             suppressed += usize::from(encoder.in_dtx());
                                             if !loss || frame % 3 != 1 {

@@ -7,6 +7,28 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.78] - 2026-11-02
+
+- Add actual unconstrained Hybrid VBR through compatible `encode_vbr` and CLI
+  `--mode hybrid --vbr`, separating nominal TOC-inclusive bitrate from the hard
+  packet cap (`--max-packet-bytes`, default1276). Keep existing CBR APIs/defaults.
+- Select final length after dynamic requests/trim, before fine/PVQ allocation.
+  Match original offset/temporal/transient targets, two-byte safety margin and
+  shared37-bit redundancy-syntax floor; relocate raw suffix bits transactionally
+  and allocate spectra against the actual new capacity. Carry VBR through SILK
+  caps, fixed-band FEC selection and high-band analysis without weakening DTX/FEC
+  rollback or one-time termination. Native CELT target-domain errors are explicit.
+- Retain20160 original VBR size snapshots and25600 additional original VBR FEC
+  policy cases, alongside unchanged CBR controls. Validate actual variable packets,
+  caps, toggles, normal/loss/DTX/FEC, late errors and recording outputs. See
+  docs/validation/hybrid-vbr.md for final evidence and limits. General mode/channel
+  orchestration, longer packets and competitive evaluation remain unfinished.
+- Independent native PCM/ranges match184320 records including30528 FEC requests;
+  48 actual recording files preserve native PCM/duration over182928 packets.
+  All three previous Hybrid raw corpora and six SILK/CELT recording regressions
+  remain byte-identical. All seven required offline gates pass, including23
+  Python tests; both new native policy fixtures regenerate identically.
+
 ## [0.1.77] - 2026-11-02
 
 - Add opt-in shared-stream Hybrid LBRR generation and previous-frame protection

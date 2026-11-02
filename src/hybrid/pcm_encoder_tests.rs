@@ -2,6 +2,117 @@ use super::*;
 use crate::{Mode, Packet, decoder::OpusDecoder, silk::decoder::PcmChannels};
 
 #[test]
+fn vbr_uses_nominal_rate_and_actual_shared_packet_length() -> Result<(), Box<dyn std::error::Error>>
+{
+    let mut lengths = std::collections::BTreeSet::new();
+    for rate in [InputRate::Khz24, InputRate::Khz48] {
+        for channels in 1..=2 {
+            let mut encoder = HybridEncoder::new(rate, channels, Bandwidth::SuperWideband)?;
+            encoder.set_inband_fec(true);
+            encoder.set_dtx(true);
+            let mut decoder = OpusDecoder::new(
+                OutputRate::Khz48,
+                if channels == 1 {
+                    PcmChannels::Mono
+                } else {
+                    PcmChannels::Stereo
+                },
+            )?;
+            for frame in 0..48 {
+                let duration = if frame % 4 == 0 {
+                    FrameDuration::Ms10
+                } else {
+                    FrameDuration::Ms20
+                };
+                let mut input = pcm(rate, channels, duration, frame);
+                if (5..25).contains(&frame) {
+                    input.fill(0);
+                }
+                let packet = encoder.encode_vbr(
+                    duration,
+                    &input,
+                    32000 * channels as u32,
+                    320,
+                    Options::default(),
+                )?;
+                assert!((1..=320).contains(&packet.as_bytes().len()));
+                assert_eq!(
+                    decoder.decode(packet.as_bytes())?.final_range(),
+                    packet.final_range()
+                );
+                lengths.insert(packet.as_bytes().len());
+            }
+        }
+    }
+    assert!(lengths.len() > 5);
+    Ok(())
+}
+
+#[test]
+fn vbr_caps_invalid_targets_and_late_failure_preserve_full_state()
+-> Result<(), Box<dyn std::error::Error>> {
+    for channels in 1..=2 {
+        let mut encoder = HybridEncoder::new(InputRate::Khz48, channels, Bandwidth::Fullband)?;
+        encoder.set_dtx(true);
+        encoder.set_inband_fec(true);
+        let input = pcm(InputRate::Khz48, channels, FrameDuration::Ms20, 0);
+        let options = Options {
+            complexity: 10,
+            packet_loss_percent: 20,
+        };
+        encoder.encode_vbr(
+            FrameDuration::Ms20,
+            &input,
+            48000 * channels as u32,
+            320,
+            options,
+        )?;
+        let before = encoder.clone();
+        for rate in [0, 1, 1199, 1024001, u32::MAX] {
+            assert!(
+                encoder
+                    .encode_vbr(FrameDuration::Ms20, &input, rate, 320, options)
+                    .is_err()
+            );
+            assert_eq!(encoder, before);
+        }
+        let mut calls = 0;
+        let error = encoder.encode_with_rate(
+            FrameDuration::Ms20,
+            &input,
+            320,
+            options,
+            Some(48000 * channels as u32),
+            |writer| {
+                calls += 1;
+                assert!(writer.capacity() < 319);
+                writer.finish()?;
+                Err(EntropyError::CapacityExhausted)
+            },
+        );
+        assert_eq!(calls, 1);
+        assert_eq!(
+            error,
+            Err(EncoderError::Entropy(EntropyError::CapacityExhausted))
+        );
+        assert_eq!(encoder, before);
+        let mut admitted = 0;
+        for capacity in [3, 8, 16, 32, 64, 1276] {
+            let mut trial = before.clone();
+            match trial.encode_vbr(FrameDuration::Ms20, &input, 64000, capacity, options) {
+                Ok(packet) => {
+                    assert!(packet.as_bytes().len() <= capacity);
+                    admitted += 1;
+                }
+                Err(_) => assert_eq!(trial, before),
+            }
+        }
+        assert!(admitted > 0);
+    }
+    Ok(())
+}
+
+#[test]
 fn queued_fec_budget_retry_and_finalization_errors_preserve_state()
 -> Result<(), Box<dyn std::error::Error>> {
     for channels in 1..=2 {
@@ -46,6 +157,7 @@ fn queued_fec_budget_retry_and_finalization_errors_preserve_state()
                             &input,
                             bytes,
                             options,
+                            None,
                             false,
                         )?;
                         let expected_packet = expected.finish_packet(
