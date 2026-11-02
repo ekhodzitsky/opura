@@ -1,4 +1,5 @@
 use super::*;
+use crate::silk::resampler::EncoderResamplerState;
 use crate::{Packet, decoder::OpusDecoder, silk::decoder::PcmChannels};
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 #[test]
@@ -39,12 +40,12 @@ fn cold_band_selection_matches_constructor_and_live_change_keeps_stream_history(
     assert_eq!(e, before);
     e.set_bandwidth(SilkRate::Khz8)?;
     assert_eq!(e.bandwidth(), SilkRate::Khz8);
-    assert_eq!(e.vad, before.vad);
+    assert_eq!(e.speech.vad[0], before.speech.vad[0]);
     assert_eq!(e.dc, before.dc);
-    assert_eq!(e.previous, before.previous);
-    assert_eq!(e.dtx, before.dtx);
-    assert_eq!(e.excess, before.excess);
-    assert!(!e.fec.has_pending(PacketDuration::Ms60));
+    assert_eq!(e.speech.previous, before.speech.previous);
+    assert_eq!(e.speech.dtx, before.speech.dtx);
+    assert_eq!(e.speech.excess, before.speech.excess);
+    assert!(!e.speech.fec.has_pending(PacketDuration::Ms60));
     Ok(())
 }
 #[test]
@@ -61,19 +62,19 @@ fn oversized_fec_retries_identical_input_without_prefix() -> Result<()> {
     for _ in 0..4 {
         warm.encode(duration, &pcm, 480, options)?;
     }
-    assert!(warm.fec.has_pending(duration));
+    assert!(warm.speech.fec.has_pending(duration));
     for budget in (64..=240).step_by(8) {
         let mut actual = warm.clone();
         let Ok(packet) = actual.encode(duration, &pcm, budget, options) else {
             continue;
         };
-        if !actual.fec.dropped {
+        if !actual.speech.fec.dropped {
             continue;
         }
         assert!(!actual.has_fec());
         assert_eq!(packet.as_bytes().len(), budget);
         let mut expected = warm.clone();
-        expected.fec.clear_pending();
+        expected.speech.fec.clear_pending();
         let without = expected.encode(duration, &pcm, budget, options)?;
         assert_eq!(packet, without);
         assert_eq!(
@@ -298,7 +299,7 @@ fn automatic_bandwidth_uses_wire_budget_and_preserves_mode_on_reset() -> Result<
     assert_eq!(encoded.as_bytes().len(), 45);
     assert!(encoder.automatic_bandwidth());
     assert_eq!(encoder.bandwidth_target(), None);
-    encoder.resampler = EncoderResamplerState::new(OutputRate::Khz8, SilkRate::Khz16);
+    encoder.speech.resampler[0] = EncoderResamplerState::new(OutputRate::Khz8, SilkRate::Khz16);
     let saved = encoder.clone();
     assert!(
         encoder

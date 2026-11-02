@@ -1,17 +1,17 @@
 //! Mono PCM-to-Opus packets with explicit SILK bandwidth and explicit byte budgets.
 use super::{
-    analysis::VoiceActivityDetector,
     bandwidth::{BandwidthError, PacketBandwidth},
-    channel::{ChannelFrameEncoder, FrameControls, FrameError},
-    dtx::{Decision, DtxState},
-    fec::{self, FecState},
+    channel::{FrameControls, FrameError},
+    dtx::Decision,
+    fec,
+    state::{AnalysisControls, SpeechState},
 };
 use crate::{
     range::{EncoderError, RangeEncoder},
     silk::{
         gains::FrameDuration,
         pitch::{PitchCoding, SilkRate},
-        resampler::{EncoderResamplerState, OutputRate, ResampleError},
+        resampler::{OutputRate, ResampleError},
     },
 };
 use std::fmt;
@@ -167,14 +167,8 @@ impl MonoPacket {
 pub struct MonoEncoder {
     input: OutputRate,
     internal: SilkRate,
-    resampler: EncoderResamplerState,
     dc: i32,
-    previous: i16,
-    vad: VoiceActivityDetector,
-    channel: ChannelFrameEncoder,
-    excess: i32,
-    dtx: DtxState,
-    fec: FecState<1>,
+    speech: SpeechState<1>,
     bandwidth_control: PacketBandwidth<1>,
 }
 impl MonoEncoder {
@@ -183,14 +177,8 @@ impl MonoEncoder {
         Self {
             input,
             internal,
-            resampler: EncoderResamplerState::new(input, internal),
             dc: 0,
-            previous: 0,
-            vad: VoiceActivityDetector::default(),
-            channel: ChannelFrameEncoder::new(internal),
-            excess: 0,
-            dtx: DtxState::default(),
-            fec: FecState::default(),
+            speech: SpeechState::new(input, internal),
             bandwidth_control: PacketBandwidth::default(),
         }
     }
@@ -248,14 +236,8 @@ impl MonoEncoder {
             return Ok(());
         }
         let mut next = self.clone();
-        next.channel.change_rate(
-            self.input,
-            rate,
-            self.fec.previous_frame_duration(),
-            &mut next.resampler,
-        )?;
+        next.speech.change_rate(self.input, rate)?;
         next.internal = rate;
-        next.fec.clear_pending();
         *self = next;
         Ok(())
     }
@@ -263,7 +245,7 @@ impl MonoEncoder {
     /// contain only TOC (one byte), with final range zero, even in CBR mode.
     /// Encoding still advances all analysis/quantizer state and can fail normally.
     pub fn set_dtx(&mut self, enabled: bool) {
-        self.dtx.enabled = enabled;
+        self.speech.dtx.enabled = enabled;
     }
     /// Request in-band FEC using `MonoOptions::packet_loss_percent`. Disabled
     /// by default. Fixed-band operation preserves its rate; automatic bandwidth
@@ -271,22 +253,22 @@ impl MonoEncoder {
     /// bitrate and activity. Previously queued redundancy can still be carried
     /// by the next packet after disabling this setting.
     pub fn set_inband_fec(&mut self, enabled: bool) {
-        self.fec.enabled = enabled;
+        self.speech.fec.enabled = enabled;
     }
     /// Whether the last successful packet carries prior-packet redundancy.
     pub fn has_fec(&self) -> bool {
-        self.fec.sent[0]
+        self.speech.fec.sent[0]
     }
     /// Whether the last successfully encoded packet suppressed its payload.
     pub fn in_dtx(&self) -> bool {
-        self.dtx.suppressed
+        self.speech.dtx.suppressed
     }
     /// Reset all input, VAD, predictor and bitrate history, retaining rates, bandwidth mode/target and DTX/FEC settings.
     pub fn reset(&mut self) {
         let automatic = self.automatic_bandwidth();
         let target = self.bandwidth_control.target;
-        let enabled = self.dtx.enabled;
-        let fec = self.fec.enabled;
+        let enabled = self.speech.dtx.enabled;
+        let fec = self.speech.fec.enabled;
         *self = Self::new(self.input, self.internal);
         self.set_dtx(enabled);
         self.set_inband_fec(fec);
@@ -324,11 +306,11 @@ impl MonoEncoder {
             duration,
             packet_bytes,
             options,
-            self.fec.enabled,
+            self.speech.fec.enabled,
         )?;
         staged.change_bandwidth(rate)?;
         let digital_silence = input.iter().all(|&v| v == 0);
-        staged.dtx.begin(digital_silence);
+        staged.speech.dtx.begin(digital_silence);
         let mut filtered = [0i16; 2880];
         dc_reject(
             &mut staged.dc,
@@ -337,13 +319,12 @@ impl MonoEncoder {
             &mut filtered[..input.len()],
         );
         let mut pcm = [0i16; 960];
-        let converted = staged
-            .resampler
-            .process(&filtered[..input.len()], &mut pcm)?;
-        for sample in &mut pcm[..converted] {
-            std::mem::swap(sample, &mut staged.previous);
-        }
-        let backup = staged.fec.has_pending(duration).then(|| staged.clone());
+        let converted = staged.speech.resampler[0].process(&filtered[..input.len()], &mut pcm)?;
+        let backup = staged
+            .speech
+            .fec
+            .has_pending(duration)
+            .then(|| staged.clone());
         let attempt = staged.encode_packet(
             duration,
             &pcm[..converted],
@@ -395,19 +376,20 @@ impl MonoEncoder {
         let mut writer = RangeEncoder::new(1275)?;
         let header_bits = frames as u32 + 1;
         writer.encode_icdf(0, &[(256 - (256 >> header_bits)) as u8, 0], 8)?;
-        self.fec.begin_with_policy(
+        self.speech.fec.begin_with_policy(
             duration,
             self.internal,
             bitrate,
             options.packet_loss_percent,
             self.bandwidth_control.fec_override(),
         );
-        let channel = &mut self.channel;
-        self.fec
+        let channel = &mut self.speech.channels[0];
+        self.speech
+            .fec
             .prefix(&mut writer, include_fec, |_, writer, frame, coding| {
                 channel.encode_redundant(writer, frame, coding)
             })?;
-        let per_frame = (nominal_bits - self.fec.used_bits) / frames as i32;
+        let per_frame = (nominal_bits - self.speech.fec.used_bits) / frames as i32;
         let mut flags = 0;
         let mut last_activity = 0;
         for (index, frame) in pcm[..converted].chunks_exact(frame_samples).enumerate() {
@@ -417,45 +399,49 @@ impl MonoEncoder {
                 } else {
                     50
                 }
-                - self.excess * 2;
+                - self.speech.excess * 2;
             if index > 0 {
                 target -=
-                    (writer.tell() as i32 - self.fec.used_bits - per_frame * index as i32) * 2;
+                    (writer.tell() as i32 - self.speech.fec.used_bits - per_frame * index as i32)
+                        * 2;
             }
             target = target.clamp(bitrate.min(5000), bitrate.max(5000));
             let snr = target_snr(self.internal, duration.frame_duration(), target);
-            let mut activity = self
-                .vad
-                .analyze(self.internal, duration.frame_duration(), frame)
-                .map_err(FrameError::from)?;
-            if (self.dtx.enabled || self.fec.enabled) && digital_silence {
-                activity.probability_q8 = activity.probability_q8.min(12);
-            }
+            let analyzed = self.speech.analyze_mono(
+                self.internal,
+                duration.frame_duration(),
+                frame,
+                AnalysisControls {
+                    target_rate: target,
+                    digital_silence,
+                    to_mono: false,
+                },
+            )?;
+            let activity = analyzed.activities[0].ok_or(FrameError::InvalidControls)?;
             last_activity = activity.probability_q8;
             let mut tapered = [0i16; 320];
-            tapered[..frame.len()].copy_from_slice(frame);
+            tapered[..frame.len()].copy_from_slice(&analyzed.pcm[0][..analyzed.length]);
             self.bandwidth_control.transitions[0].filter(
                 self.internal,
                 duration.frame_duration(),
                 &mut tapered[..frame.len()],
             )?;
             let active = activity.probability_q8 >= 13;
-            self.dtx.frame(0, active && !digital_silence);
             let limit = match (frames, index) {
                 (2, 0) => maximum * 3 / 5,
                 (3, 0) => maximum * 2 / 5,
                 (3, 1) => maximum * 3 / 4,
                 _ => maximum,
             };
-            let fec_controls = self.fec.controls(0, index);
+            let fec_controls = self.speech.fec.controls(0, index);
             let hard = if self.automatic_bandwidth() {
                 writer.capacity() as u32 * 8
-            } else if fec_controls.is_some() || self.fec.sent[0] {
+            } else if fec_controls.is_some() || self.speech.fec.sent[0] {
                 maximum
             } else {
                 limit
             };
-            let encoded = self.channel.encode_with_redundancy(
+            let encoded = self.speech.channels[0].encode_with_redundancy(
                 &mut writer,
                 &tapered[..frame.len()],
                 FrameControls {
@@ -474,21 +460,26 @@ impl MonoEncoder {
                     max_bits: limit,
                     packet_loss_percent: options.packet_loss_percent,
                     frames_per_packet: frames as u8,
-                    redundancy: self.fec.sent[0],
+                    redundancy: self.speech.fec.sent[0],
                 },
                 hard,
                 fec_controls,
             )?;
-            self.fec.record(0, index, encoded.redundancy());
+            self.speech.fec.record(0, index, encoded.redundancy());
+            self.speech.finish_analysis(&analyzed)?;
             flags = (flags << 1) | u32::from(active);
         }
-        writer.patch_initial_bits((flags << 1) | u32::from(self.fec.sent[0]), header_bits)?;
+        writer.patch_initial_bits(
+            (flags << 1) | u32::from(self.speech.fec.sent[0]),
+            header_bits,
+        )?;
         let encoded_length = writer.tell().div_ceil(8) as usize;
         let overflow = encoded_length >= packet_bytes;
         // Native outer Opus converts a completed SILK overshoot into PLC. Give
         // queued FEC one prefix-free retry first, preserving primary audio.
         if overflow
-            && (!self.automatic_bandwidth() || (include_fec && self.fec.sent.iter().any(|&v| v)))
+            && (!self.automatic_bandwidth()
+                || (include_fec && self.speech.fec.sent.iter().any(|&v| v)))
         {
             return Err(FrameError::BitBudgetExceeded.into());
         }
@@ -511,9 +502,9 @@ impl MonoEncoder {
                 PacketDuration::Ms40 => 2,
                 PacketDuration::Ms60 => 3,
             };
-        let decision = self.dtx.finish(duration, 1, digital_silence);
+        let decision = self.speech.dtx.finish(duration, 1, digital_silence);
         if decision != Decision::Transmit || overflow {
-            self.fec.suppress();
+            self.speech.fec.suppress();
         }
         let result = if decision != Decision::Transmit {
             packet(config << 3, &[], 1, 0)
@@ -543,7 +534,7 @@ impl MonoEncoder {
         } else {
             encoded_length as i32 * 8
         };
-        self.excess = (self.excess + payload_bits - nominal_bits).clamp(0, 10000);
+        self.speech.excess = (self.speech.excess + payload_bits - nominal_bits).clamp(0, 10000);
         self.bandwidth_control.finish(last_activity, duration);
         Ok(result)
     }

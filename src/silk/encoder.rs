@@ -14,6 +14,7 @@ mod math;
 pub mod mono;
 pub mod nsq;
 mod pulses;
+pub(crate) mod state;
 pub mod stereo;
 use super::{
     gains::{DELTA_ICDF, FrameActivity, FrameDuration, GAIN_ICDF, SignalType},

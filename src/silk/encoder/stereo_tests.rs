@@ -1,4 +1,5 @@
 use super::*;
+use crate::silk::resampler::EncoderResamplerState;
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 #[test]
 fn band_change_preserves_stereo_vad_and_rate_history_and_is_atomic() -> Result<()> {
@@ -19,15 +20,15 @@ fn band_change_preserves_stereo_vad_and_rate_history_and_is_atomic() -> Result<(
     assert_eq!(e, before);
     e.set_bandwidth(SilkRate::Khz8)?;
     assert_eq!(e.bandwidth(), SilkRate::Khz8);
-    assert_eq!(e.stereo, before.stereo);
-    assert_eq!(e.vad, before.vad);
+    assert_eq!(e.speech.stereo, before.speech.stereo);
+    assert_eq!(e.speech.vad, before.speech.vad);
     assert_eq!(e.dc, before.dc);
-    assert_eq!(e.activity, before.activity);
-    assert_eq!(e.previous_mid_only, before.previous_mid_only);
-    assert_eq!(e.dtx, before.dtx);
-    assert_eq!(e.excess, before.excess);
-    assert!(!e.fec.has_pending(PacketDuration::Ms60));
-    e.resampler[1] = EncoderResamplerState::new(OutputRate::Khz8, SilkRate::Khz8);
+    assert_eq!(e.speech.activity, before.speech.activity);
+    assert_eq!(e.speech.previous_mid_only, before.speech.previous_mid_only);
+    assert_eq!(e.speech.dtx, before.speech.dtx);
+    assert_eq!(e.speech.excess, before.speech.excess);
+    assert!(!e.speech.fec.has_pending(PacketDuration::Ms60));
+    e.speech.resampler[1] = EncoderResamplerState::new(OutputRate::Khz8, SilkRate::Khz8);
     let saved = e.clone();
     assert!(e.set_bandwidth(SilkRate::Khz12).is_err());
     assert_eq!(e, saved);
@@ -49,18 +50,18 @@ fn oversized_stereo_fec_retries_all_channel_histories_from_same_input() -> Resul
     for _ in 0..4 {
         warm.encode(duration, &pcm, 480, options)?;
     }
-    assert!(warm.fec.has_pending(duration));
+    assert!(warm.speech.fec.has_pending(duration));
     for budget in (128..=480).step_by(16) {
         let mut actual = warm.clone();
         let Ok(packet) = actual.encode(duration, &pcm, budget, options) else {
             continue;
         };
-        if !actual.fec.dropped {
+        if !actual.speech.fec.dropped {
             continue;
         }
         assert!(!actual.has_fec());
         let mut expected = warm.clone();
-        expected.fec.clear_pending();
+        expected.speech.fec.clear_pending();
         assert_eq!(packet, expected.encode(duration, &pcm, budget, options)?);
         assert_eq!(
             actual.encode(duration, &pcm, 480, options)?,
@@ -303,7 +304,7 @@ fn stereo_packets_decode_through_mid_only_and_side_restart() -> Result<()> {
                                 (((frame * n + i) * 7919 % 50000) as i32 - 25000) as i16
                             };
                         }
-                        let old = encoder.previous_mid_only;
+                        let old = encoder.speech.previous_mid_only;
                         let packet = encoder.encode(
                             duration,
                             &pcm,
@@ -326,8 +327,8 @@ fn stereo_packets_decode_through_mid_only_and_side_restart() -> Result<()> {
                             duration.milliseconds() as usize * 96
                         );
                         assert_eq!(decoder.final_range(), packet.final_range());
-                        omissions += usize::from(encoder.previous_mid_only);
-                        restarts += usize::from(old && !encoder.previous_mid_only);
+                        omissions += usize::from(encoder.speech.previous_mid_only);
+                        restarts += usize::from(old && !encoder.speech.previous_mid_only);
                     }
                     let before = encoder.clone();
                     let pcm = vec![0; 2 * n];
@@ -388,7 +389,7 @@ fn gradual_stereo_bandwidth_tracks_mid_and_pauses_omitted_side_filter() -> Resul
     }
     encoder.set_bandwidth_target(Some(SilkRate::Khz8));
     encoder.encode(PacketDuration::Ms60, &[0; 5760], 90, options)?;
-    assert!(encoder.previous_mid_only);
+    assert!(encoder.speech.previous_mid_only);
     assert_eq!(encoder.bandwidth_control.transitions[0].position(), 250);
     assert_eq!(encoder.bandwidth_control.transitions[1].position(), 256);
     let saved = encoder.clone();
@@ -429,8 +430,8 @@ fn automatic_stereo_hard_cap_migrates_both_channels_and_errors_roll_back() -> Re
     };
     encoder.encode(PacketDuration::Ms20, &[0; 1920], 160, options)?;
     encoder.set_automatic_bandwidth(true);
-    let original = encoder.resampler[1].clone();
-    encoder.resampler[1] = EncoderResamplerState::new(OutputRate::Khz8, SilkRate::Khz16);
+    let original = encoder.speech.resampler[1].clone();
+    encoder.speech.resampler[1] = EncoderResamplerState::new(OutputRate::Khz8, SilkRate::Khz16);
     let saved = encoder.clone();
     assert!(
         encoder
@@ -438,10 +439,10 @@ fn automatic_stereo_hard_cap_migrates_both_channels_and_errors_roll_back() -> Re
             .is_err()
     );
     assert_eq!(encoder, saved);
-    encoder.resampler[1] = original;
+    encoder.speech.resampler[1] = original;
     encoder.encode(PacketDuration::Ms20, &[0; 1920], 17, options)?;
     assert_eq!(encoder.bandwidth(), SilkRate::Khz8);
-    for channel in &encoder.channels {
+    for channel in &encoder.speech.channels {
         assert_eq!(channel.internal_rate(), SilkRate::Khz8);
     }
     encoder.reset();

@@ -70,6 +70,10 @@ layout; `encoded_channels()` selects the wire layout. Reset retains selection.
 See [channel-layout validation](docs/validation/celt-channel-layout.md).
 Automatic mode/channel selection still requires the shared encoder owner.
 
+Fixed SILK mono/stereo and Hybrid packet engines reuse the same internal
+speech-state type and frame-analysis code. Each stream owns its histories;
+the complete adaptive PCM owner and native cross-mode processing remain work.
+
 CELT `set_bandwidth` selects NB/WB/SWB/FB up to the input-rate default without
 resetting signal histories; `bandwidth()` reports the selection. Packet TOC and
 spectral coding change together, and completed packets clear inactive energy

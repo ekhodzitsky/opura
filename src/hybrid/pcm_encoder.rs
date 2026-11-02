@@ -10,16 +10,15 @@ use crate::{
     range::{EncoderError as EntropyError, RangeEncoder},
     silk::{
         encoder::{
-            analysis::VoiceActivityDetector,
-            channel::{ChannelFrameEncoder, FrameControls, FrameError},
-            dtx::{Decision, DtxState},
-            fec::{FecState, StereoPrefix},
+            channel::{FrameControls, FrameError},
+            dtx::Decision,
             mono::{PacketDuration, dc_reject, target_snr},
-            stereo::{StereoAnalysisState, StereoControls, StereoEncodeError},
+            state::{AnalysisControls, SpeechState, StereoFrameError},
+            stereo::StereoEncodeError,
         },
         gains::{FrameDuration, SignalType},
         pitch::{PitchCoding, SilkRate},
-        resampler::{EncoderResamplerState, OutputRate, ResampleError},
+        resampler::{OutputRate, ResampleError},
     },
 };
 use std::fmt;
@@ -69,6 +68,14 @@ impl fmt::Display for EncoderError {
             Self::Stereo(e) => write!(f, "Hybrid stereo: {e}"),
             Self::Celt(e) => write!(f, "Hybrid CELT: {e}"),
             Self::Entropy(e) => write!(f, "Hybrid entropy: {e}"),
+        }
+    }
+}
+impl From<StereoFrameError> for EncoderError {
+    fn from(error: StereoFrameError) -> Self {
+        match error {
+            StereoFrameError::Stereo(e) => Self::Stereo(e),
+            StereoFrameError::Frame(e) => Self::Silk(e),
         }
     }
 }
@@ -138,21 +145,12 @@ pub struct HybridEncoder {
     rate: InputRate,
     bandwidth: Bandwidth,
     channels: usize,
-    resamplers: [EncoderResamplerState; 2],
     dc: [i32; 2],
-    previous: i16,
-    vad: [VoiceActivityDetector; 2],
-    silk: [ChannelFrameEncoder; 2],
-    stereo: StereoAnalysisState,
-    previous_mid_only: bool,
-    activity: u8,
-    excess: i32,
+    speech: SpeechState<2>,
     delay: [i16; 384],
     high_gain: i16,
     width: i16,
     celt: CeltEncoder,
-    dtx: DtxState,
-    fec: FecState<2>,
 }
 impl HybridEncoder {
     /// Create a fresh stream.24kHz accepts SWB only;48kHz accepts SWB/FB.
@@ -177,21 +175,12 @@ impl HybridEncoder {
             rate,
             bandwidth,
             channels,
-            resamplers: std::array::from_fn(|_| EncoderResamplerState::new(input, SilkRate::Khz16)),
             dc: [0; 2],
-            previous: 0,
-            vad: std::array::from_fn(|_| VoiceActivityDetector::default()),
-            silk: std::array::from_fn(|_| ChannelFrameEncoder::new(SilkRate::Khz16)),
-            stereo: StereoAnalysisState::default(),
-            previous_mid_only: false,
-            activity: 0,
-            excess: 0,
+            speech: SpeechState::new(input, SilkRate::Khz16),
             delay: [0; 384],
             high_gain: 32767,
             width: 16384,
             celt,
-            dtx: DtxState::default(),
-            fec: FecState::default(),
         })
     }
     /// Fixed PCM input rate.
@@ -215,42 +204,27 @@ impl HybridEncoder {
     /// SILK inactivity can retain CELT history; outer digital silence advances
     /// both layers before suppression. Errors preserve all state and clocks.
     pub fn set_dtx(&mut self, enabled: bool) {
-        self.dtx.enabled = enabled;
+        self.speech.dtx.enabled = enabled;
     }
     /// Request native in-band FEC using `Options::packet_loss_percent`.
     /// Disabled by default. Fixed SWB/FB is retained; insufficient rate disables
     /// new protection. Previously queued backups may still be sent after this
     /// setting is disabled. Errors preserve all main and redundant histories.
     pub fn set_inband_fec(&mut self, enabled: bool) {
-        self.fec.enabled = enabled;
+        self.speech.fec.enabled = enabled;
     }
     /// Whether the last successful packet carries prior-frame LBRR.
     pub fn has_fec(&self) -> bool {
-        self.fec.sent[..self.channels].iter().any(|&v| v)
+        self.speech.fec.sent[..self.channels].iter().any(|&v| v)
     }
     /// Whether the last successful packet suppressed its payload.
     pub fn in_dtx(&self) -> bool {
-        self.dtx.suppressed
+        self.speech.dtx.suppressed
     }
     /// Clear both layers, filters, delays and bitrate histories, retaining DTX/FEC.
     pub fn reset(&mut self) {
-        let dtx = self.dtx.enabled;
-        let fec = self.fec.enabled;
-        self.fec = FecState::default();
-        self.fec.enabled = fec;
-        self.dtx = DtxState::default();
-        self.dtx.enabled = dtx;
-        self.resamplers = std::array::from_fn(|_| {
-            EncoderResamplerState::new(output_rate(self.rate), SilkRate::Khz16)
-        });
+        self.speech.reset(output_rate(self.rate), SilkRate::Khz16);
         self.dc = [0; 2];
-        self.previous = 0;
-        self.vad = std::array::from_fn(|_| VoiceActivityDetector::default());
-        self.silk = std::array::from_fn(|_| ChannelFrameEncoder::new(SilkRate::Khz16));
-        self.stereo.reset();
-        self.previous_mid_only = false;
-        self.activity = 0;
-        self.excess = 0;
         self.delay = [0; 384];
         self.high_gain = 32767;
         self.width = 16384;
@@ -343,7 +317,11 @@ impl HybridEncoder {
         } else {
             PacketDuration::Ms20
         };
-        let backup = next.fec.has_pending(packet_duration).then(|| next.clone());
+        let backup = next
+            .speech
+            .fec
+            .has_pending(packet_duration)
+            .then(|| next.clone());
         let attempt = next.encode_inner(duration, input, packet_bytes, options, bitrate, true);
         let prepared = match attempt {
             Err(error) if retryable_budget(&error) && backup.is_some() => {
@@ -382,15 +360,15 @@ impl HybridEncoder {
             .min(packet_bytes as u32 * 8 * fps as u32);
         let payload_rate = (stream_rate / fps as u32 - 8) * fps as u32;
         let digital_silence = input.iter().all(|&v| v == 0);
-        self.dtx.begin(digital_silence);
+        self.speech.dtx.begin(digital_silence);
         let packet_duration = if short {
             PacketDuration::Ms10
         } else {
             PacketDuration::Ms20
         };
         let selected = protection::eligible(
-            self.fec.enabled,
-            self.fec.selected(),
+            self.speech.fec.enabled,
+            self.speech.fec.selected(),
             self.bandwidth,
             self.channels,
             duration,
@@ -400,7 +378,7 @@ impl HybridEncoder {
             },
             options,
         );
-        self.fec.begin_with_policy(
+        self.speech.fec.begin_with_policy(
             packet_duration,
             SilkRate::Khz16,
             payload_rate as i32,
@@ -444,7 +422,7 @@ impl HybridEncoder {
             for i in 0..samples {
                 filtered[i * self.channels + c] = rejected[i];
             }
-            self.resamplers[c]
+            self.speech.resampler[c]
                 .process(&rejected[..samples], converted)
                 .map_err(EncoderError::Resampler)?;
         }
@@ -453,8 +431,9 @@ impl HybridEncoder {
         writer
             .encode_icdf(0, &[(256 - (256 >> header_bits)) as u8, 0], 8)
             .map_err(EncoderError::Entropy)?;
-        let silk = &mut self.silk;
-        self.fec
+        let silk = &mut self.speech.channels;
+        self.speech
+            .fec
             .prefix_for_channels(
                 &mut writer,
                 include_fec,
@@ -462,81 +441,49 @@ impl HybridEncoder {
                 |c, writer, frame, coding| silk[c].encode_redundant(writer, frame, coding),
             )
             .map_err(EncoderError::Silk)?;
-        let target =
-            (allocation.silk_bitrate() as i32 - self.fec.used_bits * fps - self.excess * 2).clamp(
+        let target = (allocation.silk_bitrate() as i32
+            - self.speech.fec.used_bits * fps
+            - self.speech.excess * 2)
+            .clamp(
                 5000.min(allocation.silk_bitrate() as i32),
                 5000.max(allocation.silk_bitrate() as i32),
             );
-        let mut rates = [target, 0];
-        let stereo = if self.channels == 2 {
-            Some(
-                self.stereo
-                    .analyze(
-                        SilkRate::Khz16,
-                        duration,
-                        &pcm[0][..internal],
-                        &pcm[1][..internal],
-                        StereoControls {
-                            total_rate_bps: target,
-                            previous_activity_q8: u16::from(self.activity),
-                            to_mono: false,
-                        },
-                    )
-                    .map_err(EncoderError::Stereo)?,
-            )
-        } else {
-            None
+        let analysis_controls = AnalysisControls {
+            target_rate: target,
+            digital_silence,
+            to_mono: false,
         };
-        if let Some(s) = &stereo {
-            pcm[0][..internal].copy_from_slice(s.mid());
-            pcm[1][..internal].copy_from_slice(s.side());
-            rates = *s.rates_bps();
-            if !s.mid_only() && self.previous_mid_only {
-                self.silk[1].restart_prediction();
-            }
+        let speech_frame = if self.channels == 2 {
+            self.speech
+                .analyze_stereo(
+                    SilkRate::Khz16,
+                    duration,
+                    [&pcm[0][..internal], &pcm[1][..internal]],
+                    analysis_controls,
+                )
+                .map_err(EncoderError::from)?
         } else {
-            for value in &mut pcm[0][..internal] {
-                std::mem::swap(value, &mut self.previous);
-            }
-        }
-        let mid_only = stereo.as_ref().is_some_and(|s| s.mid_only());
-        let mut activities = [None; 2];
-        for c in 0..self.channels {
-            if c == 1 && mid_only {
-                continue;
-            }
-            activities[c] = Some(
-                self.vad[c]
-                    .analyze(SilkRate::Khz16, duration, &pcm[c][..internal])
-                    .map_err(|e| EncoderError::Silk(FrameError::from(e)))?,
-            );
-        }
-        for (c, activity) in activities.iter_mut().enumerate().take(self.channels) {
-            if let Some(activity) = activity {
-                if (self.dtx.enabled || self.fec.enabled) && digital_silence {
-                    activity.probability_q8 = activity.probability_q8.min(12);
-                }
-                self.dtx
-                    .frame(c, activity.probability_q8 >= 13 && !digital_silence);
-            }
-        }
-        if let Some(s) = &stereo {
-            self.fec.stereo[0] = Some(StereoPrefix {
-                indices: *s.indices(),
-                mid_only: s.mid_only(),
-            });
-            s.encode_prefix(
-                &mut writer,
-                activities[1].is_some_and(|a| a.probability_q8 >= 13),
-            )
+            self.speech
+                .analyze_mono(
+                    SilkRate::Khz16,
+                    duration,
+                    &pcm[0][..internal],
+                    analysis_controls,
+                )
+                .map_err(EncoderError::Silk)?
+        };
+        let rates = speech_frame.rates;
+        let activities = speech_frame.activities;
+        self.speech.fec.stereo[0] = speech_frame.stereo;
+        speech_frame
+            .encode_prefix(&mut writer)
             .map_err(EncoderError::Stereo)?;
-        }
         let mut flags = 0;
         let mut voiced = false;
         let mut offset_q10 = 100;
         for c in 0..self.channels {
             let active = activities[c].is_some_and(|a| a.probability_q8 >= 13);
-            flags = (flags << 2) | (u32::from(active) << 1) | u32::from(self.fec.sent[c]);
+            flags = (flags << 2) | (u32::from(active) << 1) | u32::from(self.speech.fec.sent[c]);
             let Some(activity) = activities[c] else {
                 continue;
             };
@@ -546,7 +493,7 @@ impl HybridEncoder {
             } else {
                 maximum
             };
-            let redundancy = self.fec.controls(c, 0);
+            let redundancy = self.speech.fec.controls(c, 0);
             let hard = if redundancy.is_some() || self.has_fec() {
                 if c == 0 && self.channels == 2 && rates[1] > 0 {
                     maximum.saturating_sub(maximum.saturating_sub(writer.tell()) / 2)
@@ -556,10 +503,10 @@ impl HybridEncoder {
             } else {
                 cap
             };
-            let encoded = self.silk[c]
+            let encoded = self.speech.channels[c]
                 .encode_with_redundancy(
                     &mut writer,
-                    &pcm[c][..internal],
+                    &speech_frame.pcm[c][..internal],
                     FrameControls {
                         duration,
                         complexity: options.complexity,
@@ -572,25 +519,26 @@ impl HybridEncoder {
                         max_bits: cap,
                         packet_loss_percent: options.packet_loss_percent,
                         frames_per_packet: 1,
-                        redundancy: self.fec.sent[c],
+                        redundancy: self.speech.fec.sent[c],
                     },
                     hard,
                     redundancy,
                 )
                 .map_err(EncoderError::Silk)?;
-            self.fec.record(c, 0, encoded.redundancy());
+            self.speech.fec.record(c, 0, encoded.redundancy());
             if c == 0 {
                 voiced = encoded.indices().signal == SignalType::Voiced;
                 offset_q10 = [[100, 240], [32, 100]][usize::from(voiced)]
                     [usize::from(encoded.indices().offset)];
-                self.activity = activity.probability_q8;
             }
         }
-        self.previous_mid_only = mid_only;
+        self.speech
+            .finish_analysis(&speech_frame)
+            .map_err(EncoderError::Silk)?;
         writer
             .patch_initial_bits(flags, header_bits)
             .map_err(EncoderError::Entropy)?;
-        let decision = self.dtx.finish(
+        let decision = self.speech.dtx.finish(
             if short {
                 PacketDuration::Ms10
             } else {
@@ -604,12 +552,13 @@ impl HybridEncoder {
         } else {
             writer.tell().div_ceil(8) as i32 * 8
         };
-        self.excess =
-            (self.excess + silk_bits - allocation.silk_bitrate() as i32 / fps).clamp(0, 10000);
+        self.speech.excess = (self.speech.excess + silk_bits
+            - allocation.silk_bitrate() as i32 / fps)
+            .clamp(0, 10000);
         // Native SILK DTX returns before the outer delay copy, HB fades and
         // CELT call. Digital-silence DTX instead runs both layers to completion.
         if decision == Decision::Silk {
-            self.fec.suppress();
+            self.speech.fec.suppress();
             return Ok(PreparedFrame { writer, decision });
         }
         if writer.tell() + 37 <= payload_bytes as u32 * 8 {
@@ -637,7 +586,7 @@ impl HybridEncoder {
         );
         self.high_gain = gain;
         if self.channels == 2 {
-            let width = self.stereo.smoothed_width();
+            let width = self.speech.stereo.smoothed_width();
             fade(
                 &mut high[..input.len()],
                 self.rate,
@@ -687,7 +636,7 @@ impl HybridEncoder {
         let range = writer.range();
         let payload = finish(&mut writer).map_err(EncoderError::Entropy)?;
         if decision == Decision::DigitalSilence {
-            self.fec.suppress();
+            self.speech.fec.suppress();
             return Ok(self.suppressed_packet(duration));
         }
         let short = duration == FrameDuration::Ms10;

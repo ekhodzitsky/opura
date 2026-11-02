@@ -7,6 +7,24 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.85] - 2026-11-03
+
+- Factor a common speech-state implementation and frame analysis out of mono
+  SILK, stereo SILK and Hybrid PCM encoding. Centralize resampler/channel/VAD/stereo
+  histories, mono sample buffering, side restart, silence/activity policy,
+  DTX/FEC state and frame completion. Keep DC/delay, bandwidth permission and
+  packet-specific entropy/budgets in their existing enclosing owners.
+- Retain public fixed-mode APIs/defaults and original native fixture expectations.
+  Mono buffering now advances per staged analysis frame, preserving one
+  continuous sample delay through long packets and prefix-free FEC retries.
+  This is private state/processing reuse, not the complete unified encoder;
+  shared outer input ownership and native transition prefills/tails remain work.
+- Compare 24 complete corpora byte-for-byte against 0.1.84 and replay all of them
+  with unchanged native decoding: 1,384,320 records across 5,088 streams, including
+  220,896 FEC requests and 768 zero-length PLC records. Retain all fixture values
+  and fault-injection assertions. All seven required offline gates pass,
+  including 23 Python tests. See docs/validation/shared-speech-state.md.
+
 ## [0.1.84] - 2026-11-03
 
 - Add CELT `set_bandwidth`/`bandwidth` controls for NB/WB/SWB/FB bounded by the

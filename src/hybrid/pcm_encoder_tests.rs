@@ -135,7 +135,7 @@ fn queued_fec_budget_retry_and_finalization_errors_preserve_state()
             let packet = encoder.encode(FrameDuration::Ms20, &input, 160 * channels, options)?;
             decoder.decode(packet.as_bytes())?;
         }
-        assert!(encoder.fec.has_pending(PacketDuration::Ms20));
+        assert!(encoder.speech.fec.has_pending(PacketDuration::Ms20));
         let before = encoder.clone();
         let input = pcm(InputRate::Khz48, channels, FrameDuration::Ms20, 12);
         let mut dropped = 0;
@@ -149,7 +149,7 @@ fn queued_fec_budget_retry_and_finalization_errors_preserve_state()
             }) {
                 Ok(packet) => {
                     assert_eq!(finalizations, 1);
-                    if trial.fec.dropped {
+                    if trial.speech.fec.dropped {
                         assert!(!trial.has_fec());
                         let mut expected = before.clone();
                         let prepared = expected.encode_inner(
@@ -210,7 +210,7 @@ fn queued_fec_budget_retry_and_finalization_errors_preserve_state()
             160 * channels,
             options,
         )?;
-        assert!(!quiet.fec.has_pending(PacketDuration::Ms20));
+        assert!(!quiet.speech.fec.has_pending(PacketDuration::Ms20));
     }
     Ok(())
 }

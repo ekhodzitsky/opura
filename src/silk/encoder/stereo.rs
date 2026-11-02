@@ -2,9 +2,10 @@
 //! Adapted from Opus v1.6.1 stereo encoder sources; see THIRD_PARTY_NOTICES.md.
 use super::{
     bandwidth::{BandwidthError, PacketBandwidth},
-    dtx::{Decision, DtxState},
-    fec::{self, FecState, StereoPrefix},
+    dtx::Decision,
+    fec,
     math::{divide_q, energy},
+    state::{AnalysisControls, SpeechState, StereoFrameError},
 };
 use crate::{
     range::{EncoderError, RangeEncoder},
@@ -386,13 +387,12 @@ mod tests;
 /// Shared complexity, byte-policy and loss controls for stereo encoding.
 pub use super::mono::MonoOptions as StereoOptions;
 use super::{
-    analysis::VoiceActivityDetector,
-    channel::{ChannelFrameEncoder, FrameControls, FrameError},
+    channel::{FrameControls, FrameError},
     mono::{MonoPacket, PacketDuration, dc_reject, packet, plc_packet, target_snr},
 };
 use crate::silk::{
     pitch::PitchCoding,
-    resampler::{EncoderResamplerState, OutputRate, ResampleError},
+    resampler::{OutputRate, ResampleError},
 };
 /// Invalid stereo packet input/controls or a failed input/channel stage.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -450,6 +450,14 @@ impl From<StereoEncodeError> for StereoPacketError {
         Self::Stereo(e)
     }
 }
+impl From<StereoFrameError> for StereoPacketError {
+    fn from(error: StereoFrameError) -> Self {
+        match error {
+            StereoFrameError::Stereo(e) => Self::Stereo(e),
+            StereoFrameError::Frame(e) => Self::Frame(e),
+        }
+    }
+}
 impl From<FrameError> for StereoPacketError {
     fn from(e: FrameError) -> Self {
         Self::Frame(e)
@@ -494,15 +502,7 @@ pub struct StereoEncoder {
     input: OutputRate,
     internal: SilkRate,
     dc: [i32; 2],
-    resampler: [EncoderResamplerState; 2],
-    vad: [VoiceActivityDetector; 2],
-    channels: [ChannelFrameEncoder; 2],
-    stereo: StereoAnalysisState,
-    activity: u8,
-    previous_mid_only: bool,
-    excess: i32,
-    dtx: DtxState,
-    fec: FecState<2>,
+    speech: SpeechState<2>,
     bandwidth_control: PacketBandwidth<2>,
 }
 impl StereoEncoder {
@@ -512,15 +512,7 @@ impl StereoEncoder {
             input,
             internal,
             dc: [0; 2],
-            resampler: std::array::from_fn(|_| EncoderResamplerState::new(input, internal)),
-            vad: std::array::from_fn(|_| VoiceActivityDetector::default()),
-            channels: std::array::from_fn(|_| ChannelFrameEncoder::new(internal)),
-            stereo: StereoAnalysisState::default(),
-            activity: 0,
-            previous_mid_only: false,
-            excess: 0,
-            dtx: DtxState::default(),
-            fec: FecState::default(),
+            speech: SpeechState::new(input, internal),
             bandwidth_control: PacketBandwidth::default(),
         }
     }
@@ -578,16 +570,8 @@ impl StereoEncoder {
             return Ok(());
         }
         let mut next = self.clone();
-        for ch in 0..2 {
-            next.channels[ch].change_rate(
-                self.input,
-                rate,
-                self.fec.previous_frame_duration(),
-                &mut next.resampler[ch],
-            )?;
-        }
+        next.speech.change_rate(self.input, rate)?;
         next.internal = rate;
-        next.fec.clear_pending();
         *self = next;
         Ok(())
     }
@@ -595,28 +579,28 @@ impl StereoEncoder {
     /// contain only TOC (one byte), with final range zero, even in CBR mode.
     /// Encoding still advances all analysis/quantizer state and can fail normally.
     pub fn set_dtx(&mut self, enabled: bool) {
-        self.dtx.enabled = enabled;
+        self.speech.dtx.enabled = enabled;
     }
     /// Request in-band FEC using `StereoOptions::packet_loss_percent`. Disabled
     /// by default. Fixed bandwidth is preserved; bitrate/activity gate protection.
     /// Queued redundancy can still be carried by the next packet after disabling.
     pub fn set_inband_fec(&mut self, enabled: bool) {
-        self.fec.enabled = enabled;
+        self.speech.fec.enabled = enabled;
     }
     /// Whether the last successful packet carries prior-packet redundancy.
     pub fn has_fec(&self) -> bool {
-        self.fec.sent.iter().any(|&v| v)
+        self.speech.fec.sent.iter().any(|&v| v)
     }
     /// Whether the last successfully encoded packet suppressed its payload.
     pub fn in_dtx(&self) -> bool {
-        self.dtx.suppressed
+        self.speech.dtx.suppressed
     }
     /// Clear every stream history, retaining rates, bandwidth mode/target and DTX/FEC settings.
     pub fn reset(&mut self) {
         let automatic = self.automatic_bandwidth();
         let target = self.bandwidth_control.target;
-        let enabled = self.dtx.enabled;
-        let fec = self.fec.enabled;
+        let enabled = self.speech.dtx.enabled;
+        let fec = self.speech.fec.enabled;
         *self = Self::new(self.input, self.internal);
         self.set_dtx(enabled);
         self.set_inband_fec(fec);
@@ -654,11 +638,11 @@ impl StereoEncoder {
             duration,
             packet_bytes,
             options,
-            self.fec.enabled,
+            self.speech.fec.enabled,
         )?;
         next.change_bandwidth(rate)?;
         let digital_silence = input.iter().all(|&v| v == 0);
-        next.dtx.begin(digital_silence);
+        next.speech.dtx.begin(digital_silence);
         let mut pcm = [[0i16; 960]; 2];
         for (channel, converted) in pcm.iter_mut().enumerate() {
             let mut planar = [0i16; 2880];
@@ -672,9 +656,9 @@ impl StereoEncoder {
                 &planar[..samples],
                 &mut filtered[..samples],
             );
-            next.resampler[channel].process(&filtered[..samples], converted)?;
+            next.speech.resampler[channel].process(&filtered[..samples], converted)?;
         }
-        let backup = next.fec.has_pending(duration).then(|| next.clone());
+        let backup = next.speech.fec.has_pending(duration).then(|| next.clone());
         let attempt =
             next.encode_packet(duration, &pcm, packet_bytes, options, digital_silence, true);
         let retry = match &attempt {
@@ -722,19 +706,20 @@ impl StereoEncoder {
         let mut writer = RangeEncoder::new(1275)?;
         let header_bits = (frames as u32 + 1) * 2;
         writer.encode_icdf(0, &[(256 - (256 >> header_bits)) as u8, 0], 8)?;
-        self.fec.begin_with_policy(
+        self.speech.fec.begin_with_policy(
             duration,
             self.internal,
             bitrate,
             options.packet_loss_percent,
             self.bandwidth_control.fec_override(),
         );
-        let channels = &mut self.channels;
-        self.fec
+        let channels = &mut self.speech.channels;
+        self.speech
+            .fec
             .prefix(&mut writer, include_fec, |ch, writer, frame, coding| {
                 channels[ch].encode_redundant(writer, frame, coding)
             })?;
-        let per_frame = (nominal_bits - self.fec.used_bits) / frames as i32;
+        let per_frame = (nominal_bits - self.speech.fec.used_bits) / frames as i32;
         let mut flags = [[false; 3]; 2];
         for index in 0..frames {
             let mut target = per_frame
@@ -743,57 +728,31 @@ impl StereoEncoder {
                 } else {
                     50
                 }
-                - self.excess * 2;
+                - self.speech.excess * 2;
             if index > 0 {
                 target -=
-                    (writer.tell() as i32 - self.fec.used_bits - per_frame * index as i32) * 2;
+                    (writer.tell() as i32 - self.speech.fec.used_bits - per_frame * index as i32)
+                        * 2;
             }
             target = target.clamp(bitrate.min(5000), bitrate.max(5000));
             let start = index * frame_samples;
             let end = start + frame_samples;
-            let stereo = self.stereo.analyze(
+            let stereo = self.speech.analyze_stereo(
                 self.internal,
                 duration.frame_duration(),
-                &pcm[0][start..end],
-                &pcm[1][start..end],
-                StereoControls {
-                    total_rate_bps: target,
-                    previous_activity_q8: u16::from(self.activity),
+                [&pcm[0][start..end], &pcm[1][start..end]],
+                AnalysisControls {
+                    target_rate: target,
+                    digital_silence,
                     to_mono: false,
                 },
             )?;
-            if !stereo.mid_only() && self.previous_mid_only {
-                self.channels[1].restart_prediction();
-            }
-            let mut mid_activity = self.vad[0]
-                .analyze(self.internal, duration.frame_duration(), stereo.mid())
-                .map_err(FrameError::from)?;
-            let mut side_activity = if stereo.mid_only() {
-                None
-            } else {
-                Some(
-                    self.vad[1]
-                        .analyze(self.internal, duration.frame_duration(), stereo.side())
-                        .map_err(FrameError::from)?,
-                )
-            };
-            if (self.dtx.enabled || self.fec.enabled) && digital_silence {
-                mid_activity.probability_q8 = mid_activity.probability_q8.min(12);
-                if let Some(side) = &mut side_activity {
-                    side.probability_q8 = side.probability_q8.min(12);
-                }
-            }
-            flags[0][index] = mid_activity.probability_q8 >= 13;
-            flags[1][index] = side_activity.is_some_and(|a| a.probability_q8 >= 13);
-            self.dtx.frame(0, flags[0][index] && !digital_silence);
-            if side_activity.is_some() {
-                self.dtx.frame(1, flags[1][index] && !digital_silence);
-            }
-            self.fec.stereo[index] = Some(StereoPrefix {
-                indices: *stereo.indices(),
-                mid_only: stereo.mid_only(),
-            });
-            stereo.encode_prefix(&mut writer, flags[1][index])?;
+            let mid_activity = stereo.activities[0].ok_or(FrameError::InvalidControls)?;
+            let side_activity = stereo.activities[1];
+            flags[0][index] = stereo.active(0);
+            flags[1][index] = stereo.active(1);
+            self.speech.fec.stereo[index] = stereo.stereo;
+            stereo.encode_prefix(&mut writer)?;
             let limit = match (frames, index) {
                 (2, 0) => maximum * 3 / 5,
                 (3, 0) => maximum * 2 / 5,
@@ -811,22 +770,22 @@ impl StereoEncoder {
                 };
                 let mut cap = limit;
                 let mut fill = !options.variable_bitrate && index + 1 == frames;
-                if channel == 0 && stereo.rates_bps()[1] > 0 {
+                if channel == 0 && stereo.rates[1] > 0 {
                     fill = false;
                     cap = cap.saturating_sub(maximum / (frames as u32 * 2));
                 }
                 let coding = if index == 0 {
                     PitchCoding::Independent
-                } else if channel == 1 && self.previous_mid_only {
+                } else if channel == 1 && self.speech.previous_mid_only {
                     PitchCoding::IndependentWithoutScaling
                 } else {
                     PitchCoding::Conditional
                 };
-                let fec_controls = self.fec.controls(channel, index);
+                let fec_controls = self.speech.fec.controls(channel, index);
                 let hard = if self.automatic_bandwidth() {
                     writer.capacity() as u32 * 8
-                } else if fec_controls.is_some() || self.fec.sent.iter().any(|&v| v) {
-                    if channel == 0 && stereo.rates_bps()[1] > 0 {
+                } else if fec_controls.is_some() || self.speech.fec.sent.iter().any(|&v| v) {
+                    if channel == 0 && stereo.rates[1] > 0 {
                         maximum.saturating_sub(
                             maximum.saturating_sub(writer.tell()) / (frames as u32 * 2),
                         )
@@ -837,9 +796,9 @@ impl StereoEncoder {
                     cap
                 };
                 let frame = if channel == 0 {
-                    stereo.mid()
+                    &stereo.pcm[0][..stereo.length]
                 } else {
-                    stereo.side()
+                    &stereo.pcm[1][..stereo.length]
                 };
                 let mut tapered = [0i16; 320];
                 tapered[..frame.len()].copy_from_slice(frame);
@@ -848,7 +807,7 @@ impl StereoEncoder {
                     duration.frame_duration(),
                     &mut tapered[..frame.len()],
                 )?;
-                let encoded = self.channels[channel].encode_with_redundancy(
+                let encoded = self.speech.channels[channel].encode_with_redundancy(
                     &mut writer,
                     &tapered[..frame.len()],
                     FrameControls {
@@ -857,7 +816,7 @@ impl StereoEncoder {
                         snr_db_q7: target_snr(
                             self.internal,
                             duration.frame_duration(),
-                            stereo.rates_bps()[channel],
+                            stereo.rates[channel],
                         ),
                         activity,
                         active: channel_flags[index],
@@ -867,18 +826,17 @@ impl StereoEncoder {
                         max_bits: cap,
                         packet_loss_percent: options.packet_loss_percent,
                         frames_per_packet: frames as u8,
-                        redundancy: self.fec.sent[channel],
+                        redundancy: self.speech.fec.sent[channel],
                     },
                     hard,
                     fec_controls,
                 )?;
-                self.fec.record(channel, index, encoded.redundancy());
+                self.speech.fec.record(channel, index, encoded.redundancy());
             }
-            self.activity = mid_activity.probability_q8;
-            self.previous_mid_only = stereo.mid_only();
+            self.speech.finish_analysis(&stereo)?;
         }
         let mut header = 0;
-        for (channel, has_fec) in flags.into_iter().zip(self.fec.sent) {
+        for (channel, has_fec) in flags.into_iter().zip(self.speech.fec.sent) {
             for &flag in &channel[..frames] {
                 header = (header << 1) | u32::from(flag);
             }
@@ -890,7 +848,8 @@ impl StereoEncoder {
         // Native outer Opus converts a completed SILK overshoot into PLC. Give
         // queued FEC one prefix-free retry first, preserving primary audio.
         if overflow
-            && (!self.automatic_bandwidth() || (include_fec && self.fec.sent.iter().any(|&v| v)))
+            && (!self.automatic_bandwidth()
+                || (include_fec && self.speech.fec.sent.iter().any(|&v| v)))
         {
             return Err(FrameError::BitBudgetExceeded.into());
         }
@@ -913,9 +872,9 @@ impl StereoEncoder {
                 PacketDuration::Ms40 => 2,
                 PacketDuration::Ms60 => 3,
             };
-        let decision = self.dtx.finish(duration, 2, digital_silence);
+        let decision = self.speech.dtx.finish(duration, 2, digital_silence);
         if decision != Decision::Transmit || overflow {
-            self.fec.suppress();
+            self.speech.fec.suppress();
         }
         let result = StereoPacket {
             packet: if decision != Decision::Transmit {
@@ -947,8 +906,9 @@ impl StereoEncoder {
         } else {
             encoded_length as i32 * 8
         };
-        self.excess = (self.excess + payload_bits - nominal_bits).clamp(0, 10000);
-        self.bandwidth_control.finish(self.activity, duration);
+        self.speech.excess = (self.speech.excess + payload_bits - nominal_bits).clamp(0, 10000);
+        self.bandwidth_control
+            .finish(self.speech.activity, duration);
         Ok(result)
     }
 }
