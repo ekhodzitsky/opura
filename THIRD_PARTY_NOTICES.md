@@ -1404,3 +1404,14 @@ angle candidate/model/inversion policy, signs and TF band orchestration follow
 revision. Existing CELT band/vq/scalar notices and terms apply. Rust shares band
 validation and TF reconstruction between entropy directions, validates bounded
 immutable normalized inputs and commits complete operations atomically.
+
+
+# CELT complete-spectrum encoding and theta RDO attribution
+
+Full-band budget/folding/channel orchestration and two-candidate stereo angle
+selection follow `celt/bands.c::quant_all_bands` and `compute_channel_weights` at
+the pinned revision. Existing CELT bands/vq/scalar notices and terms apply.
+Rust shares a statically dispatched spectral driver between entropy directions,
+validates bounded immutable input/amplitude domains and stages full writer/output.
+Optional original evidence enables RESYNTH and uses read-only entropy-symbol
+observers around prefix decoding; original codec function bodies stay unchanged.

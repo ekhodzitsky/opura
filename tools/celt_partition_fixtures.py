@@ -13,6 +13,8 @@ parser.add_argument('source',type=Path)
 mode=parser.add_mutually_exclusive_group()
 mode.add_argument('--tables',action='store_true')
 mode.add_argument('--stereo-math',action='store_true',help='Generate original stereo mixing scalar evidence')
+mode.add_argument('--rdo-math',action='store_true',help='Generate original stereo candidate weights and scores')
+mode.add_argument('--encode-spectra',action='store_true',help='Generate whole-spectrum encoder/RDO evidence')
 mode.add_argument('--encode-bands',action='store_true',help='Generate mono/stereo TF band encoder evidence')
 mode.add_argument('--encode',action='store_true',help='Generate recursive mono encoder evidence')
 mode.add_argument('--angles',action='store_true',help='Generate refined atan/atan2 math evidence')
@@ -211,9 +213,83 @@ void stereo_mix_probe(int amp0,int amp1,int x,int y,int *out) {
     left=x;intensity_stereo(&mode48000_960_120,&left,&y,amplitudes,0,1);out[2]=left;
 }
 '''
+
+wrapper+=r'''
+void rdo_math_probe(int a,int b,const int *x,const int *y,const int *rx,const int *ry,int *out) {
+    opus_val16 weights[2];compute_channel_weights(a,b,weights);
+    out[0]=weights[0];out[1]=weights[1];
+    out[2]=MULT16_32_Q15(weights[0],celt_inner_prod_norm_shift(x,rx,2,0))+MULT16_32_Q15(weights[1],celt_inner_prod_norm_shift(y,ry,2,0));
+}
+'''
+if args.encode_spectra:
+    # Linker observers mirror decoded prefix symbols into a canonical encoder.
+    # A depth guard records composite uniform calls once, not their raw-bit child.
+    wrapper+=r'''
+static ec_enc *mirror;static int trace[32768],trace_size,depth,trace_error;
+static void record(int kind,unsigned value,unsigned arg,const unsigned char *cdf) {
+    int n=0;if(cdf){while(n<256 && cdf[n])n++;if(n==256){trace_error=1;return;}n++;}
+    if(trace_size+4+n>32768){trace_error=1;return;}
+    trace[trace_size++]=kind;trace[trace_size++]=value;trace[trace_size++]=arg;trace[trace_size++]=n;
+    for(int i=0;i<n;i++)trace[trace_size++]=cdf[i];
+    if(kind==0)ec_enc_bit_logp(mirror,value,arg);
+    if(kind==1)ec_enc_bits(mirror,value,arg);
+    if(kind==2)ec_enc_uint(mirror,value,arg);
+    if(kind==3)ec_enc_icdf(mirror,value,cdf,arg);
+}
+int __real_ec_dec_bit_logp(ec_dec*,unsigned);
+int __wrap_ec_dec_bit_logp(ec_dec *d,unsigned a){depth++;int v=__real_ec_dec_bit_logp(d,a);depth--;if(mirror&&!depth)record(0,v,a,NULL);return v;}
+unsigned __real_ec_dec_bits(ec_dec*,unsigned);
+unsigned __wrap_ec_dec_bits(ec_dec *d,unsigned a){depth++;unsigned v=__real_ec_dec_bits(d,a);depth--;if(mirror&&!depth)record(1,v,a,NULL);return v;}
+unsigned __real_ec_dec_uint(ec_dec*,unsigned);
+unsigned __wrap_ec_dec_uint(ec_dec *d,unsigned a){depth++;unsigned v=__real_ec_dec_uint(d,a);depth--;if(mirror&&!depth)record(2,v,a,NULL);return v;}
+int __real_ec_dec_icdf(ec_dec*,const unsigned char*,unsigned);
+int __wrap_ec_dec_icdf(ec_dec *d,const unsigned char *cdf,unsigned a){depth++;int v=__real_ec_dec_icdf(d,cdf,a);depth--;if(mirror&&!depth)record(3,v,a,cdf);return v;}
+struct prepared {int tf[21],pvq[21],fine[21],priority[21],intensity,dual,coded,balance,anti;unsigned range;int tell,frac;};
+int prepare_spectrum(const unsigned char *data,int len,int LM,int C,int start,int end,int isTransient,ec_dec *dec,struct prepared *p) {
+    ec_dec_init(dec,(unsigned char*)data,len);
+    const CELTMode *mode=&mode48000_960_120;const opus_int16 *eBands=mode->eBands;int nbEBands=21,tell;
+    int *tf_res=p->tf;tf_decode(start,end,isTransient,tf_res,LM,dec);
+    int i,dynalloc_logp,alloc_trim,bits,anti_collapse_rsv,codedBands,intensity=0,dual_stereo=0,total_bits=len*8;
+    opus_int32 balance=0;
+    VARDECL(int,cap);VARDECL(int,offsets);VARDECL(int,fine_quant);VARDECL(int,pulses);VARDECL(int,fine_priority);
+'''+allocation+r'''
+    celt_glog energy[42]={0};unquant_fine_energy(mode,start,end,energy,NULL,fine_quant,dec,C);
+    for(i=0;i<21;i++){p->pvq[i]=i>=start&&i<end?pulses[i]:0;p->fine[i]=i>=start&&i<end?fine_quant[i]:0;p->priority[i]=i>=start&&i<end?fine_priority[i]:0;}
+    p->intensity=intensity;p->dual=dual_stereo;p->coded=codedBands;p->balance=balance;p->anti=anti_collapse_rsv;
+    p->range=dec->rng;p->tell=ec_tell(dec);p->frac=ec_tell_frac(dec);
+    return ec_get_error(dec)||ec_tell(dec)>len*8;
+}
+int encode_spectrum_probe(const unsigned char *context,int len,int LM,int C,int start,int end,int transient,int spread,unsigned seed,int disable,int rdo,
+        const int *input,const int *amplitudes,int *out,unsigned char *data,int *symbols) {
+    ec_enc enc;ec_enc_init(&enc,data,len);trace_size=0;trace_error=0;mirror=&enc;
+    ec_dec dec;struct prepared p={0};int invalid=prepare_spectrum(context,len,LM,C,start,end,transient,&dec,&p);mirror=NULL;
+    if(invalid||trace_error||ec_get_error(&enc))return 0;
+    if(enc.rng!=p.range||ec_tell(&enc)!=p.tell||ec_tell_frac(&enc)!=p.frac)return -1;
+    symbols[0]=trace_size;for(int i=0;i<trace_size;i++)symbols[i+1]=trace[i];
+    int N=120<<LM;unsigned char masks[42]={0};int *x=out+119;
+    for(int c=0;c<C;c++)for(int i=(mode48000_960_120.eBands[start]<<LM);i<(mode48000_960_120.eBands[end]<<LM);i++)x[c*N+i]=input[c*N+i];
+    out[0]=p.range;out[1]=p.tell;out[2]=p.frac;
+    out[3]=p.intensity;out[4]=p.dual;out[5]=p.coded;out[6]=p.balance;out[7]=p.anti;
+    for(int i=0;i<21;i++){out[8+i]=p.tf[i];out[29+i]=p.pvq[i];out[50+i]=p.fine[i];}
+    unsigned before_seed=seed;
+    quant_all_bands(1,&mode48000_960_120,start,end,x,C==2?x+N:NULL,masks,amplitudes,p.pvq,transient?(1<<LM):0,spread,p.dual,p.intensity,p.tf,len*64-p.anti,p.balance,&enc,LM,p.coded,&seed,rdo?8:0,0,disable);
+    out[71]=seed;out[72]=enc.rng;out[73]=ec_tell(&enc);out[74]=ec_tell_frac(&enc);out[75]=ec_get_error(&enc);
+    for(int i=0;i<42;i++)out[76+i]=masks[i];out[118]=0;
+    ec_enc_done(&enc);if(ec_get_error(&enc))return 0;
+    ec_dec paired;struct prepared q={0};if(prepare_spectrum(data,len,LM,C,start,end,transient,&paired,&q))return -2;
+    if(q.range!=p.range||q.tell!=p.tell||q.frac!=p.frac)return -3;
+    int reconstructed[1920]={0};unsigned char decoded_masks[42]={0};
+    quant_all_bands(0,&mode48000_960_120,start,end,reconstructed,C==2?reconstructed+N:NULL,decoded_masks,NULL,q.pvq,transient?(1<<LM):0,spread,q.dual,q.intensity,q.tf,len*64-q.anti,q.balance,&paired,LM,q.coded,&before_seed,0,0,disable);
+    if(before_seed!=seed||paired.rng!=enc.rng||ec_tell(&paired)!=ec_tell(&enc)||ec_tell_frac(&paired)!=ec_tell_frac(&enc)||ec_get_error(&paired))return -4;
+    for(int c=0;c<C;c++)for(int i=(mode48000_960_120.eBands[start]<<LM);i<(mode48000_960_120.eBands[end]<<LM);i++)if(reconstructed[c*N+i]!=x[c*N+i])return -5;
+    for(int i=0;i<42;i++)if(decoded_masks[i]!=masks[i])return -6;
+    return 1;
+}
+'''
 with tempfile.TemporaryDirectory(prefix='opura-celt-partition-') as temp:
     path=Path(temp);(path/'probe.c').write_text(wrapper)
     subprocess.run(['cc','-shared','-fPIC','-O2','-fwrapv','-DFIXED_POINT','-DVAR_ARRAYS','-DOPUS_BUILD','-DDISABLE_FLOAT_API','-DSMALL_FOOTPRINT',
+                    *(['-DRESYNTH',*['-Wl,--wrap='+name for name in ['ec_dec_bit_logp','ec_dec_bits','ec_dec_uint','ec_dec_icdf']]] if args.encode_spectra else []),
                     *['-I'+str(source/p) for p in ['include','celt','silk']],str(path/'probe.c'),
                     *[str(source/'celt'/p) for p in ['vq.c','cwrs.c','mathops.c','entcode.c','entenc.c','entdec.c','rate.c','quant_bands.c','laplace.c']],'-o',str(path/'probe.so')],check=True)
     lib=c.CDLL(str(path/'probe.so'));ptr=c.POINTER(c.c_int32);u8=c.POINTER(c.c_ubyte)
@@ -243,6 +319,69 @@ with tempfile.TemporaryDirectory(prefix='opura-celt-partition-') as temp:
             random^=(random<<13)&0xffffffff;random^=random>>17;random^=(random<<5)&0xffffffff;y=random&0x7fffffff
             if index%7==0:y=x
             print('case',1,x,y,lib.angle_math(1,x,y))
+        raise SystemExit
+    if args.rdo_math:
+        lib.rdo_math_probe.argtypes=[c.c_int]*2+[ptr]*5;lib.rdo_math_probe.restype=None
+        print('# Original compute_channel_weights and weighted correlations:',REVISION)
+        print('# score AMP0 AMP1 SOURCE_LEFT[2] SOURCE_RIGHT[2] RECON_LEFT[2] RECON_RIGHT[2] WEIGHT0 WEIGHT1 SCORE')
+        random=0x52444f57
+        def next_random():
+            global random
+            random^=(random<<13)&0xffffffff;random^=random>>17;random^=(random<<5)&0xffffffff
+            return random
+        values=[0,1,2,3,8191,8192,16383,16384,32767,32768,1<<24,1<<29,1610612734,2147483646]
+        pairs=[(a,b) for a in values for b in values if max(a,b)+min(a,b)//3+1<=2147483647]
+        pairs += [(next_random()%1610612735,next_random()%1610612735) for _ in range(4096)]
+        for a,b in pairs:
+            vectors=[[next_random()%16_000_001-8_000_000 for _ in range(2)] for _ in range(4)]
+            out=(c.c_int32*3)();lib.rdo_math_probe(a,b,*[(c.c_int32*2)(*v) for v in vectors],out)
+            print('score',a,b,*(x for v in vectors for x in v),*out)
+        raise SystemExit
+    if args.encode_spectra:
+        lib.encode_spectrum_probe.argtypes=[u8]+[c.c_int]*7+[c.c_uint]+[c.c_int]*2+[ptr,ptr,ptr,u8,ptr]
+        lib.encode_spectrum_probe.restype=c.c_int
+        print('# Original RESYNTH quant_all_bands encoding/RDO:',REVISION)
+        print('# frame LM C START END TRANSIENT SPREAD SEED DISABLE RDO HEX; symbols KIND VALUE ARG N_ICDF ICDF...; input NORMALIZED[C*N]; amplitudes[42]; spectrum BEFORE_RANGE BEFORE_TELL BEFORE_FRAC INTENSITY DUAL CODED BALANCE ANTI_RSV TF[21] PVQ[21] FINE[21] SEED RANGE TELL FRAC ERROR MASK[42 interleaved] RESERVED0 VALUES[C*N]')
+        edges=numbers(declaration(modes,'static const opus_int16 eband5ms[]'))
+        random=0x53504543;rows=0;skipped=0
+        def next_random():
+            global random
+            random^=(random<<13)&0xffffffff;random^=random>>17;random^=(random<<5)&0xffffffff
+            return random
+        for lm in range(4):
+            n=120<<lm
+            for channels in [1,2]:
+                for start,end in [(0,1),(0,13),(0,21),(17,18),(17,19),(17,21)]:
+                    for length in [8,16,40,120,400,1275]:
+                        for case in range(12):
+                            transient=int(lm>0 and case%2);spread=case%4;seed=next_random();disable=(case//2)%2;rdo=int(case>=4)
+                            context=bytes([0]*length) if case==0 else bytes([255]*length) if case==1 else bytes(next_random()&255 for _ in range(length))
+                            values=[0]*(channels*n);amplitudes=[0]*42
+                            for channel in range(channels):
+                                for band in range(start,end):
+                                    first=edges[band]<<lm;last=edges[band+1]<<lm;width=last-first
+                                    pattern=(case+channel)%8
+                                    if pattern==0 or case==8:v=[0]*width
+                                    elif pattern==1:v=[1<<24]+[0]*(width-1)
+                                    elif pattern==2:v=[0]*(width-1)+[-(1<<24)]
+                                    elif pattern==3:v=[math.isqrt((1<<48)//width)*(1 if j%2 else -1) for j in range(width)]
+                                    elif pattern==6:v=[1]+[0]*(width-1)
+                                    else:
+                                        v=[c.c_int32(next_random()).value>>16 for _ in range(width)];norm=math.isqrt(sum(x*x for x in v))+1
+                                        v=[x*(1<<24)//norm for x in v]
+                                    if channel and case in [4,5]:v=[x*(-1 if case==5 else 1) for x in values[first:last]]
+                                    values[channel*n+first:channel*n+last]=v
+                                    amplitudes[channel*21+band]=[0,1,2,10,8192,32767,1<<24,1<<29][(band+channel+case)%8]
+                            out=(c.c_int32*(119+channels*n))();data=(c.c_ubyte*length)();symbols=(c.c_int32*32769)()
+                            ok=lib.encode_spectrum_probe((c.c_ubyte*length).from_buffer_copy(context),length,lm,channels,start,end,transient,spread,seed,disable,rdo,(c.c_int32*len(values))(*values),(c.c_int32*42)(*amplitudes),out,data,symbols)
+                            if ok<0:raise SystemExit(f'Original spectrum failure {lm,channels,start,end,length,case,ok}')
+                            if not ok:skipped+=1;continue
+                            result=list(out)
+                            for j in [0,71,72]:result[j]=c.c_uint32(result[j]).value
+                            print('frame',lm,channels,start,end,transient,spread,seed,disable,rdo,bytes(data).hex())
+                            print('symbols',*symbols[1:1+symbols[0]])
+                            print('input',*values);print('amplitudes',*amplitudes);print('spectrum',*result);rows+=1
+        print(f'# rows={rows} invalid-prefix-or-final-capacity={skipped}')
         raise SystemExit
     if args.stereo_math:
         lib.stereo_mix_probe.argtypes=[c.c_int]*4+[ptr];lib.stereo_mix_probe.restype=None

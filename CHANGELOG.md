@@ -7,6 +7,23 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.52] - 2026-11-02
+
+- Add atomic fixed-storage encoding of complete allocated CELT normalized spectra:
+  shared budget/balance, folding histories, Hybrid-like first-band tail, dual to
+  intensity transitions, collapse masks and final seed. Encoder/decoder share
+  one statically dispatched all-band driver.
+- Add native two-candidate stereo theta RDO with amplitude-weighted correlation,
+  down-on-tie selection and complete winning writer/state/channel/fold restoration.
+- Match 3,456 original RESYNTH whole packets/reconstructions/states, including
+  629 dual and 751 eligible RDO frames, plus 4,271 native weights/correlations.
+  Verify paired decoding, invalid selected domains, inactive-bin isolation and
+  injected late capacity/vector errors after all shape work. Detect 21 targeted
+  mutations, including premature commit before propagating a late failure.
+- New/prior optional fixtures reproduce; all seven required offline gates pass
+  with zero dependencies. Control/allocation encoding and complete audio packet
+  assembly remain work; these spectral results do not establish encoder quality.
+
 ## [0.1.51] - 2026-11-02
 
 - Add atomic fixed-storage CELT mono/stereo band encoding with raw signs,

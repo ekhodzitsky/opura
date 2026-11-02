@@ -2159,3 +2159,56 @@ These are spectral encoding components. Full-spectrum allocation/folding,
 stereo candidate selection, frame controls, complete audio packets and encoder
 quality evaluation remain under development. Original C probes are optional
 external evidence; ordinary Rust builds/tests do not compile or link them.
+
+
+## Complete CELT normalized-spectrum encoding
+
+`opura::celt::partition::encode_spectrum` consumes an existing immutable
+`Allocation`, matching `TfResolution`, spread policy, `SpectrumInput` and
+`SpectrumEncoding`. Input borrows full-length normalized left/optional-right
+spectra with per-band linear amplitudes. Options supply the folding seed,
+inversion suppression and stereo theta RDO policy. It returns the existing
+`Spectrum` with reconstructed channels, collapse masks and final seed, before
+anti-collapse and final energy. No allocation occurs; the complete writer commits
+on success only. An allocation/TF encoder and complete frame assembly are still
+required for audio encoding.
+
+Each selected band has squared Q24 norm <=5/4; selected amplitudes are nonnegative.
+Input lengths/channel presence match the allocation. Inactive coefficients and
+amplitudes are ignored; returned inactive bins/masks are zero. Stereo RDO is
+eligible only for initially non-dual stereo and bands below intensity. Its adjusted
+amplitude plus one must fit positive i32; overflow rejects before encoding.
+The native adjustment is one third of the smaller amplitude. Candidate scores use
+exact Q15 weighted source/reconstruction correlations; biased down wins ties.
+Both trials start from identical entropy, budget, seed, source and fold context;
+the winning bytes, channels, fold output, mask and shared state are retained.
+
+One statically dispatched driver now handles decoder and encoder all-band budget
+balance, prior-band folding, conservative mask unions, aggressive-spread policy,
+Hybrid-like starting-band tail duplication, dual/intensity transitions and
+one-bit-per-sample fold-position updates. First-transient-band split-noise
+protection is cleared for subsequent bands.
+
+All 3,456 complete original resynthesized packets match full bytes, range and bit
+counters, selected-channel reconstruction, masks and seed. They span four sizes,
+mono/stereo, starts 0/17, short/long blocks, every spread and 8..1275-byte storage,
+including 629 dual-stereo and 751 RDO-eligible frames. Native and Rust paired
+decoding agree. Another 4,271 original weights/correlation cases distinguish
+intermediate rounding and conservative weighting hidden by final winner selection.
+All 21 targeted mutations are detected. Malformed input/amplitude/TF/lifecycle
+and inactive-bin tests pass; test-only injected capacity/vector errors after the
+last band's work verify whole-writer rollback. A bounded small-capacity search
+found no natural late failure; this is not a proof that all valid contexts fit.
+
+```sh
+python3 tools/celt_partition_fixtures.py /path/to/opus-v1.6.1 --encode-spectra > /tmp/celt-spectrum-encoder-fixtures.txt
+python3 tools/celt_partition_fixtures.py /path/to/opus-v1.6.1 --rdo-math > /tmp/celt-rdo-math-fixtures.txt
+diff -u tests/celt-spectrum-encoder-fixtures.txt /tmp/celt-spectrum-encoder-fixtures.txt
+diff -u tests/celt-rdo-math-fixtures.txt /tmp/celt-rdo-math-fixtures.txt
+```
+
+The optional native oracle enables RESYNTH and observes prefix symbols with a
+nested-call guard to construct an identical canonical writer context. Its
+unchanged original quant_all_bands then performs encoding and paired decoding.
+Native decoder scratch outside selected bins is excluded from signal comparison;
+Rust returns zeros there. These external probes remain outside Cargo.

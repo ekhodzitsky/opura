@@ -1,5 +1,6 @@
 //! All-band spectral budget, folding and channel orchestration.
 use super::{Decoder, Node, PartitionError, PartitionState};
+mod encoder;
 use crate::{
     celt::{
         FrameSize, allocation::Allocation, control::TfResolution, control_tables::TF_SELECT,
@@ -7,6 +8,7 @@ use crate::{
     },
     range::RangeDecoder,
 };
+pub use encoder::{SpectrumEncoding, SpectrumInput, encode_spectrum};
 
 /// Complete fixed-storage normalized Q24 spectra before anti-collapse/scaling.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -59,7 +61,46 @@ pub fn decode_spectrum(
     seed: u32,
     disable_inversion: bool,
 ) -> Result<Spectrum, PartitionError> {
-    if !(16..=10200).contains(&entropy.storage_bits()) || entropy.tell() > entropy.storage_bits() {
+    validate_spectrum(entropy.storage_bits(), entropy.tell(), allocation, tf)?;
+    let layout = allocation.layout();
+    let size = allocation.size();
+    let mut next = entropy.clone();
+    let mut result = Spectrum {
+        values: [[0; 960]; 2],
+        masks: [[0; 21]; 2],
+        size,
+        layout,
+        seed,
+    };
+    let mut shared = PartitionState { remaining: 0, seed };
+    let mut decoder = Decoder {
+        entropy: &mut next,
+        state: &mut shared,
+        band: layout.bands().start,
+        spread,
+        intensity: allocation.intensity(),
+        disable_inv: disable_inversion,
+        tf_change: 0,
+    };
+    process_bands(
+        &mut decoder,
+        allocation,
+        tf,
+        spread,
+        &mut result,
+        &[[0; 21]; 2],
+    )?;
+    *entropy = next;
+    Ok(result)
+}
+
+fn validate_spectrum(
+    storage_bits: u32,
+    tell: u32,
+    allocation: &Allocation,
+    tf: &TfResolution,
+) -> Result<(), PartitionError> {
+    if !(16..=10200).contains(&storage_bits) || tell > storage_bits {
         return Err(PartitionError::InvalidBudget);
     }
     let layout = allocation.layout();
@@ -78,30 +119,99 @@ pub fn decode_spectrum(
     {
         return Err(PartitionError::InvalidGeometry);
     }
-    let mut next = entropy.clone();
-    let mut result = Spectrum {
-        values: [[0; 960]; 2],
-        masks: [[0; 21]; 2],
-        size,
-        layout,
-        seed,
-    };
-    let total_bits = (next.storage_bits() * 8) as i32
+    Ok(())
+}
+
+// Static dispatch keeps one folding/budget implementation for both directions.
+trait BandCoder {
+    fn storage_bits(&self) -> u32;
+    fn tell_frac(&self) -> u32;
+    fn seed(&self) -> u32;
+    fn setup(
+        &mut self,
+        band: usize,
+        tf: i8,
+        remaining: i32,
+        amplitudes: [i32; 2],
+        avoid_noise: bool,
+    );
+    fn band(
+        &mut self,
+        x: &mut [i32],
+        fold: Option<&[i32]>,
+        out: Option<&mut [i32]>,
+        node: Node,
+    ) -> Result<u32, PartitionError>;
+    fn stereo_band(
+        &mut self,
+        x: &mut [i32],
+        y: &mut [i32],
+        fold: Option<&[i32]>,
+        out: Option<&mut [i32]>,
+        node: Node,
+    ) -> Result<u32, PartitionError>;
+}
+impl BandCoder for Decoder<'_, '_> {
+    fn storage_bits(&self) -> u32 {
+        self.entropy.storage_bits()
+    }
+    fn tell_frac(&self) -> u32 {
+        self.entropy.tell_frac()
+    }
+    fn seed(&self) -> u32 {
+        self.state.seed
+    }
+    fn setup(
+        &mut self,
+        band: usize,
+        tf: i8,
+        remaining: i32,
+        _amplitudes: [i32; 2],
+        _avoid_noise: bool,
+    ) {
+        self.band = band;
+        self.tf_change = tf;
+        self.state.remaining = remaining;
+    }
+    fn band(
+        &mut self,
+        x: &mut [i32],
+        fold: Option<&[i32]>,
+        out: Option<&mut [i32]>,
+        node: Node,
+    ) -> Result<u32, PartitionError> {
+        Decoder::band(self, x, fold, out, node)
+    }
+    fn stereo_band(
+        &mut self,
+        x: &mut [i32],
+        y: &mut [i32],
+        fold: Option<&[i32]>,
+        out: Option<&mut [i32]>,
+        node: Node,
+    ) -> Result<u32, PartitionError> {
+        Decoder::stereo_band(self, x, y, fold, out, node)
+    }
+}
+fn process_bands(
+    coder: &mut impl BandCoder,
+    allocation: &Allocation,
+    tf: &TfResolution,
+    spread: Spread,
+    result: &mut Spectrum,
+    amplitudes: &[[i32; 21]; 2],
+) -> Result<(), PartitionError> {
+    let layout = allocation.layout();
+    let size = allocation.size();
+    let lm = size.lm();
+    let m = 1usize << lm;
+    let blocks = if allocation.transient() { m } else { 1 };
+    let total_bits = (coder.storage_bits() * 8) as i32
         - if allocation.anti_collapse_reserved() {
             8
         } else {
             0
         };
-    let mut shared = PartitionState { remaining: 0, seed };
-    let mut decoder = Decoder {
-        entropy: &mut next,
-        state: &mut shared,
-        band: layout.bands().start,
-        spread,
-        intensity: allocation.intensity(),
-        disable_inv: disable_inversion,
-        tf_change: 0,
-    };
     let mut norm = [[0i32; 624]; 2];
     let norm_offset = m * usize::from(BANDS[layout.bands().start]);
     let mut lowband_offset = 0usize;
@@ -109,17 +219,21 @@ pub fn decode_spectrum(
     let mut balance = allocation.balance();
     let mut dual = allocation.dual_stereo();
     for i in layout.bands() {
-        decoder.band = i;
-        decoder.tf_change = tf.values()[i];
         let first = m * usize::from(BANDS[i]);
         let last = m * usize::from(BANDS[i + 1]);
         let n = last - first;
-        let tell = decoder.entropy.tell_frac() as i32;
+        let tell = coder.tell_frac() as i32;
         if i != layout.bands().start {
             balance -= tell;
         }
         let remaining = total_bits - tell - 1;
-        decoder.state.remaining = remaining;
+        coder.setup(
+            i,
+            tf.values()[i],
+            remaining,
+            [amplitudes[0][i], amplitudes[1][i]],
+            blocks > 1 && i == layout.bands().start,
+        );
         let bits = if i < allocation.coded_bands() {
             let current = balance / (allocation.coded_bands() - i).min(3) as i32;
             0.max(16383.min((remaining + 1).min(allocation.pvq_bits()[i] + current)))
@@ -143,8 +257,7 @@ pub fn decode_spectrum(
         }
         let mut effective = None;
         let mut fill = [(1u32 << blocks) - 1; 2];
-        if lowband_offset != 0
-            && (spread != Spread::Aggressive || blocks > 1 || decoder.tf_change < 0)
+        if lowband_offset != 0 && (spread != Spread::Aggressive || blocks > 1 || tf.values()[i] < 0)
         {
             let offset = (m * usize::from(BANDS[lowband_offset])).saturating_sub(norm_offset + n);
             effective = Some(offset);
@@ -184,7 +297,7 @@ pub fn decode_spectrum(
             let mut masks = [0u32; 2];
             for c in 0..2 {
                 let x = if c == 0 { &mut *left } else { &mut *right };
-                masks[c] = decoder.band(
+                masks[c] = coder.band(
                     x,
                     effective.map(|_| &fold[c][..n]),
                     if output {
@@ -217,9 +330,9 @@ pub fn decode_spectrum(
                 fill: fill[0] | fill[1],
             };
             let mask = if layout.channels() == 2 {
-                decoder.stereo_band(left, right, input, out, node)?
+                coder.stereo_band(left, right, input, out, node)?
             } else {
-                decoder.band(left, input, out, node)?
+                coder.band(left, input, out, node)?
             };
             cm = [mask; 2];
         }
@@ -229,10 +342,11 @@ pub fn decode_spectrum(
         }
         balance += allocation.pvq_bits()[i] + tell;
         update_lowband = bits > (n as i32 * 8);
+        #[cfg(test)]
+        encoder::failure_after_band(i)?;
     }
-    result.seed = decoder.state.seed;
-    *entropy = next;
-    Ok(result)
+    result.seed = coder.seed();
+    Ok(())
 }
 
 /// Invalid anti-collapse context, energy domain or scalar/vector arithmetic.

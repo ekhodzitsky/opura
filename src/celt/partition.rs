@@ -18,7 +18,9 @@ pub use encoder::encode_partition;
 mod band;
 mod spectrum;
 pub use band::{Band, BandControls, BandEncoding, StereoControls, decode_band, encode_band};
-pub use spectrum::{AntiCollapseError, Spectrum, decode_spectrum};
+pub use spectrum::{
+    AntiCollapseError, Spectrum, SpectrumEncoding, SpectrumInput, decode_spectrum, encode_spectrum,
+};
 
 /// Invalid geometry/budget/vector or spectral entropy.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -518,6 +520,7 @@ fn fill_partition(
 }
 // LM decreases at each split and stops at -1: at most four splits deep
 // (31 nodes). Standard dimensions and physical budgets bound all arithmetic.
+#[derive(Clone, Copy)]
 struct Node {
     bits: i32,
     blocks: usize,

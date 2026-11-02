@@ -141,7 +141,7 @@ impl Encoder<'_> {
         }
         Ok(1)
     }
-    pub(super) fn band(
+    pub(in crate::celt::partition) fn band(
         &mut self,
         x: &mut [i32],
         fold: Option<&[i32]>,
@@ -174,7 +174,7 @@ impl Encoder<'_> {
         )?;
         transform.finish(x, cm, out)
     }
-    pub(super) fn stereo_band(
+    pub(in crate::celt::partition) fn stereo_band(
         &mut self,
         x: &mut [i32],
         y: &mut [i32],
