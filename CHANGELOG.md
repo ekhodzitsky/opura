@@ -7,6 +7,21 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.50] - 2026-11-02
+
+- Add safe fixed-storage recursive mono CELT partition encoding: measured theta,
+  triangular/time-uniform coding, noise avoidance, split/rebalance budgets, PVQ
+  leaves and exact folding/noise reconstruction with atomic writer/shared state.
+- Add normalized Q30 atan/positive atan2 helpers. Match74154 independent scalar
+  inputs and9440 complete original partition bitstreams/states across286 geometries;
+  native/Rust paired decoding agrees, and all64 standard split resolutions pass.
+- Retain two minimized valid-budget regressions for the three-bit rebalance reserve
+  after a targeted mutation exposed a coverage gap. All twenty mutations, invalid
+  domains and late capacity rollback are detected. New and prior partition/math
+  corpora reproduce; all seven mandatory offline gates pass with zero dependencies.
+
+TF/stereo/full-spectrum encoding and complete audio packet encoding remain work.
+
 ## [0.1.49] - 2026-11-02
 
 - Add safe allocation-free normalized CELT PVQ band encoding with native forward

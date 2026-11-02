@@ -11,7 +11,7 @@ use std::fmt;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum MathError {
-    /// Square root/logarithm input must be nonnegative.
+    /// The scalar operation requires nonnegative input.
     NegativeInput,
     /// Reciprocal/division denominator must be positive.
     InvalidDenominator,
@@ -23,7 +23,7 @@ pub enum MathError {
 impl fmt::Display for MathError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
-            Self::NegativeInput => "CELT square root/logarithm input must be nonnegative",
+            Self::NegativeInput => "CELT scalar input must be nonnegative",
             Self::InvalidDenominator => "CELT reciprocal/division denominator must be positive",
             Self::NotNormalized => "CELT input lies outside the required normalized range",
             Self::NotFractional => "CELT fractional numerator magnitude exceeds denominator",
@@ -227,6 +227,49 @@ pub fn reciprocal_normalized_q31(x: i32) -> Result<i32, MathError> {
     let estimate = reciprocal_normalized_q15((x >> 15) - 32768) << 16;
     let error = mul_q31(estimate, x).wrapping_sub(1 << 30);
     Ok(estimate.wrapping_sub(mul_q31(error, estimate).wrapping_shl(1).wrapping_add(1)))
+}
+
+/// Reference atan(x)*2/pi: normalized Q30 input [-1,1] to Q30 angle.
+/// Endpoints return exactly +/-0.5 in Q30; zero returns zero.
+pub fn atan_norm(x: i32) -> Result<i32, MathError> {
+    if !(-(1 << 30)..=1 << 30).contains(&x) {
+        return Err(MathError::NotNormalized);
+    }
+    if x == 1 << 30 {
+        return Ok(1 << 29);
+    }
+    if x == -(1 << 30) {
+        return Ok(-(1 << 29));
+    }
+    let doubled = x.wrapping_shl(1);
+    let square = mul_q31(doubled, x);
+    let mut value = mul_q31(square, -598602432);
+    for coefficient in [
+        1583306112i32,
+        -1985085440,
+        1682636672,
+        -1200579328,
+        857391616,
+        -715791936,
+    ] {
+        value = mul_q31(square, coefficient.wrapping_add(value));
+    }
+    Ok(mul_q31(1367130551, x.wrapping_add(mul_q31(doubled, value))))
+}
+/// Reference atan2(y,x)*2/pi for nonnegative same-scale magnitudes.
+/// Returns a Q30 angle in `[0,1]`. Both-zero returns zero; negative inputs fail.
+pub fn atan2_norm(y: i32, x: i32) -> Result<i32, MathError> {
+    if x < 0 || y < 0 {
+        return Err(MathError::NegativeInput);
+    }
+    if x == 0 && y == 0 {
+        return Ok(0);
+    }
+    if y < x {
+        atan_norm(fractional_divide(y, x)? >> 1)
+    } else {
+        Ok((1 << 30) - atan_norm(fractional_divide(x, y)? >> 1)?)
+    }
 }
 
 /// Approximate a/b in Q29, for b>0 and -b<=a<=b.

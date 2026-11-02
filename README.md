@@ -2067,3 +2067,48 @@ diff -u tests/celt-pvq-encoder-fixtures.txt /tmp/celt-pvq-encoder-fixtures.txt
 
 QEXT, angle/recursive-band encoding, frame controls and complete audio packet
 encoding remain separate work. The optional original oracle stays outside Cargo.
+
+## Recursive mono CELT partition encoding
+
+`opura::celt::partition::encode_partition` uses the existing `PartitionControls`
+and `PartitionState` to encode a normalized mono partition. It measures the angle
+between subvector energies, quantizes it with native triangular/time-uniform
+models, applies optional split-noise avoidance and performs native bit division,
+rebalance and PVQ leaves. No-pulse paths retain the decoder's exact folding,
+dither, LCG seed and normalization behavior. It returns a reconstructed Q24
+`Partition` with up to sixteen collapse bits.
+
+Input length matches the standard band/LM dimension and squared Q24 norm is at
+most two. Existing geometry, nonnegative gain, fold and 2..1275-byte initial
+storage domains apply. Input/fold buffers stay unchanged, no allocation occurs,
+and the full entropy writer plus shared remaining budget/seed commit together.
+Malformed models, excessive signal energy, finished writers and late physical
+write failures preserve both caller states. Conservative physical budget and
+requested/shared eighth-bit budgets remain distinct caller-controlled values.
+
+`math::atan_norm` adds the reference normalized Q30 arctangent on [-1,1], with
+exact +/-0.5 endpoints. `math::atan2_norm` measures a Q30 quarter-circle angle
+from nonnegative same-scale magnitudes, including the native both-zero result.
+Independent dense/wide evidence covers 69,833 atan and 4,321 atan2 inputs.
+A finite table check verifies every one of the 64 split-capable standard geometry
+cells can code an angle at its minimum split budget.
+
+All bytes, range/whole/eighth-bit counters, reconstructed coordinates, masks and
+remaining budget/seeds match 9,440 independent original encoder cases. Native
+and Rust decoders reproduce each encoded partition. The set covers 286
+geometries, split/pulse thresholds, endpoints/interior angles, zero/tiny/random
+vectors, gain/fill/fold/prefix settings and two minimized rebalance regressions.
+Those eight-coordinate cases distinguish the native three-bit reserve from an
+incorrect one-bit reserve in both allocation-order branches. Twenty targeted
+mutations and late capacity/invalid-domain tests are detected; earlier partition
+outputs remain unchanged after extracting shared no-pulse reconstruction.
+
+```sh
+python3 tools/celt_partition_fixtures.py /path/to/opus-v1.6.1 --encode > /tmp/celt-partition-encoder-fixtures.txt
+python3 tools/celt_partition_fixtures.py /path/to/opus-v1.6.1 --angles > /tmp/celt-angle-fixtures.txt
+diff -u tests/celt-partition-encoder-fixtures.txt /tmp/celt-partition-encoder-fixtures.txt
+diff -u tests/celt-angle-fixtures.txt /tmp/celt-angle-fixtures.txt
+```
+
+TF/stereo and full-spectrum encoding, frame controls and complete audio packet
+encoding remain under development. Original probes remain external to Cargo.

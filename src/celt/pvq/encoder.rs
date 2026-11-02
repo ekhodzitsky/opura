@@ -26,7 +26,7 @@ pub fn encode_band(
     }
     encode_partition_band(entropy, codebook, input, spread, blocks, gain)
 }
-fn encode_partition_band(
+pub(crate) fn encode_partition_band(
     entropy: &mut RangeEncoder,
     codebook: PulseCodebook,
     input: &[i32],

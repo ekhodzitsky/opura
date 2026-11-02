@@ -1382,3 +1382,14 @@ silence fallback, sign restoration and resynthesis follow `celt/vq.c::alg_quant`
 Existing normalized-band/vq notices and terms apply. Rust validates a bounded
 normalized Q24 input domain, retains immutable caller input, and stages returned
 reconstruction before the single atomic CWRS write. QEXT refinement is excluded.
+
+
+# CELT recursive mono encoding attribution
+
+Measured energy-ratio angles and recursive mono encoding follow
+`celt/vq.c::stereo_itheta` (mono path) and `celt/bands.c::compute_theta` /
+`quant_partition` at the pinned revision above. Normalized arctangent functions
+follow `celt/mathops.h::celt_atan_norm` and `celt_atan2p_norm`. Existing band/vq/
+scalar notices and terms apply. Rust shares unchanged zero-pulse reconstruction
+with decoding, validates bounded immutable input and commits complete operations
+atomically. Stereo/TF band encoding is not supplied by this mono primitive.

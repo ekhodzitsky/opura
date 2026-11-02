@@ -1,4 +1,4 @@
-//! Classic recursive mono spectral partitions, before TF/stereo orchestration.
+//! Classic recursive mono spectral partition encoding/decoding and band orchestration.
 //! Copyright (c) 2007-2008 CSIRO; 2007-2009 Xiph.Org Foundation;
 //! 2008-2009 Gregory Maxwell. See THIRD_PARTY_NOTICES.md.
 use super::{
@@ -9,8 +9,11 @@ use super::{
     pulses::{PulseCodebook, PulseError},
     pvq::{self, PvqError, Spread},
 };
-use crate::range::{RangeDecoder, RangeError};
+use crate::range::{EncoderError, RangeDecoder, RangeEncoder, RangeError};
 use std::fmt;
+
+mod encoder;
+pub use encoder::encode_partition;
 
 mod band;
 mod spectrum;
@@ -29,6 +32,10 @@ pub enum PartitionError {
     InvalidGain,
     /// Fold input must match the dimension and have bounded Q14 energy.
     InvalidFold,
+    /// Input must match dimension and have normalized Q24 squared norm at most 2.
+    InvalidInput,
+    /// Range/raw encoding failed without committing the writer or shared state.
+    Encoding(EncoderError),
     /// Band arithmetic failed.
     Band(BandError),
     /// Pulse geometry failed.
@@ -45,6 +52,8 @@ impl fmt::Display for PartitionError {
             Self::InvalidBudget => f.write_str("invalid CELT partition bit budget"),
             Self::InvalidGain => f.write_str("negative CELT partition gain"),
             Self::InvalidFold => f.write_str("invalid CELT partition fold vector"),
+            Self::InvalidInput => f.write_str("invalid normalized CELT partition input"),
+            Self::Encoding(e) => write!(f, "CELT partition encoding: {e}"),
             Self::Band(e) => write!(f, "CELT partition band: {e}"),
             Self::Pulses(e) => write!(f, "CELT partition pulses: {e}"),
             Self::Pvq(e) => write!(f, "CELT partition PVQ: {e}"),
@@ -59,6 +68,7 @@ impl std::error::Error for PartitionError {
             Self::Pulses(e) => Some(e),
             Self::Pvq(e) => Some(e),
             Self::Range(e) => Some(e),
+            Self::Encoding(e) => Some(e),
             _ => None,
         }
     }
@@ -83,7 +93,17 @@ impl From<RangeError> for PartitionError {
         Self::Range(e)
     }
 }
-/// Shared shape-decoding budget (eighth bits) and deterministic folding seed.
+impl From<EncoderError> for PartitionError {
+    fn from(error: EncoderError) -> Self {
+        Self::Encoding(error)
+    }
+}
+impl From<super::math::MathError> for PartitionError {
+    fn from(error: super::math::MathError) -> Self {
+        Self::Band(BandError::Math(error))
+    }
+}
+/// Shared shape-coding budget (eighth bits) and deterministic folding seed.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PartitionState {
     remaining: i32,
@@ -124,7 +144,7 @@ pub struct PartitionControls {
     /// Per-block fold/noise fill mask; bits above blocks are ignored.
     pub fill: u16,
 }
-/// Fixed-storage decoded Q24 coordinates and pre-TF collapse mask.
+/// Fixed-storage reconstructed Q24 coordinates and pre-TF collapse mask.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Partition {
     values: [i32; 176],
@@ -191,6 +211,23 @@ fn validate(
     fold: Option<&[i32]>,
     minimum: usize,
 ) -> Result<usize, PartitionError> {
+    validate_context(
+        entropy.storage_bits(),
+        entropy.tell(),
+        state,
+        c,
+        fold,
+        minimum,
+    )
+}
+fn validate_context(
+    storage_bits: u32,
+    tell: u32,
+    state: &PartitionState,
+    c: PartitionControls,
+    fold: Option<&[i32]>,
+    minimum: usize,
+) -> Result<usize, PartitionError> {
     if c.band >= 21 || !(-1..=3).contains(&c.lm) {
         return Err(PartitionError::InvalidGeometry);
     }
@@ -202,8 +239,8 @@ fn validate(
     }
     if !(0..=81600).contains(&state.remaining)
         || !(0..=81600).contains(&c.bits)
-        || !(16..=10200).contains(&entropy.storage_bits())
-        || entropy.tell() > entropy.storage_bits()
+        || !(16..=10200).contains(&storage_bits)
+        || tell > storage_bits
     {
         return Err(PartitionError::InvalidBudget);
     }
@@ -376,31 +413,7 @@ impl Decoder<'_, '_> {
                 x.copy_from_slice(band.values());
                 Ok(u32::from(band.wide_collapse_mask()))
             } else {
-                let mask = (1u32 << blocks) - 1;
-                fill &= mask;
-                if fill == 0 {
-                    x.fill(0);
-                    return Ok(0);
-                }
-                for (j, value) in x.iter_mut().enumerate() {
-                    self.state.seed = self
-                        .state
-                        .seed
-                        .wrapping_mul(1664525)
-                        .wrapping_add(1013904223);
-                    *value = if let Some(fold) = fold {
-                        fold[j]
-                            + if self.state.seed & 0x8000 != 0 {
-                                4096
-                            } else {
-                                -4096
-                            }
-                    } else {
-                        ((self.state.seed as i32) >> 20) << 10
-                    };
-                }
-                bands::renormalize(x, gain)?;
-                Ok(if fold.is_some() { fill } else { mask })
+                fill_partition(x, fold, self.state, blocks, gain, fill)
             }
         }
     }
@@ -472,6 +485,36 @@ impl Decoder<'_, '_> {
             cost,
         })
     }
+}
+fn fill_partition(
+    x: &mut [i32],
+    fold: Option<&[i32]>,
+    state: &mut PartitionState,
+    blocks: usize,
+    gain: i32,
+    mut fill: u32,
+) -> Result<u32, PartitionError> {
+    let mask = (1u32 << blocks) - 1;
+    fill &= mask;
+    if fill == 0 {
+        x.fill(0);
+        return Ok(0);
+    }
+    for (j, value) in x.iter_mut().enumerate() {
+        state.seed = state.seed.wrapping_mul(1664525).wrapping_add(1013904223);
+        *value = if let Some(fold) = fold {
+            fold[j]
+                + if state.seed & 0x8000 != 0 {
+                    4096
+                } else {
+                    -4096
+                }
+        } else {
+            ((state.seed as i32) >> 20) << 10
+        };
+    }
+    bands::renormalize(x, gain)?;
+    Ok(if fold.is_some() { fill } else { mask })
 }
 // LM decreases at each split and stops at -1: at most four splits deep
 // (31 nodes). Standard dimensions and physical budgets bound all arithmetic.

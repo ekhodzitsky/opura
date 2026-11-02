@@ -4,6 +4,7 @@
 //! See THIRD_PARTY_NOTICES.md. QEXT refinement is not supported.
 mod encoder;
 pub use encoder::encode_band;
+pub(crate) use encoder::encode_partition_band;
 
 use super::{
     math,

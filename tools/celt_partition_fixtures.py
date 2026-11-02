@@ -12,6 +12,8 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('source',type=Path)
 mode=parser.add_mutually_exclusive_group()
 mode.add_argument('--tables',action='store_true')
+mode.add_argument('--encode',action='store_true',help='Generate recursive mono encoder evidence')
+mode.add_argument('--angles',action='store_true',help='Generate refined atan/atan2 math evidence')
 mode.add_argument('--spectra',action='store_true',help='Generate allocation-to-spectrum evidence')
 mode.add_argument('--anti',action='store_true',help='Generate final-energy and anti-collapse evidence')
 mode.add_argument('--bands',action='store_true',help='Generate full TF/stereo band evidence instead of partitions')
@@ -143,6 +145,33 @@ void partition(const unsigned char *data,int len,int band,int lm,int B,int bits,
     out[1]=ctx.remaining_bits;out[2]=ctx.seed;out[3]=dec.rng;out[4]=ec_tell(&dec);out[5]=ec_tell_frac(&dec);out[6]=ec_get_error(&dec);
 }
 '''
+wrapper+=r'''
+int angle_math(int operation,int x,int y) {return operation?celt_atan2p_norm(y,x):celt_atan_norm(x);}
+int encode_partition_probe(int band,int lm,int B,int bits,int gain,int spread,int fill,int remaining,unsigned seed,
+        int folded,int avoid,int prefix_bits,unsigned prefix_value,const int *input,const int *fold,int *out,unsigned char *data) {
+    ec_enc enc;ec_enc_init(&enc,data,1275);
+    if(prefix_bits)ec_enc_uint(&enc,prefix_value,1U<<prefix_bits);
+    struct band_ctx ctx={0};ctx.encode=1;ctx.resynth=1;ctx.m=&mode48000_960_120;
+    ctx.i=band;ctx.spread=spread;ctx.ec=&enc;ctx.remaining_bits=remaining;ctx.seed=seed;ctx.avoid_split_noise=avoid;
+    int N=ctx.m->eBands[band+1]-ctx.m->eBands[band];N=lm<0?N/2:N<<lm;
+    for(int i=0;i<N;i++)out[7+i]=input[i];
+    out[0]=quant_partition(&ctx,out+7,N,bits,B,folded?(int*)fold:NULL,lm,gain,fill);
+    out[1]=ctx.remaining_bits;out[2]=(int)ctx.seed;out[3]=(int)enc.rng;
+    out[4]=ec_tell(&enc);out[5]=ec_tell_frac(&enc);out[6]=ec_get_error(&enc);
+    int length=IMAX(2,(ec_tell(&enc)+7)/8);ec_enc_shrink(&enc,length);ec_enc_done(&enc);
+    if(ec_get_error(&enc))return -1;
+    ec_dec dec;ec_dec_init(&dec,data,length);
+    if(prefix_bits && ec_dec_uint(&dec,1U<<prefix_bits)!=prefix_value)return -2;
+    struct band_ctx decoded={0};decoded.resynth=1;decoded.m=&mode48000_960_120;
+    decoded.i=band;decoded.spread=spread;decoded.ec=&dec;decoded.remaining_bits=remaining;decoded.seed=seed;
+    int reconstructed[176]={0};
+    unsigned mask=quant_partition(&decoded,reconstructed,N,bits,B,folded?(int*)fold:NULL,lm,gain,fill);
+    if(mask!=(unsigned)out[0] || decoded.seed!=ctx.seed || decoded.remaining_bits!=ctx.remaining_bits)return -3;
+    if(dec.rng!=enc.rng || ec_tell(&dec)!=ec_tell(&enc) || ec_tell_frac(&dec)!=ec_tell_frac(&enc) || ec_get_error(&dec))return -4;
+    for(int i=0;i<N;i++)if(reconstructed[i]!=out[7+i])return -5;
+    return length;
+}
+'''
 with tempfile.TemporaryDirectory(prefix='opura-celt-partition-') as temp:
     path=Path(temp);(path/'probe.c').write_text(wrapper)
     subprocess.run(['cc','-shared','-fPIC','-O2','-fwrapv','-DFIXED_POINT','-DVAR_ARRAYS','-DOPUS_BUILD','-DDISABLE_FLOAT_API','-DSMALL_FOOTPRINT',
@@ -150,6 +179,89 @@ with tempfile.TemporaryDirectory(prefix='opura-celt-partition-') as temp:
                     *[str(source/'celt'/p) for p in ['vq.c','cwrs.c','mathops.c','entcode.c','entenc.c','entdec.c','rate.c','quant_bands.c','laplace.c']],'-o',str(path/'probe.so')],check=True)
     lib=c.CDLL(str(path/'probe.so'));ptr=c.POINTER(c.c_int32);u8=c.POINTER(c.c_ubyte)
     lib.partition.argtypes=[u8,*[c.c_int]*9,c.c_uint,c.c_int,c.c_int,ptr,ptr];lib.partition.restype=None
+    if args.angles:
+        lib.angle_math.argtypes=[c.c_int]*3;lib.angle_math.restype=c.c_int32
+        print('# Original normalized atan/positive atan2:',REVISION)
+        print('# block OP START STEP COUNT FNV1A64(le-i32); case OP X Y RESULT;0=atan(x),1=atan2(y,x)')
+        values=range(-(1<<30),(1<<30)+1,32768)
+        for offset in range(0,len(values),1024):
+            block=values[offset:offset+1024];fingerprint=14695981039346656037
+            for value in block:
+                result=lib.angle_math(0,value,0)
+                for byte in (result&0xffffffff).to_bytes(4,'little'):fingerprint=((fingerprint^byte)*1099511628211)&0xffffffffffffffff
+            print('block',0,block[0],32768,len(block),fingerprint)
+        selected={-(1<<30),-1,0,1,1<<30};random=0x4154414e
+        for bit in range(31):selected.update(v for v in range((1<<bit)-3,(1<<bit)+4) if 0<=v<=1<<30)
+        for _ in range(4096):
+            random^=(random<<13)&0xffffffff;random^=random>>17;random^=(random<<5)&0xffffffff
+            selected.add((random%((1<<31)+1))-(1<<30))
+        for value in sorted(selected):print('case',0,value,0,lib.angle_math(0,value,0))
+        magnitudes=[0,1,2,3,15,16,127,128,32767,32768,65535,65536,1<<29,1<<30,0x7fffffff]
+        for x in magnitudes:
+            for y in magnitudes:print('case',1,x,y,lib.angle_math(1,x,y))
+        for index in range(4096):
+            random^=(random<<13)&0xffffffff;random^=random>>17;random^=(random<<5)&0xffffffff;x=random&0x7fffffff
+            random^=(random<<13)&0xffffffff;random^=random>>17;random^=(random<<5)&0xffffffff;y=random&0x7fffffff
+            if index%7==0:y=x
+            print('case',1,x,y,lib.angle_math(1,x,y))
+        raise SystemExit
+    if args.encode:
+        lib.encode_partition_probe.argtypes=[c.c_int]*8+[c.c_uint,c.c_int,c.c_int,c.c_int,c.c_uint,ptr,ptr,ptr,u8]
+        lib.encode_partition_probe.restype=c.c_int
+        print('# Original recursive mono quant_partition encoding with paired native decoding:',REVISION)
+        print('# partition BAND LM BLOCKS BITS GAIN SPREAD FILL REMAINING SEED FOLDED AVOID PREFIX_BITS PREFIX_VALUE HEX INPUT[N] FOLD[N if FOLDED] MASK REMAINING SEED RANGE TELL FRAC ERROR OUTPUT[N]')
+        print('# Initial capacity1275; compact final storage=max(2,ceil(tell/8)).')
+        edges=numbers(declaration(modes,'static const opus_int16 eband5ms[]'));random=0x454e4350
+        def next_random():
+            global random
+            random^=(random<<13)&0xffffffff;random^=random>>17;random^=(random<<5)&0xffffffff
+            return random
+        for band in range(21):
+            for lm in range(-1,4):
+                width=edges[band+1]-edges[band];n=width//2 if lm<0 else width<<lm
+                if n<2:continue
+                for blocks in [1,2,4,8,16]:
+                    if n%blocks:continue
+                    for case,bits in enumerate([0,1,7,8,9,23,24,25,47,48,63,64,95,96,127,128,179,180,181,235,236,237,255,256,257,267,268,269,511,1024,2048,4096,81600]):
+                        gain=[0,1,1<<28,1<<30,32767<<16,0x7fffffff][case%6]
+                        remaining=[0,8,24,64,256,1024,8191][case%7]
+                        if case%3==2:remaining=8191
+                        spread=case%4;fill=[0,1,(1<<blocks)-1,0xaaaa,0x5555][case%5]
+                        seed=next_random();folded=case%3!=0;avoid=case%2
+                        prefix_bits=[0,3,9][case%3];prefix_value=next_random()%(1<<prefix_bits)
+                        fold=[0 if case%3==1 else (c.c_int32(next_random()).value>>8)//math.isqrt(n+1) for _ in range(n)]
+                        amplitude=(1<<24)//(1+math.isqrt(n-1));pattern=case%10
+                        if pattern==0:values=[0]*n
+                        elif pattern==1:values=[1<<24]+[0]*(n-1)
+                        elif pattern==2:values=[0]*(n-1)+[-(1<<24)]
+                        elif pattern==3:values=[amplitude]*n
+                        elif pattern==4:values=[amplitude if i%2 else -amplitude for i in range(n)]
+                        elif pattern==5:
+                            raw=[c.c_int16(next_random()).value for _ in range(n)];root=max(1,math.isqrt(sum(v*v for v in raw)))
+                            values=[v*(1<<24)//root for v in raw]
+                        elif pattern==6:values=[next_random()%257-128 for _ in range(n)]
+                        elif pattern in [7,8]:
+                            values=[0]*n;values[0]=1<<24;values[n//2]=1<<21
+                            if pattern==8:values=values[n//2:]+values[:n//2]
+                        else:values=[((1<<24)*math.isqrt(2<<40))//(math.isqrt(n<<40)+1)]*n
+                        if sum(v*v for v in values)>1<<49:raise SystemExit('Unexpected normalized input domain')
+                        data=(c.c_ubyte*1275)();out=(c.c_int32*(n+7))();input_data=(c.c_int32*n)(*values);fold_data=(c.c_int32*n)(*fold)
+                        length=lib.encode_partition_probe(band,lm,blocks,bits,gain,spread,fill,remaining,seed,int(folded),avoid,prefix_bits,prefix_value,input_data,fold_data,out,data)
+                        if length<2:raise SystemExit('Original partition mismatch '+str((band,lm,blocks,case,bits,length)))
+                        if list(input_data)!=values or list(fold_data)!=fold:raise SystemExit('Unexpected caller input mutation')
+                        result=list(out);result[2]&=0xffffffff;result[3]&=0xffffffff
+                        print('partition',band,lm,blocks,bits,gain,spread,fill,remaining,seed,int(folded),avoid,prefix_bits,prefix_value,bytes(data[:length]).hex(),*values,*(fold if folded else []),*result)
+        # Minimized rebalance regressions: unlike overspecified high-rate cases,
+        # these valid budgets distinguish the native three-bit reserve from one.
+        for reverse in [False,True]:
+            values=[1<<24,0,0,0,1<<21,0,0,0]
+            if reverse:values=values[4:]+values[:4]
+            input_data=(c.c_int32*8)(*values);fold_data=(c.c_int32*8)();out=(c.c_int32*15)();data=(c.c_ubyte*1275)()
+            length=lib.encode_partition_probe(0,3,1,437,0x7fffffff,3,1,8191,0,0,1,0,0,input_data,fold_data,out,data)
+            if length<2:raise SystemExit('Original rebalance regression mismatch')
+            result=list(out);result[2]&=0xffffffff;result[3]&=0xffffffff
+            print('partition',0,3,1,437,0x7fffffff,3,1,8191,0,0,1,0,0,bytes(data[:length]).hex(),*values,*result)
+        raise SystemExit
     if args.spectra or args.anti:
         lib.spectrum.argtypes=[u8,*[c.c_int]*9,c.c_uint,c.c_int,c.c_int,ptr,ptr,ptr];lib.spectrum.restype=None
         print('# Original coarse/TF/spread/allocation/fine/quant_all_bands'+('/final/anti_collapse' if args.anti else '')+':',REVISION)
