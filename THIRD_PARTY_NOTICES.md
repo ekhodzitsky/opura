@@ -1702,3 +1702,10 @@ CBR/VBR SILK cap blocks in `src/opus_encoder.c` at the same pinned revision,
 under the existing Opus notices above. The optional oracle extracts unchanged
 source functions/blocks into a temporary reference executable; only numerical
 fixtures are retained, with no native build or ordinary-test dependency.
+
+Connected Hybrid encoding additionally follows outer `dc_reject`,4ms layer
+delay, `HB_gain`, `gain_fade`/`stereo_fade`, shared redundancy-flag accounting and
+SILK/CELT rate control in `src/opus_encoder.c`; high-band analysis/control follows
+`celt/celt_encoder.c` at the same pinned revision under the existing notices.
+Constituent SILK/CELT algorithms retain their attribution above. Optional native
+cross-decoding/fade oracles do not link native code into ordinary builds/tests.

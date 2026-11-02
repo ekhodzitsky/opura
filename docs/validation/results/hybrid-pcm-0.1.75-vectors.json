@@ -1,0 +1,8 @@
+{
+  "status": "pass",
+  "reference_revision": "22244de5a79bd1d6d623c32e72bf1954b56235be",
+  "vector_sha256": "515c803a325dc44e30a2778bfb1229cf9ea2da11a2a377b662ec79d1f36dbe12",
+  "streams": 240,
+  "records": 5760,
+  "lost": 480
+}

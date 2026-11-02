@@ -7,6 +7,27 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.75] - 2026-11-02
+
+- Connect fixed-band mono/stereo Hybrid PCM encoding at24/48kHz,10/20ms and
+  SWB/FB with a single shared range writer: WB SILK analysis/quantization,
+  native rate/cap control, band17 CELT analysis/energy/TF/allocation/spectra and
+  shared final range. Retain native high-band transient/spreading/trim rules.
+- Align layers with4ms high-band input delay, DC rejection, input resampling,
+  stereo predictor/width histories and Q15 gain/stereo fades. Whole-stream
+  staging preserves both layers on geometry, budget and finalization errors;
+  reset restores a fresh stream. Tiny budgets can fail explicitly.
+- Expose `HybridEncoder` and CLI `--mode hybrid --bandwidth swb|fb` with10/20ms
+  frames, native312-sample pre-skip and exact WAV/Ogg duration/CBR budgets.
+  Hybrid DTX/FEC, VBR and general mode/channel switching remain unfinished.
+- Validate actual shared packets against original libopus, including loss,
+  full/partial-frame file boundaries, forced finalization rollback and native
+  Q15 gain/fade fingerprints:240 streams/5760 normal/loss records,480 lost
+  frames,15 gains/656 fades,60 CLI boundary cases and16 real-recording files
+  (60976 packets). Independent native decoding matches actual PCM/ranges;
+  no native-encoder quality/speed claim. All seven required offline gates pass,
+  including23 Python tests. See docs/validation/hybrid-pcm-packets.md.
+
 ## [0.1.74] - 2026-11-02
 
 - Add Hybrid rate-control calculations for mono/stereo, SWB/FB and 10/20 ms:

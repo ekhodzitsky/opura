@@ -4,15 +4,17 @@
 mod ogg;
 mod wav;
 use opura::{
-    Packet,
+    Bandwidth, Packet,
     celt::{FrameSize, encoder::CeltEncoder, input::InputRate},
     decoder::OpusDecoder,
+    hybrid::encoder::{HybridEncoder, Options as HybridOptions},
     silk::{
         decoder::PcmChannels,
         encoder::{
             mono::{MonoEncoder, MonoOptions, PacketDuration},
             stereo::StereoEncoder,
         },
+        gains::FrameDuration,
         pitch::SilkRate,
         resampler::OutputRate,
     },
@@ -30,7 +32,7 @@ type Result<T> = std::result::Result<T, Box<dyn Error>>;
 fn invalid(message: impl Into<String>) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message.into())
 }
-const HELP: &str = "opura encode INPUT.wav OUTPUT.opus [--mode celt|silk] [--bitrate BPS] [--frame-ms MS] [--bandwidth nb|mb|wb|auto] [--dtx] [--fec LOSS_PERCENT]\nopura decode INPUT.opus OUTPUT.wav\nopura --version\n\nEncode: PCM16 WAV at 8/12/16/24/48 kHz.\nCELT: mono/stereo, frames 2.5/5/10/20 ms. SILK: mono/stereo, frames 10/20/40/60 ms.\nDefaults: CELT, 64000 bits/s (SILK: 24000 mono/48000 stereo), 20 ms. SILK bandwidth defaults to input-rate NB/MB/WB; auto selects it from bitrate/loss. --dtx enables SILK silence suppression, including in CBR. --fec 1..100 requests SILK in-band FEC with the supplied loss estimate (0 disables it). Ogg overhead is additional.\nDecode: one mono/stereo Ogg Opus stream, zero header gain; output PCM16/48 kHz.\nExisting outputs are refused. Errors may leave a partial new output.";
+const HELP: &str = "opura encode INPUT.wav OUTPUT.opus [--mode celt|silk|hybrid] [--bitrate BPS] [--frame-ms MS] [--bandwidth nb|mb|wb|auto|swb|fb] [--dtx] [--fec LOSS_PERCENT]\nopura decode INPUT.opus OUTPUT.wav\nopura --version\n\nEncode: PCM16 WAV at 8/12/16/24/48 kHz.\nCELT: mono/stereo, frames 2.5/5/10/20 ms. SILK: mono/stereo, frames 10/20/40/60 ms. Hybrid: mono/stereo at 24/48 kHz, frames 10/20 ms; SWB at 24 kHz, SWB/FB at 48 kHz. Hybrid defaults to 32000 mono/64000 stereo bits/s and input-rate SWB/FB; DTX/FEC is not yet supported in Hybrid.\nDefaults: CELT, 64000 bits/s (SILK: 24000 mono/48000 stereo), 20 ms. SILK bandwidth defaults to input-rate NB/MB/WB; auto selects it from bitrate/loss. --dtx enables SILK silence suppression, including in CBR. --fec 1..100 requests SILK in-band FEC with the supplied loss estimate (0 disables it). Ogg overhead is additional.\nDecode: one mono/stereo Ogg Opus stream, zero header gain; output PCM16/48 kHz.\nExisting outputs are refused. Errors may leave a partial new output.";
 fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
@@ -96,18 +98,24 @@ fn run() -> Result<()> {
                         size = Some(value);
                     }
                     Some("--mode") if mode.is_none() => {
-                        if !["celt", "silk"].contains(&value) {
-                            return Err(invalid("mode must be celt/silk").into());
+                        if !["celt", "silk", "hybrid"].contains(&value) {
+                            return Err(invalid("mode must be celt/silk/hybrid").into());
                         }
                         mode = Some(value);
                     }
                     Some("--bandwidth") if bandwidth.is_none() => {
                         bandwidth = Some(match value {
-                            "nb" => SilkBandwidth::Fixed(SilkRate::Khz8),
-                            "mb" => SilkBandwidth::Fixed(SilkRate::Khz12),
-                            "wb" => SilkBandwidth::Fixed(SilkRate::Khz16),
-                            "auto" => SilkBandwidth::Automatic,
-                            _ => return Err(invalid("bandwidth must be nb/mb/wb/auto").into()),
+                            "nb" => EncodingBandwidth::Fixed(SilkRate::Khz8),
+                            "mb" => EncodingBandwidth::Fixed(SilkRate::Khz12),
+                            "wb" => EncodingBandwidth::Fixed(SilkRate::Khz16),
+                            "auto" => EncodingBandwidth::Automatic,
+                            "swb" => EncodingBandwidth::Hybrid(Bandwidth::SuperWideband),
+                            "fb" => EncodingBandwidth::Hybrid(Bandwidth::Fullband),
+                            _ => {
+                                return Err(
+                                    invalid("bandwidth must be nb/mb/wb/auto/swb/fb").into()
+                                );
+                            }
                         });
                     }
                     _ => return Err(invalid("unknown or repeated encode option").into()),
@@ -115,6 +123,9 @@ fn run() -> Result<()> {
                 i += 2;
             }
             if mode == Some("silk") {
+                if matches!(bandwidth, Some(EncodingBandwidth::Hybrid(_))) {
+                    return Err(invalid("SILK bandwidth must be nb/mb/wb/auto").into());
+                }
                 let duration = match size.unwrap_or("20") {
                     "10" => PacketDuration::Ms10,
                     "20" => PacketDuration::Ms20,
@@ -130,6 +141,27 @@ fn run() -> Result<()> {
                     bandwidth,
                     dtx,
                     fec.unwrap_or(0),
+                )
+            } else if mode == Some("hybrid") {
+                if dtx || fec.is_some() {
+                    return Err(invalid("Hybrid DTX/FEC is not yet supported").into());
+                }
+                let bandwidth = match bandwidth {
+                    Some(EncodingBandwidth::Hybrid(bandwidth)) => Some(bandwidth),
+                    None => None,
+                    _ => return Err(invalid("Hybrid bandwidth must be swb/fb").into()),
+                };
+                let duration = match size.unwrap_or("20") {
+                    "10" => FrameDuration::Ms10,
+                    "20" => FrameDuration::Ms20,
+                    _ => return Err(invalid("Hybrid frame-ms must be 10/20").into()),
+                };
+                encode_hybrid(
+                    Path::new(&args[1]),
+                    Path::new(&args[2]),
+                    bitrate,
+                    duration,
+                    bandwidth,
                 )
             } else {
                 if bandwidth.is_some() || dtx || fec.is_some() {
@@ -225,9 +257,10 @@ fn encode(input: &Path, output: &Path, bitrate: u32, size: FrameSize) -> Result<
     Ok(())
 }
 #[derive(Clone, Copy)]
-enum SilkBandwidth {
+enum EncodingBandwidth {
     Fixed(SilkRate),
     Automatic,
+    Hybrid(Bandwidth),
 }
 enum SilkFileEncoder {
     Mono(Box<MonoEncoder>),
@@ -246,7 +279,7 @@ fn encode_silk(
     output: &Path,
     bitrate: Option<u32>,
     duration: PacketDuration,
-    bandwidth: Option<SilkBandwidth>,
+    bandwidth: Option<EncodingBandwidth>,
     dtx: bool,
     fec_loss: u8,
 ) -> Result<()> {
@@ -261,9 +294,9 @@ fn encode_silk(
         48000 => OutputRate::Khz48,
         _ => return Err(invalid("unsupported input rate").into()),
     };
-    let automatic = matches!(bandwidth, Some(SilkBandwidth::Automatic));
+    let automatic = matches!(bandwidth, Some(EncodingBandwidth::Automatic));
     let bandwidth = match bandwidth {
-        Some(SilkBandwidth::Fixed(rate)) => rate,
+        Some(EncodingBandwidth::Fixed(rate)) => rate,
         _ => match source.rate {
             8000 => SilkRate::Khz8,
             12000 => SilkRate::Khz12,
@@ -359,6 +392,87 @@ fn encode_silk(
     }
     eprintln!(
         "encoded SILK {} samples/channel at {} Hz, {} channels; {frames} packets, {packet_bytes} packet bytes, {plc_packets} PLC fallback packets; {:.3} s",
+        source.frames,
+        source.rate,
+        source.channels,
+        start.elapsed().as_secs_f64()
+    );
+    Ok(())
+}
+fn encode_hybrid(
+    input: &Path,
+    output: &Path,
+    bitrate: Option<u32>,
+    duration: FrameDuration,
+    bandwidth: Option<Bandwidth>,
+) -> Result<()> {
+    let start = Instant::now();
+    let mut source = wav::Reader::new(BufReader::new(File::open(input)?))?;
+    let rate = match source.rate {
+        24000 => InputRate::Khz24,
+        48000 => InputRate::Khz48,
+        _ => return Err(invalid("Hybrid input rate must be 24000 or 48000").into()),
+    };
+    let bandwidth = bandwidth.unwrap_or(if rate == InputRate::Khz24 {
+        Bandwidth::SuperWideband
+    } else {
+        Bandwidth::Fullband
+    });
+    let mut encoder = HybridEncoder::new(rate, source.channels, bandwidth)?;
+    let bitrate = bitrate.unwrap_or(if source.channels == 1 { 32000 } else { 64000 });
+    let ms = if duration == FrameDuration::Ms10 {
+        10u64
+    } else {
+        20
+    };
+    let numerator = u64::from(bitrate) * ms;
+    let denominator = 8000;
+    if numerator / denominator < 3 || numerator.div_ceil(denominator) > 1276 {
+        return Err(invalid(
+            "bitrate/frame combination requires packet size outside 3..1276 bytes",
+        )
+        .into());
+    }
+    let lookahead = u64::from(encoder.lookahead_48k());
+    let original_samples = source.frames * u64::from(48000 / source.rate);
+    let end = original_samples
+        .checked_add(lookahead)
+        .ok_or_else(|| invalid("audio duration overflow"))?;
+    let frame_samples = ms * 48;
+    let frames = end.div_ceil(frame_samples);
+    let mut writer = ogg::Writer::with_pre_skip(
+        BufWriter::new(create(output)?),
+        source.channels,
+        source.rate,
+        lookahead as u16,
+    )?;
+    let mut pcm = [0i16; 1920];
+    let length = source.rate as usize / 1000 * ms as usize * source.channels;
+    let mut credit = denominator / 2;
+    let mut packet_bytes = 0u64;
+    for index in 0..frames {
+        pcm.fill(0);
+        source.read_samples(&mut pcm[..length])?;
+        credit += numerator;
+        let bytes = credit / denominator;
+        credit %= denominator;
+        let packet = encoder.encode(
+            duration,
+            &pcm[..length],
+            bytes as usize,
+            HybridOptions::default(),
+        )?;
+        let final_frame = index + 1 == frames;
+        let granule = if final_frame {
+            end
+        } else {
+            (index + 1) * frame_samples
+        };
+        writer.packet(packet.as_bytes(), granule, final_frame)?;
+        packet_bytes += packet.as_bytes().len() as u64;
+    }
+    eprintln!(
+        "encoded Hybrid {} samples/channel at {} Hz, {} channels; {frames} packets, {packet_bytes} packet bytes; {:.3} s",
         source.frames,
         source.rate,
         source.channels,

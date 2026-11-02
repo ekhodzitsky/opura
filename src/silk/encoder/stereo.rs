@@ -155,6 +155,9 @@ impl StereoAnalysisState {
     pub fn reset(&mut self) {
         *self = Self::default();
     }
+    pub(crate) fn smoothed_width(&self) -> i16 {
+        self.smoothed_width
+    }
     /// Convert planar internal-rate L/R PCM to native buffered mid/side. No
     /// external resampling is performed here. Invalid inputs preserve state.
     pub fn analyze(

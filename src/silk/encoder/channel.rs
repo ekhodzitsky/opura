@@ -289,7 +289,7 @@ impl ChannelFrameEncoder {
     // Native side restart clears prediction/shape state while preserving input
     // delay, frame counter and entropy history. Independent-without-scaling
     // coding restarts the side inside a packet after mid-only omission.
-    pub(super) fn restart_prediction(&mut self) {
+    pub(crate) fn restart_prediction(&mut self) {
         self.first = true;
         self.pitch.reset();
         self.shape.reset();

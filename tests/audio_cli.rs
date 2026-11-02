@@ -516,6 +516,103 @@ fn audio_packets(bytes: &[u8]) -> Result<Vec<Vec<u8>>> {
     assert!(pending.is_empty() && packets.len() >= 3);
     Ok(packets.into_iter().skip(2).collect())
 }
+
+#[test]
+fn hybrid_cli_preserves_pre_skip_duration_and_fractional_packet_budgets() -> Result<()> {
+    let temp = Temporary::new()?;
+    let mut cases = 0;
+    for (rate, band) in [(24000, "swb"), (48000, "swb"), (48000, "fb")] {
+        for channels in [1u16, 2] {
+            for ms in [10, 20] {
+                let frame = rate as usize / 1000 * ms;
+                for frames in [0, 1, frame - 1, frame, frame + 1] {
+                    let stem = format!("hybrid-{cases}");
+                    cases += 1;
+                    let input = temp.0.join(stem.clone() + ".wav");
+                    let encoded = temp.0.join(stem.clone() + ".opus");
+                    let output = temp.0.join(stem + "-out.wav");
+                    fs::write(&input, wave(rate, channels, frames))?;
+                    let bitrate = if channels == 1 { "32001" } else { "64001" };
+                    success(cli().arg("encode").arg(&input).arg(&encoded).args([
+                        "--mode",
+                        "hybrid",
+                        "--bandwidth",
+                        band,
+                        "--bitrate",
+                        bitrate,
+                        "--frame-ms",
+                        &ms.to_string(),
+                    ]))?;
+                    success(cli().arg("decode").arg(&encoded).arg(&output))?;
+                    output_pcm(
+                        &fs::read(&output)?,
+                        channels,
+                        frames * (48000 / rate) as usize,
+                    )?;
+                    let ogg = fs::read(encoded)?;
+                    let head = ogg
+                        .windows(8)
+                        .position(|v| v == b"OpusHead")
+                        .ok_or("missing head")?;
+                    assert_eq!(
+                        u16::from_le_bytes(ogg[head + 10..head + 12].try_into()?),
+                        312
+                    );
+                    let mut credit = 4000;
+                    for bytes in audio_packets(&ogg)? {
+                        credit += bitrate.parse::<usize>()? * ms;
+                        assert_eq!(bytes.len(), credit / 8000);
+                        credit %= 8000;
+                        let packet = opura::Packet::parse(&bytes)?;
+                        assert_eq!(packet.mode(), opura::Mode::Hybrid);
+                        assert_eq!(packet.frame_samples(), ms as u16 * 48);
+                    }
+                }
+            }
+        }
+    }
+    assert_eq!(cases, 60);
+    let input = temp.0.join("bad.wav");
+    fs::write(&input, wave(48000, 1, 960))?;
+    for args in [
+        vec!["--mode", "hybrid", "--frame-ms", "5"],
+        vec!["--mode", "hybrid", "--frame-ms", "40"],
+        vec!["--mode", "hybrid", "--bandwidth", "auto"],
+        vec!["--mode", "hybrid", "--bandwidth", "wb"],
+        vec!["--mode", "hybrid", "--dtx"],
+        vec!["--mode", "hybrid", "--fec", "20"],
+        vec!["--mode", "silk", "--bandwidth", "fb"],
+    ] {
+        let output = temp.0.join("must-not-create.opus");
+        assert!(
+            !cli()
+                .arg("encode")
+                .arg(&input)
+                .arg(&output)
+                .args(args)
+                .output()?
+                .status
+                .success()
+        );
+        assert!(!output.exists());
+    }
+    for rate in [8000, 12000, 16000, 24000] {
+        fs::write(&input, wave(rate, 1, 960))?;
+        let output = temp.0.join("bad-rate.opus");
+        assert!(
+            !cli()
+                .arg("encode")
+                .arg(&input)
+                .arg(&output)
+                .args(["--mode", "hybrid", "--bandwidth", "fb"])
+                .output()?
+                .status
+                .success()
+        );
+        assert!(!output.exists());
+    }
+    Ok(())
+}
 #[test]
 fn silk_cli_fec_emits_redundancy_and_combines_with_dtx() -> Result<()> {
     let temp = Temporary::new()?;

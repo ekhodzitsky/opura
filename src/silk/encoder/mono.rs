@@ -548,7 +548,7 @@ impl MonoEncoder {
         Ok(result)
     }
 }
-pub(super) fn target_snr(rate: SilkRate, duration: FrameDuration, mut bitrate: i32) -> u16 {
+pub(crate) fn target_snr(rate: SilkRate, duration: FrameDuration, mut bitrate: i32) -> u16 {
     if duration == FrameDuration::Ms10 {
         bitrate -= 2000 + rate.khz() / 16;
     }
@@ -600,7 +600,7 @@ pub(super) fn packet(toc: u8, payload: &[u8], length: usize, range: u32) -> Mono
     result
 }
 
-pub(super) fn dc_reject(state: &mut i32, rate: OutputRate, input: &[i16], output: &mut [i16]) {
+pub(crate) fn dc_reject(state: &mut i32, rate: OutputRate, input: &[i16], output: &mut [i16]) {
     let shift = 31 - (rate.hz() / 12).leading_zeros();
     for (out, &sample) in output.iter_mut().zip(input) {
         let y = (i32::from(sample) << 14) - *state;

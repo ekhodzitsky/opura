@@ -1,10 +1,15 @@
-//! Hybrid encoder rate controls shared by the low and high bands.
+//! Fixed-band Hybrid PCM encoding and native low/high-band rate controls.
 //!
-//! These are control-stage calculations, not a PCM/packet encoder. The complete
-//! shared-entropy Hybrid encoding path remains under development.
+//! [`HybridEncoder`] connects both layers in one entropy stream for10/20ms
+//! mono/stereo SWB/FB packets. DTX/FEC and general mode/channel adaptation
+//! remain under development. Rate controls are also available independently.
 //! Adapted from Opus v1.6.1 `src/opus_encoder.c`; see THIRD_PARTY_NOTICES.md.
 use crate::{Bandwidth, silk::gains::FrameDuration};
 use std::fmt;
+
+#[path = "pcm_encoder.rs"]
+mod pcm;
+pub use pcm::{EncodedPacket, EncoderError, HybridEncoder, Options};
 
 /// Invalid Hybrid rate allocation inputs.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

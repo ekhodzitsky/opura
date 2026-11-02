@@ -199,6 +199,14 @@ pub struct CeltEncoder {
     spreading: analysis::SpreadingState,
     transient_streak: u8,
 }
+// Only the enclosing Hybrid packet transaction calls this frame engine.
+#[derive(Clone, Copy)]
+pub(crate) struct HybridControls {
+    pub bandwidth: crate::Bandwidth,
+    pub complexity: u8,
+    pub voiced: bool,
+    pub loss_percent: u8,
+}
 impl CeltEncoder {
     /// Start a fresh one/two-channel stream at a standard PCM input rate.
     pub fn new(rate: InputRate, channels: usize) -> Result<Self, EncoderError> {
@@ -329,6 +337,15 @@ impl CeltEncoder {
     ) -> Result<EncodedPacket, EncoderError> {
         self.encode_with(size, pcm, payload_bytes, RangeEncoder::finish)
     }
+    pub(crate) fn encode_high_band(
+        &mut self,
+        size: FrameSize,
+        pcm: &[i16],
+        writer: &mut RangeEncoder,
+        controls: HybridControls,
+    ) -> Result<(), EncoderError> {
+        self.encode_frame(size, pcm, writer, Some(controls))
+    }
     fn tf_permitted(&self, diagnostics: analysis::TransientAnalysis, payload_bytes: usize) -> bool {
         self.analyze_tf && payload_bytes >= 15 * self.channels && !diagnostics.tf_tonal()
     }
@@ -399,7 +416,7 @@ impl CeltEncoder {
         finish: impl for<'a> FnOnce(&'a mut RangeEncoder) -> Result<&'a [u8], EntropyError>,
     ) -> Result<EncodedPacket, EncoderError> {
         let mut writer = RangeEncoder::new(payload_bytes)?;
-        self.encode_frame(size, pcm, &mut writer)?;
+        self.encode_frame(size, pcm, &mut writer, None)?;
         let range = writer.range();
         let payload = finish(&mut writer)?;
         let config = match self.rate {
@@ -427,8 +444,15 @@ impl CeltEncoder {
         size: FrameSize,
         pcm: &[i16],
         writer: &mut RangeEncoder,
+        hybrid: Option<HybridControls>,
     ) -> Result<(), EncoderError> {
         let payload_bytes = writer.capacity();
+        let start = if hybrid.is_some() { 17 } else { 0 };
+        let available = if hybrid.is_some() {
+            payload_bytes.saturating_sub(((writer.tell() + 4) >> 3) as usize)
+        } else {
+            payload_bytes
+        };
         let n = size.samples();
         let stride = n + 120;
         let mut context = [0; 2160];
@@ -446,7 +470,9 @@ impl CeltEncoder {
             self.overlap[c].copy_from_slice(&channel[n..n + 120]);
         }
         let budget = payload_bytes as u32 * 8;
-        writer.encode_bit_logp(false, 15)?;
+        if hybrid.is_none() {
+            writer.encode_bit_logp(false, 15)?;
+        }
         let transient_candidate = size != FrameSize::Ms2_5 && writer.tell() + 3 <= budget;
         let diagnostics = if (self.detect_transients && transient_candidate)
             || self.analyze_tf
@@ -459,7 +485,7 @@ impl CeltEncoder {
                 size,
                 &context[..self.channels * stride],
                 self.channels,
-                false,
+                hybrid.is_some_and(|h| available < 15 && !h.voiced),
             )?)
         } else {
             None
@@ -473,7 +499,10 @@ impl CeltEncoder {
             size,
             &current[..self.channels * n],
             PrefilterOptions {
-                enabled: self.pitch_prefilter && payload_bytes > 12 * self.channels && 16 < budget,
+                enabled: hybrid.is_none()
+                    && self.pitch_prefilter
+                    && payload_bytes > 12 * self.channels
+                    && 16 < budget,
                 available_bytes: payload_bytes as u16,
                 tf_estimate: diagnostics.map_or(0, |d| d.tf_estimate()),
                 tone_frequency: diagnostics.map_or(-1, |d| d.tone_frequency()),
@@ -484,7 +513,9 @@ impl CeltEncoder {
             },
         )?;
         context[..self.channels * stride].copy_from_slice(filtered.values());
-        encode_comb(writer, filtered.parameters())?;
+        if hybrid.is_none() {
+            encode_comb(writer, filtered.parameters())?;
+        }
         let transient_allowed = size != FrameSize::Ms2_5 && writer.tell() + 3 <= budget;
         let transient = self.detect_transients
             && transient_allowed
@@ -492,13 +523,22 @@ impl CeltEncoder {
         if transient_allowed {
             writer.encode_bit_logp(transient, 3)?;
         }
-        let end = match self.rate {
-            InputRate::Khz8 => 13,
-            InputRate::Khz12 | InputRate::Khz16 => 17,
-            InputRate::Khz24 => 19,
-            InputRate::Khz48 => 21,
-        };
-        let layout = BandLayout::new(self.channels, 0, end)?;
+        let end = hybrid.map_or_else(
+            || match self.rate {
+                InputRate::Khz8 => 13,
+                InputRate::Khz12 | InputRate::Khz16 => 17,
+                InputRate::Khz24 => 19,
+                InputRate::Khz48 => 21,
+            },
+            |h| {
+                if h.bandwidth == crate::Bandwidth::SuperWideband {
+                    19
+                } else {
+                    21
+                }
+            },
+        );
+        let layout = BandLayout::new(self.channels, start, end)?;
         let spectrum = analysis::analyze_frame(
             size,
             &context[..self.channels * stride],
@@ -514,7 +554,9 @@ impl CeltEncoder {
             target[c] = *bands.log_energies(c).ok_or(EncoderError::InvalidChannels)?;
             amplitudes[c] = *bands.amplitudes(c).ok_or(EncoderError::InvalidChannels)?;
         }
-        let perceptual = if self.analyze_dynamic || self.analyze_spreading {
+        let perceptual = if (self.analyze_dynamic || self.analyze_spreading)
+            && (hybrid.is_none() || available >= 2)
+        {
             let d = diagnostics.ok_or(EncoderError::Analysis(
                 AnalysisError::InvalidDynallocParameters,
             ))?;
@@ -548,10 +590,14 @@ impl CeltEncoder {
                     previous: self.energy.energies().values(),
                 },
                 analysis::DynallocOptions {
-                    payload_bytes: payload_bytes as u16,
+                    payload_bytes: available as u16,
                     transient,
                     tone_frequency: d.tone_frequency(),
-                    toneishness: d.adjusted_toneishness(),
+                    toneishness: if hybrid.is_some_and(|h| h.complexity == 0) {
+                        d.toneishness()
+                    } else {
+                        d.adjusted_toneishness()
+                    },
                     ..analysis::DynallocOptions::default()
                 },
             )?)
@@ -568,7 +614,7 @@ impl CeltEncoder {
                 .energy
                 .residuals(c)
                 .ok_or(EncoderError::InvalidChannels)?;
-            for i in 0..end {
+            for i in start..end {
                 if (i64::from(target[i]) - i64::from(previous[i])).abs() < 2 << 24 {
                     target[i] -= residual[i].clamp(-(1 << 23), 1 << 23) >> 2;
                 }
@@ -581,17 +627,27 @@ impl CeltEncoder {
                 layout,
                 size,
                 effective_end: end,
-                available_bytes: payload_bytes,
-                force_intra: self.first,
-                two_pass: true,
-                loss_rate: 0,
+                available_bytes: available,
+                force_intra: hybrid.is_none() && self.first,
+                two_pass: hybrid.is_none_or(|h| h.complexity >= 4),
+                loss_rate: hybrid.map_or(0, |h| h.loss_percent),
                 lfe: false,
             },
         )?;
         let mut decisions = [false; 21];
-        decisions[..end].fill(transient);
+        decisions[start..end].fill(transient);
         let mut select = false;
-        if let Some(d) = diagnostics.filter(|&d| self.tf_permitted(d, payload_bytes)) {
+        if let Some(h) = hybrid {
+            if diagnostics.is_some_and(|d| d.weak_transient()) {
+                decisions[start..end].fill(true);
+            } else if available < 15 && !h.voiced {
+                decisions[start..end].fill(false);
+                select = transient;
+            }
+        }
+        if let Some(d) =
+            diagnostics.filter(|&d| hybrid.is_none() && self.tf_permitted(d, payload_bytes))
+        {
             let analyzed = analysis::analyze_tf(
                 size,
                 bands
@@ -611,14 +667,27 @@ impl CeltEncoder {
             decisions = *analyzed.decisions();
             select = analyzed.select();
         }
-        let tf = control::encode_tf(writer, size, 0..end, transient, &decisions, select)?;
-        let spread = self.encode_spreading(
-            writer,
-            &bands,
-            transient,
-            perceptual.as_ref(),
-            filtered.active(),
-        )?;
+        let tf = control::encode_tf(writer, size, start..end, transient, &decisions, select)?;
+        let spread = if let Some(h) = hybrid {
+            control::encode_spread(
+                writer,
+                if h.complexity == 0 {
+                    Spread::None
+                } else if transient {
+                    Spread::Normal
+                } else {
+                    Spread::Aggressive
+                },
+            )?
+        } else {
+            self.encode_spreading(
+                writer,
+                &bands,
+                transient,
+                perceptual.as_ref(),
+                filtered.active(),
+            )?
+        };
         let rate = analysis::equivalent_rate(size, self.channels, payload_bytes)?;
         let intensity = if self.analyze_allocation && self.channels == 2 {
             self.intensity.select((rate / 1000) as i16, layout)
@@ -646,7 +715,7 @@ impl CeltEncoder {
                 signal_bandwidth: end - 1,
             },
             || {
-                if !self.analyze_allocation {
+                if !self.analyze_allocation || hybrid.is_some() {
                     return Ok(5);
                 }
                 self.trim

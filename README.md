@@ -8,7 +8,9 @@ The separate SILK/CELT/Hybrid APIs and their component stages remain available.
 The fixed-bandwidth SILK encoder accepts mono/stereo PCM and emits 10/20/40/60 ms
 NB/MB/WB Opus packets.** Both paths are available through the WAV/Ogg CLI.
 SILK supports opt-in DTX/FEC and explicit, gradual or automatic bandwidth
-selection. Hybrid encoding remains in progress.
+selection. **The fixed-band Hybrid encoder accepts mono/stereo24/48kHz PCM for
+10/20ms SWB/FB packets through the library and WAV/Ogg CLI.** Hybrid DTX/FEC
+and general mode/channel adaptation remain in progress.
 **The decoder passes all120 official RFC8251 vector/rate/channel cases.**
 The first complete-decoder benchmark is recorded: Opura trails the pinned scalar
 libopus reference in all ten configurations; complete adaptive encoding remains under development. The accepted direction is a complete decoder first, then an encoder,
@@ -103,7 +105,8 @@ Automatic-mode packet overflow follows native PLC signaling; `used_plc()` and th
 CLI PLC packet count distinguish this from DTX. The
 [automatic bandwidth record](docs/validation/silk-automatic-bandwidth.md) retains
 stress-case concealment counts and limitations. General mode/channel selection,
-Hybrid encoding and quality/performance leadership remain unfinished.
+Hybrid DTX/FEC, general mode/channel selection and quality/performance
+leadership remain unfinished.
 
 
 Decoding accepts SILK, Hybrid and CELT in one mono/stereo Ogg Opus stream
@@ -119,7 +122,7 @@ independent decoding, exact durations, packet budgets and original native
 mode files. It does not establish perceptual quality or performance leadership.
 The [initial real-recording baseline](docs/benchmarks/audio-0.1.66.md) reports
 speech/music signal diagnostics and Opura file wall time with explicit limits.
-Hybrid encoding and broader subjective/competitive comparisons remain work.
+Hybrid DTX/FEC and broader subjective/competitive comparisons remain work.
 Fixed-bandwidth SILK library paths are available under
 `silk::encoder::mono` and `silk::encoder::stereo`: PCM at any standard input rate to NB/MB/WB packets of
 10/20/40/60 ms, with exact CBR byte budgets or capped variable length. See the
@@ -135,15 +138,29 @@ speech/music file cases and 96 deterministic loss scenarios. Unprotected/fixed
 SILK controls match native encoder PCM; protected profiles retain every SNR loss,
 backup-coverage tradeoff and PLC count. These are two-recording waveform
 checks, with process timings and no perceptual or native speed advantage claim.
-Hybrid encoding and general Opus mode/channel adaptation remain unfinished.
+Hybrid DTX/FEC and general Opus mode/channel adaptation remain unfinished.
 
-Hybrid encoder control calculations are available in `hybrid::encoder`:
+`hybrid::encoder::HybridEncoder` emits fixed-band CBR Hybrid packets using a
+single shared range writer, WB SILK and CELT bands17..19(SWB)/21(FB).24kHz PCM
+accepts SWB;48kHz accepts SWB/FB. Lookahead is312 samples on the48kHz clock.
+All input/filter/resampler/stereo/predictor/entropy state rolls back on errors.
+Tiny budgets can fail explicitly after bounded search. The CLI defaults to32kbps
+mono/64kbps stereo and supports `--bandwidth swb|fb` with `--frame-ms 10|20`.
+Hybrid DTX/FEC, VBR, cross-mode switching and general mode/channel selection
+remain unfinished. See [Hybrid PCM validation](docs/validation/hybrid-pcm-packets.md).
+
+```sh
+cargo run --release --offline --locked -- encode input.wav output.opus --mode hybrid --bandwidth fb --bitrate 64000
+```
+
+Hybrid encoder control calculations are also available in `hybrid::encoder`:
 `RateAllocation` reproduces native SILK/high-band rate splitting and the SILK
 CBR/VBR bit cap, including selected FEC, bandwidth and stereo corrections.
 The target bitrate excludes TOC/transition costs; the payload capacity is shared
 by both layers. This control API does not encode PCM or certify that a frame fits.
-CELT packet termination is separated from its frame engine for upcoming shared
-entropy integration; existing packet bytes and rollback contracts are preserved.
+CELT packet termination is separated from its frame engine; Hybrid passes its
+live writer to that engine. Existing fixed-mode packet bytes and rollback
+contracts are preserved.
 See [Hybrid rate validation](docs/validation/hybrid-encoder-rates.md).
 
 ## Development

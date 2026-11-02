@@ -4,7 +4,9 @@
 //! transitions. All120 official RFC8251 vector/rate/channel cases pass.
 //! The measured scalar decoder baseline trails libopus. Encoding is available in
 //! [`celt::encoder::CeltEncoder`] and the fixed-bandwidth mono SILK
-//! [`silk::encoder::mono::MonoEncoder`]; full adaptive/Hybrid encoding remains work.
+//! [`silk::encoder::mono::MonoEncoder`], plus fixed-band Hybrid
+//! [`hybrid::encoder::HybridEncoder`]. Full adaptive encoding and Hybrid DTX/FEC
+//! remain work.
 //! Frame-local entropy writing is available in [`range::RangeEncoder`]. Component APIs are in
 //! [`silk::decoder`], [`celt::decoder`] and [`hybrid`].
 //!
