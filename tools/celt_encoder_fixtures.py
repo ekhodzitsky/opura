@@ -16,7 +16,7 @@ REVISION='22244de5a79bd1d6d623c32e72bf1954b56235be'
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('source',type=Path)
 mode=parser.add_mutually_exclusive_group()
-for name in ['analysis','analysis-math','analysis-tables','transients','tf-analysis','tf-packets','tf-math','dynalloc-tables','dynalloc-analysis','dynalloc-packets','dynalloc-math']:mode.add_argument('--'+name,action='store_true')
+for name in ['analysis','analysis-math','analysis-tables','transients','tf-analysis','tf-packets','tf-math','dynalloc-tables','dynalloc-analysis','dynalloc-packets','dynalloc-math','spreading-analysis','spreading-packets','spreading-tails']:mode.add_argument('--'+name,action='store_true')
 args=parser.parse_args();source=args.source.resolve()
 if subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip()!=REVISION:
     raise SystemExit('Expected pinned Opus v1.6.1')
@@ -34,14 +34,15 @@ wrapper=r'''
 #error "Canonical fast64 fixed-point Q24 required"
 #endif
 struct baseline {
-    int rate,C,first,previous,detect,streak;unsigned rng;
+    int rate,C,first,previous,detect,streak,spread,average,hf,tapset;unsigned rng;
     opus_int32 preem[2],overlap[240],energy[42],residual[42],delayed;
 };
 void *baseline_create(int rate,int C,int detect){
     struct baseline *s=calloc(1,sizeof(*s));if(!s)return NULL;
-    s->rate=rate;s->C=C;s->detect=detect;s->first=1;return s;
+    s->rate=rate;s->C=C;s->detect=detect;s->first=1;s->spread=SPREAD_NORMAL;s->average=256;return s;
 }
-void baseline_reset(struct baseline *s){int rate=s->rate,C=s->C,detect=s->detect;memset(s,0,sizeof(*s));s->rate=rate;s->C=C;s->detect=detect;s->first=1;}
+void baseline_reset(struct baseline *s){int rate=s->rate,C=s->C,detect=s->detect;memset(s,0,sizeof(*s));s->rate=rate;s->C=C;s->detect=detect;s->first=1;s->spread=SPREAD_NORMAL;s->average=256;}
+void baseline_set_flags(struct baseline *s,int flags){s->detect=flags;}
 void baseline_destroy(struct baseline *s){free(s);}
 int baseline_encode(struct baseline *s,int LM,const opus_int16 *pcm,int bytes,unsigned char *data,int *out){
     int error;const CELTMode *m=opus_custom_mode_create(48000,960,&error);
@@ -60,7 +61,7 @@ int baseline_encode(struct baseline *s,int LM,const opus_int16 *pcm,int bytes,un
     if(1+16<=budget)ec_enc_bit_logp(&enc,0,1);
     int allowed=LM && ec_tell(&enc)+3<=budget;
     int transient=0,channel=0;opus_val32 radius=0;opus_val16 estimate=0,frequency=-1;
-    if(((s->detect&1)&&allowed)||(s->detect&6)){
+    if(((s->detect&1)&&allowed)||(s->detect&14)){
         frequency=tone_detect(in,C,N+120,&radius,48000);int weak=0;
         int detected=transient_analysis(in,N+120,C,&estimate,&channel,0,&weak,frequency,radius);
         transient=(s->detect&1)&&allowed&&detected;
@@ -73,9 +74,9 @@ int baseline_encode(struct baseline *s,int LM,const opus_int16 *pcm,int bytes,un
     amp2Log2(m,end,end,amplitudes,target,C);
     int requests[21]={0},importance[21],spread_weight[21]={0};opus_int32 dyn_total=0,dyn_depth=0;
     for(int i=0;i<21;i++)importance[i]=13;
-    if(s->detect&4){
+    if(s->detect&12){
         celt_glog comparison[42];OPUS_COPY(comparison,target,42);
-        if(transient){
+        if(transient&&(s->detect&4)){
             celt_sig long_freq[1920]={0};celt_ener long_amplitudes[42]={0};
             compute_mdcts(m,0,in,long_freq,C,C,LM,upsample,0);
             compute_band_energies(m,long_freq,long_amplitudes,end,C,LM,0);
@@ -98,18 +99,25 @@ int baseline_encode(struct baseline *s,int LM,const opus_int16 *pcm,int bytes,un
     int tf[21]={0},requested_tf[21]={0},select=0;
     int analysis_enabled=(s->detect&2)&&bytes>=15*C&&radius<QCONST32(.98f,29);
     if(analysis_enabled){
-        select=tf_analysis(m,end,transient,tf,IMAX(80,20480/bytes+2),X,N,LM,estimate,channel,importance);
+        int tf_importance[21];for(int i=0;i<21;i++)tf_importance[i]=(s->detect&4)?importance[i]:13;
+        select=tf_analysis(m,end,transient,tf,IMAX(80,20480/bytes+2),X,N,LM,estimate,channel,tf_importance);
     } else for(int i=0;i<end;i++)tf[i]=transient;
     for(int i=0;i<21;i++)requested_tf[i]=tf[i];
     tf_encode(0,end,transient,tf,LM,select,&enc);
-    int spread=SPREAD_NORMAL;if(ec_tell(&enc)+4<=budget)ec_enc_icdf(&enc,spread,spread_icdf,5);
+    if(ec_tell(&enc)+4<=budget){
+        if((s->detect&8)&&!transient&&bytes>=10*C)
+            s->spread=spreading_decision(m,X,&s->average,s->spread,&s->hf,&s->tapset,0,end,C,1<<LM,spread_weight);
+        else s->spread=SPREAD_NORMAL;
+        ec_enc_icdf(&enc,s->spread,spread_icdf,5);
+    } else s->spread=SPREAD_NORMAL;
+    int spread=s->spread;
     int cap[21],offsets[21]={0},fine[21]={0},pvq[21]={0},priority[21]={0};init_caps(m,cap,LM,C);
     int total=bytes*64,tell=ec_tell_frac(&enc),logp=6,total_boost=0;
     for(int i=0;i<end;i++){
         int width=C*(m->eBands[i+1]-m->eBands[i])<<LM;
         int quanta=IMIN(width<<3,IMAX(48,width)),loop_logp=logp,boost=0,j;
         for(j=0;tell+(loop_logp<<3)<total-total_boost&&boost<cap[i];j++){
-            int flag=j<requests[i];ec_enc_bit_logp(&enc,flag,loop_logp);tell=ec_tell_frac(&enc);
+            int flag=(s->detect&4)&&j<requests[i];ec_enc_bit_logp(&enc,flag,loop_logp);tell=ec_tell_frac(&enc);
             if(!flag)break;
             boost+=quanta;total_boost+=quanta;loop_logp=1;
         }
@@ -133,7 +141,7 @@ int baseline_encode(struct baseline *s,int LM,const opus_int16 *pcm,int bytes,un
     for(int i=0;i<240;i++)out[6+i]=s->overlap[i];
     for(int i=0;i<42;i++){out[246+i]=s->energy[i];out[288+i]=s->residual[i];}
     out[330]=ec_tell(&enc);out[331]=ec_tell_frac(&enc);out[332]=transient;out[333]=s->streak;out[334]=!!analysis_enabled;out[335]=select;for(int i=0;i<21;i++)out[336+i]=requested_tf[i];for(int i=0;i<21;i++)out[357+i]=tf[i];
-    out[378]=dyn_depth;out[379]=dyn_total;
+    out[378]=dyn_depth;out[379]=dyn_total;out[443]=s->spread;out[444]=s->average;out[445]=s->hf;out[446]=s->tapset;
     for(int i=0;i<21;i++){out[380+i]=requests[i];out[401+i]=i<end?importance[i]:0;out[422+i]=spread_weight[i];}
 
     ec_enc_done(&enc);if(ec_get_error(&enc))return -3;
@@ -195,6 +203,32 @@ int dynalloc_probe(int LM,int C,int start,int end,int bytes,int lsb,int flags,in
     for(int i=0;i<21;i++){out[2+i]=requests[i];out[23+i]=i>=start&&i<end?importance[i]:0;out[44+i]=i>=start&&i<end?spread[i]:0;}
     return 0;
 }
+int spreading_defaults(int *out){
+    CELTEncoder *s=malloc(celt_encoder_get_size(2));if(!s)return -1;
+    int error=celt_encoder_init(s,48000,2,0);
+    if(!error){out[0]=s->spread_decision;out[1]=s->tonal_average;out[2]=s->hf_average;out[3]=s->tapset_decision;}
+    free(s);return error;
+}
+int spreading_tail(int LM,int C,int bytes,int remaining,unsigned char *data,int *out){
+    int error;const CELTMode *m=opus_custom_mode_create(48000,960,&error);if(!m||error)return -1;
+    int initial[4];if(spreading_defaults(initial))return -2;
+    int decision=initial[0],average=initial[1],hf=initial[2],tapset=initial[3];
+    celt_norm X[1920]={0};int weights[21];for(int i=0;i<21;i++)weights[i]=32;
+    ec_enc enc;ec_enc_init(&enc,data,bytes);int left=bytes*8-1-remaining;
+    while(left){int bits=IMIN(25,left);ec_enc_bits(&enc,(1u<<bits)-1,bits);left-=bits;}
+    if(ec_tell(&enc)+4<=bytes*8){
+        if(bytes>=10*C)decision=spreading_decision(m,X,&average,decision,&hf,&tapset,0,21,C,1<<LM,weights);
+        else decision=SPREAD_NORMAL;
+        ec_enc_icdf(&enc,decision,spread_icdf,5);
+    } else decision=SPREAD_NORMAL;
+    out[0]=decision;out[1]=average;out[2]=hf;out[3]=tapset;out[4]=enc.rng;out[5]=ec_tell(&enc);out[6]=ec_tell_frac(&enc);
+    ec_enc_done(&enc);return ec_get_error(&enc);
+}
+int spreading_probe(int LM,int C,int end,int update,int average,int hf,int tapset,int previous,const int *input,const int *weights,int *out){
+    int error;const CELTMode *m=opus_custom_mode_create(48000,960,&error);if(!m||error)return -1;
+    out[0]=spreading_decision(m,input,&average,previous,&hf,&tapset,update,end,C,1<<LM,weights);
+    out[1]=average;out[2]=hf;out[3]=tapset;return 0;
+}
 int dynalloc_importance(int follower){return PSHR32(13*celt_exp2_db(MING(follower,GCONST(4.f))),16);}
 int dynalloc_median(int n,const int *input){return n==3?median_of_3(input):median_of_5(input);}
 void dynalloc_caps(int LM,int C,int *out){
@@ -239,9 +273,92 @@ void decoder_energy(const OpusDecoder *s,int *out){baseline_decoder_energy((cons
                     *[str(source/f) for f in files if f not in ['celt/celt_encoder.c','celt/celt_decoder.c','src/opus_decoder.c']],'-lm','-o',str(path/'probe.so')],check=True)
     lib=c.CDLL(str(path/'probe.so'));ptr=c.c_void_p;i16=c.POINTER(c.c_int16);u8=c.POINTER(c.c_ubyte);u32=c.POINTER(c.c_uint32);i32=c.POINTER(c.c_int)
     for name,types,result in [('baseline_create',[c.c_int,c.c_int,c.c_int],ptr),('baseline_reset',[ptr],None),('baseline_destroy',[ptr],None),
+        ('baseline_set_flags',[ptr,c.c_int],None),
         ('baseline_encode',[ptr,c.c_int,i16,c.c_int,u8,i32],c.c_int),('opus_decoder_create',[c.c_int,c.c_int,i32],ptr),('opus_decoder_destroy',[ptr],None),
         ('decode_packet',[ptr,u8,c.c_int,i16,u32],c.c_int),('reset_decoder',[ptr],c.c_int),('decoder_energy',[ptr,i32],None)]:
         fn=getattr(lib,name);fn.argtypes=types;fn.restype=result
+    if args.spreading_tails:
+        lib.spreading_tail.argtypes=[c.c_int]*4+[u8,i32];lib.spreading_tail.restype=c.c_int
+        print('# Original isolated entropy tail and spreading history:',REVISION)
+        print('# tail LM C BYTES REMAINING DECISION AVERAGE HF TAPSET RANGE TELL FRAC HEX')
+        for lm in range(4):
+            for channels in [1,2]:
+                budget=10*channels
+                for remaining in range(9):
+                    data=(c.c_ubyte*budget)();out=(c.c_int32*7)()
+                    error=lib.spreading_tail(lm,channels,budget,remaining,data,out)
+                    if error:raise SystemExit(f'Original isolated spreading tail failed {lm,channels,remaining,error}')
+                    values=list(out);values[4]=c.c_uint32(values[4]).value
+                    print('tail',lm,channels,budget,remaining,*values,bytes(data).hex())
+        raise SystemExit
+    if args.spreading_analysis:
+        lib.spreading_probe.argtypes=[c.c_int]*8+[i32]*3;lib.spreading_probe.restype=c.c_int
+        lib.analysis_cos.argtypes=[c.c_int];lib.analysis_cos.restype=c.c_int
+        print('# Original pulse spreading/state analysis:',REVISION)
+        print('# frame LM C END CASES INPUT[C*N]; spread UPDATE AVERAGE HF TAPSET PREVIOUS WEIGHTS[21] DECISION AVERAGE HF TAPSET')
+        bands=[0,1,2,3,4,5,6,7,8,10,12,14,16,20,24,28,34,40,48,60,78,100]
+        lib.spreading_defaults.argtypes=[i32];lib.spreading_defaults.restype=c.c_int
+        defaults=(c.c_int32*4)()
+        if lib.spreading_defaults(defaults):raise SystemExit('Original native initial history observation failed')
+        print('defaults',*defaults)
+        random=0x53505244;frames=0;analyses=0
+        def next_spread_random():
+            global random
+            random^=(random<<13)&0xffffffff;random^=random>>17;random^=(random<<5)&0xffffffff
+            return random
+        def normalized(lm,channels,end,pattern):
+            n=120<<lm;values=[2147483647]*(n*channels)
+            for channel in range(channels):
+                for band in range(end):
+                    start=bands[band]<<lm;stop=bands[band+1]<<lm;width=stop-start
+                    if pattern>=8:
+                        threshold=[2048,512,128,2048][pattern-8]
+                        q=max(1,threshold//width);x=math.isqrt(q*32768)
+                        if x*x<q*32768:x+=1
+                        value=x*1024-(1 if pattern==11 else 0)
+                        vector=[value]*width
+                    else:
+                        raw=[]
+                        for i in range(width):
+                            if pattern==0:value=0
+                            elif pattern==1:value=32767 if i==0 else 0
+                            elif pattern==2:value=-32767 if i==width-1 else 0
+                            elif pattern==3:value=32767
+                            elif pattern==4:value=32767 if (i+channel)%2 else -32767
+                            elif pattern==5:value=lib.analysis_cos((i+channel*3+1)*(13*band+1)*1024)
+                            elif pattern==6:value=next_spread_random()%65536-32768
+                            else:value=(32767 if i%4==0 else -32767 if i%4==1 else 0)
+                            raw.append(value)
+                        den=math.isqrt(sum(x*x for x in raw))+1
+                        vector=[(x*(1<<24))//den for x in raw]
+                    values[channel*n+start:channel*n+stop]=vector
+            return values
+        def emit(lm,channels,end,values,cases):
+            global frames,analyses
+            print('frame',lm,channels,end,len(cases),*values);frames+=1
+            for update,average,hf,tapset,previous,weights in cases:
+                out=(c.c_int32*4)()
+                error=lib.spreading_probe(lm,channels,end,update,average,hf,tapset,previous,(c.c_int32*len(values))(*values),(c.c_int32*21)(*weights),out)
+                if error:raise SystemExit('Original spreading analysis failed')
+                print('spread',update,average,hf,tapset,previous,*weights,*out);analyses+=1
+        for lm in range(4):
+            for channels in [1,2]:
+                for end in range(1,22):
+                    for pattern in range(12):
+                        cases=[]
+                        for case in range(16):
+                            weights=[255]*21
+                            for band in range(end):weights[band]=[0,1,2,4,8,16,32][(case+band)%7] if case%3 else 32
+                            if ((bands[end]-bands[end-1])<<lm)>8:weights[end-1]=max(1,weights[end-1])
+                            cases.append((case%2,[0,79,80,128,255,256,383,384,512,767,768][case%11],[0,17,18,22,23,48,64][(case+pattern)%7],case%3,(case+pattern)%4,weights))
+                        emit(lm,channels,end,normalized(lm,channels,end,pattern),cases)
+        # Exhaust every checked tonal-history value for exact hysteresis/tie edges.
+        for pattern in [0,3,11]:
+            cases=[(0,average,0,0,previous,[32]*21) for average in range(769) for previous in range(4)]
+            if pattern==3:cases.extend([(1,256,44,1,2,[32]*21),(1,256,36,1,2,[32]*21)])
+            emit(3,1,21,normalized(3,1,21,pattern),cases)
+        print(f'# frames={frames} analyses={analyses}')
+        raise SystemExit
     if args.dynalloc_math:
         lib.dynalloc_importance.argtypes=[c.c_int];lib.dynalloc_importance.restype=c.c_int
         lib.dynalloc_median.argtypes=[c.c_int,i32];lib.dynalloc_median.restype=c.c_int
@@ -486,10 +603,12 @@ void decoder_energy(const OpusDecoder *s,int *out){baseline_decoder_energy((cons
         emit(3,1,values)
         print(f'# frames={rows} analyses={rows*2}')
         raise SystemExit
-    print('# Original '+('dynamic/TF/transient ' if args.dynalloc_packets else 'TF/transient ' if args.tf_packets else 'tone/transient ' if args.transients else 'fixed-policy ')+'CELT components and public Opus decoding:',REVISION)
+    print('# Original '+('spreading/dynamic/TF/transient ' if args.spreading_packets else 'dynamic/TF/transient ' if args.dynalloc_packets else 'TF/transient ' if args.tf_packets else 'tone/transient ' if args.transients else 'fixed-policy ')+'CELT components and public Opus decoding:',REVISION)
     print('# frame RESET INPUT_HZ C LM PAYLOAD_BYTES HEX; input PCM; state RANGE PREVIOUS FIRST DELAYED PREEM[2] OVERLAP[240] ENERGY[42] RESIDUAL[42] TELL FRAC; decoded RATE API COUNT RANGE ENERGY[42] PCM[COUNT*API] (ten per frame)')
     if args.tf_packets:print('# TF state tail: TRANSIENT STREAK ENABLED SELECT REQUESTED_TF[21] EFFECTIVE_TF[21]')
     if args.dynalloc_packets:print('# Dynamic state tail adds DEPTH TOTAL RAW_REQUESTS[21] IMPORTANCE[21] SPREAD_WEIGHTS[21]')
+    if args.spreading_packets:print('# Frame tail FLAGS: bit0 transient,bit1 TF,bit2 dynamic,bit3 spreading; base policies8,10,13,15; bit3 toggled off on frames7/11/17/23')
+    if args.spreading_packets:print('# State after first332: TRANSIENT STREAK TF_ENABLED TF_SELECT REQUESTED_TF[21] EFFECTIVE_TF[21] DEPTH TOTAL RAW_REQUESTS[21] IMPORTANCE[21] SPREAD_WEIGHTS[21] DECISION TONAL_AVERAGE HF_AVERAGE TAPSET')
     random=0x50434d45;rows=0;history_differences=0
     def next_random():
         global random
@@ -497,8 +616,9 @@ void decoder_energy(const OpusDecoder *s,int *out){baseline_decoder_energy((cons
         return random
     for rate in [8000,12000,16000,24000,48000]:
         for channels in [1,2]:
-            for sequence in range(4 if (args.transients or args.tf_packets or args.dynalloc_packets) else 3):
-                encoder=lib.baseline_create(rate,channels,7 if args.dynalloc_packets else 3 if args.tf_packets else int(args.transients))
+            for sequence in range(4 if (args.transients or args.tf_packets or args.dynalloc_packets or args.spreading_packets) else 3):
+                flags=[8,10,13,15][sequence] if args.spreading_packets else 7 if args.dynalloc_packets else 3 if args.tf_packets else int(args.transients)
+                encoder=lib.baseline_create(rate,channels,flags)
                 decoders=[]
                 if not encoder:raise SystemExit('Encoder allocation failed')
                 for output in [8000,12000,16000,24000,48000]:
@@ -510,12 +630,14 @@ void decoder_energy(const OpusDecoder *s,int *out){baseline_decoder_energy((cons
                 try:
                     for frame in range(24):
                         reset=frame in [0,13];lm=(frame//6)%4 if sequence>=2 else (frame+sequence)%4;n=120<<lm;count=n*rate//48000
-                        budgets=([2,3,4,8,14,15,16,29,30,31,32,64,128,256,512,1275] if (args.tf_packets or args.dynalloc_packets) and sequence==0 else [2,3,4,8,16,32,64,128,256,512,1275] if sequence==0 else [8,16,32,64,128,256] if sequence==2 else [32,64,128,256,512,1275])
+                        budgets=([2,3,4,8,9,10,11,14,15,16,20,19,21,29,30,31,32,64,128,256,512,1275] if args.spreading_packets and sequence==0 else [2,3,4,8,14,15,16,29,30,31,32,64,128,256,512,1275] if (args.tf_packets or args.dynalloc_packets) and sequence==0 else [2,3,4,8,16,32,64,128,256,512,1275] if sequence==0 else [8,16,32,64,128,256] if sequence==2 else [32,64,128,256,512,1275])
                         budget=budgets[frame%len(budgets)]
                         if reset:
                             lib.baseline_reset(encoder)
                             for output,api,d in decoders:
                                 if lib.reset_decoder(d):raise SystemExit('Original reset failed')
+                        frame_flags=flags^(8 if args.spreading_packets and frame in [7,11,17,23] else 0)
+                        if args.spreading_packets:lib.baseline_set_flags(encoder,frame_flags)
                         samples=[]
                         for i in range(count):
                             for channel in range(channels):
@@ -532,11 +654,11 @@ void decoder_energy(const OpusDecoder *s,int *out){baseline_decoder_energy((cons
                                 else:value=(next_random()%8192-4096)*(-1 if channel else 1)
                                 samples.append(value)
                         phase+=count
-                        data=(c.c_ubyte*1276)();state=(c.c_int32*443)()
+                        data=(c.c_ubyte*1276)();state=(c.c_int32*447)()
                         length=lib.baseline_encode(encoder,lm,(c.c_int16*len(samples))(*samples),budget,data,state)
                         if length!=budget+1:raise SystemExit(f'Original baseline failed {rate,channels,sequence,frame,budget,length}')
                         values=list(state);values[0]=c.c_uint32(values[0]).value
-                        print('frame',int(reset),rate,channels,lm,budget,bytes(data[:length]).hex());print('input',*samples);print('state',*(values if args.dynalloc_packets else values[:378] if args.tf_packets else values[:334] if args.transients else values[:332]))
+                        print('frame',int(reset),rate,channels,lm,budget,bytes(data[:length]).hex(),*([frame_flags] if args.spreading_packets else []));print('input',*samples);print('state',*(values if args.spreading_packets else values[:443] if args.dynalloc_packets else values[:378] if args.tf_packets else values[:334] if args.transients else values[:332]))
                         for output,api,d in decoders:
                             pcm=(c.c_int16*11520)();final=c.c_uint32();actual=lib.decode_packet(d,data,length,pcm,c.byref(final))
                             if actual!=n*output//48000 or final.value!=values[0]:raise SystemExit(f'Original packet decode mismatch {rate,channels,sequence,frame,output,api,actual}')

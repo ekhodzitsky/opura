@@ -1,4 +1,4 @@
-//! Standard channel/subframe MDCT orchestration before CELT band analysis.
+//! Standard CELT PCM, spectral-band and perceptual encoder analysis.
 //! Copyright (c) 2007-2008 CSIRO; 2007-2010 Xiph.Org Foundation;
 //! 2008 Gregory Maxwell. See THIRD_PARTY_NOTICES.md.
 use super::{
@@ -11,6 +11,8 @@ use super::{
 };
 use std::fmt;
 
+mod spreading;
+pub use spreading::{SpreadingOptions, SpreadingState};
 mod dynalloc;
 mod dynalloc_tables;
 pub use dynalloc::{DynallocAnalysis, DynallocInput, DynallocOptions, analyze_dynalloc};
@@ -35,6 +37,8 @@ pub enum AnalysisError {
     InvalidTfParameters,
     /// Dynamic-allocation budget, precision, tone or surround controls are invalid.
     InvalidDynallocParameters,
+    /// Spreading weights, history or eligible total weight are invalid.
+    InvalidSpreadParameters,
     /// Signal magnitude, headroom or accumulation exceeds the stage's
     /// documented checked arithmetic domain.
     ArithmeticOverflow,
@@ -47,6 +51,9 @@ impl fmt::Display for AnalysisError {
             Self::InvalidGeometry => f.write_str("invalid CELT analysis channel geometry"),
             Self::Transform(e) => write!(f, "CELT frame analysis: {e}"),
             Self::InvalidBands => f.write_str("invalid CELT analysis band ends"),
+            Self::InvalidSpreadParameters => {
+                f.write_str("invalid CELT spreading analysis controls")
+            }
             Self::InvalidDynallocParameters => {
                 f.write_str("invalid CELT dynamic analysis controls")
             }
@@ -204,6 +211,10 @@ impl BandAnalysis {
     /// Exclusive log-energy end, including the fixed -14 tail.
     pub fn end(&self) -> usize {
         self.end
+    }
+    /// Complete planar normalized Q24 channels; inactive bins are zero.
+    pub fn normalized_values(&self) -> &[i32] {
+        &self.normalized[..self.channels * self.size.samples()]
     }
     /// One full normalized Q24 channel; bins beyond effective bands are zero.
     pub fn normalized(&self, channel: usize) -> Option<&[i32]> {

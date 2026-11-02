@@ -7,7 +7,8 @@ The separate SILK/CELT/Hybrid APIs and their component stages remain available.
 **A baseline CELT-only encoder now accepts signed16 PCM at all five standard
 input rates and emits complete one-frame Opus packets.** Its current policy uses
 long windows by default, with optional native transient detection/short windows
-and per-band TF/dynamic-allocation analysis. Further adaptive decisions and SILK/Hybrid encoding
+and per-band TF/dynamic-allocation/spreading analysis. Further adaptive decisions
+and SILK/Hybrid encoding
 remain work.
 **The decoder passes all120 official RFC8251 vector/rate/channel cases.**
 The first complete-decoder benchmark is recorded: Opura trails the pinned scalar
@@ -2502,7 +2503,8 @@ and adjusted tone confidence. For transient frames, a second long MDCT supplies
 comparison energies with native LM/2 scaling. Analysis uses previous quantized
 energy before current coarse quantization and stable-energy feedback. Boost
 counts feed allocation; TF, when enabled, consumes perceptual importance.
-Spreading remains Normal and trim remains five. All settings default disabled,
+Spreading defaults to Normal with a separate adaptive setting; trim remains five.
+All settings default disabled,
 preserving the three previous baseline/transient/TF packet corpora.
 
 The independent original corpus matches 21,889 analyses over 2,737 contexts:
@@ -2539,5 +2541,70 @@ diff -u tests/celt-encoder-dynalloc-fixtures.txt /tmp/celt-encoder-dynalloc-fixt
 
 External original analysis and full packet writing consume raw native requests;
 the reference checkout stays unchanged. No native code enters Cargo builds/tests.
-Adaptive spreading/trim/pitch, complete SILK/Hybrid encoding and representative
+Adaptive trim/pitch, complete SILK/Hybrid encoding and representative
 quality/performance evaluation remain in development.
+
+
+## CELT pulse spreading analysis
+
+`celt::analysis::SpreadingState` maintains native sparsity/HF averages, pitch
+tapset suggestion and last effective spreading decision. Defaults match original
+encoder initialization (tonal 256, HF 0, tapset 0, Normal). `from_history` accepts
+checked tonal 0..768, HF 0..64 and tapset 0..2 histories; `reset` restores defaults.
+`SpreadingOptions` supplies one/two channels, end 1..21, active weights 0..32 and
+optional HF update. `process` requires exactly `channels*size.samples()` planar
+Q24 coefficients, each active band's squared norm at most 5/4 Q48. Inactive bins
+and weights are ignored. Invalid shapes, weights, histories or norms leave the
+whole state/input unchanged. No heap allocation occurs.
+
+The native CDF of truncated Q14 magnitudes drives per-band sparsity, masking
+weights, recursive averaging and strict hysteresis choices. A final band with
+at most 8 coefficients returns None while retaining numeric histories. Otherwise
+at least one eligible band must have positive weight. Optional HF/tapset updates
+preserve the original upper-band selection and divisor, including HF decay when
+there are no high-frequency counts. The result and state decision always agree.
+`BandAnalysis::normalized_values()` exposes the complete immutable planar output
+for direct composition with this and subsequent frame analysis.
+
+`CeltEncoder::set_spreading_analysis(true)` enables packet selection independently
+of transient, TF and dynamic allocation; `spreading_analysis()` reports it and
+reset retains it. The native gate requires a long window, at least 10 payload
+bytes/channel and four remaining whole entropy bits. Fallback writes Normal and
+retains numeric histories while recording the actual effective decision. Mask
+weights are computed even with dynamic allocation disabled; that setting still
+gates boost requests and perceptual TF importance. Pitch is currently disabled,
+so PCM encoding retains HF/tapset histories without updating them.
+
+The original corpus matches 41,486 analyses over 2,019 normalized contexts,
+including checked native constructor observations, every tonal history value in 0..768
+under four previous modes, exact CDF/half-count and hysteresis boundaries,
+explicit HF 22/18 thresholds, early-None and inactive extreme tails. All four spread
+modes and all three tapsets occur. Invalid histories/weights/geometry and late
+second-channel/exact norm errors preserve state and input.
+
+Another 960 original-component packets match bytes, numeric/effective spreading
+histories, energy/range/accounting, used perceptual/TF diagnostics and 9,600 public
+native PCM decodes. Four independent analysis policies and within-stream spread
+off/on toggles verify that spreading alone does not enable boosts or change TF
+importance. Exact 10/20-byte gates, 768 additional independent-setting frames,
+reset and all 16 setting combinations under injected finalization failures are
+checked. Previous four packet corpora remain unchanged. This evidence establishes
+compatibility, not quality or performance superiority.
+
+Another 72 isolated entropy-tail cases cover 0..8 remaining bits, using real raw
+prefixes and valid normalized spectra. Full writer bytes/ranges/accounting and
+stream history match the original. These cases verify that analysis does not
+advance numeric history when only three bits remain and signalling falls back to
+Normal. A bounded search of 66,640 physical PCM contexts did not reach this
+boundary; the retained regression checks stage composition directly. All 40
+targeted mutations are detected.
+
+
+```sh
+python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --spreading-analysis > /tmp/celt-spreading-analysis-fixtures.txt
+diff -u tests/celt-spreading-analysis-fixtures.txt /tmp/celt-spreading-analysis-fixtures.txt
+python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --spreading-packets > /tmp/celt-encoder-spreading-fixtures.txt
+diff -u tests/celt-encoder-spreading-fixtures.txt /tmp/celt-encoder-spreading-fixtures.txt
+python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --spreading-tails > /tmp/celt-spreading-tail-fixtures.txt
+diff -u tests/celt-spreading-tail-fixtures.txt /tmp/celt-spreading-tail-fixtures.txt
+```

@@ -7,6 +7,27 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.59] - 2026-11-02
+
+- Add bounded stateful native CELT pulse-spreading analysis with checked history,
+  Q14 CDF/weighting, recursive/hysteresis decisions and optional HF/tapset updates.
+  Expose complete immutable planar band normalization for frame composition.
+- Add independent opt-in packet spreading with perceptual masking, native
+  budget/window/byte gates and actual fallback/toggle history. Dynamic requests
+  and TF importance retain their own setting. Reset retains all settings and
+  restores numeric histories; the previous four packet corpora remain unchanged.
+- Match 41,486 original analyses, native constructor defaults and all hysteresis/
+  CDF/HF boundaries. Match 960 packets under four combined policies and spread
+  toggles, full state/accounting and 9,600 public native PCM/range/history decodes.
+  Another 768 threshold/setting frames and 16-setting finalization rollback pass.
+- Match 72 isolated original entropy tails across 0..8 remaining bits, preserving
+  numeric history when the spreading field cannot fit. This retained stage test
+  closes a mutation gap not reached by a 66,640-context physical PCM search.
+  All 40 targeted mutations are detected. Fifteen optional evidence modes
+  reproduce and all seven offline gates pass with zero dependencies.
+- Adaptive trim/stereo/pitch, SILK/Hybrid encoding and representative quality/
+  performance comparisons remain work; compatibility establishes no SOTA claim.
+
 ## [0.1.58] - 2026-11-02
 
 - Add bounded immutable native CELT dynamic-allocation analysis: noise/masking,

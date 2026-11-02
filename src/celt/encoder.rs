@@ -177,6 +177,8 @@ pub struct CeltEncoder {
     detect_transients: bool,
     analyze_tf: bool,
     analyze_dynamic: bool,
+    analyze_spreading: bool,
+    spreading: analysis::SpreadingState,
     transient_streak: u8,
 }
 impl CeltEncoder {
@@ -197,6 +199,8 @@ impl CeltEncoder {
             detect_transients: false,
             analyze_tf: false,
             analyze_dynamic: false,
+            analyze_spreading: false,
+            spreading: analysis::SpreadingState::default(),
             transient_streak: 0,
         })
     }
@@ -239,6 +243,16 @@ impl CeltEncoder {
     pub fn set_dynamic_allocation(&mut self, enabled: bool) {
         self.analyze_dynamic = enabled;
     }
+    /// Whether native pulse-spreading analysis is enabled.
+    pub fn spreading_analysis(&self) -> bool {
+        self.analyze_spreading
+    }
+    /// Enable native sparsity/masking spreading choices (initially disabled).
+    /// Histories remain continuous and reset retains this setting. Short windows,
+    /// low payloads and scarce entropy use Normal without updating averages.
+    pub fn set_spreading_analysis(&mut self, enabled: bool) {
+        self.analyze_spreading = enabled;
+    }
     /// Last completed packet final range, initially zero.
     pub fn final_range(&self) -> u32 {
         self.range
@@ -252,6 +266,7 @@ impl CeltEncoder {
         self.previous_coded = 0;
         self.first = true;
         self.transient_streak = 0;
+        self.spreading.reset();
     }
     /// Encode exactly one frame of interleaved signed16 PCM into a full packet.
     ///
@@ -269,6 +284,45 @@ impl CeltEncoder {
     }
     fn tf_permitted(&self, diagnostics: analysis::TransientAnalysis, payload_bytes: usize) -> bool {
         self.analyze_tf && payload_bytes >= 15 * self.channels && !diagnostics.tf_tonal()
+    }
+    // Operates on the packet's staged stream; the outer transaction owns errors.
+    fn encode_spreading(
+        &mut self,
+        writer: &mut RangeEncoder,
+        bands: &analysis::BandAnalysis,
+        transient: bool,
+        perceptual: Option<&analysis::DynallocAnalysis>,
+    ) -> Result<Spread, EncoderError> {
+        let payload_bytes = writer.capacity();
+        let budget = payload_bytes as u32 * 8;
+        let size = bands.size();
+        let end = bands.end();
+        let requested_spread = if self.analyze_spreading
+            && !transient
+            && payload_bytes >= 10 * self.channels
+            && writer.tell() + 4 <= budget
+        {
+            let weights = *perceptual
+                .ok_or(EncoderError::Analysis(
+                    AnalysisError::InvalidSpreadParameters,
+                ))?
+                .spread_weights();
+            self.spreading.process(
+                size,
+                bands.normalized_values(),
+                analysis::SpreadingOptions {
+                    channels: self.channels,
+                    end,
+                    weights,
+                    update_hf: false,
+                },
+            )?
+        } else {
+            Spread::Normal
+        };
+        let spread = control::encode_spread(writer, requested_spread)?;
+        self.spreading.effective_decision(spread);
+        Ok(spread)
     }
     // Static finalization injection verifies rollback after every preceding stage.
     fn encode_with(
@@ -323,6 +377,7 @@ impl CeltEncoder {
         let diagnostics = if (self.detect_transients && transient_allowed)
             || self.analyze_tf
             || self.analyze_dynamic
+            || self.analyze_spreading
         {
             Some(analysis::analyze_transients(
                 size,
@@ -361,12 +416,12 @@ impl CeltEncoder {
             target[c] = *bands.log_energies(c).ok_or(EncoderError::InvalidChannels)?;
             amplitudes[c] = *bands.amplitudes(c).ok_or(EncoderError::InvalidChannels)?;
         }
-        let dynamic = if self.analyze_dynamic {
+        let perceptual = if self.analyze_dynamic || self.analyze_spreading {
             let d = diagnostics.ok_or(EncoderError::Analysis(
                 AnalysisError::InvalidDynallocParameters,
             ))?;
             let mut comparison = target;
-            if transient {
+            if transient && self.analyze_dynamic {
                 let long = analysis::analyze_frame(
                     size,
                     &context[..self.channels * stride],
@@ -449,21 +504,27 @@ impl CeltEncoder {
                     transient,
                     lambda: (20480 / payload_bytes + 2).max(80) as u16,
                     estimate: d.tf_estimate(),
-                    importance: dynamic.as_ref().map_or([13; 21], |d| *d.importance()),
+                    importance: perceptual
+                        .as_ref()
+                        .filter(|_| self.analyze_dynamic)
+                        .map_or([13; 21], |d| *d.importance()),
                 },
             )?;
             decisions = *analyzed.decisions();
             select = analyzed.select();
         }
         let tf = control::encode_tf(&mut writer, size, 0..end, transient, &decisions, select)?;
-        let spread = control::encode_spread(&mut writer, Spread::Normal)?;
+        let spread = self.encode_spreading(&mut writer, &bands, transient, perceptual.as_ref())?;
         let allocation = allocation::encode_allocation(
             &mut writer,
             size,
             layout,
             transient,
             AllocationEncoding {
-                boosts: dynamic.as_ref().map_or([0; 21], |d| *d.boosts()),
+                boosts: perceptual
+                    .as_ref()
+                    .filter(|_| self.analyze_dynamic)
+                    .map_or([0; 21], |d| *d.boosts()),
                 trim: 5,
                 intensity: end,
                 dual_stereo: false,
@@ -548,7 +609,9 @@ mod tests {
         for detect in [false, true] {
             for tf in [false, true] {
                 for dynamic in [false, true] {
-                    verify_finalization_failure(detect, tf, dynamic)?;
+                    for spreading in [false, true] {
+                        verify_finalization_failure(detect, tf, dynamic, spreading)?;
+                    }
                 }
             }
         }
@@ -558,11 +621,13 @@ mod tests {
         detect: bool,
         tf: bool,
         dynamic: bool,
+        spreading: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut encoder = CeltEncoder::new(InputRate::Khz48, 2)?;
         encoder.set_transient_detection(detect);
         encoder.set_tf_analysis(tf);
         encoder.set_dynamic_allocation(dynamic);
+        encoder.set_spreading_analysis(spreading);
         encoder.encode(FrameSize::Ms10, &[0; 960], 128)?;
         let before = encoder.clone();
         let mut input = vec![0; 1920];
@@ -593,10 +658,104 @@ mod tests {
         Ok(())
     }
     #[test]
+    fn original_entropy_tails_preserve_history_when_spread_cannot_be_signalled()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let sizes = [
+            FrameSize::Ms2_5,
+            FrameSize::Ms5,
+            FrameSize::Ms10,
+            FrameSize::Ms20,
+        ];
+        let spreads = [
+            Spread::None,
+            Spread::Light,
+            Spread::Normal,
+            Spread::Aggressive,
+        ];
+        let mut cases = 0;
+        for line in include_str!("../../tests/celt-spreading-tail-fixtures.txt").lines() {
+            if line.starts_with('#') {
+                continue;
+            }
+            let f: Vec<_> = line.split_whitespace().collect();
+            assert_eq!(f[0], "tail");
+            assert_eq!(f.len(), 13);
+            let size = sizes[f[1].parse::<usize>()?];
+            let channels = f[2].parse::<usize>()?;
+            let bytes = f[3].parse::<usize>()?;
+            let remaining = f[4].parse::<usize>()?;
+            let native: Vec<i64> = f[5..12]
+                .iter()
+                .map(|s| s.parse())
+                .collect::<Result<_, _>>()?;
+            let expected: Vec<u8> = (0..f[12].len())
+                .step_by(2)
+                .map(|i| u8::from_str_radix(&f[12][i..i + 2], 16))
+                .collect::<Result<_, _>>()?;
+            let mut encoder = CeltEncoder::new(InputRate::Khz48, channels)?;
+            encoder.set_spreading_analysis(true);
+            let mut reference = encoder.clone();
+            reference.spreading = analysis::SpreadingState::from_history(
+                u16::try_from(native[1])?,
+                u8::try_from(native[2])?,
+                u8::try_from(native[3])?,
+                spreads[usize::try_from(native[0])?],
+            )?;
+            let input = vec![0; channels * size.samples()];
+            let bands = analysis::analyze_bands(size, &input, channels, 21, 21)?;
+            let mut logs = [[0; 21]; 2];
+            for (c, l) in logs[..channels].iter_mut().enumerate() {
+                *l = *bands.log_energies(c).ok_or("logs")?;
+            }
+            let perceptual = analysis::analyze_dynalloc(
+                size,
+                BandLayout::new(channels, 0, 21)?,
+                analysis::DynallocInput {
+                    current: &logs,
+                    comparison: &logs,
+                    previous: &[[0; 21]; 2],
+                },
+                analysis::DynallocOptions {
+                    payload_bytes: bytes as u16,
+                    ..analysis::DynallocOptions::default()
+                },
+            )?;
+            let mut writer = RangeEncoder::new(bytes)?;
+            let mut left = bytes * 8 - 1 - remaining;
+            while left > 0 {
+                let bits = left.min(25) as u32;
+                writer.encode_bits((1u32 << bits) - 1, bits)?;
+                left -= bits as usize;
+            }
+            assert_eq!(writer.tell() as usize, bytes * 8 - remaining);
+            let decision =
+                encoder.encode_spreading(&mut writer, &bands, false, Some(&perceptual))?;
+            assert_eq!(decision as i64, native[0], "decision case{cases}");
+            assert_eq!(
+                encoder, reference,
+                "full stream history case{cases} remaining{remaining}"
+            );
+            assert_eq!(
+                [
+                    i64::from(writer.range()),
+                    i64::from(writer.tell()),
+                    i64::from(writer.tell_frac())
+                ],
+                native[4..7],
+                "entropy case{cases}"
+            );
+            assert_eq!(writer.finish()?, expected, "payload case{cases}");
+            cases += 1;
+        }
+        assert_eq!(cases, 72);
+        Ok(())
+    }
+    #[test]
     fn original_complete_packets_histories_and_accounting_match()
     -> Result<(), Box<dyn std::error::Error>> {
         verify_packets(
             include_str!("../../tests/celt-encoder-fixtures.txt"),
+            false,
             false,
             false,
             false,
@@ -610,6 +769,7 @@ mod tests {
             true,
             false,
             false,
+            false,
         )
     }
     #[test]
@@ -619,6 +779,7 @@ mod tests {
             include_str!("../../tests/celt-encoder-tf-fixtures.txt"),
             true,
             true,
+            false,
             false,
         )
     }
@@ -630,6 +791,18 @@ mod tests {
             true,
             true,
             true,
+            false,
+        )
+    }
+    #[test]
+    fn original_spreading_packets_histories_and_accounting_match()
+    -> Result<(), Box<dyn std::error::Error>> {
+        verify_packets(
+            include_str!("../../tests/celt-encoder-spreading-fixtures.txt"),
+            true,
+            true,
+            true,
+            true,
         )
     }
     fn verify_packets(
@@ -637,6 +810,7 @@ mod tests {
         detect: bool,
         tf_analysis: bool,
         dynamic_analysis: bool,
+        spreading_corpus: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
         use crate::{celt::energy::EnergyState, range::RangeDecoder};
         let sizes = [
@@ -649,12 +823,25 @@ mod tests {
         encoder.set_transient_detection(detect);
         encoder.set_tf_analysis(tf_analysis);
         encoder.set_dynamic_allocation(dynamic_analysis);
+        encoder.set_spreading_analysis(spreading_corpus);
         let mut decoded_energy = EnergyState::default();
         let mut lines = fixtures.lines().filter(|l| !l.starts_with('#'));
         let mut rows = 0;
         while let Some(line) = lines.next() {
             let f: Vec<_> = line.split_whitespace().collect();
             assert_eq!(f[0], "frame");
+            let (detect, tf_analysis, dynamic_analysis, spreading_enabled) = if spreading_corpus {
+                let flags = f[7].parse::<u8>()?;
+                (
+                    flags & 1 != 0,
+                    flags & 2 != 0,
+                    flags & 4 != 0,
+                    flags & 8 != 0,
+                )
+            } else {
+                (detect, tf_analysis, dynamic_analysis, false)
+            };
+
             let rate = match f[2] {
                 "8000" => InputRate::Khz8,
                 "12000" => InputRate::Khz12,
@@ -677,7 +864,9 @@ mod tests {
             let state = numbers(lines.next().ok_or("state")?)?;
             assert_eq!(
                 state.len(),
-                if dynamic_analysis {
+                if spreading_corpus {
+                    447
+                } else if dynamic_analysis {
                     443
                 } else if tf_analysis {
                     378
@@ -692,14 +881,19 @@ mod tests {
                 encoder.set_transient_detection(detect);
                 encoder.set_tf_analysis(tf_analysis);
                 encoder.set_dynamic_allocation(dynamic_analysis);
+                encoder.set_spreading_analysis(spreading_corpus);
                 decoded_energy.reset();
             } else if f[1] == "1" {
                 encoder.reset();
                 decoded_energy.reset();
             }
+            encoder.set_transient_detection(detect);
+            encoder.set_tf_analysis(tf_analysis);
+            encoder.set_dynamic_allocation(dynamic_analysis);
+            encoder.set_spreading_analysis(spreading_enabled);
             let seed = encoder.range;
             let streak = encoder.transient_streak;
-            if tf_analysis {
+            if tf_analysis || spreading_corpus {
                 let stride = size.samples() + 120;
                 let mut context = vec![0; channels * stride];
                 for c in 0..channels {
@@ -720,7 +914,7 @@ mod tests {
                     state[334],
                     "TF gate frame{rows}"
                 );
-                if dynamic_analysis {
+                if dynamic_analysis || spreading_enabled {
                     let transient = state[332] != 0;
                     let frame = analysis::analyze_frame(
                         size, &context, channels, channels, rate, transient,
@@ -738,7 +932,7 @@ mod tests {
                         *logs = *measured.log_energies(c).ok_or("current logs")?;
                     }
                     let mut comparison = current;
-                    if transient {
+                    if transient && dynamic_analysis {
                         let long = analysis::analyze_frame(
                             size, &context, channels, channels, rate, false,
                         )?;
@@ -831,7 +1025,7 @@ mod tests {
                     );
                 }
             }
-            if detect {
+            if detect || tf_analysis || dynamic_analysis || spreading_corpus {
                 assert_eq!(
                     i64::from(encoder.transient_streak),
                     state[333],
@@ -841,6 +1035,20 @@ mod tests {
             assert_eq!(encoder.transient_detection(), detect);
             assert_eq!(encoder.tf_analysis(), tf_analysis);
             assert_eq!(encoder.dynamic_allocation(), dynamic_analysis);
+            assert_eq!(encoder.spreading_analysis(), spreading_enabled);
+            if spreading_corpus {
+                assert_eq!(
+                    [
+                        encoder.spreading.decision() as i64,
+                        i64::from(encoder.spreading.tonal_average()),
+                        i64::from(encoder.spreading.hf_average()),
+                        i64::from(encoder.spreading.tapset())
+                    ],
+                    state[443..447],
+                    "spreading state frame{rows}"
+                );
+            }
+
             let end = match rate {
                 InputRate::Khz8 => 13,
                 InputRate::Khz12 | InputRate::Khz16 => 17,
@@ -854,7 +1062,7 @@ mod tests {
             assert_eq!(prefix.transient(), detect && state[332] != 0);
             decoded_energy.coarse(&mut read, layout, size, prefix.intra())?;
             let tf = control::decode_tf(&mut read, size, 0..end, prefix.transient())?;
-            if tf_analysis {
+            if tf_analysis || spreading_corpus {
                 for i in 0..21 {
                     assert_eq!(
                         i64::from(tf.values()[i]),
@@ -864,6 +1072,11 @@ mod tests {
                 }
             }
             let spread = control::decode_spread(&mut read)?;
+            assert_eq!(
+                spread,
+                encoder.spreading.decision(),
+                "effective spreading frame{rows}"
+            );
             let allocation =
                 allocation::decode_allocation(&mut read, size, layout, prefix.transient())?;
 

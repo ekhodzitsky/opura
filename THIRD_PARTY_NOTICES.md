@@ -1486,3 +1486,14 @@ requests, and supplies counts clamped to 0..255 with a standard-cap wire proof.
 Optional packet integration follows native transient long-window comparison,
 energy-history ordering and perceptual TF weighting under explicit CBR controls.
 All reference code remains an optional external validation tool.
+
+
+# CELT pulse spreading analysis attribution
+
+`src/celt/analysis/spreading.rs` follows `celt/bands.c::spreading_decision` at
+the pinned revision. Existing CELT band/encoder notices and terms apply. Native
+initial histories are observed through unchanged encoder initialization. Rust
+bounds immutable normalized inputs/weights and checked histories, committing
+all state atomically. Optional packet selection follows the original spreading
+budget/short-window/byte gates and fallback history, using native masking weights.
+Reference algorithms remain optional external validation and never enter Cargo.
