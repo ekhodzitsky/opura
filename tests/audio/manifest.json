@@ -1,0 +1,33 @@
+{
+  "reference_revision": "22244de5a79bd1d6d623c32e72bf1954b56235be",
+  "sample_rate": 48000,
+  "cases": [
+    {
+      "name": "silk-mono",
+      "channels": 1,
+      "samples": 4663,
+      "pre_skip": 312,
+      "packets": 6,
+      "mode": 1000,
+      "bitrate": 16000
+    },
+    {
+      "name": "hybrid-stereo",
+      "channels": 2,
+      "samples": 4663,
+      "pre_skip": 312,
+      "packets": 6,
+      "mode": 1001,
+      "bitrate": 40000
+    },
+    {
+      "name": "celt-stereo",
+      "channels": 2,
+      "samples": 4663,
+      "pre_skip": 120,
+      "packets": 5,
+      "mode": 1002,
+      "bitrate": 96000
+    }
+  ]
+}

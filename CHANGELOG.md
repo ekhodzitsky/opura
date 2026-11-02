@@ -7,6 +7,24 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.65] - 2026-11-02
+
+- Add the native `opura encode` / `opura decode` CLI with bounded RIFF/WAVE
+  PCM16 and Ogg Opus I/O, adaptive CELT encoding and full-mode decoding.
+  Support five input rates, mono/stereo, four frame durations and fractional
+  packet-byte budgets. Flush encoder delay and honor pre-skip/EOS trimming.
+- Validate CRC, page sequences, continuations, header interpretation and
+  granule timing; reject unsupported mappings/gain/chaining and oversized
+  packets. Refuse existing outputs and document partial-output failure behavior.
+- Verify 51 encoded files with independent FFmpeg/FFprobe duration/geometry
+  and packet accounting, plus three pinned native SILK/Hybrid/CELT files with
+  exact reference PCM. Retain parser, malformed-input, boundary, timestamp
+  origin, impulse-delay and actual CLI tests without external test dependencies.
+- All seven required offline gates pass with zero dependencies; all seven
+  optional native fixture artifacts reproduce byte for byte.
+- Audio quality/speed leadership and SILK/Hybrid encoding remain unproven or
+  unfinished; this milestone supplies usable file conversion for evaluation.
+
 ## [0.1.64] - 2026-11-02
 
 - Integrate independent opt-in native pitch prefilter and comb signaling into

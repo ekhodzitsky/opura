@@ -22,7 +22,8 @@ The library parses externally delimited Opus packets according to
 returning borrowed frame slices and TOC metadata without allocation. It checks
 frame lengths, counts, padding and the 120 ms packet-duration limit. Empty
 frames are accepted. Parsing does not validate compressed audio contents.
-Ogg, RTP, multistream and self-delimiting framing are not supported yet.
+RTP, multistream and self-delimiting framing are not supported by this packet API.
+The audio command handles the supported Ogg container subset described above.
 
 ```rust
 use opura::Packet;
@@ -37,6 +38,37 @@ bandwidth. Pass exactly one packet with transport/container headers removed.
 The parser uses fixed storage for up to 48 frames. Padding-length processing
 is linear in its header length; callers remain responsible for bounding their
 transport's packet size.
+
+## Audio command
+
+Build the native, dependency-free file converter and encode/decode a recording:
+
+```sh
+cargo build --offline --locked --release --bin opura
+target/release/opura encode input.wav output.opus --bitrate 64000 --frame-ms 20
+target/release/opura decode output.opus decoded.wav
+```
+
+Encoding accepts little-endian RIFF/WAVE PCM16, mono/stereo, at
+8/12/16/24/48 kHz. It enables all six adaptive CELT analyses. Frame durations
+are 2.5, 5, 10 or 20 ms; defaults are 20 ms and 64,000 bits/s. Bitrate includes
+Opus packet TOC bytes and excludes Ogg overhead; fractional byte budgets carry
+between packets. The encoder flushes its 120-sample delay at 48 kHz; pre-skip
+and the final granule preserve the exact input duration after resampling.
+
+Decoding accepts SILK, Hybrid and CELT in one mono/stereo Ogg Opus stream
+(mapping family zero, zero header output gain), and writes PCM16 WAV at 48 kHz.
+Chained/multiplexed streams, nonzero output gain, other mappings and packets
+larger than 65,536 bytes (including metadata) are explicitly rejected. CRC,
+sequence, continuation and granule inconsistencies are errors. Output is
+limited to RIFF32 size. Existing paths are never overwritten; an error can
+leave a newly created partial output, which must be discarded.
+
+The [interoperability record](docs/validation/audio-cli-0.1.65.md) covers
+independent decoding, exact durations, packet budgets and original native
+mode files. It does not establish perceptual quality or performance leadership.
+SILK/Hybrid encoding and representative audio quality/speed comparisons remain
+work. Library packet parsing itself does not parse Ogg containers.
 
 ## Development
 
