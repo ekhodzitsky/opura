@@ -1588,3 +1588,17 @@ at the same revision, under the retained SILK terms. The optional
 these original functions using linker wrappers. Its synthetic workload and
 small explicit root probes are validation data, with no C codec build/test
 or runtime dependency in the native Rust library.
+
+
+SILK pitch and LTP encoder analysis additionally follow
+`silk/fixed/find_pitch_lags_FIX.c`, `silk/fixed/pitch_analysis_core_FIX.c`,
+`silk/fixed/apply_sine_window_FIX.c`, `silk/fixed/schur_FIX.c`,
+`silk/fixed/k2a_FIX.c`, `silk/resampler_down2.c`, `silk/resampler_down2_3.c`,
+`silk/fixed/find_LTP_FIX.c`, `silk/fixed/corrMatrix_FIX.c`,
+`silk/quant_LTP_gains.c`, `silk/VQ_WMat_EC.c`,
+`silk/fixed/LTP_analysis_filter_FIX.c`, `silk/log2lin.c` and native complexity
+profiles in `silk/control_codec.c`, at the same pinned revision and under the
+retained SILK terms. Generated search ranges, code lengths and effective gains
+extend the existing pitch/LTP tables. The optional
+`tools/silk_pitch_analysis_fixtures.py` wraps unchanged public native encoder
+calls and records synthetic pitch/LTP/residual traces for Rust-only tests.

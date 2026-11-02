@@ -2,7 +2,9 @@
 //! Complete PCM channel/packet orchestration is still in progress.
 //! Adapted from Opus v1.6.1; see THIRD_PARTY_NOTICES.md.
 mod lpc;
+mod ltp;
 mod nlsf;
+mod pitch;
 mod spectrum;
 mod vad;
 use super::math::lin2log;
@@ -11,7 +13,9 @@ use crate::silk::{
     synthesis::mul_wb,
 };
 pub use lpc::{LpcAnalysis, analyze_lpc, lpc_to_nlsf};
+pub use ltp::{LtpFrame, LtpResidual, LtpState};
 pub use nlsf::{QuantizedNlsf, laroia_weights, quantize_nlsf};
+pub use pitch::{PitchFrame, PitchOptions, PitchState};
 pub use spectrum::{SpectralFrame, SpectralOptions, SpectralState};
 use std::fmt;
 pub use vad::{SpeechActivity, VoiceActivityDetector};

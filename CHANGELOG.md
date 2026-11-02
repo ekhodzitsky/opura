@@ -7,6 +7,21 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Add complete SILK pitch LPC whitening and three-stage multirate contour
+  search, with native complexity profiles, voiced-history bias and first-frame /
+  rate-change suppression. Return the full residual, gain and serializable lags.
+- Add normalized five-tap LTP correlation analysis, gain-limited rate/distortion
+  codebook quantization and raw-PCM residual filtering into the existing LPC/NLSF
+  block geometry. Keep unvoiced gain scaling and independent-frame reset rules.
+- Match 72 unchanged public native pitch calls and all 47 voiced LTP calls:
+  complete residuals, pitch decisions/indices, correlation matrices/vectors,
+  codebooks, cumulative gains, taps and normalized PCM. Exercise all eleven
+  complexity settings, full-scale input and validation/reset boundaries.
+  All seven required offline gates pass; native trace/table regeneration is
+  byte-exact, and all 22 pre-existing decoder/serializer table arrays are unchanged.
+  Full noise-shaping/gain analysis and PCM-to-packet/CLI integration remain work;
+  these additions are an Unreleased checkpoint, not a full SILK encoder release.
+
 - Add native SILK modified Burg LPC analysis, bounded LPC-to-NLSF root search,
   Laroia weights, predictive four-state NLSF codebook search, and hysteretic
   gain quantization. Reuse decoder spectrum reconstruction/cosine tables.

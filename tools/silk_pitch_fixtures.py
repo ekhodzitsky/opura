@@ -31,12 +31,16 @@ if args.tables:
         ('pitch_est_tables.c', 'silk_CB_lags_stage3_10_ms', 'LAGS10', 'i8', 24),
         ('pitch_est_tables.c', 'silk_CB_lags_stage2', 'LAGS20_NB', 'i8', 44),
         ('pitch_est_tables.c', 'silk_CB_lags_stage3', 'LAGS20', 'i8', 136),
+        ('pitch_est_tables.c', 'silk_Lag_range_stage3', 'SEARCH20', 'i8', 24),
+        ('pitch_est_tables.c', 'silk_Lag_range_stage3_10_ms', 'SEARCH10', 'i8', 4),
         ('tables_LTP.c', 'silk_LTP_per_index_iCDF', 'PERIODICITY', 'u8', 3),
         ('tables_other.c', 'silk_LTPscale_iCDF', 'SCALE', 'u8', 3),
         ('tables_other.c', 'silk_LTPScales_table_Q14', 'SCALES_Q14', 'i16', 3),
     ]
     for i, count in enumerate([8, 16, 32]):
         specs += [('tables_LTP.c', f'silk_LTP_gain_iCDF_{i}', f'GAIN{i}', 'u8', count),
+                  ('tables_LTP.c', f'silk_LTP_gain_BITS_Q5_{i}', f'BITS{i}', 'u8', count),
+                  ('tables_LTP.c', f'silk_LTP_gain_vq_{i}_gain', f'EFFECTIVE_GAIN{i}', 'u8', count),
                   ('tables_LTP.c', f'silk_LTP_gain_vq_{i}', f'COEFFICIENTS{i}', 'i8', count * 5)]
     for count in [4, 6, 8]:
         specs.append(('tables_other.c', f'silk_uniform{count}_iCDF', f'UNIFORM{count}', 'u8', count))
@@ -46,7 +50,7 @@ if args.tables:
         content = (source / 'silk' / file).read_text()
         match = re.search(r'\b' + original + r'\s*\[[^;=]+?=\s*\{(.*?)\};', content, re.S)
         if not match: raise SystemExit('Missing array ' + original)
-        values = [int(x) for x in re.findall(r'-?\d+', match[1])]
+        values = [int(x) for x in re.findall(r'-?\d+', re.sub(r'/\*.*?\*/', '', match[1], flags=re.S))]
         if len(values) != length: raise SystemExit('Wrong array size ' + original)
         print(f'pub(in crate::silk) const {name}: [{kind}; {length}] = {values};')
     raise SystemExit(0)

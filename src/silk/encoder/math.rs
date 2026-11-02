@@ -1,11 +1,12 @@
 //! Shared fixed-point encoder analysis arithmetic; callers validate domains.
 use crate::silk::synthesis::{mul_wb, round_shift, saturate16, shift_saturated};
-// Positive input. Normalizing preserves the seven bits below the leading one.
+// Nonnegative input; native log(0) sentinel is -128. Normalization preserves
+// the seven bits below the leading one.
 pub(super) fn lin2log(value: i32) -> i32 {
     let zeros = value.leading_zeros();
     let fraction = ((value as u32).wrapping_shl(zeros) >> 24) & 127;
     let fraction = fraction as i32;
-    ((31 - zeros) as i32) * 128 + fraction + ((fraction * (128 - fraction) * 179) >> 16)
+    (31 - zeros as i32) * 128 + fraction + ((fraction * (128 - fraction) * 179) >> 16)
 }
 // Signed native reciprocal-refined division. Denominator is nonzero, precision
 // is 0..=31. Encoder callers keep ratios representable or accept saturation.
@@ -53,4 +54,21 @@ pub(super) fn analysis_filter(output: &mut [i16], input: &[i16], coefficients: &
             12,
         ));
     }
+}
+
+// Pairwise shifting (rather than one final shift of a 64-bit sum) preserves
+// reference rounding, which can decide the selected interpolation factor.
+pub(super) fn energy(input: &[i16]) -> (i32, u32) {
+    let mut shift = 31 - (input.len() as u32).leading_zeros();
+    let accumulate = |shift: u32, start: u32| {
+        input.chunks(2).fold(start, |sum, pair| {
+            let value = pair.iter().fold(0u32, |sum, &x| {
+                sum.wrapping_add((i32::from(x) * i32::from(x)) as u32)
+            });
+            sum.wrapping_add(value >> shift)
+        })
+    };
+    let first = accumulate(shift, input.len() as u32);
+    shift = (shift as i32 + 3 - first.leading_zeros() as i32).max(0) as u32;
+    (accumulate(shift, 0) as i32, shift)
 }
