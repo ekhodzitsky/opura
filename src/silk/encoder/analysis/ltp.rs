@@ -100,10 +100,11 @@ impl LtpState {
     pub fn reset(&mut self) {
         *self = Self::default();
     }
-    /// Fit/quantize the LPC residual from pitch analysis. An independent frame
+    /// Fit/quantize the LPC residual from pitch analysis. An explicit history reset
     /// clears cumulative gain before searching, as does an internal rate change.
+    /// Independent packet coding alone does not require this reset.
     /// Inactive/unvoiced frames clear the limiter and return zero LTP taps.
-    pub fn analyze(&mut self, pitch: &PitchFrame, independent: bool) -> LtpFrame {
+    pub fn analyze(&mut self, pitch: &PitchFrame, reset_gain_history: bool) -> LtpFrame {
         let khz = (pitch.length / (22 + pitch.count * 5)) as i32;
         let rate = match khz {
             8 => SilkRate::Khz8,
@@ -119,7 +120,7 @@ impl LtpState {
             periodicity: 0,
             prediction_gain: 0,
         };
-        let previous = if independent || self.rate != Some(rate) {
+        let previous = if reset_gain_history || self.rate != Some(rate) {
             0
         } else {
             self.sum_log_gain

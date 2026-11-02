@@ -18,7 +18,7 @@ fn state_values(s: &NoiseShapingQuantizer) -> Vec<i32> {
         ])
         .collect()
 }
-fn fingerprint(s: &NoiseShapingQuantizer) -> u64 {
+pub(in crate::silk::encoder) fn fingerprint(s: &NoiseShapingQuantizer) -> u64 {
     state_values(s)
         .iter()
         .flat_map(|v| v.to_le_bytes())

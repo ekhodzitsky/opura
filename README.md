@@ -10,9 +10,11 @@ long windows by default, with optional native transient detection/short windows
 and per-band TF/dynamic-allocation/spreading analysis. Further adaptive decisions
 and SILK/Hybrid encoding
 remain work. The native SILK encoder now includes VAD, pitch/LTP, LPC/NLSF,
-noise-shaping and gain/lambda analysis, NSQ and frame serialization. Connected
-analysis is checked against original CBR/VBR traces; complete PCM buffering,
-packet rate control, stereo/DTX/FEC and CLI encoding integration remain unfinished.
+noise-shaping and gain/lambda analysis, NSQ and frame serialization. The internal-rate
+channel encoder connects these stages with fixed 5 ms buffering, scalar/delayed
+NSQ and bounded gain/entropy retries. It matches complete original CBR/VBR frame
+calls and decoded packets. External PCM preprocessing/rate control, complete
+stereo/DTX/FEC packet orchestration and CLI encoding integration remain unfinished.
 **The decoder passes all120 official RFC8251 vector/rate/channel cases.**
 The first complete-decoder benchmark is recorded: Opura trails the pinned scalar
 libopus reference in all ten configurations; complete adaptive encoding remains under development. The accepted direction is a complete decoder first, then an encoder,

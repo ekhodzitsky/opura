@@ -124,6 +124,56 @@ pub struct GainProcessState {
     pub(super) quantizer: GainQuantizer,
 }
 impl GainProcessState {
+    pub(in crate::silk::encoder) fn retry(
+        &mut self,
+        processed: &ProcessedGains,
+        multipliers: &[i16; 4],
+        conditional: bool,
+    ) -> Result<QuantizedGains, AnalysisError> {
+        let count = processed.quantized.gains_q16().len();
+        let mut gains = [0i32; 4];
+        for i in 0..count {
+            gains[i] = shift_saturated(
+                mul_wb(processed.unquantized[i], i32::from(multipliers[i])),
+                8,
+            );
+        }
+        let mut quantizer = GainQuantizer {
+            previous: processed.previous,
+        };
+        let result = quantizer.quantize(
+            if count == 2 {
+                FrameDuration::Ms10
+            } else {
+                FrameDuration::Ms20
+            },
+            &gains[..count],
+            conditional,
+        )?;
+        self.quantizer = quantizer;
+        Ok(result)
+    }
+    pub(in crate::silk::encoder) fn hold_previous(
+        &mut self,
+        processed: &ProcessedGains,
+        conditional: bool,
+    ) -> QuantizedGains {
+        let count = processed.quantized.gains_q16().len();
+        let mut indices = [4; 4];
+        if !conditional {
+            indices[0] = processed.previous;
+        }
+        self.quantizer.previous = processed.previous;
+        QuantizedGains {
+            indices,
+            gains: [crate::silk::gains::linear_gain(processed.previous); 4],
+            count,
+        }
+    }
+    #[cfg(test)]
+    pub(in crate::silk::encoder) fn previous_index(&self) -> u8 {
+        self.quantizer.previous_index()
+    }
     /// Clear rate and gain-quantization history.
     pub fn reset(&mut self) {
         *self = Self::default();

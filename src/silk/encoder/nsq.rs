@@ -478,4 +478,4 @@ fn quantize_level(residual: i32, offset: i32, lambda: i32) -> i32 {
 
 #[cfg(test)]
 #[path = "nsq_tests.rs"]
-mod tests;
+pub(super) mod tests;

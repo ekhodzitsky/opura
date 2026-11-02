@@ -1614,3 +1614,13 @@ SILK terms. The optional `tools/silk_shaping_fixtures.py` records linked stages
 around unchanged public CBR/VBR native encoding, using the synthetic workload
 from the existing NSQ oracle and read-only pitch/LTP wrappers. Its traces keep
 normal Rust tests independent of a C compiler or native codec library.
+
+
+The internal SILK channel frame encoder additionally follows
+`silk/fixed/encode_frame_FIX.c`, `silk/fixed/LTP_scale_ctrl_FIX.c`,
+`silk/gain_quant.c::silk_gains_ID` and native CBR/channel budgeting contracts in
+`silk/enc_API.c`, at the same pinned revision under the retained SILK terms.
+`tools/silk_encoder_channel_fixtures.py` wraps unchanged full public encoding
+calls, transition filtering and frame serialization. It snapshots actual selected
+retry states and generates synthetic frame/packet/PCM fingerprints; no original
+codec algorithm is replaced and no native source or library enters Cargo.

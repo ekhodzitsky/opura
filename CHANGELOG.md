@@ -7,6 +7,28 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Add a fixed-internal-rate SILK PCM channel encoder: native fixed 5 ms buffering,
+  prefill, linked analysis/NSQ/frame entropy, loss-dependent LTP scaling and
+  bounded seven-iteration bitrate search. Preserve all channel/writer state on
+  failure; retry physically overflowing candidates and reject unattainable caps.
+- Restore native gain/NSQ/entropy snapshots on retries, cache gain-vector costs,
+  lock non-improving subframe gains, increase lambda under pressure and retain
+  the best fitting frame. Final damage control holds previous gain/clears pulses;
+  return actual selected indices/seed/pulses and explicit fallback accounting.
+- Preserve LTP cumulative gain across independent packet boundaries; its explicit
+  reset control is separate from entropy coding. Separate CBR analysis policy
+  from final-channel/frame budget filling for multi-frame/stereo orchestration.
+- Match 504 unchanged public native frame calls and 288 complete decoded packets,
+  across three rates, CBR/VBR, 10/20 ms frames, 40/60 ms packets, conditional coding,
+  loss scaling, retry/cache/restore and damage control. Compare complete frame
+  bytes, selected symbols/pulses, writer range/tell and every NSQ state fingerprint;
+  own assembled packets reproduce public native PCM/final ranges. All seven
+  mandatory offline gates pass; the complete native corpus regenerates exactly.
+- Validate Rust-only PCM/VAD-to-packet decoding, prefill timing, small physical
+  capacities and atomic late budget/invalid-control failures. Input-rate history
+  conversion, external preprocessing/rate policy, full stereo/DTX/FEC packet
+  orchestration and CLI remain work; keep this internal core Unreleased.
+
 - Add complete SILK perceptual noise-shaping analysis: quality/SNR/sparsity,
   regular and warped autocorrelation, Schur64/AR recursion, bounded warped
   coefficient fitting, initial gains and stateful LF/harmonic/tilt controls.
