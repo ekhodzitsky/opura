@@ -1569,3 +1569,11 @@ input conversion uses the encoder delay matrix and additional FIR coefficients
 from `silk/resampler.c` and `silk/resampler_rom.c`. Optional original-source
 oracles generate synthetic serialization and resampling fixtures; no native
 codec source or library is a normal build or test dependency.
+
+Noise-shaped scalar and delayed-decision quantization follow `silk/NSQ.c`,
+`silk/NSQ.h` and `silk/NSQ_del_dec.c` at the same pinned revision, under the SILK
+terms retained above. The optional `tools/silk_nsq_fixtures.py` linker wrapper
+records calls around unchanged original functions during public native SILK
+encoding; it does not replace or edit the reference algorithms. Synthetic input,
+canonical coefficient arrays and explicit field-wise state fingerprints are
+retained for normal Rust tests without linking a native library.

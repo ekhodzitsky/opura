@@ -293,7 +293,7 @@ pub(super) fn inverse_gain(denominator: i32, fraction_bits: u32) -> i32 {
         result >> shift
     }
 }
-fn divide_gain(numerator: i32, denominator: i32) -> i32 {
+pub(super) fn divide_gain(numerator: i32, denominator: i32) -> i32 {
     let a_head = numerator.leading_zeros() - 1;
     let b_head = denominator.leading_zeros() - 1;
     let a = numerator << a_head;

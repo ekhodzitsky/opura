@@ -7,6 +7,18 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Add fixed-storage scalar and delayed-decision SILK noise-shaped quantization:
+  gain rescaling, LPC/LTP rewhitening, harmonic/low-frequency/AR feedback,
+  warped shaping, adaptive decision delay and bounded 1..=4-state beam search.
+  Return the selected dither seed for subsequent frame serialization; validate
+  geometry/parameters before state mutation and reset on internal rate changes.
+- Match 72 scalar and 72 delayed-decision calls captured around unchanged
+  public native SILK encoding, including complete pulse/PCM output and every
+  persistent state field fingerprint. Cover actual 2/3/4-state search,
+  warped/interpolated prediction, gain/rate changes and aggressive RDO.
+  Both trace corpora reproduce byte for byte; all seven offline gates pass.
+  Full PCM analysis, packet budgeting, stereo/DTX/FEC and CLI remain in progress.
+
 - Begin the native SILK encoder with complete quantized frame serialization:
   gain/NLSF/pitch/LTP/seed fields, adaptive pulse rate selection, shell/LSB/sign
   coding, conditional history and atomic entropy/state failure handling.

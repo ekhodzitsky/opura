@@ -1,9 +1,10 @@
-//! SILK frame bitstream encoding, before PCM analysis and packet orchestration.
+//! SILK frame quantization and bitstream encoding, before PCM analysis.
 //!
 //! Serializes quantized side information and signed noise-shaped pulses into an
 //! existing Opus entropy writer. This is not yet a PCM-to-SILK encoder. Header,
 //! stereo/LBRR ordering and packet finalization belong to the enclosing encoder.
 //! Adapted from Opus v1.6.1; see THIRD_PARTY_NOTICES.md.
+pub mod nsq;
 mod pulses;
 use super::{
     gains::{DELTA_ICDF, FrameActivity, FrameDuration, GAIN_ICDF, SignalType},
