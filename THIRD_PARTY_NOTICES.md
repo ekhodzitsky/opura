@@ -1509,3 +1509,9 @@ encoder/band/math/table notices and terms apply. Rust bounds immutable inputs,
 checks the final tilt accumulator and stages saving history atomically. Optional
 read-only cost/trim observers cross-check ordinary results against unchanged
 original functions. No reference code enters normal Cargo builds or tests.
+
+Optional CELT packet allocation policy integration follows the original
+post-dynamic trim availability guard, desired intensity hysteresis and LM0 M/S
+policy in celt_encoder.c. The fixed Rust rate engine remains shared with decoding;
+external original component assembly and artificial entropy-tail probes are
+validation tools only. Existing encoder/allocation notices and terms apply.

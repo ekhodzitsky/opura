@@ -2334,8 +2334,9 @@ It includes native stable-energy quarter-error feedback. Pre-emphasis and
 120-sample overlap persist across durations, retained-band history moves at most
 one band per frame, and the next folding seed is the previous packet final range.
 8 kHz input selects NB, 12/16 kHz WB, 24 kHz SWB and 48 kHz FB. SILK/Hybrid,
-pitch/TF/spread/allocation policy analysis, DTX/VBR/FEC encoding, containers and quality
-optimization remain work. This baseline is a usable CELT encoder, not a claim of
+pitch prefilter analysis, DTX/VBR/FEC encoding, containers and quality
+optimization remain work. Optional TF, spreading and allocation policies are
+described below. This baseline is a usable CELT encoder, not a claim of
 reference-adaptive quality or SOTA performance.
 
 All 720 independently generated original-component packets match full bytes,
@@ -2541,7 +2542,7 @@ diff -u tests/celt-encoder-dynalloc-fixtures.txt /tmp/celt-encoder-dynalloc-fixt
 
 External original analysis and full packet writing consume raw native requests;
 the reference checkout stays unchanged. No native code enters Cargo builds/tests.
-Adaptive trim/pitch, complete SILK/Hybrid encoding and representative
+Pitch prefilter analysis, complete SILK/Hybrid encoding and representative
 quality/performance evaluation remain in development.
 
 
@@ -2612,9 +2613,9 @@ diff -u tests/celt-spreading-tail-fixtures.txt /tmp/celt-spreading-tail-fixtures
 
 ## CELT trim and stereo allocation analysis
 
-The standalone allocation policy components are available for the next packet
-integration stage. `CeltEncoder` still defaults to trim five, full-band intensity
-and no dual stereo; these new helpers do not change its packet policies.
+The allocation policy components support standalone analysis and optional packet
+integration. `CeltEncoder` defaults to trim five, full-band intensity and no dual
+stereo; enable allocation analysis to select these controls from the signal.
 
 `analysis::equivalent_rate` reproduces the byte-derived equivalent bitrate and
 short-frame overhead for one/two channels and 2..1275 payload bytes. It applies
@@ -2647,8 +2648,8 @@ before Q20 compensation and signed Q8 rounding. Saving has the native quarter
 unit slew, stereo minimum-correlation cap and mono retention. Rate interpolation,
 spectral tilt, temporal/surround adjustments and final trim rounding preserve
 original order. All storage is fixed and no heap allocation occurs. Call trim
-analysis only when its symbol is available: integration at the actual post-dynamic
-budget position remains separate work, preserving saving on skipped fields.
+analysis only when its symbol is available: packet integration uses the actual
+post-dynamic budget position, preserving saving on skipped fields.
 
 Original evidence matches 525,825 correlation-log pairs (target saving 0..1022),
 all 10,192 byte-equivalent rates and 1,441,792 `i16` rate/history intensity pairs.
@@ -2677,3 +2678,50 @@ diff -u tests/celt-trim-analysis-fixtures.txt /tmp/celt-trim-analysis-fixtures.t
 Optional read-only model/trim observers cross-check every ordinary result and
 saving against unchanged original helpers before emitting internal diagnostics.
 Native code remains external validation and is never a Cargo dependency.
+
+
+## CELT adaptive allocation packets
+
+`CeltEncoder::set_allocation_analysis(true)` independently enables native trim,
+intensity hysteresis and L1 stereo selection. It applies byte-equivalent bitrate
+with short-frame overhead, forces M/S for 2.5 ms frames and preserves desired
+intensity before allocation clips it to retained coded bands. Trim consumes the
+stable-energy-feedback-adjusted target logs and native temporal estimate. The
+existing allocation engine invokes its private static trim callback only when
+six bits fit after dynamic boost reservation. Skipped fields keep default trim
+five and preserve saving. No extra allocation pass or heap storage is needed.
+
+Reset retains all five analysis settings and clears intensity/saving histories.
+Turning allocation analysis off keeps its histories for later re-enabling;
+other settings remain independent. The existing full-stream transaction also
+covers late allocation/entropy failures. The public fixed-policy allocation
+writer retains its existing contract; lazy callback errors preserve its writer.
+
+All 1,440 original component-assembled packets match complete bytes, persistent
+state, effective trim/intensity/stereo and bit accounting. Six base policies
+(only allocation; plus transient; plus TF; plus dynamic; plus spreading; all five)
+and within-stream off/on switches span every rate, channel count and duration.
+A one-active-channel regression explicitly checks the LM0 M/S restriction.
+The corpus exercises eight trim values, 53 requested/48 effective dual-stereo
+frames and desired/effective intensity differences. Unchanged public libopus
+matches PCM/range/history in 14,400 output-geometry decodes, with no native
+active-energy history differences.
+
+Another 1,056 isolated entropy-tail cases match all allocation budgets, controls,
+bytes, ranges and saving across dynamic requests, initial saving 0/704 and
+0..32 remaining bits. These prefixes test resource boundaries separately from
+complete PCM packets. Another 4,096 PCM frames cover all 32 setting combinations,
+small budgets, NB/FB, reset and invalid-input rollback; injected pre/post-finalize
+failures preserve the full stream in all 32 combinations. Earlier packet and
+analysis corpora remain unchanged. All 36 targeted mutations are detected,
+including eager/duplicate trim updates and the LM0 regression. All 21 optional
+evidence modes reproduce and all seven offline gates pass with zero dependencies.
+Pitch prefilter, SILK/Hybrid encoding,
+DTX/VBR/FEC and representative quality/performance comparisons remain work.
+
+```sh
+python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --allocation-packets > /tmp/celt-encoder-allocation-fixtures.txt
+diff -u tests/celt-encoder-allocation-fixtures.txt /tmp/celt-encoder-allocation-fixtures.txt
+python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --allocation-tails > /tmp/celt-allocation-tail-fixtures.txt
+diff -u tests/celt-allocation-tail-fixtures.txt /tmp/celt-allocation-tail-fixtures.txt
+```

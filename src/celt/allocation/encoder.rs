@@ -50,6 +50,39 @@ fn encode_with(
     options: AllocationEncoding,
     write_bit: impl FnMut(&mut RangeEncoder, bool, u32) -> Result<(), EncoderError>,
 ) -> Result<Allocation, AllocationError> {
+    encode_with_trim(entropy, size, layout, transient, options, write_bit, || {
+        Ok(options.trim)
+    })
+}
+// Callback side effects belong to the caller's surrounding stream transaction.
+// The shared rate engine invokes it only when the trim symbol fits after boosts.
+pub(crate) fn encode_analyzed(
+    entropy: &mut RangeEncoder,
+    size: FrameSize,
+    layout: BandLayout,
+    transient: bool,
+    options: AllocationEncoding,
+    trim: impl FnMut() -> Result<u8, AllocationError>,
+) -> Result<Allocation, AllocationError> {
+    encode_with_trim(
+        entropy,
+        size,
+        layout,
+        transient,
+        options,
+        RangeEncoder::encode_bit_logp,
+        trim,
+    )
+}
+fn encode_with_trim(
+    entropy: &mut RangeEncoder,
+    size: FrameSize,
+    layout: BandLayout,
+    transient: bool,
+    options: AllocationEncoding,
+    write_bit: impl FnMut(&mut RangeEncoder, bool, u32) -> Result<(), EncoderError>,
+    trim: impl FnMut() -> Result<u8, AllocationError>,
+) -> Result<Allocation, AllocationError> {
     validate_context(entropy.capacity() as u32 * 8, entropy.tell(), layout)?;
     if options.trim > 10
         || options.previous_coded_bands > 21
@@ -70,6 +103,7 @@ fn encode_with(
                 writer: &mut writer,
                 options,
                 write_bit,
+                trim,
             },
             c: layout.channels() as i32,
             lm: size.lm() as i32,
@@ -84,13 +118,16 @@ fn encode_with(
     *entropy = writer;
     Ok(result)
 }
-struct EncodeEntropy<'a, W> {
+struct EncodeEntropy<'a, W, T> {
     writer: &'a mut RangeEncoder,
     options: AllocationEncoding,
     write_bit: W,
+    trim: T,
 }
-impl<W: FnMut(&mut RangeEncoder, bool, u32) -> Result<(), EncoderError>> RateEntropy
-    for EncodeEntropy<'_, W>
+impl<
+    W: FnMut(&mut RangeEncoder, bool, u32) -> Result<(), EncoderError>,
+    T: FnMut() -> Result<u8, AllocationError>,
+> RateEntropy for EncodeEntropy<'_, W, T>
 {
     fn storage_bits(&self) -> u32 {
         self.writer.capacity() as u32 * 8
@@ -104,9 +141,12 @@ impl<W: FnMut(&mut RangeEncoder, bool, u32) -> Result<(), EncoderError>> RateEnt
         Ok(flag)
     }
     fn trim(&mut self) -> Result<u8, AllocationError> {
-        self.writer
-            .encode_icdf(self.options.trim as usize, &TRIM, 7)?;
-        Ok(self.options.trim)
+        let trim = (self.trim)()?;
+        if trim > 10 {
+            return Err(AllocationError::InvalidControls);
+        }
+        self.writer.encode_icdf(trim as usize, &TRIM, 7)?;
+        Ok(trim)
     }
     fn keep_band(&mut self, c: SkipContext) -> Result<bool, AllocationError> {
         let band = c.coded - 1;
@@ -141,6 +181,175 @@ impl<W: FnMut(&mut RangeEncoder, bool, u32) -> Result<(), EncoderError>> RateEnt
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn original_trim_entropy_tails_preserve_saving_and_allocation()
+    -> Result<(), Box<dyn std::error::Error>> {
+        use crate::celt::analysis::{self, IntensityState, TrimOptions, TrimState};
+        let sizes = [
+            FrameSize::Ms2_5,
+            FrameSize::Ms5,
+            FrameSize::Ms10,
+            FrameSize::Ms20,
+        ];
+        let mut counts = [0; 2];
+        for line in include_str!("../../../tests/celt-allocation-tail-fixtures.txt")
+            .lines()
+            .filter(|l| !l.starts_with('#'))
+        {
+            let fields: Vec<_> = line.split_whitespace().collect();
+            assert_eq!(fields[0], "tail");
+            assert_eq!(fields.len(), 103);
+            let v: Vec<i64> = fields[1..102]
+                .iter()
+                .map(|s| s.parse())
+                .collect::<Result<_, _>>()?;
+            let size = sizes[usize::try_from(v[0])?];
+            let c = usize::try_from(v[1])?;
+            let bytes = usize::try_from(v[2])?;
+            let remaining = usize::try_from(v[3])?;
+            let boosts = if v[4] != 0 { [255; 21] } else { [0; 21] };
+            let mut state = TrimState::from_saving(u16::try_from(v[5])?)?;
+            let layout = BandLayout::new(c, 0, 21)?;
+            let rate = analysis::equivalent_rate(size, c, bytes)?;
+            let intensity = if c == 2 {
+                IntensityState::from_band(8)?.select((rate / 1000) as i16, layout)
+            } else {
+                21
+            };
+            let mut values = vec![0; c * size.samples()];
+            for channel in 0..c {
+                for &band in &BANDS[..21] {
+                    values[channel * size.samples() + (usize::from(band) << size.lm())] = 1 << 24;
+                }
+            }
+            let mut writer = RangeEncoder::new(bytes)?;
+            let mut left = bytes * 8 - 1 - remaining;
+            while left > 0 {
+                let bits = left.min(25) as u32;
+                writer.encode_bits((1u32 << bits) - 1, bits)?;
+                left -= bits as usize;
+            }
+            let mut calls = 0;
+            let result = encode_analyzed(
+                &mut writer,
+                size,
+                layout,
+                false,
+                AllocationEncoding {
+                    boosts,
+                    trim: 5,
+                    intensity,
+                    dual_stereo: false,
+                    previous_coded_bands: 21,
+                    signal_bandwidth: 20,
+                },
+                || {
+                    calls += 1;
+                    state
+                        .process(
+                            size,
+                            &values,
+                            &[[0; 21]; 2],
+                            TrimOptions {
+                                channels: c,
+                                end: 21,
+                                intensity,
+                                equivalent_rate: rate,
+                                tf_estimate: 8192,
+                                surround_trim: 0,
+                            },
+                        )
+                        .map(|r| r.index())
+                        .map_err(AllocationError::Analysis)
+                },
+            )?;
+            let native = &v[6..];
+            assert_eq!(i64::from(state.stereo_saving()), native[0]);
+            assert_eq!(if c == 2 { intensity as i64 } else { 8 }, native[1]);
+            assert_eq!(
+                [
+                    i64::from(result.trim()),
+                    result.intensity() as i64,
+                    i64::from(result.dual_stereo()),
+                    calls,
+                    i64::from(writer.range()),
+                    i64::from(writer.tell()),
+                    i64::from(writer.tell_frac()),
+                    result.coded_bands() as i64,
+                    i64::from(result.balance())
+                ],
+                native[2..11]
+            );
+            counts[usize::try_from(calls)?] += 1;
+            for band in 0..21 {
+                assert_eq!(
+                    [
+                        i64::from(result.offsets()[band]),
+                        i64::from(result.fine_bits()[band]),
+                        i64::from(result.pvq_bits()[band]),
+                        i64::from(result.fine_priority()[band])
+                    ],
+                    [
+                        native[11 + band],
+                        native[32 + band],
+                        native[53 + band],
+                        native[74 + band]
+                    ]
+                );
+            }
+            let expected: Vec<u8> = (0..fields[102].len())
+                .step_by(2)
+                .map(|i| u8::from_str_radix(&fields[102][i..i + 2], 16))
+                .collect::<Result<_, _>>()?;
+            assert_eq!(writer.finish()?, expected);
+        }
+        assert_eq!(counts.iter().sum::<usize>(), 1056);
+        assert!(counts[0] > 0 && counts[1] > 0);
+        Ok(())
+    }
+    #[test]
+    fn lazy_trim_errors_and_invalid_results_preserve_writer()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let mut writer = RangeEncoder::new(64)?;
+        writer.encode_uint(13, 17)?;
+        let before = writer.clone();
+        let options = AllocationEncoding {
+            boosts: [1; 21],
+            trim: 5,
+            intensity: 21,
+            dual_stereo: true,
+            previous_coded_bands: 21,
+            signal_bandwidth: 20,
+        };
+        for error in [
+            None,
+            Some(AllocationError::Analysis(
+                crate::celt::analysis::AnalysisError::ArithmeticOverflow,
+            )),
+        ] {
+            let mut called = false;
+            assert_eq!(
+                encode_analyzed(
+                    &mut writer,
+                    FrameSize::Ms20,
+                    BandLayout::new(2, 0, 21)?,
+                    false,
+                    options,
+                    || {
+                        called = true;
+                        match error {
+                            Some(e) => Err(e),
+                            None => Ok(11),
+                        }
+                    }
+                ),
+                Err(error.unwrap_or(AllocationError::InvalidControls))
+            );
+            assert!(called);
+            assert_eq!(writer, before);
+        }
+        Ok(())
+    }
     #[test]
     fn injected_boost_skip_and_final_dual_failures_preserve_whole_writer()
     -> Result<(), Box<dyn std::error::Error>> {

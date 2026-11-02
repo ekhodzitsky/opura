@@ -157,6 +157,35 @@ fn verify_public_packets(
     dynamic_analysis: bool,
     spreading_corpus: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    verify_public_policy_packets(
+        fixtures,
+        detect,
+        tf_analysis,
+        dynamic_analysis,
+        spreading_corpus,
+        false,
+    )
+}
+#[test]
+fn original_allocation_packets_and_public_libopus_pcm_match_at_every_output_geometry()
+-> Result<(), Box<dyn std::error::Error>> {
+    verify_public_policy_packets(
+        include_str!("celt-encoder-allocation-fixtures.txt"),
+        true,
+        true,
+        true,
+        true,
+        true,
+    )
+}
+fn verify_public_policy_packets(
+    fixtures: &str,
+    detect: bool,
+    tf_analysis: bool,
+    dynamic_analysis: bool,
+    spreading_corpus: bool,
+    allocation_corpus: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     use opura::Packet;
     let rates = [
         OutputRate::Khz8,
@@ -185,17 +214,19 @@ fn verify_public_packets(
     while let Some(line) = lines.next() {
         let f: Vec<_> = line.split_whitespace().collect();
         assert_eq!(f[0], "frame");
-        let (detect, tf_analysis, dynamic_analysis, spreading_enabled) = if spreading_corpus {
-            let flags = f[7].parse::<u8>()?;
-            (
-                flags & 1 != 0,
-                flags & 2 != 0,
-                flags & 4 != 0,
-                flags & 8 != 0,
-            )
-        } else {
-            (detect, tf_analysis, dynamic_analysis, false)
-        };
+        let (detect, tf_analysis, dynamic_analysis, spreading_enabled, allocation_enabled) =
+            if spreading_corpus || allocation_corpus {
+                let flags = f[7].parse::<u8>()?;
+                (
+                    flags & 1 != 0,
+                    flags & 2 != 0,
+                    flags & 4 != 0,
+                    flags & 8 != 0,
+                    flags & 16 != 0,
+                )
+            } else {
+                (detect, tf_analysis, dynamic_analysis, false, false)
+            };
 
         let reset = f[1] == "1";
         let rate = match f[2] {
@@ -245,6 +276,7 @@ fn verify_public_packets(
         encoder.set_tf_analysis(tf_analysis);
         encoder.set_dynamic_allocation(dynamic_analysis);
         encoder.set_spreading_analysis(spreading_enabled);
+        encoder.set_allocation_analysis(allocation_enabled);
         let packet = encoder.encode(size, &input, budget)?;
         assert_eq!(packet.as_bytes(), expected, "frame{frames}");
         assert_eq!(i64::from(packet.final_range()), state[0]);
@@ -293,7 +325,13 @@ fn verify_public_packets(
     }
     assert_eq!(
         (frames, decoded),
-        if detect { (960, 9600) } else { (720, 7200) }
+        if allocation_corpus {
+            (1440, 14400)
+        } else if detect {
+            (960, 9600)
+        } else {
+            (720, 7200)
+        }
     );
     Ok(())
 }
@@ -614,5 +652,87 @@ fn spreading_setting_is_independent_retained_and_bounded_at_exact_byte_gates()
         }
     }
     assert_eq!(frames, 768);
+    Ok(())
+}
+
+#[test]
+fn allocation_setting_combinations_reset_and_small_budgets_are_transactional()
+-> Result<(), Box<dyn std::error::Error>> {
+    fn configure(encoder: &mut CeltEncoder, flags: u8) {
+        encoder.set_transient_detection(flags & 1 != 0);
+        encoder.set_tf_analysis(flags & 2 != 0);
+        encoder.set_dynamic_allocation(flags & 4 != 0);
+        encoder.set_spreading_analysis(flags & 8 != 0);
+        encoder.set_allocation_analysis(flags & 16 != 0);
+    }
+    let mut frames = 0;
+    for flags in 0..32 {
+        for rate in [InputRate::Khz8, InputRate::Khz48] {
+            for channels in [1, 2] {
+                let mut encoder = CeltEncoder::new(rate, channels)?;
+                assert!(!encoder.allocation_analysis());
+                configure(&mut encoder, flags);
+                let mut decoder = OpusDecoder::new(
+                    OutputRate::Khz48,
+                    if channels == 1 {
+                        PcmChannels::Mono
+                    } else {
+                        PcmChannels::Stereo
+                    },
+                )?;
+                for size in SIZES {
+                    let count = size.samples() / rate.factor() * channels;
+                    let input: Vec<i16> = (0..count)
+                        .map(|i| {
+                            if i == count / 2 {
+                                32767
+                            } else {
+                                (i as i16).wrapping_mul(7659)
+                            }
+                        })
+                        .collect();
+                    for budget in [2, 3, 6, 7, 15, 16, 32, 128] {
+                        let before = encoder.clone();
+                        assert_eq!(
+                            encoder.encode(size, &[], budget),
+                            Err(EncoderError::InvalidInput)
+                        );
+                        assert_eq!(encoder, before);
+                        let packet = encoder.encode(size, &input, budget)?;
+                        assert_eq!(
+                            decoder.decode(packet.as_bytes())?.final_range(),
+                            packet.final_range()
+                        );
+                        frames += 1;
+                    }
+                }
+                let before = encoder.clone();
+                assert_eq!(
+                    encoder.encode(FrameSize::Ms20, &[], 1276),
+                    Err(EncoderError::InvalidBudget)
+                );
+                assert_eq!(encoder, before);
+                let mut toggled = encoder.clone();
+                toggled.set_allocation_analysis(flags & 16 == 0);
+                toggled.set_allocation_analysis(flags & 16 != 0);
+                assert_eq!(toggled, encoder);
+                encoder.reset();
+                let mut fresh = CeltEncoder::new(rate, channels)?;
+                configure(&mut fresh, flags);
+                assert_eq!(encoder, fresh);
+                assert_eq!(encoder.allocation_analysis(), flags & 16 != 0);
+                assert_eq!(encoder.transient_detection(), flags & 1 != 0);
+                assert_eq!(encoder.tf_analysis(), flags & 2 != 0);
+                assert_eq!(encoder.dynamic_allocation(), flags & 4 != 0);
+                assert_eq!(encoder.spreading_analysis(), flags & 8 != 0);
+                let input = vec![0; 960 / rate.factor() * channels];
+                assert_eq!(
+                    encoder.encode(FrameSize::Ms20, &input, 128)?,
+                    fresh.encode(FrameSize::Ms20, &input, 128)?
+                );
+            }
+        }
+    }
+    assert_eq!(frames, 4096);
     Ok(())
 }

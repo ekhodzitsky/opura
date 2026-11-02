@@ -16,7 +16,7 @@ REVISION='22244de5a79bd1d6d623c32e72bf1954b56235be'
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('source',type=Path)
 mode=parser.add_mutually_exclusive_group()
-for name in ['analysis','analysis-math','analysis-tables','transients','tf-analysis','tf-packets','tf-math','dynalloc-tables','dynalloc-analysis','dynalloc-packets','dynalloc-math','spreading-analysis','spreading-packets','spreading-tails','allocation-analysis-tables','allocation-analysis-math','stereo-analysis','trim-analysis']:mode.add_argument('--'+name,action='store_true')
+for name in ['analysis','analysis-math','analysis-tables','transients','tf-analysis','tf-packets','tf-math','dynalloc-tables','dynalloc-analysis','dynalloc-packets','dynalloc-math','spreading-analysis','spreading-packets','spreading-tails','allocation-analysis-tables','allocation-analysis-math','stereo-analysis','trim-analysis','allocation-packets','allocation-tails']:mode.add_argument('--'+name,action='store_true')
 args=parser.parse_args();source=args.source.resolve()
 if subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip()!=REVISION:
     raise SystemExit('Expected pinned Opus v1.6.1')
@@ -33,8 +33,10 @@ wrapper=r'''
 #if !OPUS_FAST_INT64 || DB_SHIFT != 24
 #error "Canonical fast64 fixed-point Q24 required"
 #endif
+int allocation_intensity(int rate,int previous);
 struct baseline {
     int rate,C,first,previous,detect,streak,spread,average,hf,tapset;unsigned rng;
+    int intensity;opus_val16 saving;
     opus_int32 preem[2],overlap[240],energy[42],residual[42],delayed;
 };
 void *baseline_create(int rate,int C,int detect){
@@ -61,7 +63,7 @@ int baseline_encode(struct baseline *s,int LM,const opus_int16 *pcm,int bytes,un
     if(1+16<=budget)ec_enc_bit_logp(&enc,0,1);
     int allowed=LM && ec_tell(&enc)+3<=budget;
     int transient=0,channel=0;opus_val32 radius=0;opus_val16 estimate=0,frequency=-1;
-    if(((s->detect&1)&&allowed)||(s->detect&14)){
+    if(((s->detect&1)&&allowed)||(s->detect&30)){
         frequency=tone_detect(in,C,N+120,&radius,48000);int weak=0;
         int detected=transient_analysis(in,N+120,C,&estimate,&channel,0,&weak,frequency,radius);
         transient=(s->detect&1)&&allowed&&detected;
@@ -124,8 +126,22 @@ int baseline_encode(struct baseline *s,int LM,const opus_int16 *pcm,int bytes,un
         if(j)logp=IMAX(2,logp-1);
         offsets[i]=boost;
     }
-    int trim=5;if(tell+48<=total-total_boost)ec_enc_icdf(&enc,trim,trim_icdf,7);
-    int intensity=end,dual=0;opus_int32 balance=0;
+    int rate=(bytes*8*50<<(3-LM))-(40*C+20)*((400>>LM)-50);
+    int intensity=end,dual=0;
+    if((s->detect&16)&&C==2){
+        if(LM)dual=stereo_analysis(m,X,LM,N);
+        s->intensity=IMIN(end,IMAX(0,allocation_intensity((opus_val16)(rate/1000),s->intensity)));
+        intensity=s->intensity;
+    }
+    int requested_dual=dual,trim_fits=tell+48<=total-total_boost,trim=5;
+    if(trim_fits){
+        if(s->detect&16){
+            AnalysisInfo info;memset(&info,0,sizeof(info));
+            trim=alloc_trim_analysis(m,X,target,end,LM,C,N,&info,&s->saving,estimate,intensity,0,rate,0);
+        }
+        ec_enc_icdf(&enc,trim,trim_icdf,7);
+    }
+    opus_int32 balance=0;
     int bits=bytes*64-ec_tell_frac(&enc)-1;
     int anti=transient&&LM>=2&&bits>=((LM+2)<<3)?8:0;bits-=anti;
     int coded=clt_compute_allocation(m,0,end,offsets,cap,trim,&intensity,&dual,bits,&balance,pvq,fine,priority,C,LM,&enc,1,s->previous,end-1);
@@ -141,6 +157,7 @@ int baseline_encode(struct baseline *s,int LM,const opus_int16 *pcm,int bytes,un
     for(int i=0;i<240;i++)out[6+i]=s->overlap[i];
     for(int i=0;i<42;i++){out[246+i]=s->energy[i];out[288+i]=s->residual[i];}
     out[330]=ec_tell(&enc);out[331]=ec_tell_frac(&enc);out[332]=transient;out[333]=s->streak;out[334]=!!analysis_enabled;out[335]=select;for(int i=0;i<21;i++)out[336+i]=requested_tf[i];for(int i=0;i<21;i++)out[357+i]=tf[i];
+    out[447]=s->saving;out[448]=s->intensity;out[449]=trim;out[450]=intensity;out[451]=dual;out[452]=trim_fits;out[453]=requested_dual;out[454]=rate;
     out[378]=dyn_depth;out[379]=dyn_total;out[443]=s->spread;out[444]=s->average;out[445]=s->hf;out[446]=s->tapset;
     for(int i=0;i<21;i++){out[380+i]=requests[i];out[401+i]=i<end?importance[i]:0;out[422+i]=spread_weight[i];}
 
@@ -303,6 +320,26 @@ void allocation_correlation_logs(int sum,int minimum,int *out){
 }
 int allocation_equivalent_rate(int LM,int C,int bytes){return (bytes*8*50<<(3-LM))-(40*C+20)*((400>>LM)-50);}
 
+'''
+# Reuse component assembly with unchanged original helpers at the exact entropy
+# cursor. Prefix bytes are artificial resource tests, not complete PCM packets.
+allocation_stage=wrapper[wrapper.index('    int cap[21],offsets'):wrapper.index('    quant_fine_energy(m,0,end')]
+wrapper+=r'''
+int allocation_tail(int LM,int C,int bytes,int remaining,int boost,int saving,unsigned char *data,int *out){
+    int error;const CELTMode *m=opus_custom_mode_create(48000,960,&error);if(!m||error)return -1;
+    int N=120<<LM,end=21;struct baseline state={0},*s=&state;
+    s->detect=16|(boost?4:0);s->previous=21;s->intensity=8;s->saving=saving;
+    celt_norm X[1920]={0};celt_glog target[42]={0};int requests[21];
+    for(int i=0;i<21;i++){requests[i]=boost?255:0;for(int ch=0;ch<C;ch++)X[ch*N+(m->eBands[i]<<LM)]=QCONST32(1.f,24);}
+    int transient=0;opus_val16 estimate=8192;
+    ec_enc enc;ec_enc_init(&enc,data,bytes);int left=bytes*8-1-remaining;
+    while(left){int bits=IMIN(25,left);ec_enc_bits(&enc,(1u<<bits)-1,bits);left-=bits;}
+'''+allocation_stage+r'''
+    out[0]=s->saving;out[1]=s->intensity;out[2]=trim;out[3]=intensity;out[4]=dual;out[5]=trim_fits;
+    out[6]=enc.rng;out[7]=ec_tell(&enc);out[8]=ec_tell_frac(&enc);out[9]=coded;out[10]=balance;
+    for(int i=0;i<21;i++){out[11+i]=offsets[i];out[32+i]=fine[i];out[53+i]=pvq[i];out[74+i]=priority[i];}
+    ec_enc_done(&enc);return ec_get_error(&enc);
+}
 '''
 files=manifest('silk_sources.mk','SILK_SOURCES')+manifest('silk_sources.mk','SILK_SOURCES_FIXED')+manifest('celt_sources.mk','CELT_SOURCES')+manifest('opus_sources.mk','OPUS_SOURCES')
 with tempfile.TemporaryDirectory(prefix='opura-celt-encoder-') as temp:
@@ -475,6 +512,24 @@ void decoder_energy(const OpusDecoder *s,int *out){baseline_decoder_energy((cons
         print(f'// Native initial saving/intensity: {defaults[0]}/{defaults[1]}; guard logQ10: {values[3]}.')
         for name,value in zip(['MODEL_EPSILON','MID_SCALE_Q15','CORRELATION_GUARD_Q20'],values):print(f'pub(super) const {name}: i32 = {value};')
         for name,values in zip(['INTENSITY_THRESHOLDS','INTENSITY_HYSTERESIS'],policy_arrays):print(f'pub(super) const {name}: [i16;21] = '+str(values)+';')
+        raise SystemExit
+    if args.allocation_tails:
+        lib.allocation_tail.argtypes=[c.c_int]*6+[u8,i32];lib.allocation_tail.restype=c.c_int
+        print('# Original isolated allocation entropy tails:',REVISION)
+        print('# tail LM C BYTES REMAINING BOOST INITIAL_SAVING SAVING DESIRED TRIM INTENSITY DUAL FITS RANGE TELL FRAC CODED BALANCE OFFSETS[21] FINE[21] PVQ[21] PRIORITY[21] HEX')
+        rows=0
+        for lm in range(4):
+            for channels in [1,2]:
+                budget=32*channels
+                for boost in [0,1]:
+                    for saving in [0,704]:
+                        for remaining in range(33):
+                            data=(c.c_ubyte*budget)();out=(c.c_int32*95)()
+                            error=lib.allocation_tail(lm,channels,budget,remaining,boost,saving,data,out)
+                            if error:raise SystemExit(f'Original allocation tail failed {lm,channels,remaining,boost,saving,error}')
+                            values=list(out);values[6]=c.c_uint32(values[6]).value
+                            print('tail',lm,channels,budget,remaining,boost,saving,*values,bytes(data).hex());rows+=1
+        print(f'# rows={rows}')
         raise SystemExit
     if args.spreading_tails:
         lib.spreading_tail.argtypes=[c.c_int]*4+[u8,i32];lib.spreading_tail.restype=c.c_int
@@ -802,12 +857,13 @@ void decoder_energy(const OpusDecoder *s,int *out){baseline_decoder_energy((cons
         emit(3,1,values)
         print(f'# frames={rows} analyses={rows*2}')
         raise SystemExit
-    print('# Original '+('spreading/dynamic/TF/transient ' if args.spreading_packets else 'dynamic/TF/transient ' if args.dynalloc_packets else 'TF/transient ' if args.tf_packets else 'tone/transient ' if args.transients else 'fixed-policy ')+'CELT components and public Opus decoding:',REVISION)
+    print('# Original '+('allocation/spreading/dynamic/TF/transient ' if args.allocation_packets else 'spreading/dynamic/TF/transient ' if args.spreading_packets else 'dynamic/TF/transient ' if args.dynalloc_packets else 'TF/transient ' if args.tf_packets else 'tone/transient ' if args.transients else 'fixed-policy ')+'CELT components and public Opus decoding:',REVISION)
     print('# frame RESET INPUT_HZ C LM PAYLOAD_BYTES HEX; input PCM; state RANGE PREVIOUS FIRST DELAYED PREEM[2] OVERLAP[240] ENERGY[42] RESIDUAL[42] TELL FRAC; decoded RATE API COUNT RANGE ENERGY[42] PCM[COUNT*API] (ten per frame)')
     if args.tf_packets:print('# TF state tail: TRANSIENT STREAK ENABLED SELECT REQUESTED_TF[21] EFFECTIVE_TF[21]')
     if args.dynalloc_packets:print('# Dynamic state tail adds DEPTH TOTAL RAW_REQUESTS[21] IMPORTANCE[21] SPREAD_WEIGHTS[21]')
     if args.spreading_packets:print('# Frame tail FLAGS: bit0 transient,bit1 TF,bit2 dynamic,bit3 spreading; base policies8,10,13,15; bit3 toggled off on frames7/11/17/23')
     if args.spreading_packets:print('# State after first332: TRANSIENT STREAK TF_ENABLED TF_SELECT REQUESTED_TF[21] EFFECTIVE_TF[21] DEPTH TOTAL RAW_REQUESTS[21] IMPORTANCE[21] SPREAD_WEIGHTS[21] DECISION TONAL_AVERAGE HF_AVERAGE TAPSET')
+    if args.allocation_packets:print('# Frame FLAGS bits0..4 transient/TF/dynamic/spreading/allocation; base16,17,18,20,24,31; allocation off frames7/11/17/23. State tail after447: SAVING DESIRED_INTENSITY TRIM EFFECTIVE_INTENSITY DUAL TRIM_FITS REQUESTED_DUAL EQUIVALENT_RATE')
     random=0x50434d45;rows=0;history_differences=0
     def next_random():
         global random
@@ -815,8 +871,8 @@ void decoder_energy(const OpusDecoder *s,int *out){baseline_decoder_energy((cons
         return random
     for rate in [8000,12000,16000,24000,48000]:
         for channels in [1,2]:
-            for sequence in range(4 if (args.transients or args.tf_packets or args.dynalloc_packets or args.spreading_packets) else 3):
-                flags=[8,10,13,15][sequence] if args.spreading_packets else 7 if args.dynalloc_packets else 3 if args.tf_packets else int(args.transients)
+            for sequence in range(6 if args.allocation_packets else 4 if (args.transients or args.tf_packets or args.dynalloc_packets or args.spreading_packets) else 3):
+                flags=[16,17,18,20,24,31][sequence] if args.allocation_packets else [8,10,13,15][sequence] if args.spreading_packets else 7 if args.dynalloc_packets else 3 if args.tf_packets else int(args.transients)
                 encoder=lib.baseline_create(rate,channels,flags)
                 decoders=[]
                 if not encoder:raise SystemExit('Encoder allocation failed')
@@ -829,14 +885,14 @@ void decoder_energy(const OpusDecoder *s,int *out){baseline_decoder_energy((cons
                 try:
                     for frame in range(24):
                         reset=frame in [0,13];lm=(frame//6)%4 if sequence>=2 else (frame+sequence)%4;n=120<<lm;count=n*rate//48000
-                        budgets=([2,3,4,8,9,10,11,14,15,16,20,19,21,29,30,31,32,64,128,256,512,1275] if args.spreading_packets and sequence==0 else [2,3,4,8,14,15,16,29,30,31,32,64,128,256,512,1275] if (args.tf_packets or args.dynalloc_packets) and sequence==0 else [2,3,4,8,16,32,64,128,256,512,1275] if sequence==0 else [8,16,32,64,128,256] if sequence==2 else [32,64,128,256,512,1275])
+                        budgets=([2,3,4,8,9,10,11,14,15,16,20,19,21,29,30,31,32,64,128,256,512,1275] if (args.spreading_packets or args.allocation_packets) and sequence==0 else [2,3,4,8,14,15,16,29,30,31,32,64,128,256,512,1275] if (args.tf_packets or args.dynalloc_packets) and sequence==0 else [2,3,4,8,16,32,64,128,256,512,1275] if sequence==0 else [8,16,32,64,128,256] if sequence==2 else [32,64,128,256,512,1275])
                         budget=budgets[frame%len(budgets)]
                         if reset:
                             lib.baseline_reset(encoder)
                             for output,api,d in decoders:
                                 if lib.reset_decoder(d):raise SystemExit('Original reset failed')
-                        frame_flags=flags^(8 if args.spreading_packets and frame in [7,11,17,23] else 0)
-                        if args.spreading_packets:lib.baseline_set_flags(encoder,frame_flags)
+                        frame_flags=flags^(16 if args.allocation_packets and frame in [7,11,17,23] else 8 if args.spreading_packets and frame in [7,11,17,23] else 0)
+                        if args.spreading_packets or args.allocation_packets:lib.baseline_set_flags(encoder,frame_flags)
                         samples=[]
                         for i in range(count):
                             for channel in range(channels):
@@ -851,13 +907,14 @@ void decoder_energy(const OpusDecoder *s,int *out){baseline_decoder_energy((cons
                                 elif pattern==5:value=32767 if i==count//2 else 0
                                 elif pattern==6:value=32767 if channel==0 else -32768
                                 else:value=(next_random()%8192-4096)*(-1 if channel else 1)
+                                if args.allocation_packets and sequence==5 and frame==0:value=(c.c_int16(next_random()).value if channel==0 else 0)
                                 samples.append(value)
                         phase+=count
-                        data=(c.c_ubyte*1276)();state=(c.c_int32*447)()
+                        data=(c.c_ubyte*1276)();state=(c.c_int32*455)()
                         length=lib.baseline_encode(encoder,lm,(c.c_int16*len(samples))(*samples),budget,data,state)
                         if length!=budget+1:raise SystemExit(f'Original baseline failed {rate,channels,sequence,frame,budget,length}')
                         values=list(state);values[0]=c.c_uint32(values[0]).value
-                        print('frame',int(reset),rate,channels,lm,budget,bytes(data[:length]).hex(),*([frame_flags] if args.spreading_packets else []));print('input',*samples);print('state',*(values if args.spreading_packets else values[:443] if args.dynalloc_packets else values[:378] if args.tf_packets else values[:334] if args.transients else values[:332]))
+                        print('frame',int(reset),rate,channels,lm,budget,bytes(data[:length]).hex(),*([frame_flags] if args.spreading_packets or args.allocation_packets else []));print('input',*samples);print('state',*(values if args.allocation_packets else values[:447] if args.spreading_packets else values[:443] if args.dynalloc_packets else values[:378] if args.tf_packets else values[:334] if args.transients else values[:332]))
                         for output,api,d in decoders:
                             pcm=(c.c_int16*11520)();final=c.c_uint32();actual=lib.decode_packet(d,data,length,pcm,c.byref(final))
                             if actual!=n*output//48000 or final.value!=values[0]:raise SystemExit(f'Original packet decode mismatch {rate,channels,sequence,frame,output,api,actual}')

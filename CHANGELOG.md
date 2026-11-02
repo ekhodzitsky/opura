@@ -7,6 +7,26 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.61] - 2026-11-02
+
+- Add independent opt-in CELT PCM allocation analysis: native equivalent rate,
+  desired intensity hysteresis, LM-dependent L1 stereo and trim from adjusted
+  energy logs/temporal estimates. Invoke trim lazily at the actual post-dynamic
+  budget guard; preserve saving when skipped and desired history before clipping.
+- Preserve all five settings on reset and clear allocation histories. Turning
+  analysis off retains history; whole-frame rollback includes these new states.
+  Existing public fixed allocation and default packet behavior remain compatible.
+- Match 1,440 original packets, complete state/controls/accounting and 14,400
+  unchanged public native PCM/range/history decodes under six policies/toggles.
+  Add a one-active-channel LM0 regression. Match 1,056 isolated entropy tails
+  including boost reservations, saving and all per-band allocation budgets.
+- Verify another 4,096 frames under all 32 settings and small-budget/NB/FB/reset
+  boundaries, plus 32-setting pre/post-finalize rollback and lazy callback errors.
+  All 36 targeted mutations are detected. All 21 optional evidence modes reproduce
+  and all seven offline gates pass with zero dependencies.
+- Pitch prefilter, SILK/Hybrid encoding, DTX/VBR/FEC and representative quality/
+  performance evaluation remain work; these results establish no SOTA claim.
+
 ## [0.1.60] - 2026-11-02
 
 - Add standalone native CELT byte-equivalent rate, bounded L1 stereo modelling,

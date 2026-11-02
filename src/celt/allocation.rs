@@ -10,6 +10,7 @@ use super::{
 };
 use crate::range::{EncoderError, RangeDecoder, RangeError};
 mod encoder;
+pub(crate) use encoder::encode_analyzed;
 pub use encoder::{AllocationEncoding, encode_allocation};
 use std::fmt;
 
@@ -27,6 +28,8 @@ pub enum AllocationError {
     InvalidControls,
     /// Entropy encoding failed without committing the writer.
     Encoding(EncoderError),
+    /// Lazy encoder trim analysis failed without committing the writer.
+    Analysis(super::analysis::AnalysisError),
     /// Entropy decoding failed.
     Entropy(RangeError),
 }
@@ -39,6 +42,7 @@ impl fmt::Display for AllocationError {
             }
             Self::BitBudgetExceeded => f.write_str("CELT allocation cursor exceeds frame budget"),
             Self::InvalidControls => f.write_str("invalid CELT allocation encoding controls"),
+            Self::Analysis(e) => write!(f, "CELT allocation analysis: {e}"),
             Self::Encoding(e) => write!(f, "CELT allocation encoding: {e}"),
             Self::Entropy(e) => write!(f, "CELT allocation entropy: {e}"),
         }
@@ -49,6 +53,7 @@ impl std::error::Error for AllocationError {
         match self {
             Self::Entropy(e) => Some(e),
             Self::Encoding(e) => Some(e),
+            Self::Analysis(e) => Some(e),
             _ => None,
         }
     }

@@ -178,6 +178,9 @@ pub struct CeltEncoder {
     analyze_tf: bool,
     analyze_dynamic: bool,
     analyze_spreading: bool,
+    analyze_allocation: bool,
+    intensity: analysis::IntensityState,
+    trim: analysis::TrimState,
     spreading: analysis::SpreadingState,
     transient_streak: u8,
 }
@@ -200,6 +203,9 @@ impl CeltEncoder {
             analyze_tf: false,
             analyze_dynamic: false,
             analyze_spreading: false,
+            analyze_allocation: false,
+            intensity: analysis::IntensityState::default(),
+            trim: analysis::TrimState::default(),
             spreading: analysis::SpreadingState::default(),
             transient_streak: 0,
         })
@@ -239,7 +245,7 @@ impl CeltEncoder {
     /// Enable native spectral masking/boost analysis (initially disabled).
     /// Native long-window comparison is used for transients. TF, if enabled,
     /// consumes perceptual importance instead of neutral weights. Reset retains
-    /// the setting; Normal spreading and trim five remain the packet policies.
+    /// the setting. Spreading and trim analysis have independent settings.
     pub fn set_dynamic_allocation(&mut self, enabled: bool) {
         self.analyze_dynamic = enabled;
     }
@@ -252,6 +258,17 @@ impl CeltEncoder {
     /// low payloads and scarce entropy use Normal without updating averages.
     pub fn set_spreading_analysis(&mut self, enabled: bool) {
         self.analyze_spreading = enabled;
+    }
+    /// Whether native trim, intensity and L1 stereo allocation analysis is enabled.
+    pub fn allocation_analysis(&self) -> bool {
+        self.analyze_allocation
+    }
+    /// Enable native allocation choices (initially disabled). Desired intensity
+    /// history is retained before coded-band clipping; saving advances only when
+    /// the trim symbol fits. Other settings are independent. Reset retains this
+    /// setting and clears both histories; disabling preserves their last values.
+    pub fn set_allocation_analysis(&mut self, enabled: bool) {
+        self.analyze_allocation = enabled;
     }
     /// Last completed packet final range, initially zero.
     pub fn final_range(&self) -> u32 {
@@ -267,6 +284,8 @@ impl CeltEncoder {
         self.first = true;
         self.transient_streak = 0;
         self.spreading.reset();
+        self.intensity.reset();
+        self.trim.reset();
     }
     /// Encode exactly one frame of interleaved signed16 PCM into a full packet.
     ///
@@ -378,6 +397,7 @@ impl CeltEncoder {
             || self.analyze_tf
             || self.analyze_dynamic
             || self.analyze_spreading
+            || self.analyze_allocation
         {
             Some(analysis::analyze_transients(
                 size,
@@ -515,7 +535,17 @@ impl CeltEncoder {
         }
         let tf = control::encode_tf(&mut writer, size, 0..end, transient, &decisions, select)?;
         let spread = self.encode_spreading(&mut writer, &bands, transient, perceptual.as_ref())?;
-        let allocation = allocation::encode_allocation(
+        let rate = analysis::equivalent_rate(size, self.channels, payload_bytes)?;
+        let intensity = if self.analyze_allocation && self.channels == 2 {
+            self.intensity.select((rate / 1000) as i16, layout)
+        } else {
+            end
+        };
+        let dual_stereo = self.analyze_allocation
+            && self.channels == 2
+            && size != FrameSize::Ms2_5
+            && analysis::analyze_stereo(size, bands.normalized_values())?;
+        let allocation = allocation::encode_analyzed(
             &mut writer,
             size,
             layout,
@@ -526,10 +556,31 @@ impl CeltEncoder {
                     .filter(|_| self.analyze_dynamic)
                     .map_or([0; 21], |d| *d.boosts()),
                 trim: 5,
-                intensity: end,
-                dual_stereo: false,
+                intensity,
+                dual_stereo,
                 previous_coded_bands: self.previous_coded,
                 signal_bandwidth: end - 1,
+            },
+            || {
+                if !self.analyze_allocation {
+                    return Ok(5);
+                }
+                self.trim
+                    .process(
+                        size,
+                        bands.normalized_values(),
+                        &target,
+                        analysis::TrimOptions {
+                            channels: self.channels,
+                            end,
+                            intensity,
+                            equivalent_rate: rate,
+                            tf_estimate: diagnostics.map_or(0, |d| d.tf_estimate()),
+                            surround_trim: 0,
+                        },
+                    )
+                    .map(|d| d.index())
+                    .map_err(AllocationError::Analysis)
             },
         )?;
         self.energy
@@ -610,7 +661,11 @@ mod tests {
             for tf in [false, true] {
                 for dynamic in [false, true] {
                     for spreading in [false, true] {
-                        verify_finalization_failure(detect, tf, dynamic, spreading)?;
+                        for allocation in [false, true] {
+                            verify_finalization_failure(
+                                detect, tf, dynamic, spreading, allocation,
+                            )?;
+                        }
                     }
                 }
             }
@@ -622,12 +677,14 @@ mod tests {
         tf: bool,
         dynamic: bool,
         spreading: bool,
+        allocation: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut encoder = CeltEncoder::new(InputRate::Khz48, 2)?;
         encoder.set_transient_detection(detect);
         encoder.set_tf_analysis(tf);
         encoder.set_dynamic_allocation(dynamic);
         encoder.set_spreading_analysis(spreading);
+        encoder.set_allocation_analysis(allocation);
         encoder.encode(FrameSize::Ms10, &[0; 960], 128)?;
         let before = encoder.clone();
         let mut input = vec![0; 1920];
@@ -812,6 +869,35 @@ mod tests {
         dynamic_analysis: bool,
         spreading_corpus: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        verify_packet_policies(
+            fixtures,
+            detect,
+            tf_analysis,
+            dynamic_analysis,
+            spreading_corpus,
+            false,
+        )
+    }
+    #[test]
+    fn original_allocation_packets_histories_and_accounting_match()
+    -> Result<(), Box<dyn std::error::Error>> {
+        verify_packet_policies(
+            include_str!("../../tests/celt-encoder-allocation-fixtures.txt"),
+            true,
+            true,
+            true,
+            true,
+            true,
+        )
+    }
+    fn verify_packet_policies(
+        fixtures: &str,
+        detect: bool,
+        tf_analysis: bool,
+        dynamic_analysis: bool,
+        spreading_corpus: bool,
+        allocation_corpus: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         use crate::{celt::energy::EnergyState, range::RangeDecoder};
         let sizes = [
             FrameSize::Ms2_5,
@@ -830,17 +916,19 @@ mod tests {
         while let Some(line) = lines.next() {
             let f: Vec<_> = line.split_whitespace().collect();
             assert_eq!(f[0], "frame");
-            let (detect, tf_analysis, dynamic_analysis, spreading_enabled) = if spreading_corpus {
-                let flags = f[7].parse::<u8>()?;
-                (
-                    flags & 1 != 0,
-                    flags & 2 != 0,
-                    flags & 4 != 0,
-                    flags & 8 != 0,
-                )
-            } else {
-                (detect, tf_analysis, dynamic_analysis, false)
-            };
+            let (detect, tf_analysis, dynamic_analysis, spreading_enabled, allocation_enabled) =
+                if spreading_corpus || allocation_corpus {
+                    let flags = f[7].parse::<u8>()?;
+                    (
+                        flags & 1 != 0,
+                        flags & 2 != 0,
+                        flags & 4 != 0,
+                        flags & 8 != 0,
+                        flags & 16 != 0,
+                    )
+                } else {
+                    (detect, tf_analysis, dynamic_analysis, false, false)
+                };
 
             let rate = match f[2] {
                 "8000" => InputRate::Khz8,
@@ -864,7 +952,9 @@ mod tests {
             let state = numbers(lines.next().ok_or("state")?)?;
             assert_eq!(
                 state.len(),
-                if spreading_corpus {
+                if allocation_corpus {
+                    455
+                } else if spreading_corpus {
                     447
                 } else if dynamic_analysis {
                     443
@@ -891,9 +981,10 @@ mod tests {
             encoder.set_tf_analysis(tf_analysis);
             encoder.set_dynamic_allocation(dynamic_analysis);
             encoder.set_spreading_analysis(spreading_enabled);
+            encoder.set_allocation_analysis(allocation_enabled);
             let seed = encoder.range;
             let streak = encoder.transient_streak;
-            if tf_analysis || spreading_corpus {
+            if tf_analysis || spreading_corpus || allocation_corpus {
                 let stride = size.samples() + 120;
                 let mut context = vec![0; channels * stride];
                 for c in 0..channels {
@@ -1025,7 +1116,7 @@ mod tests {
                     );
                 }
             }
-            if detect || tf_analysis || dynamic_analysis || spreading_corpus {
+            if detect || tf_analysis || dynamic_analysis || spreading_corpus || allocation_corpus {
                 assert_eq!(
                     i64::from(encoder.transient_streak),
                     state[333],
@@ -1036,7 +1127,7 @@ mod tests {
             assert_eq!(encoder.tf_analysis(), tf_analysis);
             assert_eq!(encoder.dynamic_allocation(), dynamic_analysis);
             assert_eq!(encoder.spreading_analysis(), spreading_enabled);
-            if spreading_corpus {
+            if spreading_corpus || allocation_corpus {
                 assert_eq!(
                     [
                         encoder.spreading.decision() as i64,
@@ -1049,6 +1140,21 @@ mod tests {
                 );
             }
 
+            assert_eq!(encoder.allocation_analysis(), allocation_enabled);
+            if allocation_corpus {
+                assert_eq!(
+                    [
+                        i64::from(encoder.trim.stereo_saving()),
+                        encoder.intensity.band() as i64
+                    ],
+                    state[447..449],
+                    "allocation history frame{rows}"
+                );
+                assert_eq!(
+                    i64::from(analysis::equivalent_rate(size, channels, bytes)?),
+                    state[454]
+                );
+            }
             let end = match rate {
                 InputRate::Khz8 => 13,
                 InputRate::Khz12 | InputRate::Khz16 => 17,
@@ -1062,7 +1168,7 @@ mod tests {
             assert_eq!(prefix.transient(), detect && state[332] != 0);
             decoded_energy.coarse(&mut read, layout, size, prefix.intra())?;
             let tf = control::decode_tf(&mut read, size, 0..end, prefix.transient())?;
-            if tf_analysis || spreading_corpus {
+            if tf_analysis || spreading_corpus || allocation_corpus {
                 for i in 0..21 {
                     assert_eq!(
                         i64::from(tf.values()[i]),
@@ -1080,6 +1186,17 @@ mod tests {
             let allocation =
                 allocation::decode_allocation(&mut read, size, layout, prefix.transient())?;
 
+            if allocation_corpus {
+                assert_eq!(
+                    [
+                        i64::from(allocation.trim()),
+                        allocation.intensity() as i64,
+                        i64::from(allocation.dual_stereo())
+                    ],
+                    state[449..452],
+                    "effective allocation frame{rows}"
+                );
+            }
             decoded_energy.fine(&mut read, layout, allocation.fine_bits())?;
             partition::decode_spectrum(&mut read, &allocation, &tf, spread, seed, false)?;
             if allocation.anti_collapse_reserved() {
@@ -1115,7 +1232,16 @@ mod tests {
             }
             rows += 1;
         }
-        assert_eq!(rows, if detect { 960 } else { 720 });
+        assert_eq!(
+            rows,
+            if allocation_corpus {
+                1440
+            } else if detect {
+                960
+            } else {
+                720
+            }
+        );
         Ok(())
     }
 }
