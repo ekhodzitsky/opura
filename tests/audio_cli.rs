@@ -331,46 +331,52 @@ fn silk_command_preserves_duration_for_all_rates_bandwidths_and_packet_sizes() -
     let mut case = 0;
     for rate in [8000, 12000, 16000, 24000, 48000] {
         for bandwidth in ["nb", "mb", "wb"] {
-            for ms in [10, 20, 40, 60] {
-                let frame = rate as usize / 1000 * ms;
-                let frames = match case % 5 {
-                    0 => 0,
-                    1 => 1,
-                    2 => frame - 1,
-                    3 => frame,
-                    _ => frame + 1,
-                };
-                case += 1;
-                let stem = format!("silk-{rate}-{bandwidth}-{ms}");
-                let input = temp.0.join(stem.clone() + ".wav");
-                let encoded = temp.0.join(stem.clone() + ".opus");
-                let output = temp.0.join(stem + "-decoded.wav");
-                fs::write(&input, wave(rate, 1, frames))?;
-                success(cli().arg("encode").arg(&input).arg(&encoded).args([
-                    "--mode",
-                    "silk",
-                    "--bandwidth",
-                    bandwidth,
-                    "--bitrate",
-                    "32101",
-                    "--frame-ms",
-                    &ms.to_string(),
-                ]))?;
-                let container = fs::read(&encoded)?;
-                let head = container
-                    .windows(8)
-                    .position(|w| w == b"OpusHead")
-                    .ok_or("missing OpusHead")?;
-                assert_eq!(
-                    u16::from_le_bytes(container[head + 10..head + 12].try_into()?),
-                    312
-                );
-                success(cli().arg("decode").arg(&encoded).arg(&output))?;
-                output_pcm(&fs::read(output)?, 1, frames * (48000 / rate) as usize)?;
+            for channels in [1u16, 2] {
+                for ms in [10, 20, 40, 60] {
+                    let frame = rate as usize / 1000 * ms;
+                    let frames = match case % 5 {
+                        0 => 0,
+                        1 => 1,
+                        2 => frame - 1,
+                        3 => frame,
+                        _ => frame + 1,
+                    };
+                    case += 1;
+                    let stem = format!("silk-{rate}-{bandwidth}-{channels}-{ms}");
+                    let input = temp.0.join(stem.clone() + ".wav");
+                    let encoded = temp.0.join(stem.clone() + ".opus");
+                    let output = temp.0.join(stem + "-decoded.wav");
+                    fs::write(&input, wave(rate, channels, frames))?;
+                    success(cli().arg("encode").arg(&input).arg(&encoded).args([
+                        "--mode",
+                        "silk",
+                        "--bandwidth",
+                        bandwidth,
+                        "--bitrate",
+                        "32101",
+                        "--frame-ms",
+                        &ms.to_string(),
+                    ]))?;
+                    let container = fs::read(&encoded)?;
+                    let head = container
+                        .windows(8)
+                        .position(|w| w == b"OpusHead")
+                        .ok_or("missing OpusHead")?;
+                    assert_eq!(
+                        u16::from_le_bytes(container[head + 10..head + 12].try_into()?),
+                        312
+                    );
+                    success(cli().arg("decode").arg(&encoded).arg(&output))?;
+                    output_pcm(
+                        &fs::read(output)?,
+                        channels,
+                        frames * (48000 / rate) as usize,
+                    )?;
+                }
             }
         }
     }
-    assert_eq!(case, 60);
+    assert_eq!(case, 120);
     Ok(())
 }
 #[test]
@@ -401,20 +407,7 @@ fn silk_pre_skip_centers_impulse_and_rejects_unsupported_cli_geometry() -> Resul
     // Native SILK resampling is not linear phase. Guard nominal6.5ms trimming
     // within its short impulse lobe, rather than assuming a CELT-exact peak.
     assert!(peak.abs_diff(480) <= 8, "SILK impulse at {peak}");
-    let stereo = temp.0.join("stereo.wav");
-    fs::write(&stereo, wave(48000, 2, 960))?;
     let rejected = temp.0.join("rejected.opus");
-    assert!(
-        !cli()
-            .arg("encode")
-            .arg(&stereo)
-            .arg(&rejected)
-            .args(["--mode", "silk"])
-            .output()?
-            .status
-            .success()
-    );
-    assert!(!rejected.exists());
     for arguments in [
         vec!["--mode", "silk", "--frame-ms", "5"],
         vec!["--mode", "silk", "--mode", "silk"],

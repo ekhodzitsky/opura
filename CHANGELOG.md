@@ -7,6 +7,27 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.68] - 2026-11-02
+
+- Add stereo SILK PCM-to-packet encoding at all five input rates, fixed
+  NB/MB/WB bandwidths and 10/20/40/60 ms durations. Connect adaptive M/S
+  prediction, width/rate allocation, mid-only omission and side resumption
+  with independent channel analysis, exact CBR budgets or capped variable output.
+- Extend `--mode silk` WAV/Ogg conversion to stereo with a 48 kb/s default;
+  retain mono's 24 kb/s default and 312-sample pre-skip for both channel layouts.
+- Match 144 unchanged public native stereo analysis calls, including transformed
+  PCM, complete state, rate allocation, predictor indices and entropy bytes.
+  Independently decode 120 stereo streams / 2880 packets with exact native
+  sample counts, PCM fingerprints and final ranges. Fixtures/tables reproduce.
+- Validate 60 stereo and 60 mono CLI files with FFmpeg/libopus for exact
+  duration and pre-skip; ordinary CLI tests cover 120 geometries including
+  empty/one-sample/boundary inputs. Retain and independently reproduce the
+  builtin FFmpeg tail-trimming issue in each channel layout.
+- All seven required offline gates pass, including 19 Python tool tests;
+  mono packet corpus and all 60 mono CLI audio/PCM results remain unchanged.
+- DTX/FEC, adaptive bandwidth, Hybrid encoding and representative quality/speed
+  evaluation remain open. See docs/validation/silk-stereo-packets.md.
+
 ## [0.1.67] - 2026-11-02
 
 - Add mono SILK PCM-to-Opus packet encoding at all five standard input rates,

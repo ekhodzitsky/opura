@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Optional unchanged native DC oracle and mono packet cross-decoder validation.
+"""Optional unchanged native DC oracle and mono/stereo packet cross-decoder validation.
 
-Generate vectors with the silk_mono_vectors Rust example. Neither a C compiler
+Generate vectors with the silk_mono_vectors or silk_stereo_vectors Rust example. Neither a C compiler
 nor native codec library is a normal build/test dependency.
 """
 import argparse
@@ -88,8 +88,10 @@ def main():
             packets = streams = 0
             try:
                 with args.vectors.open('rb') as vectors:
-                    if vectors.read(8) != b'OPURAM01':
+                    magic = vectors.read(8)
+                    if magic not in [b'OPURAM01', b'OPURAS01']:
                         raise SystemExit('Invalid Rust vector header')
+                    channels = 1 if magic == b'OPURAM01' else 2
                     while header := vectors.read(17):
                         if len(header) != 17:
                             raise SystemExit('Truncated vector metadata')
@@ -101,25 +103,25 @@ def main():
                             if decoder:
                                 lib.opus_decoder_destroy(decoder)
                             error = c.c_int()
-                            decoder = lib.opus_decoder_create(48000, 1, c.byref(error))
+                            decoder = lib.opus_decoder_create(48000, channels, c.byref(error))
                             if not decoder or error.value:
                                 raise SystemExit('Native decoder initialization failed')
                             streams += 1
                         if not decoder:
                             raise SystemExit('Missing stream start')
-                        pcm = (c.c_int16*2880)()
+                        pcm = (c.c_int16*(2880*channels))()
                         actual = lib.opus_decode(decoder, (c.c_ubyte*length).from_buffer_copy(packet), length, pcm, 2880, 0)
                         final_range = c.c_uint32()
                         status = lib.opus_decoder_ctl(decoder, 4031, c.byref(final_range))
-                        if actual != count or status or final_range.value != expected_range or fingerprint(pcm[:actual]) != expected_hash:
+                        if actual*channels != count or status or final_range.value != expected_range or fingerprint(pcm[:actual*channels]) != expected_hash:
                             raise SystemExit(f'Native cross-decoder mismatch at packet {packets}: samples={actual}/{count}, range={final_range.value}/{expected_range}')
                         packets += 1
             finally:
                 if decoder:
                     lib.opus_decoder_destroy(decoder)
-            if packets != 1440 or streams != 120:
+            if packets != (1440 if channels == 1 else 2880) or streams != 120:
                 raise SystemExit(f'Unexpected corpus size: {streams} streams/{packets} packets')
-            print(f'PASS: {streams} raw-PCM mono streams, {packets} packets match unchanged native PCM/final ranges')
+            print(f'PASS: {streams} raw-PCM {channels}-channel streams, {packets} packets match unchanged native PCM/final ranges')
 
 
 if __name__ == '__main__':

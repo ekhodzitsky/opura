@@ -10,7 +10,7 @@ use crate::range::{RangeDecoder, RangeError};
 use std::fmt;
 
 #[path = "stereo_tables.rs"]
-mod tables;
+pub(super) mod tables;
 use tables::*;
 
 /// Invalid stereo fields or geometry; no partial entropy/history is committed.

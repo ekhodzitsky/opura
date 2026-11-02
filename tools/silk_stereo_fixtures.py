@@ -33,7 +33,7 @@ if args.tables:
         if not match: raise SystemExit('Missing table ' + original)
         values = [int(v) for v in re.findall(r'-?\d+', match[1])]
         if len(values) != size: raise SystemExit('Unexpected table size ' + original)
-        print(f'pub(super) const {name}: [{kind}; {size}] = {values};')
+        print(f'pub(in crate::silk) const {name}: [{kind}; {size}] = {values};')
     raise SystemExit(0)
 wrapper = r'''
 #include "main.h"

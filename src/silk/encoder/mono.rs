@@ -36,14 +36,14 @@ impl PacketDuration {
             Self::Ms60 => 60,
         }
     }
-    fn frames(self) -> usize {
+    pub(super) fn frames(self) -> usize {
         match self {
             Self::Ms10 | Self::Ms20 => 1,
             Self::Ms40 => 2,
             Self::Ms60 => 3,
         }
     }
-    fn frame_duration(self) -> FrameDuration {
+    pub(super) fn frame_duration(self) -> FrameDuration {
         if self == Self::Ms10 {
             FrameDuration::Ms10
         } else {
@@ -308,7 +308,7 @@ impl MonoEncoder {
         Ok(result)
     }
 }
-fn target_snr(rate: SilkRate, duration: FrameDuration, mut bitrate: i32) -> u16 {
+pub(super) fn target_snr(rate: SilkRate, duration: FrameDuration, mut bitrate: i32) -> u16 {
     if duration == FrameDuration::Ms10 {
         bitrate -= 2000 + rate.khz() / 16;
     }
@@ -324,7 +324,7 @@ fn target_snr(rate: SilkRate, duration: FrameDuration, mut bitrate: i32) -> u16 
         u16::from(table[index as usize]) * 21
     }
 }
-fn packet(toc: u8, payload: &[u8], length: usize, range: u32) -> MonoPacket {
+pub(super) fn packet(toc: u8, payload: &[u8], length: usize, range: u32) -> MonoPacket {
     let mut result = MonoPacket {
         bytes: [0; 1276],
         length,
@@ -354,7 +354,7 @@ fn packet(toc: u8, payload: &[u8], length: usize, range: u32) -> MonoPacket {
     result
 }
 
-fn dc_reject(state: &mut i32, rate: OutputRate, input: &[i16], output: &mut [i16]) {
+pub(super) fn dc_reject(state: &mut i32, rate: OutputRate, input: &[i16], output: &mut [i16]) {
     let shift = 31 - (rate.hz() / 12).leading_zeros();
     for (out, &sample) in output.iter_mut().zip(input) {
         let y = (i32::from(sample) << 14) - *state;

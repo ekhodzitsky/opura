@@ -9,7 +9,10 @@ use opura::{
     decoder::OpusDecoder,
     silk::{
         decoder::PcmChannels,
-        encoder::mono::{MonoEncoder, MonoOptions, PacketDuration},
+        encoder::{
+            mono::{MonoEncoder, MonoOptions, PacketDuration},
+            stereo::StereoEncoder,
+        },
         pitch::SilkRate,
         resampler::OutputRate,
     },
@@ -27,7 +30,7 @@ type Result<T> = std::result::Result<T, Box<dyn Error>>;
 fn invalid(message: impl Into<String>) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message.into())
 }
-const HELP: &str = "opura encode INPUT.wav OUTPUT.opus [--mode celt|silk] [--bitrate BPS] [--frame-ms MS] [--bandwidth nb|mb|wb]\nopura decode INPUT.opus OUTPUT.wav\nopura --version\n\nEncode: PCM16 WAV at 8/12/16/24/48 kHz.\nCELT: mono/stereo, frames 2.5/5/10/20 ms. SILK: mono, frames 10/20/40/60 ms.\nDefaults: CELT, 64000 bits/s (SILK: 24000), 20 ms. SILK bandwidth defaults to input-rate NB/MB/WB. Ogg overhead is additional.\nDecode: one mono/stereo Ogg Opus stream, zero header gain; output PCM16/48 kHz.\nExisting outputs are refused. Errors may leave a partial new output.";
+const HELP: &str = "opura encode INPUT.wav OUTPUT.opus [--mode celt|silk] [--bitrate BPS] [--frame-ms MS] [--bandwidth nb|mb|wb]\nopura decode INPUT.opus OUTPUT.wav\nopura --version\n\nEncode: PCM16 WAV at 8/12/16/24/48 kHz.\nCELT: mono/stereo, frames 2.5/5/10/20 ms. SILK: mono/stereo, frames 10/20/40/60 ms.\nDefaults: CELT, 64000 bits/s (SILK: 24000 mono/48000 stereo), 20 ms. SILK bandwidth defaults to input-rate NB/MB/WB. Ogg overhead is additional.\nDecode: one mono/stereo Ogg Opus stream, zero header gain; output PCM16/48 kHz.\nExisting outputs are refused. Errors may leave a partial new output.";
 fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
@@ -105,7 +108,7 @@ fn run() -> Result<()> {
                 encode_silk(
                     Path::new(&args[1]),
                     Path::new(&args[2]),
-                    bitrate.unwrap_or(24000),
+                    bitrate,
                     duration,
                     bandwidth,
                 )
@@ -200,18 +203,28 @@ fn encode(input: &Path, output: &Path, bitrate: u32, size: FrameSize) -> Result<
     );
     Ok(())
 }
+enum SilkFileEncoder {
+    Mono(Box<MonoEncoder>),
+    Stereo(Box<StereoEncoder>),
+}
+impl SilkFileEncoder {
+    fn lookahead_48k(&self) -> u32 {
+        match self {
+            Self::Mono(e) => e.lookahead_48k(),
+            Self::Stereo(e) => e.lookahead_48k(),
+        }
+    }
+}
 fn encode_silk(
     input: &Path,
     output: &Path,
-    bitrate: u32,
+    bitrate: Option<u32>,
     duration: PacketDuration,
     bandwidth: Option<SilkRate>,
 ) -> Result<()> {
     let start = Instant::now();
     let mut source = wav::Reader::new(BufReader::new(File::open(input)?))?;
-    if source.channels != 1 {
-        return Err(invalid("SILK encoding currently requires mono WAV").into());
-    }
+    let bitrate = bitrate.unwrap_or(if source.channels == 2 { 48000 } else { 24000 });
     let rate = match source.rate {
         8000 => OutputRate::Khz8,
         12000 => OutputRate::Khz12,
@@ -233,7 +246,11 @@ fn encode_silk(
         )
         .into());
     }
-    let mut encoder = MonoEncoder::new(rate, bandwidth);
+    let mut encoder = if source.channels == 1 {
+        SilkFileEncoder::Mono(Box::new(MonoEncoder::new(rate, bandwidth)))
+    } else {
+        SilkFileEncoder::Stereo(Box::new(StereoEncoder::new(rate, bandwidth)))
+    };
     let lookahead = u64::from(encoder.lookahead_48k());
     let original_samples = source.frames * u64::from(48000 / source.rate);
     let end = original_samples
@@ -243,12 +260,12 @@ fn encode_silk(
     let frames = end.div_ceil(frame_samples);
     let mut writer = ogg::Writer::with_pre_skip(
         BufWriter::new(create(output)?),
-        1,
+        source.channels,
         source.rate,
         lookahead as u16,
     )?;
-    let mut pcm = [0i16; 2880];
-    let length = source.rate as usize / 1000 * duration.milliseconds() as usize;
+    let mut pcm = [0i16; 5760];
+    let length = source.rate as usize / 1000 * duration.milliseconds() as usize * source.channels;
     let mut credit = denominator / 2;
     let mut packet_bytes = 0u64;
     for index in 0..frames {
@@ -257,25 +274,41 @@ fn encode_silk(
         credit += numerator;
         let bytes = credit / denominator;
         credit %= denominator;
-        let packet = encoder.encode(
-            duration,
-            &pcm[..length],
-            bytes as usize,
-            MonoOptions::default(),
-        )?;
         let final_frame = index + 1 == frames;
         let granule = if final_frame {
             end
         } else {
             (index + 1) * frame_samples
         };
-        writer.packet(packet.as_bytes(), granule, final_frame)?;
-        packet_bytes += packet.as_bytes().len() as u64;
+        let written = match &mut encoder {
+            SilkFileEncoder::Mono(encoder) => {
+                let packet = encoder.encode(
+                    duration,
+                    &pcm[..length],
+                    bytes as usize,
+                    MonoOptions::default(),
+                )?;
+                writer.packet(packet.as_bytes(), granule, final_frame)?;
+                packet.as_bytes().len()
+            }
+            SilkFileEncoder::Stereo(encoder) => {
+                let packet = encoder.encode(
+                    duration,
+                    &pcm[..length],
+                    bytes as usize,
+                    MonoOptions::default(),
+                )?;
+                writer.packet(packet.as_bytes(), granule, final_frame)?;
+                packet.as_bytes().len()
+            }
+        };
+        packet_bytes += written as u64;
     }
     eprintln!(
-        "encoded SILK {} samples at {} Hz; {frames} packets, {packet_bytes} packet bytes; {:.3} s",
+        "encoded SILK {} samples/channel at {} Hz, {} channels; {frames} packets, {packet_bytes} packet bytes; {:.3} s",
         source.frames,
         source.rate,
+        source.channels,
         start.elapsed().as_secs_f64()
     );
     Ok(())

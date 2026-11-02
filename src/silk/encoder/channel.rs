@@ -184,6 +184,17 @@ impl ChannelFrameEncoder {
     pub fn reset(&mut self) {
         *self = Self::new(self.rate);
     }
+    // Native side restart clears prediction/shape state while preserving input
+    // delay, frame counter and entropy history. Independent-without-scaling
+    // coding restarts the side inside a packet after mid-only omission.
+    pub(super) fn restart_prediction(&mut self) {
+        self.first = true;
+        self.pitch.reset();
+        self.shape.reset();
+        self.spectrum.reset();
+        self.gains.reset();
+        self.nsq.reset();
+    }
     /// Buffer a prefill frame without analysis/entropy coding, as used when an
     /// enclosing Opus encoder warms SILK state before switching modes.
     pub fn prefill(&mut self, duration: FrameDuration, input: &[i16]) -> Result<(), FrameError> {
