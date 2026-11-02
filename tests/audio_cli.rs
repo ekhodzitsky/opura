@@ -324,3 +324,127 @@ fn encoder_delay_is_removed_from_an_impulse_recording() -> Result<()> {
     assert_eq!(peak, 480);
     Ok(())
 }
+
+#[test]
+fn silk_command_preserves_duration_for_all_rates_bandwidths_and_packet_sizes() -> Result<()> {
+    let temp = Temporary::new()?;
+    let mut case = 0;
+    for rate in [8000, 12000, 16000, 24000, 48000] {
+        for bandwidth in ["nb", "mb", "wb"] {
+            for ms in [10, 20, 40, 60] {
+                let frame = rate as usize / 1000 * ms;
+                let frames = match case % 5 {
+                    0 => 0,
+                    1 => 1,
+                    2 => frame - 1,
+                    3 => frame,
+                    _ => frame + 1,
+                };
+                case += 1;
+                let stem = format!("silk-{rate}-{bandwidth}-{ms}");
+                let input = temp.0.join(stem.clone() + ".wav");
+                let encoded = temp.0.join(stem.clone() + ".opus");
+                let output = temp.0.join(stem + "-decoded.wav");
+                fs::write(&input, wave(rate, 1, frames))?;
+                success(cli().arg("encode").arg(&input).arg(&encoded).args([
+                    "--mode",
+                    "silk",
+                    "--bandwidth",
+                    bandwidth,
+                    "--bitrate",
+                    "32101",
+                    "--frame-ms",
+                    &ms.to_string(),
+                ]))?;
+                let container = fs::read(&encoded)?;
+                let head = container
+                    .windows(8)
+                    .position(|w| w == b"OpusHead")
+                    .ok_or("missing OpusHead")?;
+                assert_eq!(
+                    u16::from_le_bytes(container[head + 10..head + 12].try_into()?),
+                    312
+                );
+                success(cli().arg("decode").arg(&encoded).arg(&output))?;
+                output_pcm(&fs::read(output)?, 1, frames * (48000 / rate) as usize)?;
+            }
+        }
+    }
+    assert_eq!(case, 60);
+    Ok(())
+}
+#[test]
+fn silk_pre_skip_centers_impulse_and_rejects_unsupported_cli_geometry() -> Result<()> {
+    let temp = Temporary::new()?;
+    let input = temp.0.join("impulse.wav");
+    let encoded = temp.0.join("impulse.opus");
+    let output = temp.0.join("decoded.wav");
+    let mut bytes = wave(48000, 1, 1923);
+    bytes[44..].fill(0);
+    bytes[44 + 480 * 2..44 + 481 * 2].copy_from_slice(&20000i16.to_le_bytes());
+    fs::write(&input, bytes)?;
+    success(cli().arg("encode").arg(&input).arg(&encoded).args([
+        "--mode",
+        "silk",
+        "--bitrate",
+        "128000",
+    ]))?;
+    success(cli().arg("decode").arg(&encoded).arg(&output))?;
+    let decoded = fs::read(output)?;
+    let samples = output_pcm(&decoded, 1, 1923)?;
+    let peak = samples
+        .chunks_exact(2)
+        .enumerate()
+        .max_by_key(|(_, v)| i32::from(i16::from_le_bytes([v[0], v[1]])).abs())
+        .map(|(i, _)| i)
+        .ok_or("missing impulse")?;
+    // Native SILK resampling is not linear phase. Guard nominal6.5ms trimming
+    // within its short impulse lobe, rather than assuming a CELT-exact peak.
+    assert!(peak.abs_diff(480) <= 8, "SILK impulse at {peak}");
+    let stereo = temp.0.join("stereo.wav");
+    fs::write(&stereo, wave(48000, 2, 960))?;
+    let rejected = temp.0.join("rejected.opus");
+    assert!(
+        !cli()
+            .arg("encode")
+            .arg(&stereo)
+            .arg(&rejected)
+            .args(["--mode", "silk"])
+            .output()?
+            .status
+            .success()
+    );
+    assert!(!rejected.exists());
+    for arguments in [
+        vec!["--mode", "silk", "--frame-ms", "5"],
+        vec!["--mode", "silk", "--mode", "silk"],
+        vec!["--mode", "unknown"],
+        vec!["--mode", "celt", "--bandwidth", "wb"],
+        vec!["--mode", "silk", "--bandwidth", "bad"],
+    ] {
+        assert!(
+            !cli()
+                .arg("encode")
+                .arg(&input)
+                .arg(&rejected)
+                .args(arguments)
+                .output()?
+                .status
+                .success()
+        );
+        assert!(!rejected.exists());
+    }
+    let before = fs::read(&encoded)?;
+    assert!(
+        !cli()
+            .arg("encode")
+            .arg(&input)
+            .arg(&encoded)
+            .args(["--mode", "silk"])
+            .output()?
+            .status
+            .success()
+    );
+    assert_eq!(fs::read(encoded)?, before);
+    Ok(())
+}

@@ -8,6 +8,7 @@
 pub mod analysis;
 pub mod channel;
 mod math;
+pub mod mono;
 pub mod nsq;
 mod pulses;
 use super::{

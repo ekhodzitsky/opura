@@ -150,6 +150,9 @@ pub struct Writer<W> {
 }
 impl<W: Write> Writer<W> {
     pub fn new(output: W, channels: usize, rate: u32) -> io::Result<Self> {
+        Self::with_pre_skip(output, channels, rate, 120)
+    }
+    pub fn with_pre_skip(output: W, channels: usize, rate: u32, pre_skip: u16) -> io::Result<Self> {
         if !(1..=2).contains(&channels) {
             return Err(invalid("invalid Opus channel count"));
         }
@@ -163,7 +166,7 @@ impl<W: Write> Writer<W> {
         };
         let mut head = Vec::from(&b"OpusHead"[..]);
         head.extend_from_slice(&[1, channels as u8]);
-        head.extend_from_slice(&120u16.to_le_bytes());
+        head.extend_from_slice(&pre_skip.to_le_bytes());
         head.extend_from_slice(&rate.to_le_bytes());
         head.extend_from_slice(&[0, 0, 0]);
         writer.body.extend_from_slice(&head);

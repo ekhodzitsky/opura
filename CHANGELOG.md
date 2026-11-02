@@ -7,104 +7,37 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
-- Add a fixed-internal-rate SILK PCM channel encoder: native fixed 5 ms buffering,
-  prefill, linked analysis/NSQ/frame entropy, loss-dependent LTP scaling and
-  bounded seven-iteration bitrate search. Preserve all channel/writer state on
-  failure; retry physically overflowing candidates and reject unattainable caps.
-- Restore native gain/NSQ/entropy snapshots on retries, cache gain-vector costs,
-  lock non-improving subframe gains, increase lambda under pressure and retain
-  the best fitting frame. Final damage control holds previous gain/clears pulses;
-  return actual selected indices/seed/pulses and explicit fallback accounting.
-- Preserve LTP cumulative gain across independent packet boundaries; its explicit
-  reset control is separate from entropy coding. Separate CBR analysis policy
-  from final-channel/frame budget filling for multi-frame/stereo orchestration.
-- Match 504 unchanged public native frame calls and 288 complete decoded packets,
-  across three rates, CBR/VBR, 10/20 ms frames, 40/60 ms packets, conditional coding,
-  loss scaling, retry/cache/restore and damage control. Compare complete frame
-  bytes, selected symbols/pulses, writer range/tell and every NSQ state fingerprint;
-  own assembled packets reproduce public native PCM/final ranges. All seven
-  mandatory offline gates pass; the complete native corpus regenerates exactly.
-- Validate Rust-only PCM/VAD-to-packet decoding, prefill timing, small physical
-  capacities and atomic late budget/invalid-control failures. Input-rate history
-  conversion, external preprocessing/rate policy, full stereo/DTX/FEC packet
-  orchestration and CLI remain work; keep this internal core Unreleased.
+## [0.1.67] - 2026-11-02
 
-- Add complete SILK perceptual noise-shaping analysis: quality/SNR/sparsity,
-  regular and warped autocorrelation, Schur64/AR recursion, bounded warped
-  coefficient fitting, initial gains and stateful LF/harmonic/tilt controls.
-- Connect shaped gains to LTP normalization and native spectral-analysis
-  controls, then measure quantized-predictor residual energy and apply gain
-  soft limiting, quantization, voiced offsets and NSQ lambda. Share encoder
-  sine-window, sigmoid and log conversion arithmetic with existing stages.
-- Match 144 unchanged public CBR/VBR analysis groups through pitch, shaping,
-  LTP, LPC/NLSF, residual energy and final gains/lambda. Exercise every
-  complexity, silence/full-scale PCM, geometry/quality validation and atomic
-  history failures. All seven offline gates pass; the complete CBR/VBR trace
-  reproduces byte for byte. Complete PCM buffering, packet-budget retry control,
-  stereo/DTX/FEC and CLI integration remain in progress; no full SILK release.
-
-- Add complete SILK pitch LPC whitening and three-stage multirate contour
-  search, with native complexity profiles, voiced-history bias and first-frame /
-  rate-change suppression. Return the full residual, gain and serializable lags.
-- Add normalized five-tap LTP correlation analysis, gain-limited rate/distortion
-  codebook quantization and raw-PCM residual filtering into the existing LPC/NLSF
-  block geometry. Keep unvoiced gain scaling and independent-frame reset rules.
-- Match 72 unchanged public native pitch calls and all 47 voiced LTP calls:
-  complete residuals, pitch decisions/indices, correlation matrices/vectors,
-  codebooks, cumulative gains, taps and normalized PCM. Exercise all eleven
-  complexity settings, full-scale input and validation/reset boundaries.
-  All seven required offline gates pass; native trace/table regeneration is
-  byte-exact, and all 22 pre-existing decoder/serializer table arrays are unchanged.
-  Full noise-shaping/gain analysis and PCM-to-packet/CLI integration remain work;
-  these additions are an Unreleased checkpoint, not a full SILK encoder release.
-
-- Add native SILK modified Burg LPC analysis, bounded LPC-to-NLSF root search,
-  Laroia weights, predictive four-state NLSF codebook search, and hysteretic
-  gain quantization. Reuse decoder spectrum reconstruction/cosine tables.
-- Combine normalized PCM subframes into the full stateful spectral stage:
-  compare first-/second-half prediction energy, choose interpolation, weight
-  spectra using activity/history, and produce quantized indices and both NSQ
-  predictors. Rate changes suppress old spectral interpolation; errors preserve
-  history and fixed-point headroom failures are explicit.
-- Add the native four-band VAD, filter bank, noise estimation, activity/tilt
-  and quality-band smoothing. Retain its native history across duration/rate
-  changes, with explicit reset and bounded PCM input validation.
-- Match 72 unchanged public-native analysis groups, including complete spectral
-  stage, gain/NLSF/Burg/root outputs and VAD output/every state field; eight
-  extra root probes cover zero roots and bandwidth recovery. Full pitch/LTP,
-  noise-shaping/gain processing, packet budgeting, stereo/DTX/FEC and CLI
-  integration remain in progress; this is not a complete SILK encoder release.
-- Reproduce the complete analysis fixture and both affected table modules
-  exactly. All seven offline gates pass; all 120 official decoder conformance
-  cases and PCM SHA256 hashes remain unchanged after shared reconstruction.
-
-- Add fixed-storage scalar and delayed-decision SILK noise-shaped quantization:
-  gain rescaling, LPC/LTP rewhitening, harmonic/low-frequency/AR feedback,
-  warped shaping, adaptive decision delay and bounded 1..=4-state beam search.
-  Return the selected dither seed for subsequent frame serialization; validate
-  geometry/parameters before state mutation and reset on internal rate changes.
-- Match 72 scalar and 72 delayed-decision calls captured around unchanged
-  public native SILK encoding, including complete pulse/PCM output and every
-  persistent state field fingerprint. Cover actual 2/3/4-state search,
-  warped/interpolated prediction, gain/rate changes and aggressive RDO.
-  Both trace corpora reproduce byte for byte; all seven offline gates pass.
-  Full PCM analysis, packet budgeting, stereo/DTX/FEC and CLI remain in progress.
-
-- Begin the native SILK encoder with complete quantized frame serialization:
-  gain/NLSF/pitch/LTP/seed fields, adaptive pulse rate selection, shell/LSB/sign
-  coding, conditional history and atomic entropy/state failure handling.
-  This API accepts quantized parameters, not PCM; full SILK encoding remains
-  in progress and is not exposed by the audio command yet.
-- Add fixed-storage encoder input resampling for all 15 external/internal rate
-  pairs, native encoder delay compensation and 36-tap downsampling. Share the
-  existing decoder kernels while retaining its history/work buffer bounds.
-- Match 90 unchanged native serialization sequences: 70 complete packets with
-  original public PCM/range fingerprints, 18 unscaled channel frames and two
-  native packet-capacity failures. Match 360 encoder resampler PCM/state cases;
-  the existing 360 decoder resampler cases remain unchanged. Native frame/input
-  fixtures and all three affected table modules reproduce exactly. All seven
-  required offline gates pass, and all 120 official decoder conformance PCM
-  hashes remain unchanged. The full SILK encoder task remains open.
+- Add mono SILK PCM-to-Opus packet encoding at all five standard input rates,
+  fixed NB/MB/WB bandwidth and 10/20/40/60 ms durations. Support exact CBR packet
+  byte budgets or capped variable lengths, native DC rejection/resampling,
+  one-sample channel carry, VAD and empirical SNR/bit-reservoir control.
+- Expose mono SILK WAV-to-Ogg conversion with `--mode silk` and `--bandwidth`.
+  Preserve default CELT behavior. Write the 312-sample pre-skip, flush lookahead
+  and honor final granules for exact source duration, including empty/short files.
+  Extend bounded WAV reads for 60 ms frames; refuse unsupported stereo SILK.
+- Implement the connected SILK channel pipeline: native gain/NLSF quantization,
+  Burg LPC/root recovery, interpolation, pitch/LTP, regular/warped noise shaping,
+  residual energies, scalar/delayed-decision NSQ and full frame serialization.
+  Retain fixed storage, zero dependencies, safe Rust and atomic failure history.
+- Add native fixed 5 ms buffering/prefill, LTP loss scaling and seven-iteration
+  gain/NSQ/entropy budget search. Cache gain costs, restore fitting snapshots,
+  lock subframe gains and expose final damage-control pulse clearing explicitly.
+  Preserve cumulative LTP gain across independent packet boundaries.
+- Match 504 unchanged public native frame calls and 288 own decoded packets,
+  including complete bytes, selected indices/pulses, entropy range/tell and every
+  NSQ state fingerprint. Compare connected CBR/VBR analysis and retain encoder
+  resampler/serialization/analysis fixtures without native Cargo dependencies.
+- Independently cross-decode 120 raw-PCM streams / 1440 packets with pinned
+  libopus: all PCM fingerprints, sample counts and final ranges match. Match
+  40 native DC output/state cases; regenerate DC fixtures and SNR tables exactly.
+- Verify 60 SILK CLI files with FFmpeg/libopus for exact duration/pre-skip, plus
+  ordinary geometry, padding, impulse, reset and late-failure rollback tests.
+  Retain one default-FFmpeg decoder tail-trimming failure, reproduced with its
+  own libopus encoder; see docs/validation/silk-mono-packets.md for scope.
+- Mono encoding is usable; stereo SILK, DTX/FEC, adaptive bandwidth, Hybrid
+  encoding and broader quality/performance evaluation remain unfinished.
 
 ## [0.1.66] - 2026-11-02
 

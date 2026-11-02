@@ -93,11 +93,12 @@ impl<R: Read + Seek> Reader<R> {
         })
     }
     pub fn read_samples(&mut self, output: &mut [i16]) -> io::Result<usize> {
-        if output.len() > 1920 || output.len() % self.channels != 0 {
+        // Bound reads to5760 samples (60ms of stereo PCM at48kHz).
+        if output.len() > 5760 || output.len() % self.channels != 0 {
             return Err(invalid("invalid PCM read buffer"));
         }
         let bytes = (output.len() * 2).min(self.remaining as usize);
-        let mut buffer = [0u8; 3840];
+        let mut buffer = [0u8; 11520];
         self.input.read_exact(&mut buffer[..bytes])?;
         for (sample, pair) in output.iter_mut().zip(buffer[..bytes].chunks_exact(2)) {
             *sample = i16::from_le_bytes([pair[0], pair[1]]);

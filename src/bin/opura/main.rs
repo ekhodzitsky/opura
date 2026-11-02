@@ -7,7 +7,12 @@ use opura::{
     Packet,
     celt::{FrameSize, encoder::CeltEncoder, input::InputRate},
     decoder::OpusDecoder,
-    silk::{decoder::PcmChannels, resampler::OutputRate},
+    silk::{
+        decoder::PcmChannels,
+        encoder::mono::{MonoEncoder, MonoOptions, PacketDuration},
+        pitch::SilkRate,
+        resampler::OutputRate,
+    },
 };
 use std::{
     env,
@@ -22,7 +27,7 @@ type Result<T> = std::result::Result<T, Box<dyn Error>>;
 fn invalid(message: impl Into<String>) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message.into())
 }
-const HELP: &str = "opura encode INPUT.wav OUTPUT.opus [--bitrate BPS] [--frame-ms 2.5|5|10|20]\nopura decode INPUT.opus OUTPUT.wav\nopura --version\n\nEncode: mono/stereo PCM16 WAV at 8/12/16/24/48 kHz, adaptive CELT.\nDefaults: 64000 packet bits/s, 20 ms. Ogg overhead is additional.\nDecode: one mono/stereo Ogg Opus stream, zero header gain; output PCM16/48 kHz.\nExisting outputs are refused. Errors may leave a partial new output.";
+const HELP: &str = "opura encode INPUT.wav OUTPUT.opus [--mode celt|silk] [--bitrate BPS] [--frame-ms MS] [--bandwidth nb|mb|wb]\nopura decode INPUT.opus OUTPUT.wav\nopura --version\n\nEncode: PCM16 WAV at 8/12/16/24/48 kHz.\nCELT: mono/stereo, frames 2.5/5/10/20 ms. SILK: mono, frames 10/20/40/60 ms.\nDefaults: CELT, 64000 bits/s (SILK: 24000), 20 ms. SILK bandwidth defaults to input-rate NB/MB/WB. Ogg overhead is additional.\nDecode: one mono/stereo Ogg Opus stream, zero header gain; output PCM16/48 kHz.\nExisting outputs are refused. Errors may leave a partial new output.";
 fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
@@ -49,6 +54,8 @@ fn run() -> Result<()> {
         Some("encode") => {
             let mut bitrate = None;
             let mut size = None;
+            let mut mode = None;
+            let mut bandwidth = None;
             let mut i = 3;
             while i < args.len() {
                 let value = args
@@ -64,24 +71,62 @@ fn run() -> Result<()> {
                         )
                     }
                     Some("--frame-ms") if size.is_none() => {
-                        size = Some(match value {
-                            "2.5" => FrameSize::Ms2_5,
-                            "5" => FrameSize::Ms5,
-                            "10" => FrameSize::Ms10,
-                            "20" => FrameSize::Ms20,
-                            _ => return Err(invalid("frame-ms must be 2.5/5/10/20").into()),
-                        })
+                        if !["2.5", "5", "10", "20", "40", "60"].contains(&value) {
+                            return Err(invalid("invalid frame-ms").into());
+                        }
+                        size = Some(value);
+                    }
+                    Some("--mode") if mode.is_none() => {
+                        if !["celt", "silk"].contains(&value) {
+                            return Err(invalid("mode must be celt/silk").into());
+                        }
+                        mode = Some(value);
+                    }
+                    Some("--bandwidth") if bandwidth.is_none() => {
+                        bandwidth = Some(match value {
+                            "nb" => SilkRate::Khz8,
+                            "mb" => SilkRate::Khz12,
+                            "wb" => SilkRate::Khz16,
+                            _ => return Err(invalid("bandwidth must be nb/mb/wb").into()),
+                        });
                     }
                     _ => return Err(invalid("unknown or repeated encode option").into()),
                 }
                 i += 2;
             }
-            encode(
-                Path::new(&args[1]),
-                Path::new(&args[2]),
-                bitrate.unwrap_or(64000),
-                size.unwrap_or(FrameSize::Ms20),
-            )
+            if mode == Some("silk") {
+                let duration = match size.unwrap_or("20") {
+                    "10" => PacketDuration::Ms10,
+                    "20" => PacketDuration::Ms20,
+                    "40" => PacketDuration::Ms40,
+                    "60" => PacketDuration::Ms60,
+                    _ => return Err(invalid("SILK frame-ms must be 10/20/40/60").into()),
+                };
+                encode_silk(
+                    Path::new(&args[1]),
+                    Path::new(&args[2]),
+                    bitrate.unwrap_or(24000),
+                    duration,
+                    bandwidth,
+                )
+            } else {
+                if bandwidth.is_some() {
+                    return Err(invalid("bandwidth is available with mode silk").into());
+                }
+                let frame = match size.unwrap_or("20") {
+                    "2.5" => FrameSize::Ms2_5,
+                    "5" => FrameSize::Ms5,
+                    "10" => FrameSize::Ms10,
+                    "20" => FrameSize::Ms20,
+                    _ => return Err(invalid("CELT frame-ms must be 2.5/5/10/20").into()),
+                };
+                encode(
+                    Path::new(&args[1]),
+                    Path::new(&args[2]),
+                    bitrate.unwrap_or(64000),
+                    frame,
+                )
+            }
         }
         Some("decode") if args.len() == 3 => decode(Path::new(&args[1]), Path::new(&args[2])),
         _ => Err(invalid(HELP).into()),
@@ -151,6 +196,86 @@ fn encode(input: &Path, output: &Path, bitrate: u32, size: FrameSize) -> Result<
         source.frames,
         source.rate,
         source.channels,
+        start.elapsed().as_secs_f64()
+    );
+    Ok(())
+}
+fn encode_silk(
+    input: &Path,
+    output: &Path,
+    bitrate: u32,
+    duration: PacketDuration,
+    bandwidth: Option<SilkRate>,
+) -> Result<()> {
+    let start = Instant::now();
+    let mut source = wav::Reader::new(BufReader::new(File::open(input)?))?;
+    if source.channels != 1 {
+        return Err(invalid("SILK encoding currently requires mono WAV").into());
+    }
+    let rate = match source.rate {
+        8000 => OutputRate::Khz8,
+        12000 => OutputRate::Khz12,
+        16000 => OutputRate::Khz16,
+        24000 => OutputRate::Khz24,
+        48000 => OutputRate::Khz48,
+        _ => return Err(invalid("unsupported input rate").into()),
+    };
+    let bandwidth = bandwidth.unwrap_or(match source.rate {
+        8000 => SilkRate::Khz8,
+        12000 => SilkRate::Khz12,
+        _ => SilkRate::Khz16,
+    });
+    let numerator = u64::from(bitrate) * u64::from(duration.milliseconds());
+    let denominator = 8000;
+    if numerator / denominator < 3 || numerator.div_ceil(denominator) > 1276 {
+        return Err(invalid(
+            "bitrate/frame combination requires packet size outside 3..1276 bytes",
+        )
+        .into());
+    }
+    let mut encoder = MonoEncoder::new(rate, bandwidth);
+    let lookahead = u64::from(encoder.lookahead_48k());
+    let original_samples = source.frames * u64::from(48000 / source.rate);
+    let end = original_samples
+        .checked_add(lookahead)
+        .ok_or_else(|| invalid("audio duration overflow"))?;
+    let frame_samples = u64::from(duration.milliseconds()) * 48;
+    let frames = end.div_ceil(frame_samples);
+    let mut writer = ogg::Writer::with_pre_skip(
+        BufWriter::new(create(output)?),
+        1,
+        source.rate,
+        lookahead as u16,
+    )?;
+    let mut pcm = [0i16; 2880];
+    let length = source.rate as usize / 1000 * duration.milliseconds() as usize;
+    let mut credit = denominator / 2;
+    let mut packet_bytes = 0u64;
+    for index in 0..frames {
+        pcm.fill(0);
+        source.read_samples(&mut pcm[..length])?;
+        credit += numerator;
+        let bytes = credit / denominator;
+        credit %= denominator;
+        let packet = encoder.encode(
+            duration,
+            &pcm[..length],
+            bytes as usize,
+            MonoOptions::default(),
+        )?;
+        let final_frame = index + 1 == frames;
+        let granule = if final_frame {
+            end
+        } else {
+            (index + 1) * frame_samples
+        };
+        writer.packet(packet.as_bytes(), granule, final_frame)?;
+        packet_bytes += packet.as_bytes().len() as u64;
+    }
+    eprintln!(
+        "encoded SILK {} samples at {} Hz; {frames} packets, {packet_bytes} packet bytes; {:.3} s",
+        source.frames,
+        source.rate,
         start.elapsed().as_secs_f64()
     );
     Ok(())

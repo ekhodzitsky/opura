@@ -1624,3 +1624,14 @@ The internal SILK channel frame encoder additionally follows
 calls, transition filtering and frame serialization. It snapshots actual selected
 retry states and generates synthetic frame/packet/PCM fingerprints; no original
 codec algorithm is replaced and no native source or library enters Cargo.
+
+
+The fixed-bandwidth mono packet path additionally follows native DC rejection
+in `src/opus_encoder.c`, mono sample carry and rate/bit-reservoir policy in
+`silk/enc_API.c`, empirical tables/lookup in `silk/control_SNR.c`, and RFC6716
+padding as implemented in `src/repacketizer.c`. Existing Opus/SILK notices and
+terms above apply. `tools/silk_encoder_rate_tables.py` regenerates the SNR tables;
+`tools/silk_mono_validation.py` extracts the unchanged native DC function and
+calls the original public decoder for optional validation. Synthetic DC fixtures
+and Rust-generated packet traces contain no native codec implementation or
+third-party recording; all ordinary Cargo builds/tests remain independent.

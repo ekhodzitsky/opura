@@ -4,17 +4,10 @@ Opura is a pure Rust, zero-dependency Opus implementation under development.
 **The unified decoder supports SILK, CELT and Hybrid PCM, loss/DTX, in-band FEC
 and mode transitions with redundant CELT tails at all five standard output rates.**
 The separate SILK/CELT/Hybrid APIs and their component stages remain available.
-**A baseline CELT-only encoder now accepts signed16 PCM at all five standard
-input rates and emits complete one-frame Opus packets.** Its current policy uses
-long windows by default, with optional native transient detection/short windows
-and per-band TF/dynamic-allocation/spreading analysis. Further adaptive decisions
-and SILK/Hybrid encoding
-remain work. The native SILK encoder now includes VAD, pitch/LTP, LPC/NLSF,
-noise-shaping and gain/lambda analysis, NSQ and frame serialization. The internal-rate
-channel encoder connects these stages with fixed 5 ms buffering, scalar/delayed
-NSQ and bounded gain/entropy retries. It matches complete original CBR/VBR frame
-calls and decoded packets. External PCM preprocessing/rate control, complete
-stereo/DTX/FEC packet orchestration and CLI encoding integration remain unfinished.
+**The CELT encoder accepts mono/stereo PCM at all five standard input rates.
+The fixed-bandwidth SILK encoder accepts mono PCM and emits 10/20/40/60 ms
+NB/MB/WB Opus packets.** Both paths are available through the WAV/Ogg CLI.
+SILK stereo, DTX/FEC, adaptive bandwidth and Hybrid encoding remain in progress.
 **The decoder passes all120 official RFC8251 vector/rate/channel cases.**
 The first complete-decoder benchmark is recorded: Opura trails the pinned scalar
 libopus reference in all ten configurations; complete adaptive encoding remains under development. The accepted direction is a complete decoder first, then an encoder,
@@ -61,6 +54,17 @@ Opus packet TOC bytes and excludes Ogg overhead; fractional byte budgets carry
 between packets. The encoder flushes its 120-sample delay at 48 kHz; pre-skip
 and the final granule preserve the exact input duration after resampling.
 
+Mono speech can be encoded through SILK:
+
+```sh
+target/release/opura encode speech.wav speech.opus --mode silk --bitrate 24000 --frame-ms 20
+```
+
+SILK supports mono input, 10/20/40/60 ms packets and `--bandwidth nb|mb|wb`.
+Bandwidth defaults to NB for 8 kHz, MB for 12 kHz and WB for higher input rates.
+Its default bitrate is 24,000 bits/s. Pre-skip is 312 samples at 48 kHz (6.5 ms);
+lookahead flushing and final granules preserve exact source duration.
+
 Decoding accepts SILK, Hybrid and CELT in one mono/stereo Ogg Opus stream
 (mapping family zero, zero header output gain), and writes PCM16 WAV at 48 kHz.
 Chained/multiplexed streams, nonzero output gain, other mappings and packets
@@ -74,7 +78,14 @@ independent decoding, exact durations, packet budgets and original native
 mode files. It does not establish perceptual quality or performance leadership.
 The [initial real-recording baseline](docs/benchmarks/audio-0.1.66.md) reports
 speech/music signal diagnostics and Opura file wall time with explicit limits.
-SILK/Hybrid encoding and broader subjective/competitive comparisons remain work.
+Stereo SILK/Hybrid encoding and broader subjective/competitive comparisons remain work.
+A fixed-bandwidth mono SILK library path is now available under
+`silk::encoder::mono`: PCM at any standard input rate to NB/MB/WB packets of
+10/20/40/60 ms, with exact CBR byte budgets or capped variable length. See the
+[mono interoperability record](docs/validation/silk-mono-packets.md). Stereo,
+DTX/FEC and adaptive bandwidth remain in progress. The validation record also
+retains a reproduced default-FFmpeg decoder tail-trimming issue; FFmpeg/libopus
+and the native decoder preserve exact duration.
 Library packet parsing itself does not parse Ogg containers.
 
 ## Development
