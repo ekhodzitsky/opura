@@ -7,6 +7,7 @@ use super::{
     state::{AnalysisControls, SpeechState},
 };
 use crate::{
+    encoder::pcm::PcmState,
     range::{EncoderError, RangeEncoder},
     silk::{
         gains::FrameDuration,
@@ -167,7 +168,7 @@ impl MonoPacket {
 pub struct MonoEncoder {
     input: OutputRate,
     internal: SilkRate,
-    dc: i32,
+    pcm: PcmState,
     speech: SpeechState<1>,
     bandwidth_control: PacketBandwidth<1>,
 }
@@ -177,7 +178,7 @@ impl MonoEncoder {
         Self {
             input,
             internal,
-            dc: 0,
+            pcm: PcmState::mono(input),
             speech: SpeechState::new(input, internal),
             bandwidth_control: PacketBandwidth::default(),
         }
@@ -312,12 +313,10 @@ impl MonoEncoder {
         let digital_silence = input.iter().all(|&v| v == 0);
         staged.speech.dtx.begin(digital_silence);
         let mut filtered = [0i16; 2880];
-        dc_reject(
-            &mut staged.dc,
-            self.input,
-            input,
-            &mut filtered[..input.len()],
-        );
+        staged
+            .pcm
+            .filter(input, &mut filtered[..input.len()])
+            .map_err(|_| MonoError::InvalidInputLength)?;
         let mut pcm = [0i16; 960];
         let converted = staged.speech.resampler[0].process(&filtered[..input.len()], &mut pcm)?;
         let backup = staged
@@ -340,7 +339,7 @@ impl MonoEncoder {
         };
         if retry {
             if let Some(mut next) = backup {
-                let packet = next.encode_packet(
+                let (packet, decision) = next.encode_packet(
                     duration,
                     &pcm[..converted],
                     packet_bytes,
@@ -348,11 +347,22 @@ impl MonoEncoder {
                     digital_silence,
                     false,
                 )?;
+                if decision != Decision::Silk {
+                    next.pcm
+                        .commit(&filtered[..input.len()])
+                        .map_err(|_| MonoError::InvalidInputLength)?;
+                }
                 *self = next;
                 return Ok(packet);
             }
         }
-        let packet = attempt?;
+        let (packet, decision) = attempt?;
+        if decision != Decision::Silk {
+            staged
+                .pcm
+                .commit(&filtered[..input.len()])
+                .map_err(|_| MonoError::InvalidInputLength)?;
+        }
         *self = staged;
         Ok(packet)
     }
@@ -364,7 +374,7 @@ impl MonoEncoder {
         options: MonoOptions,
         digital_silence: bool,
         include_fec: bool,
-    ) -> Result<MonoPacket, MonoError> {
+    ) -> Result<(MonoPacket, Decision), MonoError> {
         let ms = duration.milliseconds() as usize;
         let converted = pcm.len();
         let frames = duration.frames();
@@ -536,7 +546,7 @@ impl MonoEncoder {
         };
         self.speech.excess = (self.speech.excess + payload_bits - nominal_bits).clamp(0, 10000);
         self.bandwidth_control.finish(last_activity, duration);
-        Ok(result)
+        Ok((result, decision))
     }
 }
 pub(crate) fn target_snr(rate: SilkRate, duration: FrameDuration, mut bitrate: i32) -> u16 {
@@ -591,14 +601,6 @@ pub(super) fn packet(toc: u8, payload: &[u8], length: usize, range: u32) -> Mono
     result
 }
 
-pub(crate) fn dc_reject(state: &mut i32, rate: OutputRate, input: &[i16], output: &mut [i16]) {
-    let shift = 31 - (rate.hz() / 12).leading_zeros();
-    for (out, &sample) in output.iter_mut().zip(input) {
-        let y = (i32::from(sample) << 14) - *state;
-        *state += crate::silk::synthesis::round_shift(y, shift);
-        *out = crate::silk::synthesis::round_shift(y, 14).clamp(-32767, 32767) as i16;
-    }
-}
 #[cfg(test)]
 #[path = "mono_tests.rs"]
 mod tests;

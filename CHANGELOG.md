@@ -7,6 +7,29 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.86] - 2026-11-03
+
+- Connect common AUDIO input filtering and retained PCM history to fixed mono
+  SILK, stereo SILK and Hybrid encoding. Retain the native unmodified 10ms input
+  window; derive Hybrid CELT's 4ms compensation before high-band/stereo fades.
+  Filter before resampling, skip history advancement on early SILK-DTX, and
+  advance it on outer digital-silence suppression. Stage input history with
+  packet state and preserve FEC retry/reset/error contracts and fixed APIs.
+- Add 1,440 unchanged-native filter/alignment/history snapshots across all five
+  rates, both API layouts and 2.5..120ms frames, including short/long boundaries
+  and skipped history commits. Native public DTX schedules verify actual mono
+  and stereo packet history completion. Five isolated filter/history/DTX
+  mutations fail assertions; optional native fixture regeneration is identical.
+- Shared input processing is connected to real fixed packet paths; a complete
+  adaptive encoder, VOIP high-pass processing, channel/resampler handshakes and
+  cross-mode prefills/tails still require integration. See
+  docs/validation/encoder-pcm-history.md for evidence and remaining boundaries.
+- All 24 fixed-mode corpora match 0.1.85 byte-for-byte: 1,384,320 records across
+  5,088 streams, including 220,896 FEC requests and 768 zero-length PLC records.
+  Corpus hashes also match the prior native-replayed evidence. All seven final
+  offline gates pass, including 23 Python tests; native PCM fixture generation
+  remains optional and ordinary builds/tests use no external implementation.
+
 ## [0.1.85] - 2026-11-03
 
 - Factor a common speech-state implementation and frame analysis out of mono

@@ -268,7 +268,7 @@ pub(super) fn mul_wb(a: i32, b: i32) -> i32 {
 pub(super) fn mul_ww(a: i32, b: i32) -> i32 {
     ((i64::from(a) * i64::from(b)) >> 16) as i32
 }
-pub(super) fn round_shift(value: i32, bits: u32) -> i32 {
+pub(crate) fn round_shift(value: i32, bits: u32) -> i32 {
     ((i64::from(value) + (1i64 << (bits - 1))) >> bits) as i32
 }
 pub(super) fn saturate16(value: i32) -> i16 {

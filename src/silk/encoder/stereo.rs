@@ -388,7 +388,7 @@ mod tests;
 pub use super::mono::MonoOptions as StereoOptions;
 use super::{
     channel::{FrameControls, FrameError},
-    mono::{MonoPacket, PacketDuration, dc_reject, packet, plc_packet, target_snr},
+    mono::{MonoPacket, PacketDuration, packet, plc_packet, target_snr},
 };
 use crate::silk::{
     pitch::PitchCoding,
@@ -501,7 +501,7 @@ impl StereoPacket {
 pub struct StereoEncoder {
     input: OutputRate,
     internal: SilkRate,
-    dc: [i32; 2],
+    pcm: crate::encoder::pcm::PcmState,
     speech: SpeechState<2>,
     bandwidth_control: PacketBandwidth<2>,
 }
@@ -511,7 +511,7 @@ impl StereoEncoder {
         Self {
             input,
             internal,
-            dc: [0; 2],
+            pcm: crate::encoder::pcm::PcmState::stereo(input),
             speech: SpeechState::new(input, internal),
             bandwidth_control: PacketBandwidth::default(),
         }
@@ -643,20 +643,20 @@ impl StereoEncoder {
         next.change_bandwidth(rate)?;
         let digital_silence = input.iter().all(|&v| v == 0);
         next.speech.dtx.begin(digital_silence);
+        let mut filtered = [0i16; 5760];
+        next.pcm
+            .filter(input, &mut filtered[..input.len()])
+            .map_err(|_| StereoPacketError::InvalidInputLength)?;
         let mut pcm = [[0i16; 960]; 2];
         for (channel, converted) in pcm.iter_mut().enumerate() {
             let mut planar = [0i16; 2880];
-            let mut filtered = [0i16; 2880];
-            for (sample, pair) in planar[..samples].iter_mut().zip(input.chunks_exact(2)) {
+            for (sample, pair) in planar[..samples]
+                .iter_mut()
+                .zip(filtered[..input.len()].chunks_exact(2))
+            {
                 *sample = pair[channel];
             }
-            dc_reject(
-                &mut next.dc[channel],
-                self.input,
-                &planar[..samples],
-                &mut filtered[..samples],
-            );
-            next.speech.resampler[channel].process(&filtered[..samples], converted)?;
+            next.speech.resampler[channel].process(&planar[..samples], converted)?;
         }
         let backup = next.speech.fec.has_pending(duration).then(|| next.clone());
         let attempt =
@@ -671,7 +671,7 @@ impl StereoEncoder {
         };
         if retry {
             if let Some(mut backup) = backup {
-                let packet = backup.encode_packet(
+                let (packet, decision) = backup.encode_packet(
                     duration,
                     &pcm,
                     packet_bytes,
@@ -679,11 +679,22 @@ impl StereoEncoder {
                     digital_silence,
                     false,
                 )?;
+                if decision != Decision::Silk {
+                    backup
+                        .pcm
+                        .commit(&filtered[..input.len()])
+                        .map_err(|_| StereoPacketError::InvalidInputLength)?;
+                }
                 *self = backup;
                 return Ok(packet);
             }
         }
-        let packet = attempt?;
+        let (packet, decision) = attempt?;
+        if decision != Decision::Silk {
+            next.pcm
+                .commit(&filtered[..input.len()])
+                .map_err(|_| StereoPacketError::InvalidInputLength)?;
+        }
         *self = next;
         Ok(packet)
     }
@@ -695,7 +706,7 @@ impl StereoEncoder {
         options: StereoOptions,
         digital_silence: bool,
         include_fec: bool,
-    ) -> Result<StereoPacket, StereoPacketError> {
+    ) -> Result<(StereoPacket, Decision), StereoPacketError> {
         let ms = duration.milliseconds() as usize;
         let frames = duration.frames();
         let frame_samples = ms * self.internal.khz() as usize / frames;
@@ -909,6 +920,6 @@ impl StereoEncoder {
         self.speech.excess = (self.speech.excess + payload_bits - nominal_bits).clamp(0, 10000);
         self.bandwidth_control
             .finish(self.speech.activity, duration);
-        Ok(result)
+        Ok((result, decision))
     }
 }

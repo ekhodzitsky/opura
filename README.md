@@ -71,8 +71,12 @@ See [channel-layout validation](docs/validation/celt-channel-layout.md).
 Automatic mode/channel selection still requires the shared encoder owner.
 
 Fixed SILK mono/stereo and Hybrid packet engines reuse the same internal
-speech-state type and frame-analysis code. Each stream owns its histories;
-the complete adaptive PCM owner and native cross-mode processing remain work.
+speech-state type, frame analysis and AUDIO input filtering/history code.
+The common input state retains 10ms of filtered PCM, including the native
+early-DTX update order, and supplies Hybrid's compensated CELT input.
+Each stream owns its histories; the complete adaptive PCM owner, VOIP high-pass
+processing and native cross-mode prefills/tails remain work. See
+[input-history validation](docs/validation/encoder-pcm-history.md).
 
 CELT `set_bandwidth` selects NB/WB/SWB/FB up to the input-rate default without
 resetting signal histories; `bandwidth()` reports the selection. Packet TOC and

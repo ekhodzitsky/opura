@@ -7,12 +7,13 @@ use crate::{
         encoder::{CeltEncoder, EncoderError as CeltError, HybridControls, HybridVbr},
         input::InputRate,
     },
+    encoder::pcm::PcmState,
     range::{EncoderError as EntropyError, RangeEncoder},
     silk::{
         encoder::{
             channel::{FrameControls, FrameError},
             dtx::Decision,
-            mono::{PacketDuration, dc_reject, target_snr},
+            mono::{PacketDuration, target_snr},
             state::{AnalysisControls, SpeechState, StereoFrameError},
             stereo::StereoEncodeError,
         },
@@ -145,9 +146,8 @@ pub struct HybridEncoder {
     rate: InputRate,
     bandwidth: Bandwidth,
     channels: usize,
-    dc: [i32; 2],
+    pcm: PcmState,
     speech: SpeechState<2>,
-    delay: [i16; 384],
     high_gain: i16,
     width: i16,
     celt: CeltEncoder,
@@ -175,9 +175,12 @@ impl HybridEncoder {
             rate,
             bandwidth,
             channels,
-            dc: [0; 2],
+            pcm: if channels == 1 {
+                PcmState::mono(input)
+            } else {
+                PcmState::stereo(input)
+            },
             speech: SpeechState::new(input, SilkRate::Khz16),
-            delay: [0; 384],
             high_gain: 32767,
             width: 16384,
             celt,
@@ -224,8 +227,11 @@ impl HybridEncoder {
     /// Clear both layers, filters, delays and bitrate histories, retaining DTX/FEC.
     pub fn reset(&mut self) {
         self.speech.reset(output_rate(self.rate), SilkRate::Khz16);
-        self.dc = [0; 2];
-        self.delay = [0; 384];
+        self.pcm = if self.channels == 1 {
+            PcmState::mono(output_rate(self.rate))
+        } else {
+            PcmState::stereo(output_rate(self.rate))
+        };
         self.high_gain = 32767;
         self.width = 16384;
         self.celt.reset();
@@ -406,24 +412,17 @@ impl HybridEncoder {
             None
         };
         let mut filtered = [0i16; 1920];
+        self.pcm
+            .filter(input, &mut filtered[..input.len()])
+            .map_err(|_| EncoderError::InvalidInput)?;
         let mut pcm = [[0i16; 320]; 2];
         for (c, converted) in pcm.iter_mut().enumerate().take(self.channels) {
             let mut planar = [0i16; 960];
-            let mut rejected = [0i16; 960];
             for i in 0..samples {
-                planar[i] = input[i * self.channels + c];
-            }
-            dc_reject(
-                &mut self.dc[c],
-                output_rate(self.rate),
-                &planar[..samples],
-                &mut rejected[..samples],
-            );
-            for i in 0..samples {
-                filtered[i * self.channels + c] = rejected[i];
+                planar[i] = filtered[i * self.channels + c];
             }
             self.speech.resampler[c]
-                .process(&rejected[..samples], converted)
+                .process(&planar[..samples], converted)
                 .map_err(EncoderError::Resampler)?;
         }
         let mut writer = RangeEncoder::new(payload_bytes).map_err(EncoderError::Entropy)?;
@@ -566,11 +565,13 @@ impl HybridEncoder {
                 .encode_bit_logp(false, 12)
                 .map_err(EncoderError::Entropy)?;
         }
-        let delay = self.rate.hz() as usize / 250 * self.channels;
         let mut high = [0i16; 1920];
-        high[..delay].copy_from_slice(&self.delay[..delay]);
-        high[delay..input.len()].copy_from_slice(&filtered[..input.len() - delay]);
-        self.delay[..delay].copy_from_slice(&filtered[input.len() - delay..input.len()]);
+        self.pcm
+            .aligned(&filtered[..input.len()], &mut high[..input.len()])
+            .map_err(|_| EncoderError::InvalidInput)?;
+        self.pcm
+            .commit(&filtered[..input.len()])
+            .map_err(|_| EncoderError::InvalidInput)?;
         // Preserve native fixed-point narrowing before the exponential and at
         // the Q15 result, including forced-mode extreme-rate behavior.
         let gain = (32767

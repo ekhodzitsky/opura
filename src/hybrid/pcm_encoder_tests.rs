@@ -624,7 +624,7 @@ fn original_hybrid_dtx_schedule_and_layer_order_match() -> Result<(), Box<dyn st
         assert_eq!(silk_zero != 0, celt_calls == 0);
         if silk_zero != 0 {
             assert_eq!(encoder.celt, before.celt);
-            assert_eq!(encoder.delay, before.delay);
+            assert_eq!(encoder.pcm.history(), before.pcm.history());
             assert_eq!(encoder.high_gain, before.high_gain);
             assert_eq!(encoder.width, before.width);
             counts[0] += 1;

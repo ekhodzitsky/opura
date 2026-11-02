@@ -1767,3 +1767,10 @@ the end-band and post-frame CC-channel paths in the same pinned
 `celt/celt_encoder.c` under the existing notices. Optional coupled band/channel
 fixtures retain the original component bodies and public decoder unchanged;
 their baseline orchestration is explicit and is not a full native encoder oracle.
+
+The shared encoder PCM input state follows AUDIO `dc_reject` and the outer
+10ms `delay_buffer` update block in Opus v1.6.1 `src/opus_encoder.c`, including
+4ms CELT alignment and the early SILK-DTX return, under the existing Opus BSD
+notices above. The optional PCM oracle includes the unchanged original source
+and extracts its history update block in a temporary build; only sanitized
+numerical fixtures are tracked. It is never part of Cargo builds or ordinary tests.

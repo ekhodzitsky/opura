@@ -1,4 +1,5 @@
 use super::*;
+use crate::encoder::pcm::dc_reject;
 use crate::silk::resampler::EncoderResamplerState;
 use crate::{Packet, decoder::OpusDecoder, silk::decoder::PcmChannels};
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -41,7 +42,7 @@ fn cold_band_selection_matches_constructor_and_live_change_keeps_stream_history(
     e.set_bandwidth(SilkRate::Khz8)?;
     assert_eq!(e.bandwidth(), SilkRate::Khz8);
     assert_eq!(e.speech.vad[0], before.speech.vad[0]);
-    assert_eq!(e.dc, before.dc);
+    assert_eq!(e.pcm, before.pcm);
     assert_eq!(e.speech.previous, before.speech.previous);
     assert_eq!(e.speech.dtx, before.speech.dtx);
     assert_eq!(e.speech.excess, before.speech.excess);
@@ -315,5 +316,73 @@ fn automatic_bandwidth_uses_wire_budget_and_preserves_mode_on_reset() -> Result<
     encoder.set_automatic_bandwidth(false);
     assert!(!encoder.automatic_bandwidth());
     assert_eq!(encoder.bandwidth_target(), None);
+    Ok(())
+}
+
+#[test]
+fn common_pcm_history_follows_native_early_dtx_schedule() -> Result<()> {
+    let mut encoder = MonoEncoder::new(OutputRate::Khz48, SilkRate::Khz16);
+    let mut expected = crate::encoder::pcm::PcmState::mono(OutputRate::Khz48);
+    let mut counts = [0; 3];
+    for line in include_str!("../../../tests/silk-encoder-dtx-fixtures.txt").lines() {
+        let Some(row) = line.strip_prefix("public ") else {
+            continue;
+        };
+        let v: Vec<usize> = row
+            .split_whitespace()
+            .map(|s| s.parse())
+            .collect::<std::result::Result<_, _>>()?;
+        let [channels, ms, f, enabled, suppressed]: [usize; 5] =
+            v.try_into().map_err(|_| "invalid public DTX row")?;
+        if channels != 1 {
+            continue;
+        }
+        if f == 0 {
+            encoder = MonoEncoder::new(OutputRate::Khz48, SilkRate::Khz16);
+            expected = crate::encoder::pcm::PcmState::mono(OutputRate::Khz48);
+        }
+        let pcm: Vec<i16> = (0..48 * ms)
+            .flat_map(|i| {
+                (0..channels).map(move |c| {
+                    let phase = (f * 48 * ms + i) % 240;
+                    if !(5..110).contains(&f) {
+                        ((if phase < 120 { phase } else { 240 - phase }) as i32 - 60) as i16 * 200
+                    } else if f < 55 {
+                        0
+                    } else {
+                        ((i + c) % 2) as i16
+                    }
+                })
+            })
+            .collect();
+        let mut filtered = vec![0; pcm.len()];
+        expected.filter(&pcm, &mut filtered)?;
+        let early = suppressed != 0 && pcm.iter().any(|&s| s != 0);
+        if !early {
+            expected.commit(&filtered)?;
+        }
+        encoder.set_dtx(enabled != 0);
+        let duration = match ms {
+            10 => PacketDuration::Ms10,
+            20 => PacketDuration::Ms20,
+            40 => PacketDuration::Ms40,
+            _ => PacketDuration::Ms60,
+        };
+        let options = MonoOptions {
+            complexity: 0,
+            ..MonoOptions::default()
+        };
+        let packet = encoder.encode(duration, &pcm, ms * 3 * channels, options)?;
+        assert_eq!(packet.as_bytes().len() == 1, suppressed != 0, "{line}");
+        assert_eq!(encoder.pcm, expected, "history completion: {line}");
+        counts[if early {
+            0
+        } else if suppressed != 0 {
+            1
+        } else {
+            2
+        }] += 1;
+    }
+    assert!(counts.into_iter().all(|count| count > 0));
     Ok(())
 }
