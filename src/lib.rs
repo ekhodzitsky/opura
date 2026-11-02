@@ -22,6 +22,7 @@
 
 pub mod celt;
 pub mod decoder;
+pub mod encoder;
 pub mod hybrid;
 pub mod range;
 pub mod repacketizer;

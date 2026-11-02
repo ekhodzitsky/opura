@@ -7,6 +7,21 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.82] - 2026-11-03
+
+- Add shared scalar encoder frontend primitives: transactional raw-PCM stereo
+  width analysis and native application/signal/mode/channel/band/FEC decisions.
+  Preserve equivalent-rate recalculation, hysteresis, delayed stereo downmix,
+  transition requests and SILK readiness constraints. Tiny budgets explicitly
+  require outer PLC handling. Existing fixed PCM encoder paths remain unchanged.
+- Validate16444 unchanged-native policy snapshots and4320 stereo-width history
+  records, including all standard rates/durations, fixed-point edge signals and
+  rare12kHz/2.5ms remainder handling. See docs/validation/encoder-frontend.md.
+  Six isolated arithmetic/state mutations are detected by assertion failures;
+  all seven required offline gates pass, including23 Python tests.
+  These are preparatory control APIs: the unified PCM owner, actual adaptive
+  transitions and complete encoder evaluation remain unfinished.
+
 ## [0.1.81] - 2026-11-03
 
 - Add allocation-free borrowed Opus repacketization with canonical code0/1/2/3

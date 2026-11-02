@@ -1746,3 +1746,11 @@ padding in Opus v1.6.1 `src/repacketizer.c`, copyright (c) 2011 Xiph.Org
 Foundation, written by Jean-Marc Valin, under the existing BSD license above.
 Native sources remain optional external byte-oracle inputs. Incoming padding
 extensions, self-delimited framing and multistream are outside this API.
+
+Shared scalar encoder frontend decisions and stereo-width analysis follow
+`compute_stereo_width`, `compute_equiv_rate`, `decide_fec`, the threshold tables
+and normal-admission decision block in Opus v1.6.1 `src/opus_encoder.c`,
+copyright (c) 2010-2011 Xiph.Org Foundation, Skype Limited, written by
+Jean-Marc Valin and Koen Vos, under the existing BSD notices above. Optional
+oracles compile the unchanged external source and extracted decision block;
+native code is never included in Cargo builds or ordinary tests.

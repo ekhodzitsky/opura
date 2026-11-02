@@ -1,0 +1,38 @@
+[
+  {
+    "mutation": "unknown-mode-loss",
+    "test": "encoder::control::tests::unchanged_native_decisions",
+    "detected": true,
+    "exit_code": 101
+  },
+  {
+    "mutation": "omit-channel-recalculation",
+    "test": "encoder::control::tests::unchanged_native_decisions",
+    "detected": true,
+    "exit_code": 101
+  },
+  {
+    "mutation": "omit-outgoing-tail",
+    "test": "encoder::control::tests::unchanged_native_decisions",
+    "detected": true,
+    "exit_code": 101
+  },
+  {
+    "mutation": "omit-stereo-downmix-delay",
+    "test": "encoder::control::tests::unchanged_native_decisions",
+    "detected": true,
+    "exit_code": 101
+  },
+  {
+    "mutation": "omit-fec-hysteresis",
+    "test": "encoder::control::tests::unchanged_native_decisions",
+    "detected": true,
+    "exit_code": 101
+  },
+  {
+    "mutation": "width-smoothing-rounding",
+    "test": "encoder::stereo_width::tests::unchanged_native_width_histories",
+    "detected": true,
+    "exit_code": 101
+  }
+]

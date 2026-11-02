@@ -160,6 +160,12 @@ backup-coverage tradeoff and PLC count. These are two-recording waveform
 checks, with process timings and no perceptual or native speed advantage claim.
 General Opus mode/channel adaptation remain unfinished.
 
+Shared frontend primitives are available in `encoder::stereo_width` and
+`encoder::control`, with independently checked native scalar analysis and
+mode/channel/band/FEC decisions. They do not yet provide a unified adaptive PCM
+encoder. See the [frontend validation](docs/validation/encoder-frontend.md)
+for contracts, evidence and the remaining integration work.
+
 `hybrid::encoder::HybridEncoder` emits fixed-band CBR Hybrid packets using a
 single shared range writer, WB SILK and CELT bands17..19(SWB)/21(FB).24kHz PCM
 accepts SWB;48kHz accepts SWB/FB. Lookahead is312 samples on the48kHz clock.
