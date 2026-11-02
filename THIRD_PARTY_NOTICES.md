@@ -1714,3 +1714,10 @@ Hybrid DTX reuses the SILK inactivity and fixed-point outer silence policy
 above, retaining the SILK early return and post-CELT digital-silence ordering in
 `src/opus_encoder.c`. The optional forced-Hybrid oracle wraps unchanged public
 encoding and counts original SILK/CELT calls; it modifies no codec algorithm.
+
+Hybrid LBRR reuses the SILK redundant NSQ/entropy/mask/stereo/gain policy already
+attributed above. Fixed-band Hybrid eligibility follows original Hybrid
+`compute_equiv_rate` and `decide_fec` at the pinned revision, admitting protection
+only when the original decision retains the requested bandwidth. The native
+policy oracle extracts unchanged functions/tables. Whole-stream prefix-free
+budget retry is Opura's bounded primary-preserving admission policy.

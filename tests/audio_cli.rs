@@ -579,7 +579,6 @@ fn hybrid_cli_preserves_pre_skip_duration_and_fractional_packet_budgets() -> Res
         vec!["--mode", "hybrid", "--frame-ms", "40"],
         vec!["--mode", "hybrid", "--bandwidth", "auto"],
         vec!["--mode", "hybrid", "--bandwidth", "wb"],
-        vec!["--mode", "hybrid", "--fec", "20"],
         vec!["--mode", "silk", "--bandwidth", "fb"],
     ] {
         let output = temp.0.join("must-not-create.opus");
@@ -654,6 +653,63 @@ fn hybrid_dtx_saves_packet_bytes_and_preserves_silence_resume_duration() -> Resu
                 assert!(packets.iter().filter(|p| p.len() > 1).count() > 10);
                 assert!(fs::metadata(&encoded)?.len() < fs::metadata(&normal)?.len());
                 assert!(packets.last().ok_or("missing last packet")?.len() > 1);
+            }
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn hybrid_fec_cli_protects_the_silk_band_and_combines_with_dtx() -> Result<()> {
+    let temp = Temporary::new()?;
+    for rate in [24000, 48000] {
+        for channels in [1u16, 2] {
+            for ms in ["10", "20"] {
+                let count = rate as usize * 2;
+                let mut input = wave(rate, channels, count);
+                let start = 44 + rate as usize / 4 * usize::from(channels) * 2;
+                let end = 44 + rate as usize * 3 / 2 * usize::from(channels) * 2;
+                input[start..end].fill(0);
+                let stem = format!("hybrid-fec-{rate}-{channels}-{ms}");
+                let source = temp.0.join(stem.clone() + ".wav");
+                let encoded = temp.0.join(stem.clone() + ".opus");
+                let decoded = temp.0.join(stem + "-decoded.wav");
+                fs::write(&source, input)?;
+                success(cli().arg("encode").arg(&source).arg(&encoded).args([
+                    "--mode",
+                    "hybrid",
+                    "--fec",
+                    "20",
+                    "--dtx",
+                    "--bitrate",
+                    if channels == 1 { "64000" } else { "128000" },
+                    "--frame-ms",
+                    ms,
+                ]))?;
+                success(cli().arg("decode").arg(&encoded).arg(&decoded))?;
+                output_pcm(
+                    &fs::read(&decoded)?,
+                    channels,
+                    count * (48000 / rate) as usize,
+                )?;
+                let packets = audio_packets(&fs::read(&encoded)?)?;
+                let mut protected = 0;
+                let mut dtx = 0;
+                for bytes in packets {
+                    let packet = opura::Packet::parse(&bytes)?;
+                    assert_eq!(packet.mode(), opura::Mode::Hybrid);
+                    if bytes.len() == 1 {
+                        dtx += 1;
+                        continue;
+                    }
+                    let (header, _) = opura::silk::decode_header(&packet, 0)?;
+                    protected += usize::from((0..usize::from(channels)).any(|c| {
+                        header
+                            .redundancy(c)
+                            .is_some_and(|flags| flags.iter().any(|&v| v))
+                    }));
+                }
+                assert!(protected > 5 && dtx > 5);
             }
         }
     }

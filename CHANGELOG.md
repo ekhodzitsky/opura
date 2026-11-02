@@ -7,6 +7,26 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.77] - 2026-11-02
+
+- Add opt-in shared-stream Hybrid LBRR generation and previous-frame protection
+  for mono/stereo, SWB/FB and10/20ms. Expose `set_inband_fec`, `has_fec` and CLI
+  `--mode hybrid --fec LOSS_PERCENT`, including DTX combinations. Retain fixed
+  bandwidth; native equivalent-rate/FEC eligibility must keep the requested band.
+- Reuse SILK redundant NSQ/entropy/mask/stereo/gain/bit-accounting state. Share
+  budgets with primary SILK and CELT, clear incompatible packet geometry and
+  preserve DTX early/outer ordering. Prepare the frame before one-time entropy
+  finalization; a pending-prefix budget failure retries once from identical
+  whole-stream state without that prefix. Failed calls preserve all histories.
+- Validate25600 unchanged-native fixed-band policy cases, normal/loss/FEC/DTX
+  cross-decoding, retained reset/rollback and CLI behavior. Hybrid VBR, general
+  mode/channel selection and competitive evaluation remain work. See
+  docs/validation/hybrid-fec.md for final evidence and limits. Independent native
+  PCM/ranges match184320 records including30528 FEC requests.32 recording files
+  preserve native PCM/duration over121952 packets; default Hybrid/DTX and six
+  SILK/CELT full-file regressions remain unchanged. All seven required offline
+  gates pass, including23 Python tests.
+
 ## [0.1.76] - 2026-11-02
 
 - Add opt-in Hybrid DTX through `HybridEncoder::set_dtx` and CLI `--mode hybrid

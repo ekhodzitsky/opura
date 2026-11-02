@@ -11,13 +11,13 @@ use crate::{
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) struct StereoPrefix {
+pub(crate) struct StereoPrefix {
     pub indices: [[u8; 3]; 2],
     pub mid_only: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(super) struct FecState<const CHANNELS: usize> {
+pub(crate) struct FecState<const CHANNELS: usize> {
     pub enabled: bool,
     previous_enabled: bool,
     generating: bool,
@@ -46,6 +46,9 @@ impl<const CHANNELS: usize> Default for FecState<CHANNELS> {
     }
 }
 impl<const CHANNELS: usize> FecState<CHANNELS> {
+    pub fn selected(&self) -> bool {
+        self.previous_enabled
+    }
     pub fn previous_frame_duration(&self) -> crate::silk::gains::FrameDuration {
         // Geometry is tracked even with FEC off and the stereo side omitted.
         self.duration
@@ -98,11 +101,32 @@ impl<const CHANNELS: usize> FecState<CHANNELS> {
         &mut self,
         writer: &mut RangeEncoder,
         include: bool,
+        encode: F,
+    ) -> Result<(), FrameError>
+    where
+        F: FnMut(usize, &mut RangeEncoder, &RedundantFrame, PitchCoding) -> Result<(), FrameError>,
+    {
+        self.prefix_for_channels(writer, include, CHANNELS, encode)
+    }
+    pub fn prefix_for_channels<F>(
+        &mut self,
+        writer: &mut RangeEncoder,
+        include: bool,
+        channels: usize,
         mut encode: F,
     ) -> Result<(), FrameError>
     where
         F: FnMut(usize, &mut RangeEncoder, &RedundantFrame, PitchCoding) -> Result<(), FrameError>,
     {
+        if channels == 0
+            || channels > CHANNELS
+            || self.pending[channels..]
+                .iter()
+                .flatten()
+                .any(Option::is_some)
+        {
+            return Err(FrameError::InvalidControls);
+        }
         let frames = self.duration.ok_or(FrameError::InvalidControls)?.frames();
         let start = writer.tell();
         if include {
@@ -112,7 +136,7 @@ impl<const CHANNELS: usize> FecState<CHANNELS> {
                     .enumerate()
                     .fold(0, |m, (i, f)| m | (usize::from(f.is_some()) << i))
             });
-            for (ch, &mask) in masks.iter().enumerate() {
+            for (ch, &mask) in masks.iter().enumerate().take(channels) {
                 self.sent[ch] = mask != 0;
                 if mask != 0 && frames > 1 {
                     writer
@@ -129,9 +153,9 @@ impl<const CHANNELS: usize> FecState<CHANNELS> {
                 }
             }
             for i in 0..frames {
-                for ch in 0..CHANNELS {
+                for ch in 0..channels {
                     if let Some(frame) = &self.pending[ch][i] {
-                        if CHANNELS == 2 && ch == 0 {
+                        if channels == 2 && ch == 0 {
                             let prefix = self.stereo[i].ok_or(FrameError::InvalidControls)?;
                             encode_prefix(
                                 writer,

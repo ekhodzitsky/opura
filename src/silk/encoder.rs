@@ -9,7 +9,7 @@ pub mod analysis;
 pub mod bandwidth;
 pub mod channel;
 pub(crate) mod dtx;
-mod fec;
+pub(crate) mod fec;
 mod math;
 pub mod mono;
 pub mod nsq;

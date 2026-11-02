@@ -9,7 +9,7 @@ The fixed-bandwidth SILK encoder accepts mono/stereo PCM and emits 10/20/40/60 m
 NB/MB/WB Opus packets.** Both paths are available through the WAV/Ogg CLI.
 SILK supports opt-in DTX/FEC and explicit, gradual or automatic bandwidth
 selection. **The fixed-band Hybrid encoder accepts mono/stereo24/48kHz PCM for
-10/20ms SWB/FB packets through the library and WAV/Ogg CLI, with opt-in DTX.** Hybrid FEC
+10/20ms SWB/FB packets through the library and WAV/Ogg CLI, with opt-in DTX/FEC.** Hybrid VBR
 and general mode/channel adaptation remain in progress.
 **The decoder passes all120 official RFC8251 vector/rate/channel cases.**
 The first complete-decoder benchmark is recorded: Opura trails the pinned scalar
@@ -105,7 +105,7 @@ Automatic-mode packet overflow follows native PLC signaling; `used_plc()` and th
 CLI PLC packet count distinguish this from DTX. The
 [automatic bandwidth record](docs/validation/silk-automatic-bandwidth.md) retains
 stress-case concealment counts and limitations. General mode/channel selection,
-Hybrid FEC, general mode/channel selection and quality/performance
+Hybrid VBR, general mode/channel selection and quality/performance
 leadership remain unfinished.
 
 
@@ -122,7 +122,7 @@ independent decoding, exact durations, packet budgets and original native
 mode files. It does not establish perceptual quality or performance leadership.
 The [initial real-recording baseline](docs/benchmarks/audio-0.1.66.md) reports
 speech/music signal diagnostics and Opura file wall time with explicit limits.
-Hybrid FEC and broader subjective/competitive comparisons remain work.
+Hybrid VBR and broader subjective/competitive comparisons remain work.
 Fixed-bandwidth SILK library paths are available under
 `silk::encoder::mono` and `silk::encoder::stereo`: PCM at any standard input rate to NB/MB/WB packets of
 10/20/40/60 ms, with exact CBR byte budgets or capped variable length. See the
@@ -138,7 +138,7 @@ speech/music file cases and 96 deterministic loss scenarios. Unprotected/fixed
 SILK controls match native encoder PCM; protected profiles retain every SNR loss,
 backup-coverage tradeoff and PLC count. These are two-recording waveform
 checks, with process timings and no perceptual or native speed advantage claim.
-Hybrid FEC and general Opus mode/channel adaptation remain unfinished.
+Hybrid VBR and general Opus mode/channel adaptation remain unfinished.
 
 `hybrid::encoder::HybridEncoder` emits fixed-band CBR Hybrid packets using a
 single shared range writer, WB SILK and CELT bands17..19(SWB)/21(FB).24kHz PCM
@@ -151,7 +151,14 @@ Suppressed packets contain one TOC byte and range zero; `in_dtx()` reports the
 last successful result, and reset retains the setting. SILK inactivity preserves
 CELT history, whereas outer digital silence advances both layers. See
 [Hybrid DTX validation](docs/validation/hybrid-dtx.md).
-Hybrid FEC, VBR, cross-mode switching and general mode/channel selection
+Use `set_inband_fec(true)` with `Options::packet_loss_percent` or CLI
+`--mode hybrid --fec 20` to request previous-frame SILK-band protection. High-band
+recovery uses concealment. Fixed SWB/FB is retained; insufficient bitrate/activity
+can leave FEC unavailable. `has_fec()` reports actual carried LBRR, and queued
+backups may still be carried once after disabling new protection. Budget errors
+retry once without the old backup, preserving primary encoding and atomic state.
+See [Hybrid FEC validation](docs/validation/hybrid-fec.md).
+Hybrid VBR, cross-mode switching and general mode/channel selection
 remain unfinished. See [Hybrid PCM validation](docs/validation/hybrid-pcm-packets.md).
 
 ```sh

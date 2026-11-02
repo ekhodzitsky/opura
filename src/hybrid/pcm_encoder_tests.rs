@@ -1,6 +1,182 @@
 use super::*;
 use crate::{Mode, Packet, decoder::OpusDecoder, silk::decoder::PcmChannels};
 
+#[test]
+fn queued_fec_budget_retry_and_finalization_errors_preserve_state()
+-> Result<(), Box<dyn std::error::Error>> {
+    for channels in 1..=2 {
+        let mut encoder = HybridEncoder::new(InputRate::Khz48, channels, Bandwidth::Fullband)?;
+        encoder.set_inband_fec(true);
+        let options = Options {
+            complexity: 10,
+            packet_loss_percent: 20,
+        };
+        let mut decoder = OpusDecoder::new(
+            OutputRate::Khz48,
+            if channels == 1 {
+                PcmChannels::Mono
+            } else {
+                PcmChannels::Stereo
+            },
+        )?;
+        for frame in 0..12 {
+            let input = pcm(InputRate::Khz48, channels, FrameDuration::Ms20, frame);
+            let packet = encoder.encode(FrameDuration::Ms20, &input, 160 * channels, options)?;
+            decoder.decode(packet.as_bytes())?;
+        }
+        assert!(encoder.fec.has_pending(PacketDuration::Ms20));
+        let before = encoder.clone();
+        let input = pcm(InputRate::Khz48, channels, FrameDuration::Ms20, 12);
+        let mut dropped = 0;
+        let mut failed = 0;
+        for bytes in (3..160 * channels).step_by(3) {
+            let mut trial = before.clone();
+            let mut finalizations = 0;
+            match trial.encode_with(FrameDuration::Ms20, &input, bytes, options, |writer| {
+                finalizations += 1;
+                writer.finish()
+            }) {
+                Ok(packet) => {
+                    assert_eq!(finalizations, 1);
+                    if trial.fec.dropped {
+                        assert!(!trial.has_fec());
+                        let mut expected = before.clone();
+                        let prepared = expected.encode_inner(
+                            FrameDuration::Ms20,
+                            &input,
+                            bytes,
+                            options,
+                            false,
+                        )?;
+                        let expected_packet = expected.finish_packet(
+                            FrameDuration::Ms20,
+                            bytes,
+                            prepared,
+                            RangeEncoder::finish,
+                        )?;
+                        assert_eq!(packet, expected_packet);
+                        assert_eq!(trial, expected);
+                        dropped += 1;
+                    }
+                    let mut check = decoder.clone();
+                    assert_eq!(
+                        check.decode(packet.as_bytes())?.final_range(),
+                        packet.final_range()
+                    );
+                }
+                Err(_) => {
+                    assert_eq!(trial, before);
+                    failed += 1;
+                }
+            }
+        }
+        assert!(dropped > 0 && failed > 0);
+        let mut trial = before.clone();
+        let mut finalizations = 0;
+        assert_eq!(
+            trial.encode_with(
+                FrameDuration::Ms20,
+                &input,
+                160 * channels,
+                options,
+                |writer| {
+                    finalizations += 1;
+                    writer.finish()?;
+                    Err(EntropyError::CapacityExhausted)
+                }
+            ),
+            Err(EncoderError::Entropy(EntropyError::CapacityExhausted))
+        );
+        assert_eq!(finalizations, 1);
+        assert_eq!(trial, before);
+        // Native outer digital-zero VAD must prevent capturing a new LBRR,
+        // even with DTX disabled and a voiced resampler/VAD tail still present.
+        let mut quiet = before.clone();
+        quiet.encode(
+            FrameDuration::Ms20,
+            &vec![0; 960 * channels],
+            160 * channels,
+            options,
+        )?;
+        assert!(!quiet.fec.has_pending(PacketDuration::Ms20));
+    }
+    Ok(())
+}
+
+#[test]
+fn integrated_fec_primary_recovery_and_dtx_are_decodable() -> Result<(), Box<dyn std::error::Error>>
+{
+    let mut protected = 0;
+    let mut suppressed = 0;
+    for rate in [InputRate::Khz24, InputRate::Khz48] {
+        for channels in 1..=2 {
+            let mut encoder = HybridEncoder::new(rate, channels, Bandwidth::SuperWideband)?;
+            encoder.set_inband_fec(true);
+            encoder.set_dtx(true);
+            let mut decoder = OpusDecoder::new(
+                OutputRate::Khz48,
+                if channels == 1 {
+                    PcmChannels::Mono
+                } else {
+                    PcmChannels::Stereo
+                },
+            )?;
+            let mut previous_samples = 960;
+            for frame in 0..100 {
+                let short = (45..50).contains(&frame);
+                let duration = if short {
+                    FrameDuration::Ms10
+                } else {
+                    FrameDuration::Ms20
+                };
+                let ms = if short { 10 } else { 20 };
+                let mut input = pcm(rate, channels, duration, frame);
+                if (8..40).contains(&frame) {
+                    input.fill(0);
+                }
+                encoder.set_inband_fec(!(65..70).contains(&frame));
+                let packet = encoder.encode(
+                    duration,
+                    &input,
+                    ms * 8 * channels,
+                    Options {
+                        complexity: 10,
+                        packet_loss_percent: 20,
+                    },
+                )?;
+                protected += usize::from(encoder.has_fec());
+                suppressed += usize::from(encoder.in_dtx());
+                if encoder.in_dtx() {
+                    assert!(!encoder.has_fec());
+                }
+                if packet.as_bytes().len() > 1 {
+                    let (header, _) =
+                        crate::silk::decode_header(&Packet::parse(packet.as_bytes())?, 0)?;
+                    let advertised = (0..channels)
+                        .any(|c| header.redundancy(c).is_some_and(|v| v.iter().any(|&v| v)));
+                    assert_eq!(advertised, encoder.has_fec());
+                }
+                if frame % 3 != 1 {
+                    if frame % 3 == 2 {
+                        decoder.decode_fec(packet.as_bytes(), previous_samples)?;
+                    }
+                    let decoded = decoder.decode(packet.as_bytes())?;
+                    assert_eq!(decoded.final_range(), packet.final_range());
+                }
+                previous_samples = (ms * 48) as u16;
+            }
+            encoder.reset();
+            let mut fresh = HybridEncoder::new(rate, channels, Bandwidth::SuperWideband)?;
+            fresh.set_inband_fec(true);
+            fresh.set_dtx(true);
+            assert_eq!(encoder, fresh);
+        }
+    }
+    assert!(protected > 40);
+    assert!(suppressed > 20);
+    Ok(())
+}
+
 fn pcm(rate: InputRate, channels: usize, duration: FrameDuration, frame: usize) -> Vec<i16> {
     let n = rate.hz() as usize
         / if duration == FrameDuration::Ms10 {

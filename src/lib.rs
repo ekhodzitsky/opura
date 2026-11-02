@@ -5,8 +5,7 @@
 //! The measured scalar decoder baseline trails libopus. Encoding is available in
 //! [`celt::encoder::CeltEncoder`] and the fixed-bandwidth mono SILK
 //! [`silk::encoder::mono::MonoEncoder`], plus fixed-band Hybrid
-//! [`hybrid::encoder::HybridEncoder`]. Full adaptive encoding and Hybrid FEC
-//! remain work.
+//! [`hybrid::encoder::HybridEncoder`]. Full adaptive encoding remains work.
 //! Frame-local entropy writing is available in [`range::RangeEncoder`]. Component APIs are in
 //! [`silk::decoder`], [`celt::decoder`] and [`hybrid`].
 //!

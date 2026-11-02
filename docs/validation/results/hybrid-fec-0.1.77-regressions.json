@@ -1,0 +1,69 @@
+{
+  "status": "pass",
+  "baseline_version": "0.1.76",
+  "version": "0.1.77",
+  "old_binary_sha256": "74be60eaf5e58cef92affdc05fc0333574121147a847556ec907beaae18026bc",
+  "binary_sha256": "9e2f8496cca9addb53d040136f0578ce472e3563ee2aa1a5798796a5fcb0067b",
+  "cases": [
+    {
+      "recording": "speech_orig",
+      "profile": "celt",
+      "packets": 541,
+      "skip": 120,
+      "packet_sha256": "1054a5182ccef1aaca1f6f8278f0118cfc8d41e420b74edbcede864cc6a3437b",
+      "wav_sha256": "a3d2e1cc00a3cf88ca419cb50d32a2f6e56ecdc844d3576a9b1cd7f8f1abc4f9",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "profile": "silk-fixed",
+      "packets": 541,
+      "skip": 312,
+      "packet_sha256": "5a85725a45cf8b7c5aa4a230489094735ac60635744a7c050e5a295c829be9f6",
+      "wav_sha256": "2925b84ed43af00257893e0a295c61f255f167a602f675d4a470ed673f87faf6",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "speech_orig",
+      "profile": "silk-auto",
+      "packets": 541,
+      "skip": 312,
+      "packet_sha256": "5a85725a45cf8b7c5aa4a230489094735ac60635744a7c050e5a295c829be9f6",
+      "wav_sha256": "2925b84ed43af00257893e0a295c61f255f167a602f675d4a470ed673f87faf6",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "music_orig",
+      "profile": "celt",
+      "packets": 4540,
+      "skip": 120,
+      "packet_sha256": "1c0149277a03d4bdf2a2d72a7548f46b9e370f79ee408f2c69ce680caa92ad79",
+      "wav_sha256": "6c503c3229faac7322f4e509f1bfbfde035929ce6e5ed09ab1502d3635ec2e0a",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "music_orig",
+      "profile": "silk-fixed",
+      "packets": 4541,
+      "skip": 312,
+      "packet_sha256": "eeff7eee29a1cdef8f4771e6c1ecb5e4a45236bbe43c5742ede44e3d6dcb2685",
+      "wav_sha256": "0cd73913c05855abcd3179450a664fdd069f862753305789a0c0bc3fc52e373d",
+      "packets_match": true,
+      "wav_match": true
+    },
+    {
+      "recording": "music_orig",
+      "profile": "silk-auto",
+      "packets": 4541,
+      "skip": 312,
+      "packet_sha256": "eeff7eee29a1cdef8f4771e6c1ecb5e4a45236bbe43c5742ede44e3d6dcb2685",
+      "wav_sha256": "0cd73913c05855abcd3179450a664fdd069f862753305789a0c0bc3fc52e373d",
+      "packets_match": true,
+      "wav_match": true
+    }
+  ]
+}
