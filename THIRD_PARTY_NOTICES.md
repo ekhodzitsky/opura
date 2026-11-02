@@ -1602,3 +1602,15 @@ retained SILK terms. Generated search ranges, code lengths and effective gains
 extend the existing pitch/LTP tables. The optional
 `tools/silk_pitch_analysis_fixtures.py` wraps unchanged public native encoder
 calls and records synthetic pitch/LTP/residual traces for Rust-only tests.
+
+
+SILK noise shaping and gain processing additionally follow
+`silk/fixed/noise_shape_analysis_FIX.c`,
+`silk/fixed/warped_autocorrelation_FIX.c`, `silk/fixed/schur64_FIX.c`,
+`silk/fixed/k2a_Q16_FIX.c`, `silk/LPC_fit.c`, `silk/bwexpander_32.c`,
+`silk/fixed/find_pred_coefs_FIX.c`, `silk/fixed/residual_energy_FIX.c` and
+`silk/fixed/process_gains_FIX.c`, at the same pinned revision under the retained
+SILK terms. The optional `tools/silk_shaping_fixtures.py` records linked stages
+around unchanged public CBR/VBR native encoding, using the synthetic workload
+from the existing NSQ oracle and read-only pitch/LTP wrappers. Its traces keep
+normal Rust tests independent of a C compiler or native codec library.

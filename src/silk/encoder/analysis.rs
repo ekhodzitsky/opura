@@ -1,10 +1,12 @@
 //! Fixed-point SILK encoder parameter analysis and quantization.
 //! Complete PCM channel/packet orchestration is still in progress.
 //! Adapted from Opus v1.6.1; see THIRD_PARTY_NOTICES.md.
+mod gain_processing;
 mod lpc;
 mod ltp;
 mod nlsf;
 mod pitch;
+mod shaping;
 mod spectrum;
 mod vad;
 use super::math::lin2log;
@@ -12,10 +14,12 @@ use crate::silk::{
     gains::{FrameDuration, linear_gain},
     synthesis::mul_wb,
 };
+pub use gain_processing::{GainProcessState, ProcessedGains, ResidualEnergies};
 pub use lpc::{LpcAnalysis, analyze_lpc, lpc_to_nlsf};
 pub use ltp::{LtpFrame, LtpResidual, LtpState};
 pub use nlsf::{QuantizedNlsf, laroia_weights, quantize_nlsf};
 pub use pitch::{PitchFrame, PitchOptions, PitchState};
+pub use shaping::{ShapeFrame, ShapeOptions, ShapeState};
 pub use spectrum::{SpectralFrame, SpectralOptions, SpectralState};
 use std::fmt;
 pub use vad::{SpeechActivity, VoiceActivityDetector};
@@ -25,7 +29,7 @@ pub use vad::{SpeechActivity, VoiceActivityDetector};
 pub enum AnalysisError {
     /// Input vector length does not match the requested order/frame geometry.
     InvalidLength,
-    /// A rate weight, survivor count, gain or spectral weight is invalid.
+    /// A complexity, quality control, rate weight, survivor count or gain is invalid.
     InvalidParameters,
     /// A pathological input exceeds the native fixed-point cost domain.
     ArithmeticRange,
@@ -136,3 +140,7 @@ impl GainQuantizer {
 #[cfg(test)]
 #[path = "analysis_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "shaping_tests.rs"]
+mod shaping_tests;

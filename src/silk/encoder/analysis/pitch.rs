@@ -1,7 +1,7 @@
 //! LPC whitening and multirate three-stage pitch analysis.
 use super::AnalysisError;
 use crate::silk::{
-    encoder::math::{analysis_filter, divide_q},
+    encoder::math::{analysis_filter, divide_q, sine_window},
     gains::{FrameDuration, SignalType},
     lpc::expand_i16,
     pitch::SilkRate,
@@ -198,29 +198,6 @@ impl PitchState {
         self.signal = result.signal;
         self.correlation = result.correlation;
         Ok(result)
-    }
-}
-// Validated pitch/noise windows have length 16..=120 and a multiple of four.
-fn sine_window(output: &mut [i16], input: &[i16], falling: bool) {
-    const FREQ: [i32; 27] = [
-        12111, 9804, 8235, 7100, 6239, 5565, 5022, 4575, 4202, 3885, 3612, 3375, 3167, 2984, 2820,
-        2674, 2542, 2422, 2313, 2214, 2123, 2038, 1961, 1889, 1822, 1760, 1702,
-    ];
-    let length = input.len();
-    let f = FREQ[length / 4 - 4];
-    let c = mul_wb(f, -f);
-    let (mut s0, mut s1) = if falling {
-        (65536, 65536 + (c >> 1) + (length as i32 >> 4))
-    } else {
-        (0, f + (length as i32 >> 3))
-    };
-    for k in (0..length).step_by(4) {
-        output[k] = mul_wb((s0 + s1) >> 1, i32::from(input[k])) as i16;
-        output[k + 1] = mul_wb(s1, i32::from(input[k + 1])) as i16;
-        s0 = (mul_wb(s1, c) + 2 * s1 - s0 + 1).min(65536);
-        output[k + 2] = mul_wb((s0 + s1) >> 1, i32::from(input[k + 2])) as i16;
-        output[k + 3] = mul_wb(s0, i32::from(input[k + 3])) as i16;
-        s1 = (mul_wb(s0, c) + 2 * s0 - s1).min(65536);
     }
 }
 fn schur(output: &mut [i16], input: &[i32]) -> i32 {

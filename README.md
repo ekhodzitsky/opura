@@ -9,7 +9,10 @@ input rates and emits complete one-frame Opus packets.** Its current policy uses
 long windows by default, with optional native transient detection/short windows
 and per-band TF/dynamic-allocation/spreading analysis. Further adaptive decisions
 and SILK/Hybrid encoding
-remain work.
+remain work. The native SILK encoder now includes VAD, pitch/LTP, LPC/NLSF,
+noise-shaping and gain/lambda analysis, NSQ and frame serialization. Connected
+analysis is checked against original CBR/VBR traces; complete PCM buffering,
+packet rate control, stereo/DTX/FEC and CLI encoding integration remain unfinished.
 **The decoder passes all120 official RFC8251 vector/rate/channel cases.**
 The first complete-decoder benchmark is recorded: Opura trails the pinned scalar
 libopus reference in all ten configurations; complete adaptive encoding remains under development. The accepted direction is a complete decoder first, then an encoder,

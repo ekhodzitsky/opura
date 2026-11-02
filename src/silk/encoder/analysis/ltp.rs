@@ -1,7 +1,7 @@
 //! Correlation-weighted five-tap LTP codebook search and residual filtering.
 use super::{AnalysisError, PitchFrame};
 use crate::silk::{
-    encoder::math::{energy, lin2log},
+    encoder::math::{energy, lin2log, log2lin},
     gains::SignalType,
     pitch::{SilkRate, tables::*},
     synthesis::{mul_wb, round_shift, saturate16},
@@ -9,8 +9,8 @@ use crate::silk::{
 /// Quantized long-term prediction for a 10/20 ms internal frame.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LtpFrame {
-    rate: SilkRate,
-    count: usize,
+    pub(super) rate: SilkRate,
+    pub(super) count: usize,
     lags: [u16; 4],
     coefficients: [[i16; 5]; 4],
     indices: [u8; 4],
@@ -92,8 +92,8 @@ impl LtpResidual {
 /// Cumulative LTP gain limiter for one encoder channel.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct LtpState {
-    rate: Option<SilkRate>,
-    sum_log_gain: i32,
+    pub(super) rate: Option<SilkRate>,
+    pub(super) sum_log_gain: i32,
 }
 impl LtpState {
     /// Clear cumulative prediction gain and rate history.
@@ -205,22 +205,6 @@ fn correlations(
         for v in matrix.iter_mut().chain(vectors[k].iter_mut()) {
             *v = ((i64::from(*v) << 17) / i64::from(normalizer)) as i32;
         }
-    }
-}
-fn log2lin(log: i32) -> i32 {
-    if log < 0 {
-        return 0;
-    }
-    if log >= 3967 {
-        return i32::MAX;
-    }
-    let base = 1i32 << (log >> 7);
-    let f = log & 127;
-    let delta = f + mul_wb(f * (128 - f), -174);
-    if log < 2048 {
-        base + ((base * delta) >> 7)
-    } else {
-        base + (base >> 7) * delta
     }
 }
 fn quantize(result: &mut LtpFrame, xx: &[[i32; 25]; 4], xt: &[[i32; 5]; 4], previous: i32) -> i32 {

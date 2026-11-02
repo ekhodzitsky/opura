@@ -2,7 +2,7 @@
 use super::AnalysisError;
 use crate::silk::{
     cng::sqrt_approx,
-    encoder::math::lin2log,
+    encoder::math::{lin2log, sigmoid},
     gains::FrameDuration,
     pitch::SilkRate,
     synthesis::{mul_wb, mul_ww, round_shift, saturate16},
@@ -206,17 +206,4 @@ fn filter(state: &mut [i32; 2], even: i16, odd: i16) -> (i16, i16) {
         saturate16(round_shift(second.wrapping_add(first), 11)),
         saturate16(round_shift(second.wrapping_sub(first), 11)),
     )
-}
-fn sigmoid(value: i32) -> i32 {
-    let magnitude = value.unsigned_abs();
-    if magnitude >= 192 {
-        return if value < 0 { 0 } else { 32767 };
-    }
-    let index = (magnitude >> 5) as usize;
-    let delta = [237, 153, 73, 30, 12, 7][index] * (magnitude & 31) as i32;
-    if value < 0 {
-        [16384, 8812, 3906, 1554, 589, 219][index] - delta
-    } else {
-        [16384, 23955, 28861, 31213, 32178, 32548][index] + delta
-    }
 }

@@ -7,6 +7,20 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Add complete SILK perceptual noise-shaping analysis: quality/SNR/sparsity,
+  regular and warped autocorrelation, Schur64/AR recursion, bounded warped
+  coefficient fitting, initial gains and stateful LF/harmonic/tilt controls.
+- Connect shaped gains to LTP normalization and native spectral-analysis
+  controls, then measure quantized-predictor residual energy and apply gain
+  soft limiting, quantization, voiced offsets and NSQ lambda. Share encoder
+  sine-window, sigmoid and log conversion arithmetic with existing stages.
+- Match 144 unchanged public CBR/VBR analysis groups through pitch, shaping,
+  LTP, LPC/NLSF, residual energy and final gains/lambda. Exercise every
+  complexity, silence/full-scale PCM, geometry/quality validation and atomic
+  history failures. All seven offline gates pass; the complete CBR/VBR trace
+  reproduces byte for byte. Complete PCM buffering, packet-budget retry control,
+  stereo/DTX/FEC and CLI integration remain in progress; no full SILK release.
+
 - Add complete SILK pitch LPC whitening and three-stage multirate contour
   search, with native complexity profiles, voiced-history bias and first-frame /
   rate-change suppression. Return the full residual, gain and serializable lags.

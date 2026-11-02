@@ -72,3 +72,66 @@ pub(super) fn energy(input: &[i16]) -> (i32, u32) {
     shift = (shift as i32 + 3 - first.leading_zeros() as i32).max(0) as u32;
     (accumulate(shift, 0) as i32, shift)
 }
+
+// Validated pitch/noise windows have length 16..=120 and a multiple of four.
+pub(super) fn sine_window(output: &mut [i16], input: &[i16], falling: bool) {
+    const FREQ: [i32; 27] = [
+        12111, 9804, 8235, 7100, 6239, 5565, 5022, 4575, 4202, 3885, 3612, 3375, 3167, 2984, 2820,
+        2674, 2542, 2422, 2313, 2214, 2123, 2038, 1961, 1889, 1822, 1760, 1702,
+    ];
+    let length = input.len();
+    let f = FREQ[length / 4 - 4];
+    let c = mul_wb(f, -f);
+    let (mut s0, mut s1) = if falling {
+        (65536, 65536 + (c >> 1) + (length as i32 >> 4))
+    } else {
+        (0, f + (length as i32 >> 3))
+    };
+    for k in (0..length).step_by(4) {
+        output[k] = mul_wb((s0 + s1) >> 1, i32::from(input[k])) as i16;
+        output[k + 1] = mul_wb(s1, i32::from(input[k + 1])) as i16;
+        s0 = (mul_wb(s1, c) + 2 * s1 - s0 + 1).min(65536);
+        output[k + 2] = mul_wb((s0 + s1) >> 1, i32::from(input[k + 2])) as i16;
+        output[k + 3] = mul_wb(s0, i32::from(input[k + 3])) as i16;
+        s1 = (mul_wb(s0, c) + 2 * s0 - s1).min(65536);
+    }
+}
+
+pub(super) fn sigmoid(value: i32) -> i32 {
+    let magnitude = value.unsigned_abs();
+    if magnitude >= 192 {
+        return if value < 0 { 0 } else { 32767 };
+    }
+    let index = (magnitude >> 5) as usize;
+    let delta = [237, 153, 73, 30, 12, 7][index] * (magnitude & 31) as i32;
+    if value < 0 {
+        [16384, 8812, 3906, 1554, 589, 219][index] - delta
+    } else {
+        [16384, 23955, 28861, 31213, 32178, 32548][index] + delta
+    }
+}
+
+pub(super) fn log2lin(log: i32) -> i32 {
+    if log < 0 {
+        return 0;
+    }
+    if log >= 3967 {
+        return i32::MAX;
+    }
+    let base = 1i32 << (log >> 7);
+    let f = log & 127;
+    let delta = f + mul_wb(f * (128 - f), -174);
+    if log < 2048 {
+        base + ((base * delta) >> 7)
+    } else {
+        base + (base >> 7) * delta
+    }
+}
+
+pub(super) fn expand32(coefficients: &mut [i32], mut chirp: i32) {
+    let delta = chirp - 65536;
+    for coefficient in coefficients {
+        *coefficient = crate::silk::synthesis::mul_ww(chirp, *coefficient);
+        chirp = chirp.wrapping_add(round_shift(chirp.wrapping_mul(delta), 16));
+    }
+}
