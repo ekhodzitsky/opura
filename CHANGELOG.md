@@ -7,6 +7,24 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.84] - 2026-11-03
+
+- Add CELT `set_bandwidth`/`bandwidth` controls for NB/WB/SWB/FB bounded by the
+  input-rate default. Connect actual spectral end and packet TOC, retaining
+  input filters, active-band and rate histories across changes. Clear inactive
+  reconstructed energies in both API channels after packet completion; preserve
+  state on invalid controls or early/late errors. Reset retains selection.
+  Reject unsupported MB/above-input bands; preserve all existing defaults.
+- Match640 additional original-component packets/state snapshots and6400
+  unchanged public native decoder records through coupled band/channel changes.
+  Stereo/mono-input VBR/CVBR/CBR-toggle/silence/loss replay matches20480 native
+  records, including880 losses,11152 received band changes and2240 wire changes.
+  Five isolated source mutations are detected. See
+  docs/validation/celt-bandwidth.md for reproducible evidence and limits.
+  All seven required offline gates pass, including23 Python tests; fixed-layout
+  and channel-only VBR corpora remain byte-identical to their prior milestones.
+  The shared SILK/Hybrid/input owner and cross-mode transitions remain work.
+
 ## [0.1.83] - 2026-11-03
 
 - Separate fixed CELT PCM input channels from encoded channels. Add compatible

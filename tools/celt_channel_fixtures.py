@@ -1,6 +1,7 @@
-"""Optional channel-layout extension to the original CELT component oracle.
+"""Optional channel/band-layout extension to the original CELT component oracle.
 
-Invoked by celt_encoder_fixtures.py --channel-packets. Native component bodies
+Invoked by celt_encoder_fixtures.py --channel-packets or --bandwidth-packets.
+Native component bodies
 remain unchanged; only the existing baseline's channel orchestration changes.
 Public libopus decoding is unchanged. This is not an unchanged native encoder
 byte-parity claim, nor a build/test dependency.
@@ -8,7 +9,7 @@ byte-parity claim, nor a build/test dependency.
 import ctypes as c
 
 
-def adapt_wrapper(wrapper):
+def adapt_wrapper(wrapper, bandwidths=False):
     start = wrapper.index('struct baseline {')
     stop = wrapper.index('int decode_packet(', start)
     block = wrapper[start:stop]
@@ -38,6 +39,23 @@ def adapt_wrapper(wrapper):
     block = block.replace('s->coded=C;s->detect=detect;s->first=1;s->spread=SPREAD_NORMAL;s->average=256;return prefilter_reset(pf);',
                           's->coded=coded;s->detect=detect;s->first=1;s->spread=SPREAD_NORMAL;s->average=256;return prefilter_reset(pf);')
     block += '\nvoid baseline_set_channels(struct baseline *s,int channels){s->coded=channels;}\n'
+    if bandwidths:
+        block = block.replace('int rate,C,coded,first,previous', 'int rate,C,coded,band,first,previous')
+        block = block.replace('s->coded=C;', 's->coded=C;s->band=rate==8000?0:rate<=16000?1:rate==24000?2:3;', 1)
+        block = block.replace('C=s->C,coded=s->coded,detect=s->detect;',
+                              'C=s->C,coded=s->coded,band=s->band,detect=s->detect;')
+        block = block.replace('s->coded=coded;s->detect=detect;', 's->coded=coded;s->band=band;s->detect=detect;')
+        old = 'int end=s->rate==8000?13:s->rate<=16000?17:s->rate==24000?19:21;'
+        if block.count(old) != 1:
+            raise ValueError('Original baseline band anchor changed')
+        block = block.replace(old, 'const int ends[4]={13,17,19,21};int end=ends[s->band];')
+        old = 'int config=s->rate==8000?16:s->rate<=16000?20:s->rate==24000?24:28;'
+        if block.count(old) != 1:
+            raise ValueError('Original baseline TOC anchor changed')
+        block = block.replace(old, 'int config=16+4*s->band;')
+        block = block.replace('    s->previous=s->previous?',
+                              '    for(int c=0;c<CC;c++)for(int i=end;i<21;i++)s->energy[c*21+i]=0;\n    s->previous=s->previous?')
+        block += '\nvoid baseline_set_bandwidth(struct baseline *s,int band){s->band=band;}\n'
     return wrapper[:start]+block+wrapper[stop:]
 
 
@@ -49,9 +67,13 @@ def fnv16(values):
     return result
 
 
-def emit(lib, revision):
+def emit(lib, revision, bandwidths=False):
     lib.baseline_set_channels.argtypes = [c.c_void_p, c.c_int]
     lib.baseline_set_channels.restype = None
+    if bandwidths:
+        lib.baseline_set_bandwidth.argtypes = [c.c_void_p, c.c_int]
+        lib.baseline_set_bandwidth.restype = None
+        print('# Coupled CELT band/layout transitions; appended frame BAND:0NB 1WB 2SWB 3FB')
     print('# Original scalar CELT components with separate API/wire channels:', revision)
     print('# frame RESET RATE LM CODED FLAGS BUDGET HEX; input PCM; state first330 STREAK SPREAD[4] TRIM[2] PREFILTER[5] HASH[8]')
     print('# decoded RATE API COUNT FINAL_RANGE FNV64_LE_PCM; ten unchanged public native decoder histories per frame')
@@ -90,6 +112,11 @@ def emit(lib, revision):
                     n = (120 << lm)*rate//48000
                     coded = [2,2,1,1,1,2,1,2][frame%8]
                     lib.baseline_set_channels(encoder,coded)
+                    band = None
+                    if bandwidths:
+                        available = 1 if rate == 8000 else 2 if rate <= 16000 else 3 if rate == 24000 else 4
+                        band = [3,0,2,1,3,2,0][frame%7] % available
+                        lib.baseline_set_bandwidth(encoder,band)
                     budget = [32,64,96,128,256,24,25,13][frame%8]
                     # Keep the13-byte prefilter boundary on a mono wire frame.
                     if budget == 13:
@@ -126,7 +153,7 @@ def emit(lib, revision):
                     values[0] = c.c_uint32(values[0]).value
                     for index in range(460,468):
                         values[index] = c.c_uint32(values[index]).value
-                    print('frame',int(reset),rate,lm,coded,flags,budget,bytes(data[:length]).hex())
+                    print('frame',int(reset),rate,lm,coded,flags,budget,bytes(data[:length]).hex(),*([band] if bandwidths else []))
                     print('input',*pcm)
                     print('state',*values[:330],values[333],*values[443:449],*values[455:468])
                     for output,api,decoder in decoders:

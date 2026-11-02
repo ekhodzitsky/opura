@@ -1,0 +1,32 @@
+[
+  {
+    "mutation": "omit-inactive-energy-clearing",
+    "test": "celt::encoder::channel_encoder_tests::original_components_and_public_native_decoder_match_bandwidth_transitions",
+    "detected": true,
+    "exit_code": 101
+  },
+  {
+    "mutation": "omit-dormant-channel-clearing",
+    "test": "celt::encoder::channel_encoder_tests::original_components_and_public_native_decoder_match_bandwidth_transitions",
+    "detected": true,
+    "exit_code": 101
+  },
+  {
+    "mutation": "signal-input-default-band",
+    "test": "celt::encoder::channel_encoder_tests::original_components_and_public_native_decoder_match_bandwidth_transitions",
+    "detected": true,
+    "exit_code": 101
+  },
+  {
+    "mutation": "encode-input-default-band",
+    "test": "celt::encoder::channel_encoder_tests::original_components_and_public_native_decoder_match_bandwidth_transitions",
+    "detected": true,
+    "exit_code": 101
+  },
+  {
+    "mutation": "clear-energies-in-setter",
+    "test": "celt::encoder::channel_encoder_tests::band_controls_and_late_errors_preserve_the_complete_owner",
+    "detected": true,
+    "exit_code": 101
+  }
+]

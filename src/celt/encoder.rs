@@ -52,6 +52,8 @@ mod vbr_tests;
 pub enum EncoderError {
     /// Input channel count must be one or two.
     InvalidChannels,
+    /// CELT supports NB/WB/SWB/FB up to the input-rate default, excluding MB.
+    InvalidBandwidth,
     /// Interleaved PCM length must exactly match frame duration/rate/channels.
     InvalidInput,
     /// Requested CELT payload must contain 2..1275 bytes, excluding the TOC byte.
@@ -83,6 +85,7 @@ impl fmt::Display for EncoderError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidChannels => f.write_str("CELT input must have one or two channels"),
+            Self::InvalidBandwidth => f.write_str("unsupported CELT bandwidth for input rate"),
             Self::InvalidInput => f.write_str("CELT PCM length does not match input geometry"),
             Self::InvalidBudget => f.write_str("CELT payload budget must be 2..1275 bytes"),
             Self::InvalidRate => f.write_str("invalid CELT nominal VBR bitrate"),
@@ -202,6 +205,7 @@ pub struct CeltEncoder {
     rate: InputRate,
     channels: usize,
     encoded_channels: usize,
+    bandwidth: crate::Bandwidth,
     preemphasis: [PreemphasisState; 2],
     overlap: [[i32; 120]; 2],
     energy: EnergyEncoder,
@@ -241,6 +245,7 @@ impl CeltEncoder {
             rate,
             channels,
             encoded_channels: channels,
+            bandwidth: default_bandwidth(rate),
             preemphasis: [PreemphasisState::default(), PreemphasisState::default()],
             overlap: [[0; 120]; 2],
             energy: EnergyEncoder::default(),
@@ -273,6 +278,28 @@ impl CeltEncoder {
     /// Selected encoded channel count, initially equal to the input layout.
     pub fn encoded_channels(&self) -> usize {
         self.encoded_channels
+    }
+    /// Selected CELT bandwidth, initially the input rate's default.
+    /// The defaults are NB at8kHz, WB at12/16kHz, SWB at24kHz and FB at48kHz.
+    pub fn bandwidth(&self) -> crate::Bandwidth {
+        self.bandwidth
+    }
+    /// Select the next packet's spectral bandwidth and TOC without a reset.
+    ///
+    /// Supports NB/WB/SWB/FB no wider than the input-rate default. CELT cannot
+    /// signal MB;12kHz input uses WB signalling with silent high frequencies.
+    /// Input filters, active-band energies and rate feedback remain continuous;
+    /// after a successful packet, inactive reconstructed energies are cleared
+    /// in both input channels. Reset retains selection. Invalid requests
+    /// preserve the entire encoder state.
+    pub fn set_bandwidth(&mut self, bandwidth: crate::Bandwidth) -> Result<(), EncoderError> {
+        if bandwidth_parameters(bandwidth)?.0
+            > bandwidth_parameters(default_bandwidth(self.rate))?.0
+        {
+            return Err(EncoderError::InvalidBandwidth);
+        }
+        self.bandwidth = bandwidth;
+        Ok(())
     }
     /// Select the next packet's wire layout, retaining both input histories.
     ///
@@ -515,12 +542,7 @@ impl CeltEncoder {
         self.encode_frame(size, pcm, &mut writer, None, rate)?;
         let range = writer.range();
         let payload = finish(&mut writer)?;
-        let config = match self.rate {
-            InputRate::Khz8 => 16,
-            InputRate::Khz12 | InputRate::Khz16 => 20,
-            InputRate::Khz24 => 24,
-            InputRate::Khz48 => 28,
-        };
+        let config = bandwidth_parameters(self.bandwidth)?.1;
         let mut packet = EncodedPacket {
             bytes: [0; 1276],
             length: payload.len() + 1,
@@ -637,21 +659,7 @@ impl CeltEncoder {
         if transient_allowed {
             writer.encode_bit_logp(transient, 3)?;
         }
-        let end = hybrid.map_or_else(
-            || match self.rate {
-                InputRate::Khz8 => 13,
-                InputRate::Khz12 | InputRate::Khz16 => 17,
-                InputRate::Khz24 => 19,
-                InputRate::Khz48 => 21,
-            },
-            |h| {
-                if h.bandwidth == crate::Bandwidth::SuperWideband {
-                    19
-                } else {
-                    21
-                }
-            },
-        );
+        let end = bandwidth_parameters(hybrid.map_or(self.bandwidth, |h| h.bandwidth))?.0;
         let layout = BandLayout::new(self.encoded_channels, start, end)?;
         let spectrum = analysis::analyze_frame(
             size,
@@ -977,6 +985,7 @@ impl CeltEncoder {
         if self.channels == 2 && self.encoded_channels == 1 {
             self.energy.mirror_mono();
         }
+        self.energy.clear_inactive_bands(layout, self.channels);
         let coded = allocation.coded_bands();
         self.previous_coded = if self.previous_coded == 0 {
             coded
@@ -992,6 +1001,26 @@ impl CeltEncoder {
         };
         self.first = false;
         Ok(())
+    }
+}
+
+fn default_bandwidth(rate: InputRate) -> crate::Bandwidth {
+    use crate::Bandwidth::*;
+    match rate {
+        InputRate::Khz8 => Narrowband,
+        InputRate::Khz12 | InputRate::Khz16 => Wideband,
+        InputRate::Khz24 => SuperWideband,
+        InputRate::Khz48 => Fullband,
+    }
+}
+fn bandwidth_parameters(bandwidth: crate::Bandwidth) -> Result<(usize, usize), EncoderError> {
+    use crate::Bandwidth::*;
+    match bandwidth {
+        Narrowband => Ok((13, 16)),
+        Wideband => Ok((17, 20)),
+        SuperWideband => Ok((19, 24)),
+        Fullband => Ok((21, 28)),
+        Mediumband => Err(EncoderError::InvalidBandwidth),
     }
 }
 

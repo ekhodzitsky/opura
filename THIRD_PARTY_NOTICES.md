@@ -1761,3 +1761,9 @@ Opus v1.6.1 `celt/celt_encoder.c` under the existing CELT notices. Optional
 channel-layout fixtures extend the component oracle's orchestration while
 keeping original component functions and public native decoding unchanged.
 They do not claim byte parity with the entire native encoder.
+
+CELT variable spectral end/TOC and inactive reconstructed-energy cleanup follow
+the end-band and post-frame CC-channel paths in the same pinned
+`celt/celt_encoder.c` under the existing notices. Optional coupled band/channel
+fixtures retain the original component bodies and public decoder unchanged;
+their baseline orchestration is explicit and is not a full native encoder oracle.

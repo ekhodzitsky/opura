@@ -69,6 +69,12 @@ and rate feedback across changes. `channels()` remains the fixed PCM input
 layout; `encoded_channels()` selects the wire layout. Reset retains selection.
 See [channel-layout validation](docs/validation/celt-channel-layout.md).
 Automatic mode/channel selection still requires the shared encoder owner.
+
+CELT `set_bandwidth` selects NB/WB/SWB/FB up to the input-rate default without
+resetting signal histories; `bandwidth()` reports the selection. Packet TOC and
+spectral coding change together, and completed packets clear inactive energy
+histories in both API channels. MB and above-input bands are rejected, and reset
+retains selection. See [bandwidth validation](docs/validation/celt-bandwidth.md).
 The encoder flushes its 120-sample delay at 48 kHz; pre-skip
 and the final granule preserve the exact input duration after resampling.
 

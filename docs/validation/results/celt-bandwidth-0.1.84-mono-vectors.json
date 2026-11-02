@@ -1,0 +1,20 @@
+{
+  "status": "pass",
+  "reference_revision": "22244de5a79bd1d6d623c32e72bf1954b56235be",
+  "vector_sha256": "2d74357a31bfc7a997a2fdf554318e2e1a05dce6de4525270c6a8fe01ff7d657",
+  "streams": 80,
+  "records": 10240,
+  "lost": 440,
+  "silence_packets": 2298,
+  "mono_packets": 9800,
+  "stereo_packets": 0,
+  "received_wire_changes": 0,
+  "bandwidth_packets": {
+    "nb": 5896,
+    "wb": 2240,
+    "swb": 1104,
+    "fb": 560
+  },
+  "received_band_changes": 5576,
+  "input_channels": 1
+}

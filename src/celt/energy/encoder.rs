@@ -105,6 +105,14 @@ impl EnergyEncoder {
     pub(crate) fn mirror_mono(&mut self) {
         self.energies.values[1] = self.energies.values[0];
     }
+    // Packet completion, not primitive quantizer semantics: native CELT zeros
+    // inactive reconstructed energies even in the dormant API channel.
+    pub(crate) fn clear_inactive_bands(&mut self, layout: BandLayout, input_channels: usize) {
+        for values in self.energies.values.iter_mut().take(input_channels) {
+            values[..layout.bands().start].fill(0);
+            values[layout.bands().end..].fill(0);
+        }
+    }
     /// Reconstructed energy histories, including inactive bands/channels.
     pub fn energies(&self) -> &EnergyState {
         &self.energies

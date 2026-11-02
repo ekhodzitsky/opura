@@ -15,10 +15,20 @@ use std::{
 };
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let path = env::args_os().nth(1).ok_or("expected new output path")?;
-    let channel_transitions = match env::args_os().nth(2) {
+    let (channel_transitions, bandwidth_transitions) = match env::args_os().nth(2) {
+        None => (false, false),
+        Some(flag) if flag == "--channel-transitions" => (true, false),
+        Some(flag) if flag == "--bandwidth-transitions" => (true, true),
+        _ => {
+            return Err(
+                "expected optional --channel-transitions or --bandwidth-transitions".into(),
+            );
+        }
+    };
+    let mono_input = match env::args_os().nth(3) {
         None => false,
-        Some(flag) if flag == "--channel-transitions" => true,
-        _ => return Err("expected optional --channel-transitions".into()),
+        Some(flag) if bandwidth_transitions && flag == "--mono-input" => true,
+        _ => return Err("expected optional --mono-input with --bandwidth-transitions".into()),
     };
     let mut out = BufWriter::new(OpenOptions::new().write(true).create_new(true).open(path)?);
     out.write_all(b"OPURACV1")?;
@@ -33,7 +43,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         for channels in 1..=2 {
             for mode in 0..4 {
                 for loss in [false, true] {
-                    let input_channels = if channel_transitions { 2 } else { channels };
+                    let input_channels = if mono_input {
+                        1
+                    } else if channel_transitions {
+                        2
+                    } else {
+                        channels
+                    };
                     let mut encoder = CeltEncoder::new(rate, input_channels)?;
                     encoder.set_transient_detection(true);
                     encoder.set_tf_analysis(true);
@@ -50,12 +66,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         },
                     )?;
                     for frame in 0..128 {
-                        let wire_channels = if channel_transitions {
+                        let wire_channels = (if channel_transitions {
                             if frame % 9 < 4 { 2 } else { 1 }
                         } else {
                             channels
-                        };
+                        })
+                        .min(input_channels);
                         encoder.set_encoded_channels(wire_channels)?;
+                        if bandwidth_transitions {
+                            let available = match rate {
+                                InputRate::Khz8 => 1,
+                                InputRate::Khz12 | InputRate::Khz16 => 2,
+                                InputRate::Khz24 => 3,
+                                InputRate::Khz48 => 4,
+                            };
+                            encoder.set_bandwidth(
+                                [
+                                    opura::Bandwidth::Narrowband,
+                                    opura::Bandwidth::Wideband,
+                                    opura::Bandwidth::SuperWideband,
+                                    opura::Bandwidth::Fullband,
+                                ][[3, 0, 2, 1, 3, 2, 0][frame % 7] % available],
+                            )?;
+                        }
                         let size = [
                             FrameSize::Ms2_5,
                             FrameSize::Ms5,

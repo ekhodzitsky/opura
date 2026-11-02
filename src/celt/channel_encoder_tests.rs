@@ -13,6 +13,21 @@ fn hash(bytes: impl Iterator<Item = u8>) -> u64 {
 
 #[test]
 fn original_components_and_public_native_decoder_match_layout_transitions() -> TestResult {
+    original_corpus(
+        include_str!("../../tests/celt-channel-packet-fixtures.txt"),
+        false,
+    )
+}
+
+#[test]
+fn original_components_and_public_native_decoder_match_bandwidth_transitions() -> TestResult {
+    original_corpus(
+        include_str!("../../tests/celt-bandwidth-packet-fixtures.txt"),
+        true,
+    )
+}
+
+fn original_corpus(corpus: &str, bandwidths: bool) -> TestResult {
     let rates = [
         InputRate::Khz8,
         InputRate::Khz12,
@@ -33,9 +48,7 @@ fn original_components_and_public_native_decoder_match_layout_transitions() -> T
         FrameSize::Ms10,
         FrameSize::Ms20,
     ];
-    let mut lines = include_str!("../../tests/celt-channel-packet-fixtures.txt")
-        .lines()
-        .filter(|line| !line.starts_with('#'));
+    let mut lines = corpus.lines().filter(|line| !line.starts_with('#'));
     let mut encoder = CeltEncoder::new(InputRate::Khz48, 2)?;
     let mut previous_flags = usize::MAX;
     let mut decoders = Vec::new();
@@ -48,7 +61,7 @@ fn original_components_and_public_native_decoder_match_layout_transitions() -> T
     while let Some(line) = lines.next() {
         let f: Vec<_> = line.split_whitespace().collect();
         assert_eq!(f[0], "frame");
-        assert_eq!(f.len(), 8);
+        assert_eq!(f.len(), if bandwidths { 9 } else { 8 });
         let rate = rates
             .into_iter()
             .find(|r| r.hz().to_string() == f[2])
@@ -68,6 +81,16 @@ fn original_components_and_public_native_decoder_match_layout_transitions() -> T
             }
         }
         encoder.set_encoded_channels(coded)?;
+        if bandwidths {
+            encoder.set_bandwidth(
+                [
+                    crate::Bandwidth::Narrowband,
+                    crate::Bandwidth::Wideband,
+                    crate::Bandwidth::SuperWideband,
+                    crate::Bandwidth::Fullband,
+                ][f[8].parse::<usize>()?],
+            )?;
+        }
         let bytes = f[6].parse::<usize>()?;
         let expected: Vec<u8> = (0..f[7].len())
             .step_by(2)
@@ -92,6 +115,10 @@ fn original_components_and_public_native_decoder_match_layout_transitions() -> T
         assert_eq!(state.len(), 350);
         let packet = encoder.encode(size, &input, bytes)?;
         assert_eq!(packet.as_bytes(), expected, "packet row{rows}");
+        assert_eq!(
+            crate::Packet::parse(packet.as_bytes())?.bandwidth(),
+            encoder.bandwidth()
+        );
         assert_eq!(
             [
                 i64::from(encoder.range),
@@ -213,6 +240,82 @@ fn flags(encoder: &mut CeltEncoder, value: usize) {
     encoder.set_spreading_analysis(value & 8 != 0);
     encoder.set_allocation_analysis(value & 16 != 0);
     encoder.set_pitch_prefilter(value & 32 != 0);
+}
+
+#[test]
+fn band_controls_and_late_errors_preserve_the_complete_owner() -> TestResult {
+    use crate::Bandwidth::*;
+    let bands = [Narrowband, Wideband, SuperWideband, Fullband];
+    for (rate, available) in [
+        (InputRate::Khz8, 1),
+        (InputRate::Khz12, 2),
+        (InputRate::Khz16, 2),
+        (InputRate::Khz24, 3),
+        (InputRate::Khz48, 4),
+    ] {
+        let mut encoder = CeltEncoder::new(rate, 2)?;
+        flags(&mut encoder, 63);
+        let default = bands[available - 1];
+        assert_eq!(encoder.bandwidth(), default);
+        let pcm = input(960 / rate.factor(), 3);
+        encoder.encode(FrameSize::Ms20, &pcm, 128)?;
+        let before = encoder.clone();
+        encoder.set_bandwidth(Narrowband)?;
+        encoder.set_bandwidth(default)?;
+        assert_eq!(
+            encoder, before,
+            "changing controls without encoding must retain histories"
+        );
+        for band in bands[available..].iter().copied().chain([Mediumband]) {
+            let before = encoder.clone();
+            assert_eq!(
+                encoder.set_bandwidth(band),
+                Err(EncoderError::InvalidBandwidth)
+            );
+            assert_eq!(encoder, before);
+        }
+        encoder.set_bandwidth(Narrowband)?;
+        encoder.set_encoded_channels(1)?;
+        let before = encoder.clone();
+        for options in [
+            None,
+            Some(VbrOptions {
+                bitrate: 64000,
+                constrained: false,
+                payload_bytes: 256,
+            }),
+            Some(VbrOptions {
+                bitrate: 64000,
+                constrained: true,
+                payload_bytes: 256,
+            }),
+        ] {
+            let bytes = options.map_or(128, |o| o.payload_bytes);
+            let result = encoder.encode_with_rate(FrameSize::Ms20, &pcm, bytes, options, |_| {
+                Err(EntropyError::CapacityExhausted)
+            });
+            assert!(result.is_err());
+            assert_eq!(encoder, before);
+        }
+        let packet = encoder.encode(FrameSize::Ms20, &pcm, 128)?;
+        assert_eq!(
+            crate::Packet::parse(packet.as_bytes())?.bandwidth(),
+            Narrowband
+        );
+        for channel in 0..2 {
+            assert_eq!(
+                &encoder.energy.energies().channel(channel).ok_or("energy")?[13..],
+                &[0; 8]
+            );
+        }
+        encoder.reset();
+        let mut fresh = CeltEncoder::new(rate, 2)?;
+        flags(&mut fresh, 63);
+        fresh.set_encoded_channels(1)?;
+        fresh.set_bandwidth(Narrowband)?;
+        assert_eq!(encoder, fresh);
+    }
+    Ok(())
 }
 fn input(n: usize, frame: usize) -> Vec<i16> {
     (0..n)
