@@ -1424,3 +1424,14 @@ at the pinned revision. Spreading-field coding follows its spread ICDF budget
 check; existing CELT encoder/control/table notices and terms apply. Rust accepts
 immutable binary decisions and returns effective resolutions, validates frame/
 writer domains and stages the whole operation. TF/spread analysis is separate.
+
+
+# CELT allocation encoding attribution
+
+Dynamic boost and trim signalling follow `celt/celt_encoder.c`; retained-band
+hysteresis and stereo decisions follow `celt/rate.c::interp_bits2pulses` /
+`clt_compute_allocation` at the pinned revision. Existing CELT encoder/rate/table
+notices and terms apply. Rust shares mandatory numerical allocation math with
+decoding, validates immutable requested policies and stages whole writer commits.
+Optional original probes reuse a deterministic project-owned entropy prefix helper;
+no reference codec code is linked into ordinary builds/tests.

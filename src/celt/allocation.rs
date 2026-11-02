@@ -1,5 +1,5 @@
 //! Classic CELT dynamic, PVQ and fine-energy bit allocation.
-//! Decoder-only ordering follows pinned celt_decoder.c/rate.c. Budgets are in
+//! Bitstream ordering follows pinned celt_decoder.c/celt_encoder.c/rate.c. Budgets are in
 //! eighth-bit units, not integer pulse counts. Copyright (c) 2007-2008 CSIRO;
 //! 2007-2010 Xiph.Org Foundation; 2008 Gregory Maxwell. See THIRD_PARTY_NOTICES.md.
 use super::{
@@ -8,7 +8,9 @@ use super::{
     energy::BandLayout,
     output_tables::BANDS,
 };
-use crate::range::{RangeDecoder, RangeError};
+use crate::range::{EncoderError, RangeDecoder, RangeError};
+mod encoder;
+pub use encoder::{AllocationEncoding, encode_allocation};
 use std::fmt;
 
 /// Invalid allocation context/budget or entropy operation.
@@ -21,6 +23,10 @@ pub enum AllocationError {
     InvalidPayload,
     /// Cursor already exceeds physical frame bits.
     BitBudgetExceeded,
+    /// Requested encoder boost/trim/stereo/hysteresis controls are invalid.
+    InvalidControls,
+    /// Entropy encoding failed without committing the writer.
+    Encoding(EncoderError),
     /// Entropy decoding failed.
     Entropy(RangeError),
 }
@@ -32,6 +38,8 @@ impl fmt::Display for AllocationError {
                 f.write_str("CELT allocation payload must contain 2..1275 bytes")
             }
             Self::BitBudgetExceeded => f.write_str("CELT allocation cursor exceeds frame budget"),
+            Self::InvalidControls => f.write_str("invalid CELT allocation encoding controls"),
+            Self::Encoding(e) => write!(f, "CELT allocation encoding: {e}"),
             Self::Entropy(e) => write!(f, "CELT allocation entropy: {e}"),
         }
     }
@@ -40,6 +48,7 @@ impl std::error::Error for AllocationError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Entropy(e) => Some(e),
+            Self::Encoding(e) => Some(e),
             _ => None,
         }
     }
@@ -47,6 +56,12 @@ impl std::error::Error for AllocationError {
 impl From<RangeError> for AllocationError {
     fn from(e: RangeError) -> Self {
         Self::Entropy(e)
+    }
+}
+
+impl From<EncoderError> for AllocationError {
+    fn from(error: EncoderError) -> Self {
+        Self::Encoding(error)
     }
 }
 
@@ -136,19 +151,48 @@ pub fn decode_allocation(
     layout: BandLayout,
     transient: bool,
 ) -> Result<Allocation, AllocationError> {
-    if layout.bands().is_empty() {
-        return Err(AllocationError::EmptyBands);
-    }
-    if !(16..=1275 * 8).contains(&entropy.storage_bits()) {
-        return Err(AllocationError::InvalidPayload);
-    }
-    if entropy.tell() > entropy.storage_bits() {
-        return Err(AllocationError::BitBudgetExceeded);
-    }
+    validate_context(entropy.storage_bits(), entropy.tell(), layout)?;
     let c = layout.channels() as i32;
     let lm = size.lm();
     let bands = layout.bands();
-    let result = Allocation {
+    let result = new_allocation(size, layout, transient);
+    let mut next = entropy.clone();
+    let result = {
+        let mut engine = RateEngine {
+            entropy: DecodeEntropy(&mut next),
+            c,
+            lm: lm as i32,
+            start: bands.start,
+            end: bands.end,
+            result,
+        };
+        let total = engine.dynamic()?;
+        engine.compute(total)?;
+        engine.result
+    };
+    *entropy = next;
+    Ok(result)
+}
+fn validate_context(
+    storage_bits: u32,
+    tell: u32,
+    layout: BandLayout,
+) -> Result<(), AllocationError> {
+    if layout.bands().is_empty() {
+        return Err(AllocationError::EmptyBands);
+    }
+    if !(16..=1275 * 8).contains(&storage_bits) {
+        return Err(AllocationError::InvalidPayload);
+    }
+    if tell > storage_bits {
+        return Err(AllocationError::BitBudgetExceeded);
+    }
+    Ok(())
+}
+fn new_allocation(size: FrameSize, layout: BandLayout, transient: bool) -> Allocation {
+    let c = layout.channels() as i32;
+    let lm = size.lm();
+    Allocation {
         layout,
         size,
         transient,
@@ -168,35 +212,64 @@ pub fn decode_allocation(
         balance: 0,
         coded: 0,
         anti: false,
-    };
-    let mut next = entropy.clone();
-    let result = {
-        let mut engine = RateDecoder {
-            entropy: &mut next,
-            c,
-            lm: lm as i32,
-            start: bands.start,
-            end: bands.end,
-            result,
-        };
-        let total = engine.dynamic()?;
-        engine.compute(total)?;
-        engine.result
-    };
-    *entropy = next;
-    Ok(result)
+    }
 }
 fn width(i: usize) -> i32 {
     i32::from(BANDS[i + 1] - BANDS[i])
 }
 
-struct RateDecoder<'r, 'data> {
-    entropy: &'r mut RangeDecoder<'data>,
+struct RateEngine<E> {
+    entropy: E,
     c: i32,
     lm: i32,
     start: usize,
     end: usize,
     result: Allocation,
+}
+struct SkipContext {
+    coded: usize,
+    start: usize,
+    lm: i32,
+    band_bits: i32,
+    band_width: i32,
+}
+trait RateEntropy {
+    fn storage_bits(&self) -> u32;
+    fn tell_frac(&self) -> u32;
+    fn boost(&mut self, band: usize, successful: i32, logp: u32) -> Result<bool, AllocationError>;
+    fn trim(&mut self) -> Result<u8, AllocationError>;
+    fn keep_band(&mut self, context: SkipContext) -> Result<bool, AllocationError>;
+    fn intensity(&mut self, start: usize, coded: usize) -> Result<usize, AllocationError>;
+    fn dual(&mut self) -> Result<bool, AllocationError>;
+}
+struct DecodeEntropy<'r, 'data>(&'r mut RangeDecoder<'data>);
+impl RateEntropy for DecodeEntropy<'_, '_> {
+    fn storage_bits(&self) -> u32 {
+        self.0.storage_bits()
+    }
+    fn tell_frac(&self) -> u32 {
+        self.0.tell_frac()
+    }
+    fn boost(
+        &mut self,
+        _band: usize,
+        _successful: i32,
+        logp: u32,
+    ) -> Result<bool, AllocationError> {
+        Ok(self.0.decode_bit_logp(logp)?)
+    }
+    fn trim(&mut self) -> Result<u8, AllocationError> {
+        Ok(self.0.decode_icdf(&TRIM, 7)? as u8)
+    }
+    fn keep_band(&mut self, _context: SkipContext) -> Result<bool, AllocationError> {
+        Ok(self.0.decode_bit_logp(1)?)
+    }
+    fn intensity(&mut self, start: usize, coded: usize) -> Result<usize, AllocationError> {
+        Ok(start + self.0.decode_uint((coded + 1 - start) as u32)? as usize)
+    }
+    fn dual(&mut self) -> Result<bool, AllocationError> {
+        Ok(self.0.decode_bit_logp(1)?)
+    }
 }
 struct Interpolation {
     bits1: [i32; 21],
@@ -208,7 +281,7 @@ struct Interpolation {
     intensity_rsv: i32,
     dual_rsv: i32,
 }
-impl RateDecoder<'_, '_> {
+impl<E: RateEntropy> RateEngine<E> {
     fn dynamic(&mut self) -> Result<i32, AllocationError> {
         let mut total = self.entropy.storage_bits() as i32 * 8;
         let mut tell = self.entropy.tell_frac() as i32;
@@ -221,7 +294,7 @@ impl RateDecoder<'_, '_> {
             // Each true flag spends at least a bit and reserves >=one bit of
             // boost; frame/cap bounds make the complete search finite.
             while tell + (loop_logp << 3) < total && boost < self.result.caps[band] {
-                let flag = self.entropy.decode_bit_logp(loop_logp as u32)?;
+                let flag = self.entropy.boost(band, boost / quanta, loop_logp as u32)?;
                 tell = self.entropy.tell_frac() as i32;
                 if !flag {
                     break;
@@ -236,7 +309,7 @@ impl RateDecoder<'_, '_> {
             }
         }
         if tell + 48 <= total {
-            self.result.trim = self.entropy.decode_icdf(&TRIM, 7)? as u8;
+            self.result.trim = self.entropy.trim()?;
         }
         let mut bits = self.entropy.storage_bits() as i32 * 8 - self.entropy.tell_frac() as i32 - 1;
         self.result.anti = self.result.transient && self.lm >= 2 && bits >= ((self.lm + 2) << 3);
@@ -408,7 +481,13 @@ impl RateDecoder<'_, '_> {
             let band_width = i32::from(BANDS[coded] - BANDS[band]);
             let mut band_bits = self.result.pvq[band] + per * band_width + remainder;
             if band_bits >= threshold[band].max(floor + 8) {
-                if self.entropy.decode_bit_logp(1)? {
+                if self.entropy.keep_band(SkipContext {
+                    coded,
+                    start: self.start,
+                    lm: self.lm,
+                    band_bits,
+                    band_width,
+                })? {
                     break;
                 }
                 sum += 8;
@@ -429,7 +508,7 @@ impl RateDecoder<'_, '_> {
         }
         self.result.coded = coded;
         self.result.intensity = if intensity_rsv > 0 {
-            self.start + self.entropy.decode_uint((coded + 1 - self.start) as u32)? as usize
+            self.entropy.intensity(self.start, coded)?
         } else {
             0
         };
@@ -438,7 +517,7 @@ impl RateDecoder<'_, '_> {
             dual_rsv = 0;
         }
         self.result.dual = if dual_rsv > 0 {
-            self.entropy.decode_bit_logp(1)?
+            self.entropy.dual()?
         } else {
             false
         };

@@ -7,6 +7,22 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.54] - 2026-11-02
+
+- Add transactional native CELT dynamic/trim and retained-band/stereo allocation
+  encoding with immutable boost-count, trim, intensity/dual and skip-hysteresis
+  policies. Encoder/decoder share cap/interpolation/PVQ/fine/priority/balance math.
+- Match 26,480 complete original allocation streams/arrays/counters across all
+  3,696 legal geometry/interval/transient cells. Dense unboosted byte budgets
+  and exact trim boundaries cover four gaps found by mutation testing; all 20
+  targeted mutations and injected boost/skip/final-dual rollback are detected.
+- Compose 160 PCM/control/energy/allocation/spectrum/final-energy test packets
+  through the public decoder, matching component reconstruction PCM and ranges.
+  Packet seed uses final range, independently of the local spectrum folding seed.
+- New/prior fixtures reproduce and all seven offline gates pass with zero
+  dependencies. A public audio encoder, adaptive policy analysis and quality
+  evaluation remain work; test packet composition alone establishes no quality lead.
+
 ## [0.1.53] - 2026-11-02
 
 - Add atomic native TF-control encoding from immutable binary band decisions,

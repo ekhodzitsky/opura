@@ -2249,3 +2249,49 @@ diff -u tests/celt-control-encoder-fixtures.txt /tmp/celt-control-encoder-fixtur
 
 Original function probes remain optional external evidence, outside Cargo.
 Allocation encoding and full audio packet assembly are still under development.
+
+
+## CELT dynamic and fine bit-allocation encoding
+
+`opura::celt::allocation::encode_allocation` writes dynamic boosts, trim,
+retained-band and stereo decisions, returning the existing immutable `Allocation`
+for energy and spectrum stages. `AllocationEncoding` supplies positive-boost flag
+counts (u8 per band, clipped by native physical/cap limits), trim 0..10,
+intensity/dual requests, previous retained-band count 0..21 and inclusive desired
+bandwidth index 0..20. Stereo intensity is in selected start..=end and is clipped
+to retained coded bands; mono ignores it but requires at most 21. Inactive boost
+counts are ignored. The selected layout is nonempty, capacity is 2..1275 bytes
+and the unfinished cursor must fit. Every error preserves the complete writer.
+
+A statically dispatched private policy adapter lets both directions use one
+cap/interpolation/threshold/skip/fine/PVQ/priority/balance implementation. Encoding
+adds native boost-count signalling, scarce trim fallback, anti-collapse reserve,
+7/9-depth retained-band hysteresis and intensity/dual signals. Requested policy
+selection remains separate from perceptual audio analysis. No allocation occurs.
+
+All 26,480 original complete packets match bytes, accounting and every effective
+allocation field across all 3,696 size/channel/interval/transient combinations.
+Native and Rust paired decoding agree. The set includes 1,101 dual, 5,318
+anti-reserved, 6,579 boosted and 17,829 partially skipped allocations. Dense
+unboosted budgets and exact trim-reservation boundaries retain cases missing from
+the initial set, exposed by four mutations. All twenty targeted mutations are
+now detected, as are malformed/lifecycle inputs. Static symbol-failure injection
+checks complete rollback at boosts, intermediate decisions and the last dual bit.
+Earlier decoder allocation fixtures reproduce unchanged.
+
+A further 160 test frames compose signed16 PCM, pre-emphasis/overlap, analysis,
+prefix/energy, TF/spread, allocation, shapes and final energy into Opus packets.
+The public decoder matches component reconstruction PCM and final ranges across
+all five input rates, four durations and both channel layouts. Packet histories
+start with seed zero and use final range for the next frame; the local folding
+seed returned by spectrum encoding is distinct. This is test-level assembly,
+not a public audio encoder or an independent full-encoder quality measurement.
+
+```sh
+python3 tools/celt_allocation_fixtures.py /path/to/opus-v1.6.1 --encode > /tmp/celt-allocation-encoder-fixtures.txt
+diff -u tests/celt-allocation-encoder-fixtures.txt /tmp/celt-allocation-encoder-fixtures.txt
+```
+
+Original dynamic/trim/rate probes remain optional and external to Cargo. Audio
+packet API, signal-driven policies, SILK/Hybrid encoding and quality comparisons
+remain under development.
