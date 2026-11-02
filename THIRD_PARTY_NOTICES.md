@@ -1577,3 +1577,14 @@ records calls around unchanged original functions during public native SILK
 encoding; it does not replace or edit the reference algorithms. Synthetic input,
 canonical coefficient arrays and explicit field-wise state fingerprints are
 retained for normal Rust tests without linking a native library.
+
+SILK spectral/activity analysis and parameter quantization additionally follow
+`silk/fixed/burg_modified_FIX.c`, `silk/fixed/find_LPC_FIX.c`, `silk/A2NLSF.c`,
+`silk/process_NLSFs.c`, `silk/NLSF_encode.c`, `silk/NLSF_VQ.c`,
+`silk/NLSF_del_dec_quant.c`, `silk/NLSF_VQ_weights_laroia.c`, `silk/gain_quant.c`,
+`silk/lin2log.c`, `silk/VAD.c`, `silk/ana_filt_bank_1.c` and `silk/sigm_Q15.c`
+at the same revision, under the retained SILK terms. The optional
+`tools/silk_analysis_fixtures.py` records unchanged public encoder calls around
+these original functions using linker wrappers. Its synthetic workload and
+small explicit root probes are validation data, with no C codec build/test
+or runtime dependency in the native Rust library.

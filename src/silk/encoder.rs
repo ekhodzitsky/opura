@@ -1,9 +1,11 @@
-//! SILK frame quantization and bitstream encoding, before PCM analysis.
+//! SILK PCM analysis, quantization and frame bitstream components.
 //!
 //! Serializes quantized side information and signed noise-shaped pulses into an
 //! existing Opus entropy writer. This is not yet a PCM-to-SILK encoder. Header,
 //! stereo/LBRR ordering and packet finalization belong to the enclosing encoder.
 //! Adapted from Opus v1.6.1; see THIRD_PARTY_NOTICES.md.
+pub mod analysis;
+mod math;
 pub mod nsq;
 mod pulses;
 use super::{

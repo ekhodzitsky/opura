@@ -107,6 +107,9 @@ int main(int argc,char **argv) {
 '''
 
 
+# Shared deterministic public encoder workload for other analysis oracles.
+DRIVER = WRAPPER[WRAPPER.index("int main("):]
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('source', type=Path)

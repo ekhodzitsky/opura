@@ -7,6 +7,26 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Add native SILK modified Burg LPC analysis, bounded LPC-to-NLSF root search,
+  Laroia weights, predictive four-state NLSF codebook search, and hysteretic
+  gain quantization. Reuse decoder spectrum reconstruction/cosine tables.
+- Combine normalized PCM subframes into the full stateful spectral stage:
+  compare first-/second-half prediction energy, choose interpolation, weight
+  spectra using activity/history, and produce quantized indices and both NSQ
+  predictors. Rate changes suppress old spectral interpolation; errors preserve
+  history and fixed-point headroom failures are explicit.
+- Add the native four-band VAD, filter bank, noise estimation, activity/tilt
+  and quality-band smoothing. Retain its native history across duration/rate
+  changes, with explicit reset and bounded PCM input validation.
+- Match 72 unchanged public-native analysis groups, including complete spectral
+  stage, gain/NLSF/Burg/root outputs and VAD output/every state field; eight
+  extra root probes cover zero roots and bandwidth recovery. Full pitch/LTP,
+  noise-shaping/gain processing, packet budgeting, stereo/DTX/FEC and CLI
+  integration remain in progress; this is not a complete SILK encoder release.
+- Reproduce the complete analysis fixture and both affected table modules
+  exactly. All seven offline gates pass; all 120 official decoder conformance
+  cases and PCM SHA256 hashes remain unchanged after shared reconstruction.
+
 - Add fixed-storage scalar and delayed-decision SILK noise-shaped quantization:
   gain rescaling, LPC/LTP rewhitening, harmonic/low-frequency/AR feedback,
   warped shaping, adaptive decision delay and bounded 1..=4-state beam search.

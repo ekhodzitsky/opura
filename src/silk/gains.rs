@@ -215,7 +215,7 @@ fn reconstruct_index(previous: u8, index: u8, independent: bool) -> u8 {
     }
 }
 
-fn linear_gain(index: u8) -> i32 {
+pub(super) fn linear_gain(index: u8) -> i32 {
     // RFC 6716 4.2.7.4: index in 0..63 gives Q7 log in 2090..3923.
     // These bounds select the high-input branch of silk_log2lin and keep
     // every intermediate and the final positive Q16 gain inside i32.

@@ -36,6 +36,7 @@ if args.tables:
             ('ICDF1', f'silk_NLSF_CB1_iCDF_{band}', 'u8', 64),
             ('SELECT', f'silk_NLSF_CB2_SELECT_{band}', 'u8', 16 * order),
             ('ICDF2', f'silk_NLSF_CB2_iCDF_{band}', 'u8', 72),
+            ('RATES', f'silk_NLSF_CB2_BITS_{band}_Q5', 'u8', 72),
             ('PRED', f'silk_NLSF_PRED_{band}_Q8', 'u8', 2 * (order - 1)),
             ('DELTA', f'silk_NLSF_DELTA_MIN_{band}_Q15', 'i16', order + 1),
         ]

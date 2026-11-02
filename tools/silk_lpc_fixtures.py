@@ -26,7 +26,7 @@ if args.table:
     assert len(values) == 129
     print('// Generated from Opus v1.6.1 by tools/silk_lpc_fixtures.py --table.')
     print('// Copyright (c) 2006-2011, Skype Limited. See THIRD_PARTY_NOTICES.md.')
-    print('pub(super) const COS_Q12: [i16; 129] = ' + str(values) + ';')
+    print('pub(in crate::silk) const COS_Q12: [i16; 129] = ' + str(values) + ';')
     raise SystemExit(0)
 
 root = Path(__file__).resolve().parent.parent

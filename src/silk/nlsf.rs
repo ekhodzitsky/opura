@@ -38,6 +38,8 @@ impl NlsfOrder {
                 pred: &NB_MB_PRED,
                 delta: &NB_MB_DELTA,
                 step: 11796,
+                inverse_step: 356,
+                rates: &NB_MB_RATES,
             },
             Self::Order16 => Codebook {
                 cb1: &WB_CB1,
@@ -48,6 +50,8 @@ impl NlsfOrder {
                 pred: &WB_PRED,
                 delta: &WB_DELTA,
                 step: 9830,
+                inverse_step: 427,
+                rates: &WB_RATES,
             },
         }
     }
@@ -173,19 +177,7 @@ impl NlsfState {
         if !next.is_within_budget() {
             return Err(NlsfError::BitBudgetExceeded);
         }
-        let mut current = [0_i16; 16];
-        let mut residual = 0_i32;
-        for i in (0..count).rev() {
-            let predicted = (i32::from(residual as i16) * i32::from(prediction[i])) >> 8;
-            let level = i32::from(indices[i + 1]) * 1024;
-            residual = predicted + (((level - level.signum() * 102) * cb.step) >> 16);
-            let position = first * count + i;
-            let frequency = ((i32::from(residual as i16) * 16384)
-                / i32::from(cb.weights[position]))
-                + i32::from(cb.cb1[position]) * 128;
-            current[i] = frequency.clamp(0, 32767) as i16;
-        }
-        stabilize(&mut current[..count], cb.delta);
+        let current = cb.reconstruct(&indices[..=count], &prediction);
         let factor = if self.order == Some(order) {
             coded_factor
         } else {
@@ -214,16 +206,37 @@ impl NlsfState {
 }
 
 pub(super) struct Codebook {
-    cb1: &'static [u8],
-    weights: &'static [i16],
+    pub(super) cb1: &'static [u8],
+    pub(super) weights: &'static [i16],
     pub(super) icdf1: &'static [u8],
     select: &'static [u8],
     pub(super) icdf2: &'static [u8],
     pred: &'static [u8],
-    delta: &'static [i16],
-    step: i32,
+    pub(super) delta: &'static [i16],
+    pub(super) step: i32,
+    pub(super) inverse_step: i16,
+    pub(super) rates: &'static [u8],
 }
 impl Codebook {
+    pub(super) fn reconstruct(&self, indices: &[i8], prediction: &[u8; 16]) -> [i16; 16] {
+        let count = indices.len() - 1;
+        let first = indices[0] as usize;
+        let mut current = [0_i16; 16];
+        let mut residual = 0_i32;
+        for i in (0..count).rev() {
+            let predicted = (i32::from(residual as i16) * i32::from(prediction[i])) >> 8;
+            let level = i32::from(indices[i + 1]) * 1024;
+            residual = predicted + (((level - level.signum() * 102) * self.step) >> 16);
+            let position = first * count + i;
+            let frequency = ((i32::from(residual as i16) * 16384)
+                / i32::from(self.weights[position]))
+                + i32::from(self.cb1[position]) * 128;
+            current[i] = frequency.clamp(0, 32767) as i16;
+        }
+        stabilize(&mut current[..count], self.delta);
+        current
+    }
+
     pub(super) fn unpack(&self, first: usize, count: usize) -> ([usize; 16], [u8; 16]) {
         let mut entropy = [0; 16];
         let mut prediction = [0; 16];
@@ -240,7 +253,7 @@ impl Codebook {
 
 // Enforce the codebook's minimum spacings with the reference's 20-step limit
 // and bounded sort fallback. i32 intermediates preserve signed rounding.
-fn stabilize(values: &mut [i16], delta: &[i16]) {
+pub(super) fn stabilize(values: &mut [i16], delta: &[i16]) {
     let count = values.len();
     for _ in 0..20 {
         let mut minimum = i32::from(values[0]) - i32::from(delta[0]);

@@ -5,7 +5,7 @@
 use super::nlsf::FrameNlsf;
 
 #[path = "lpc_table.rs"]
-mod table;
+pub(super) mod table;
 use table::COS_Q12;
 
 /// Q12 prediction coefficients for the two halves of an internal SILK frame.

@@ -1,9 +1,10 @@
 //! Fixed-storage SILK noise-shaped scalar quantization with native arithmetic.
 //!
 //! Includes scalar and delayed-decision NSQ paths. The enclosing encoder supplies analyzed,
-//! quantized predictor/gain and noise-shaping coefficients. PCM analysis and
-//! complete packet orchestration remain separate encoder work.
+//! quantized predictor/gain and noise-shaping coefficients. Pitch/LTP and noise-
+//! shaping analysis plus complete packet orchestration remain encoder work.
 //! Adapted from Opus v1.6.1 silk/NSQ.c and NSQ.h; see THIRD_PARTY_NOTICES.md.
+use super::math::analysis_filter;
 use crate::silk::{
     gains::{FrameDuration, SignalType},
     pitch::SilkRate,
@@ -471,20 +472,6 @@ fn quantize_level(residual: i32, offset: i32, lambda: i32) -> i32 {
         second.0
     } else {
         first.0
-    }
-}
-fn analysis_filter(output: &mut [i16], input: &[i16], coefficients: &[i16]) {
-    let order = coefficients.len();
-    output[..order].fill(0);
-    for i in order..input.len() {
-        let mut sum = 0i32;
-        for (j, &coefficient) in coefficients.iter().enumerate() {
-            sum = sum.wrapping_add(i32::from(input[i - j - 1]) * i32::from(coefficient));
-        }
-        output[i] = saturate16(round_shift(
-            (i32::from(input[i]) << 12).wrapping_sub(sum),
-            12,
-        ));
     }
 }
 
