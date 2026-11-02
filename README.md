@@ -2608,3 +2608,72 @@ diff -u tests/celt-encoder-spreading-fixtures.txt /tmp/celt-encoder-spreading-fi
 python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --spreading-tails > /tmp/celt-spreading-tail-fixtures.txt
 diff -u tests/celt-spreading-tail-fixtures.txt /tmp/celt-spreading-tail-fixtures.txt
 ```
+
+
+## CELT trim and stereo allocation analysis
+
+The standalone allocation policy components are available for the next packet
+integration stage. `CeltEncoder` still defaults to trim five, full-band intensity
+and no dual stereo; these new helpers do not change its packet policies.
+
+`analysis::equivalent_rate` reproduces the byte-derived equivalent bitrate and
+short-frame overhead for one/two channels and 2..1275 payload bytes. It applies
+no outer bitrate cap and can return negative low-budget rates. `analyze_stereo`
+accepts exactly two planar normalized Q24 channels, inspects the first 13 bands
+with per-band squared norm <=5/4 Q48, and returns the native L1 preference for
+independent L/R over M/S coding. Later bins are ignored. LM0 diagnostics are
+supported independently of the eventual packet policy, which forces M/S there.
+
+`IntensityState` restores checked boundaries in 0..21, starts/resets at zero,
+and selects from an `i16` equivalent kb/s value with native threshold/hysteresis
+tables. The selected boundary is clamped to the validated `BandLayout` interval,
+including empty intervals. This desired state precedes allocation's retained-band
+clipping; it must not be replaced by that effective clipped boundary.
+
+`TrimState` starts/resets saving at zero and restores checked Q8 saving in
+0..1280. `process` takes immutable normalized spectra, Q24 logs and `TrimOptions`,
+returning index 0..10, raw Q8 trim and Q19 averaged spectral tilt. Input length is
+exactly channels*frame samples. Mono supports end 2..21 and ignores coefficient
+values; stereo supports end 8..21 and inspects only max(8,intensity) normalized
+bands, each norm <=5/4. Intensity is 0..end, TF estimate 0..16384 Q14, surround tilt
+[-4,4] Q24, and equivalent bitrate may span `i32`. Logs inspect active channels
+and `0..end-1` only in [-32,32] Q24; the last band and other tails are ignored.
+The mathematical final weighted tilt sum after input>>5 must fit signed32;
+otherwise analysis rejects without committing any saving or changing inputs.
+
+Native correlation sums full Q24 products before the final shift. Negative LF
+averaging truncates before taking absolute values; the half-log is evaluated
+before Q20 compensation and signed Q8 rounding. Saving has the native quarter
+unit slew, stereo minimum-correlation cap and mono retention. Rate interpolation,
+spectral tilt, temporal/surround adjustments and final trim rounding preserve
+original order. All storage is fixed and no heap allocation occurs. Call trim
+analysis only when its symbol is available: integration at the actual post-dynamic
+budget position remains separate work, preserving saving on skipped fields.
+
+Original evidence matches 525,825 correlation-log pairs (target saving 0..1022),
+all 10,192 byte-equivalent rates and 1,441,792 `i16` rate/history intensity pairs.
+Another 2,016 stereo spectra match both native costs and decisions, including
+313 L/R selections and 1,342 ties. Trim matches 16,233 outputs across 1,090 contexts,
+all 11 indices, a 40-step saving sequence and explicit negative LF averaging.
+Another 1,216 contexts intentionally exceed the checked tilt domain and reject
+atomically; original wrapped outputs are not adopted outside that public domain.
+Invalid shapes/history/control fields, exact norm boundaries, unused prefixes,
+reset and 1,024 bounded random contexts are verified. All 44 targeted mutations
+are detected. These are component analysis
+checks; complete packet quality and speed comparisons remain later work.
+
+```sh
+python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --allocation-analysis-tables > /tmp/allocation_analysis_tables.rs
+rustfmt --edition 2024 /tmp/allocation_analysis_tables.rs
+diff -u src/celt/analysis/allocation_tables.rs /tmp/allocation_analysis_tables.rs
+python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --allocation-analysis-math > /tmp/celt-allocation-analysis-math-fixtures.txt
+diff -u tests/celt-allocation-analysis-math-fixtures.txt /tmp/celt-allocation-analysis-math-fixtures.txt
+python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --stereo-analysis > /tmp/celt-stereo-analysis-fixtures.txt
+diff -u tests/celt-stereo-analysis-fixtures.txt /tmp/celt-stereo-analysis-fixtures.txt
+python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --trim-analysis > /tmp/celt-trim-analysis-fixtures.txt
+diff -u tests/celt-trim-analysis-fixtures.txt /tmp/celt-trim-analysis-fixtures.txt
+```
+
+Optional read-only model/trim observers cross-check every ordinary result and
+saving against unchanged original helpers before emitting internal diagnostics.
+Native code remains external validation and is never a Cargo dependency.

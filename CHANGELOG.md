@@ -7,6 +7,24 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.60] - 2026-11-02
+
+- Add standalone native CELT byte-equivalent rate, bounded L1 stereo modelling,
+  checked intensity hysteresis and transactional trim/saving analysis. Preserve
+  full-Q24 correlation order, signed averaging/log/tilt rounding and unused-input
+  semantics. Reject unsupported final signed32 tilt accumulations atomically.
+- Match all 525,825 correlation-log pairs, 10,192 byte-derived rates and 1,441,792
+  intensity rate/history cases, original constants/defaults and 2,016 L1 spectra
+  with complete costs. Match 16,233 trim outputs over 1,090 contexts, including
+  negative LF averaging and a 40-step saving sequence; 1,216 out-of-domain sums
+  reject without state changes. All 11 indices occur.
+- Verify invalid/unused-prefix/exact-norm/reset/late-overflow domains and 1,024
+  bounded contexts. All 44 targeted mutations are detected. New/prior optional
+  evidence reproduces and all seven offline gates pass with zero dependencies.
+- Packet integration remains subsequent work at actual post-dynamic trim-symbol
+  availability; current trim/stereo packet policies remain unchanged. These
+  component results establish no whole-encoder quality or performance lead.
+
 ## [0.1.59] - 2026-11-02
 
 - Add bounded stateful native CELT pulse-spreading analysis with checked history,

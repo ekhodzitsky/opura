@@ -16,7 +16,7 @@ REVISION='22244de5a79bd1d6d623c32e72bf1954b56235be'
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('source',type=Path)
 mode=parser.add_mutually_exclusive_group()
-for name in ['analysis','analysis-math','analysis-tables','transients','tf-analysis','tf-packets','tf-math','dynalloc-tables','dynalloc-analysis','dynalloc-packets','dynalloc-math','spreading-analysis','spreading-packets','spreading-tails']:mode.add_argument('--'+name,action='store_true')
+for name in ['analysis','analysis-math','analysis-tables','transients','tf-analysis','tf-packets','tf-math','dynalloc-tables','dynalloc-analysis','dynalloc-packets','dynalloc-math','spreading-analysis','spreading-packets','spreading-tails','allocation-analysis-tables','allocation-analysis-math','stereo-analysis','trim-analysis']:mode.add_argument('--'+name,action='store_true')
 args=parser.parse_args();source=args.source.resolve()
 if subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip()!=REVISION:
     raise SystemExit('Expected pinned Opus v1.6.1')
@@ -254,6 +254,56 @@ int tf_probe(int LM,int end,int transient,int lambda,int estimate,const int *inp
     return 0;
 }
 '''
+observed_stereo=original_function(encoder_source,'static int stereo_analysis(').replace('static int stereo_analysis(','static int stereo_analysis_observed(',1)
+needle='   return MULT16_32_Q15((m->eBands[13]<<(LM+1))+thetas, sumMS)'
+if observed_stereo.count(needle)!=1:raise SystemExit('Original stereo observation changed')
+observed_stereo=observed_stereo.replace(needle,'   observed_lr_cost=MULT16_32_Q15(m->eBands[13]<<(LM+1),sumLR);\n   observed_ms_cost=MULT16_32_Q15((m->eBands[13]<<(LM+1))+thetas,sumMS);\n'+needle,1)
+observed_trim=original_function(encoder_source,'static int alloc_trim_analysis(').replace('static int alloc_trim_analysis(','static int alloc_trim_analysis_observed(',1)
+needle='#ifdef FIXED_POINT\n   trim_index = PSHR32(trim, 8);'
+if observed_trim.count(needle)!=1:raise SystemExit('Original trim observation changed')
+observed_trim=observed_trim.replace(needle,'   observed_policy_trim=trim;observed_policy_tilt=diff;\n'+needle,1)
+wrapper+='\nstatic int observed_lr_cost,observed_ms_cost,observed_policy_trim,observed_policy_tilt;\n'+observed_stereo+'\n'+observed_trim+r'''
+int stereo_policy_probe(int LM,const int *input,int *out){
+    int error;const CELTMode *m=opus_custom_mode_create(48000,960,&error);if(!m||error)return -1;
+    int original=stereo_analysis(m,input,LM,120<<LM),observed=stereo_analysis_observed(m,input,LM,120<<LM);
+    if(original!=observed)return -2;
+    out[0]=original;out[1]=observed_lr_cost;out[2]=observed_ms_cost;return 0;
+}
+int trim_policy_probe(int LM,int C,int end,int intensity,int rate,int estimate,int surround,int saving,const int *input,const int *logs,int *out){
+    int error;const CELTMode *m=opus_custom_mode_create(48000,960,&error);if(!m||error)return -1;
+    AnalysisInfo info;memset(&info,0,sizeof(info));opus_val16 original_saving=saving,observed_saving=saving;
+    int original=alloc_trim_analysis(m,input,logs,end,LM,C,120<<LM,&info,&original_saving,estimate,intensity,surround,rate,0);
+    int observed=alloc_trim_analysis_observed(m,input,logs,end,LM,C,120<<LM,&info,&observed_saving,estimate,intensity,surround,rate,0);
+    if(original!=observed||original_saving!=observed_saving)return -2;
+    out[0]=original;out[1]=observed_policy_trim;out[2]=observed_policy_tilt;out[3]=original_saving;return 0;
+}
+'''
+policy_arrays=[]
+for original in ['intensity_thresholds','intensity_histeresis']:
+    match=re.search(original+r'\[21\]\s*=\s*(?:/\*.*?\*/\s*)?\{(.*?)\};',encoder_source,re.S)
+    if match is None:raise SystemExit('Original intensity array changed')
+    values=[int(x) for x in match[1].split(',') if x.strip()]
+    if len(values)!=21:raise SystemExit('Original intensity array shape changed')
+    policy_arrays.append(values)
+wrapper+='\nstatic const opus_val16 policy_thresholds[21]={' + ','.join(map(str,policy_arrays[0])) + '};\n'
+wrapper+='static const opus_val16 policy_hysteresis[21]={' + ','.join(map(str,policy_arrays[1])) + '};\n'
+wrapper+=r'''
+void allocation_policy_constants(int *out){out[0]=EPSILON;out[1]=QCONST16(.707107f,15);out[2]=QCONST32(1.001f,20);out[3]=celt_log2(QCONST32(1.001f,20));}
+int allocation_policy_defaults(int *out){
+    CELTEncoder *s=malloc(celt_encoder_get_size(2));if(!s)return -1;
+    int error=celt_encoder_init(s,48000,2,0);
+    if(!error){out[0]=s->stereo_saving;out[1]=s->intensity;}
+    free(s);return error;
+}
+int allocation_intensity(int rate,int previous){return hysteresis_decision(rate,policy_thresholds,policy_hysteresis,21,previous);}
+void allocation_correlation_logs(int sum,int minimum,int *out){
+    opus_val16 raw=celt_log2(QCONST32(1.001f,20)-MULT16_16(sum,sum));
+    opus_val16 raw2=MAX16(HALF16(raw),celt_log2(QCONST32(1.001f,20)-MULT16_16(minimum,minimum)));
+    out[0]=PSHR32(raw-QCONST16(6.f,10),2);out[1]=PSHR32(raw2-QCONST16(6.f,10),2);out[2]=-HALF16(out[1]);
+}
+int allocation_equivalent_rate(int LM,int C,int bytes){return (bytes*8*50<<(3-LM))-(40*C+20)*((400>>LM)-50);}
+
+'''
 files=manifest('silk_sources.mk','SILK_SOURCES')+manifest('silk_sources.mk','SILK_SOURCES_FIXED')+manifest('celt_sources.mk','CELT_SOURCES')+manifest('opus_sources.mk','OPUS_SOURCES')
 with tempfile.TemporaryDirectory(prefix='opura-celt-encoder-') as temp:
     path=Path(temp);(path/'probe.c').write_text(wrapper)
@@ -277,6 +327,155 @@ void decoder_energy(const OpusDecoder *s,int *out){baseline_decoder_energy((cons
         ('baseline_encode',[ptr,c.c_int,i16,c.c_int,u8,i32],c.c_int),('opus_decoder_create',[c.c_int,c.c_int,i32],ptr),('opus_decoder_destroy',[ptr],None),
         ('decode_packet',[ptr,u8,c.c_int,i16,u32],c.c_int),('reset_decoder',[ptr],c.c_int),('decoder_energy',[ptr,i32],None)]:
         fn=getattr(lib,name);fn.argtypes=types;fn.restype=result
+    if args.stereo_analysis or args.trim_analysis:
+        lib.stereo_policy_probe.argtypes=[c.c_int,i32,i32];lib.stereo_policy_probe.restype=c.c_int
+        lib.trim_policy_probe.argtypes=[c.c_int]*8+[i32]*3;lib.trim_policy_probe.restype=c.c_int
+        lib.analysis_cos.argtypes=[c.c_int];lib.analysis_cos.restype=c.c_int
+        bands=[0,1,2,3,4,5,6,7,8,10,12,14,16,20,24,28,34,40,48,60,78,100]
+        random=0x53544552
+        def next_policy_random():
+            global random
+            random^=(random<<13)&0xffffffff;random^=random>>17;random^=(random<<5)&0xffffffff
+            return random
+        def vector(width,pattern,band):
+            if pattern==0:raw=[0]*width
+            elif pattern==1:raw=[32767]+[0]*(width-1)
+            elif pattern==2:raw=[0]*(width-1)+[-32767]
+            elif pattern==3:raw=[32767]*width
+            elif pattern==4:raw=[32767 if i%2 else -32767 for i in range(width)]
+            elif pattern==5:raw=[lib.analysis_cos((i+1)*(band*13+1)*1024) for i in range(width)]
+            elif pattern==6:raw=[next_policy_random()%65536-32768 for _ in range(width)]
+            else:raw=[32767 if i%4==0 else -16384 if i%4==1 else 0 for i in range(width)]
+            den=math.isqrt(sum(x*x for x in raw))+1
+            return [(x*(1<<24))//den for x in raw]
+        def pair(lm,end,pattern,link,amplitude):
+            n=120<<lm;values=[2147483647]*(2*n)
+            for band in range(end):
+                start=bands[band]<<lm;stop=bands[band+1]<<lm;width=stop-start
+                left=vector(width,pattern,band)
+                if link==0:right=left[:]
+                elif link==1:right=[-x for x in left]
+                elif link==2:right=vector(width,6,band)
+                elif link==3:right=[0]*width
+                elif link==4:right=left[1:]+left[:1]
+                elif link==5:right=[x>>1 for x in left]
+                else:right=left[:] if band<8 else left[1:]+left[:1]
+                values[start:stop]=[(x*amplitude)>>24 for x in left]
+                values[n+start:n+stop]=[(x*amplitude)>>24 for x in right]
+            return values
+        frames=0;analyses=0;overflow=0
+        if args.stereo_analysis:
+            print('# Original stereo L1 model and read-only costs:',REVISION)
+            print('# frame LM INPUT[2*N]; stereo DUAL LR_COST MS_COST')
+            for lm in range(4):
+                for pattern in range(8):
+                    for link in range(7):
+                        for amplitude in [0,1,2,1023,1024,4096,1<<20,1<<23,1<<24]:
+                            values=pair(lm,13,pattern,link,amplitude);out=(c.c_int32*3)()
+                            error=lib.stereo_policy_probe(lm,(c.c_int32*len(values))(*values),out)
+                            if error:raise SystemExit('Original stereo observer changed decisions')
+                            print('frame',lm,*values);print('stereo',*out);frames+=1
+            print(f'# frames={frames}')
+            raise SystemExit
+        print('# Original trim analysis and read-only raw/tilt diagnostics:',REVISION)
+        print('# frame LM C END CASES INPUT[C*N] LOGS[42]; trim/overflow SAVING RATE TF_EST INTENSITY SURROUND INDEX RAW_Q8 TILT_Q19 NEXT_SAVING')
+        for lm in range(4):
+            n=120<<lm
+            for channels in [1,2]:
+                for end in range(2 if channels==1 else 8,22):
+                    for pattern in range(8):
+                        values=[2147483647]*n if channels==1 else pair(lm,end,pattern,[0,0,1,2,6,5,4,3][pattern],1<<24)
+                        logs=[2147483647]*42
+                        for channel in range(channels):
+                            for band in range(end-1):
+                                weight=2+2*band-end
+                                if pattern==0:value=0
+                                elif pattern==1:value=-(18<<24)
+                                elif pattern==2:value=(2*band-end)*(1<<23)
+                                elif pattern==3:value=(end-2*band)*(1<<23)
+                                elif pattern==4:value=(32 if band%2 else -32)<<24
+                                elif pattern in [5,7]:value=(32 if weight>=0 else -32)*(1<<24)*(-1 if pattern==7 and channel else 1)
+                                else:value=next_policy_random()%((64<<24)+1)-(32<<24)
+                                logs[channel*21+band]=value
+                        total=sum((logs[channel*21+band]>>5)*(2+2*band-end) for channel in range(channels) for band in range(end-1))
+                        valid=-2147483648<=total<=2147483647
+                        print('frame',lm,channels,end,16,*values,*logs);frames+=1
+                        for case in range(16):
+                            saving=[0,1,63,64,128,255,256,511,512,768,1022,1280][case%12]
+                            rate=[-2147483648,0,63999,64000,64001,65023,65024,79999,80000,80001,128000,2147483647][(case+pattern)%12]
+                            estimate=[0,1,63,64,65,127,128,8191,8192,8193,16383,16384][case%12]
+                            intensity=[0,1,7,8,end-1,end][case%6] if channels==2 else [0,end][case%2]
+                            surround=[-(4<<24),-65537,-65536,-1,0,1,65535,65536,65537,4<<24][case%10]
+                            out=(c.c_int32*4)()
+                            error=lib.trim_policy_probe(lm,channels,end,intensity,rate,estimate,surround,saving,(c.c_int32*len(values))(*values),(c.c_int32*42)(*logs),out)
+                            if error:raise SystemExit('Original trim observer changed index/saving')
+                            print('trim' if valid else 'overflow',saving,rate,estimate,intensity,surround,*out)
+                            analyses+=int(valid);overflow+=int(not valid)
+        # Negative LF averaging must truncate before taking the absolute value.
+        values=[2147483647]*240;values[:8]=[1<<24]*8;values[120:128]=[-(1<<24)]*7+[-(1<<24)+(1<<14)]
+        logs=[2147483647]*42
+        for channel in range(2):logs[channel*21:channel*21+7]=[0]*7
+        out=(c.c_int32*4)()
+        error=lib.trim_policy_probe(0,2,8,0,80000,0,0,1280,(c.c_int32*240)(*values),(c.c_int32*42)(*logs),out)
+        if error:raise SystemExit('Original negative LF averaging regression failed')
+        print('frame',0,2,8,1,*values,*logs);print('trim',1280,80000,0,0,0,*out);frames+=1;analyses+=1
+        # Stateful saving rise, saturation and intensity-dependent collapse.
+        values=[2147483647]*1920
+        for band in range(21):
+            start=bands[band]<<3;stop=bands[band+1]<<3
+            values[start:stop]=[1<<24]+[0]*(stop-start-1)
+            values[960+start:960+stop]=([1<<24]+[0]*(stop-start-1)) if band<8 else ([0,1<<24]+[0]*(stop-start-2))
+        logs=[0]*42;saving=0
+        print('sequence',3,2,21,40,*values,*logs);frames+=1
+        for frame in range(40):
+            intensity=21 if frame==20 else 0;out=(c.c_int32*4)()
+            error=lib.trim_policy_probe(3,2,21,intensity,80000,0,0,saving,(c.c_int32*1920)(*values),(c.c_int32*42)(*logs),out)
+            if error:raise SystemExit('Original trim saving sequence observer mismatch')
+            print('trim',saving,80000,0,intensity,0,*out);saving=out[3];analyses+=1
+        print(f'# frames={frames} analyses={analyses} overflow-rejections={overflow}')
+        raise SystemExit
+    if args.allocation_analysis_math:
+        lib.allocation_policy_constants.argtypes=[i32];constants=(c.c_int32*4)();lib.allocation_policy_constants(constants)
+        lib.allocation_policy_defaults.argtypes=[i32];defaults=(c.c_int32*2)()
+        if lib.allocation_policy_defaults(defaults):raise SystemExit('Original allocation history observation failed')
+        lib.allocation_correlation_logs.argtypes=[c.c_int,c.c_int,i32]
+        lib.allocation_intensity.argtypes=[c.c_int,c.c_int];lib.allocation_intensity.restype=c.c_int
+        lib.allocation_equivalent_rate.argtypes=[c.c_int]*3;lib.allocation_equivalent_rate.restype=c.c_int
+        print('# Original allocation analysis scalar math:',REVISION)
+        print('constants',*constants);print('defaults',*defaults);print('thresholds',*policy_arrays[0]);print('hysteresis',*policy_arrays[1])
+        def fingerprint(values):
+            value=14695981039346656037
+            for x in values:
+                for byte in (x&0xffffffff).to_bytes(4,'little'):value=((value^byte)*1099511628211)&0xffffffffffffffff
+            return value
+        maximum=0;minimum=10000
+        for correlation in range(1025):
+            values=[]
+            for low in range(correlation+1):
+                out=(c.c_int32*3)();lib.allocation_correlation_logs(correlation,low,out);values.extend(out)
+                maximum=max(maximum,out[2]);minimum=min(minimum,out[2])
+            print('correlation',correlation,correlation+1,fingerprint(values))
+        for lm in range(4):
+            for channels in [1,2]:
+                for start in range(2,1276,128):
+                    count=min(128,1276-start)
+                    print('equivalent',lm,channels,start,count,fingerprint([lib.allocation_equivalent_rate(lm,channels,b) for b in range(start,start+count)]))
+        for previous in range(22):
+            for start in range(-32768,32768,256):
+                print('intensity',previous,start,256,fingerprint([lib.allocation_intensity(rate,previous) for rate in range(start,start+256)]))
+        print(f'# saving-target={minimum}..{maximum} correlation-pairs=525825 equivalent-rates=10192 intensity-cases=1441792')
+        if minimum<0 or maximum>1280:raise SystemExit('Native saving target exceeds checked history domain')
+        raise SystemExit
+    if args.allocation_analysis_tables:
+        lib.allocation_policy_constants.argtypes=[i32];values=(c.c_int32*4)();lib.allocation_policy_constants(values)
+        defaults=(c.c_int32*2)();lib.allocation_policy_defaults.argtypes=[i32]
+        if lib.allocation_policy_defaults(defaults):raise SystemExit('Original allocation history observation failed')
+        print('// Original CELT trim/stereo constants, pinned Opus v1.6.1.')
+        print('// See THIRD_PARTY_NOTICES.md.')
+        print(f'// Native initial saving/intensity: {defaults[0]}/{defaults[1]}; guard logQ10: {values[3]}.')
+        for name,value in zip(['MODEL_EPSILON','MID_SCALE_Q15','CORRELATION_GUARD_Q20'],values):print(f'pub(super) const {name}: i32 = {value};')
+        for name,values in zip(['INTENSITY_THRESHOLDS','INTENSITY_HYSTERESIS'],policy_arrays):print(f'pub(super) const {name}: [i16;21] = '+str(values)+';')
+        raise SystemExit
     if args.spreading_tails:
         lib.spreading_tail.argtypes=[c.c_int]*4+[u8,i32];lib.spreading_tail.restype=c.c_int
         print('# Original isolated entropy tail and spreading history:',REVISION)

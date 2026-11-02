@@ -1497,3 +1497,15 @@ bounds immutable normalized inputs/weights and checked histories, committing
 all state atomically. Optional packet selection follows the original spreading
 budget/short-window/byte gates and fallback history, using native masking weights.
 Reference algorithms remain optional external validation and never enter Cargo.
+
+
+# CELT trim and stereo allocation analysis attribution
+
+`src/celt/analysis/allocation_policy.rs` and its canonical tables follow
+`celt/celt_encoder.c::stereo_analysis`, `alloc_trim_analysis`, equivalent-rate
+arithmetic and intensity arrays; `celt/bands.c::hysteresis_decision`; and
+`celt/vq.c::celt_inner_prod_norm_shift` at the pinned revision. Existing CELT
+encoder/band/math/table notices and terms apply. Rust bounds immutable inputs,
+checks the final tilt accumulator and stages saving history atomically. Optional
+read-only cost/trim observers cross-check ordinary results against unchanged
+original functions. No reference code enters normal Cargo builds or tests.

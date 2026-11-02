@@ -11,6 +11,11 @@ use super::{
 };
 use std::fmt;
 
+mod allocation_policy;
+mod allocation_tables;
+pub use allocation_policy::{
+    IntensityState, TrimAnalysis, TrimOptions, TrimState, analyze_stereo, equivalent_rate,
+};
 mod spreading;
 pub use spreading::{SpreadingOptions, SpreadingState};
 mod dynalloc;
@@ -39,6 +44,8 @@ pub enum AnalysisError {
     InvalidDynallocParameters,
     /// Spreading weights, history or eligible total weight are invalid.
     InvalidSpreadParameters,
+    /// Trim/stereo analysis budget, history or policy fields are invalid.
+    InvalidAllocationParameters,
     /// Signal magnitude, headroom or accumulation exceeds the stage's
     /// documented checked arithmetic domain.
     ArithmeticOverflow,
@@ -51,6 +58,9 @@ impl fmt::Display for AnalysisError {
             Self::InvalidGeometry => f.write_str("invalid CELT analysis channel geometry"),
             Self::Transform(e) => write!(f, "CELT frame analysis: {e}"),
             Self::InvalidBands => f.write_str("invalid CELT analysis band ends"),
+            Self::InvalidAllocationParameters => {
+                f.write_str("invalid CELT allocation analysis controls")
+            }
             Self::InvalidSpreadParameters => {
                 f.write_str("invalid CELT spreading analysis controls")
             }
