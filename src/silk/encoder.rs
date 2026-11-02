@@ -7,6 +7,7 @@
 //! Adapted from Opus v1.6.1; see THIRD_PARTY_NOTICES.md.
 pub mod analysis;
 pub mod channel;
+mod dtx;
 mod math;
 pub mod mono;
 pub mod nsq;

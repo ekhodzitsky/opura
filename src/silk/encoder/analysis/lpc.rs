@@ -23,6 +23,8 @@ impl LpcAnalysis {
         &self.coefficients[..self.order.len()]
     }
     /// Residual energy and its binary Q exponent: physical energy is value/2^Q.
+    /// Native fixed-point subtraction can produce a small negative estimate near
+    /// silence. Preserve it for the spectrum interpolation comparisons.
     pub fn residual_energy(&self) -> (i32, i32) {
         (self.energy, self.energy_q)
     }
@@ -261,9 +263,9 @@ fn burg(
         }
         energy.wrapping_add(mul_ww(high(42950, c0), sum.wrapping_neg()))
     };
-    if energy < 0 {
-        return Err(AnalysisError::ArithmeticRange);
-    }
+    // Native Burg's conditioned residual subtraction is signed; near silence
+    // it can legitimately round below zero (for example -4 at Q16). This value
+    // is compared during interpolation, not used as a nonnegative energy.
     Ok(LpcAnalysis {
         order,
         coefficients,

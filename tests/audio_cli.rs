@@ -144,6 +144,8 @@ fn command_refuses_existing_output_and_bad_arguments() -> Result<()> {
     assert_eq!(fs::read(&existing)?, b"keep existing user data");
     for arguments in [
         vec!["--frame-ms", "40"],
+        vec!["--dtx"],
+        vec!["--mode", "silk", "--dtx", "--dtx"],
         vec!["--bitrate", "0"],
         vec!["--bitrate", "64000", "--bitrate", "64000"],
         vec!["--frame-ms"],
@@ -439,5 +441,48 @@ fn silk_pre_skip_centers_impulse_and_rejects_unsupported_cli_geometry() -> Resul
             .success()
     );
     assert_eq!(fs::read(encoded)?, before);
+    Ok(())
+}
+
+#[test]
+fn silk_dtx_saves_bytes_and_preserves_duration_in_both_channel_layouts() -> Result<()> {
+    let temp = Temporary::new()?;
+    for rate in [8000, 48000] {
+        for channels in [1u16, 2] {
+            for ms in [10, 20, 40, 60] {
+                let stem = format!("dtx-{rate}-{channels}-{ms}");
+                let input = temp.0.join(stem.clone() + ".wav");
+                let plain = temp.0.join(stem.clone() + "-plain.opus");
+                let dtx = temp.0.join(stem.clone() + ".opus");
+                let output = temp.0.join(stem + "-decoded.wav");
+                let frames = rate as usize + 17;
+                let mut wave = wave(rate, channels, frames);
+                wave[44..].fill(0);
+                fs::write(&input, wave)?;
+                for (path, enabled) in [(&plain, false), (&dtx, true)] {
+                    let mut command = cli();
+                    command.arg("encode").arg(&input).arg(path).args([
+                        "--mode",
+                        "silk",
+                        "--frame-ms",
+                        &ms.to_string(),
+                        "--bitrate",
+                        "32101",
+                    ]);
+                    if enabled {
+                        command.arg("--dtx");
+                    }
+                    success(&mut command)?;
+                }
+                assert!(fs::metadata(&dtx)?.len() * 2 < fs::metadata(&plain)?.len());
+                success(cli().arg("decode").arg(&dtx).arg(&output))?;
+                output_pcm(
+                    &fs::read(output)?,
+                    channels,
+                    frames * (48000 / rate) as usize,
+                )?;
+            }
+        }
+    }
     Ok(())
 }

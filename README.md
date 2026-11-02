@@ -7,7 +7,7 @@ The separate SILK/CELT/Hybrid APIs and their component stages remain available.
 **The CELT encoder accepts mono/stereo PCM at all five standard input rates.
 The fixed-bandwidth SILK encoder accepts mono/stereo PCM and emits 10/20/40/60 ms
 NB/MB/WB Opus packets.** Both paths are available through the WAV/Ogg CLI.
-SILK DTX/FEC, adaptive bandwidth and Hybrid encoding remain in progress.
+SILK supports opt-in DTX; FEC, adaptive bandwidth and Hybrid encoding remain in progress.
 **The decoder passes all120 official RFC8251 vector/rate/channel cases.**
 The first complete-decoder benchmark is recorded: Opura trails the pinned scalar
 libopus reference in all ten configurations; complete adaptive encoding remains under development. The accepted direction is a complete decoder first, then an encoder,
@@ -64,6 +64,11 @@ SILK supports mono/stereo input, 10/20/40/60 ms packets and `--bandwidth nb|mb|w
 Bandwidth defaults to NB for 8 kHz, MB for 12 kHz and WB for higher input rates.
 Its default bitrate is 24,000 bits/s for mono and 48,000 bits/s for stereo. Pre-skip is 312 samples at 48 kHz (6.5 ms);
 lookahead flushing and final granules preserve exact source duration.
+Add `--dtx` to suppress silence while retaining timing. Suppressed packets are
+one byte even in CBR; periodic full packets refresh decoder state. DTX is off by
+default and still runs full encoder analysis. Library users call `set_dtx(true)`
+on the mono/stereo encoder; `in_dtx()` describes its last successful packet.
+See the [DTX validation record](docs/validation/silk-dtx.md).
 
 Decoding accepts SILK, Hybrid and CELT in one mono/stereo Ogg Opus stream
 (mapping family zero, zero header output gain), and writes PCM16 WAV at 48 kHz.
@@ -84,7 +89,7 @@ Fixed-bandwidth SILK library paths are available under
 10/20/40/60 ms, with exact CBR byte budgets or capped variable length. See the
 [mono interoperability record](docs/validation/silk-mono-packets.md) and
 [stereo validation](docs/validation/silk-stereo-packets.md).
-DTX/FEC and adaptive bandwidth remain in progress. The validation record also
+FEC and adaptive bandwidth remain in progress. The validation record also
 retains a reproduced default-FFmpeg decoder tail-trimming issue; FFmpeg/libopus
 and the native decoder preserve exact duration.
 Library packet parsing itself does not parse Ogg containers.

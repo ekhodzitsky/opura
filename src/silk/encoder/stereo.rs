@@ -1,6 +1,9 @@
 //! Adaptive SILK L/R-to-M/S prediction, stereo width and bitrate allocation.
 //! Adapted from Opus v1.6.1 stereo encoder sources; see THIRD_PARTY_NOTICES.md.
-use super::math::{divide_q, energy};
+use super::{
+    dtx::{Decision, DtxState},
+    math::{divide_q, energy},
+};
 use crate::{
     range::{EncoderError, RangeEncoder},
     silk::{
@@ -458,7 +461,7 @@ impl StereoPacket {
 /// Raw interleaved stereo PCM to fixed-bandwidth SILK Opus packets. Supports
 /// adaptive M/S prediction/width, panned mid-only omission and side restarts.
 /// External/internal rates and channel count remain fixed for this stream;
-/// DTX/FEC and adaptive bandwidth transitions remain separate work.
+/// Supports opt-in DTX; FEC and adaptive bandwidth transitions remain separate work.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StereoEncoder {
     input: OutputRate,
@@ -471,6 +474,7 @@ pub struct StereoEncoder {
     activity: u8,
     previous_mid_only: bool,
     excess: i32,
+    dtx: DtxState,
 }
 impl StereoEncoder {
     /// Start a stereo stream at any standard PCM rate and fixed SILK bandwidth.
@@ -486,18 +490,32 @@ impl StereoEncoder {
             activity: 0,
             previous_mid_only: false,
             excess: 0,
+            dtx: DtxState::default(),
         }
     }
     /// Nominal pre-skip on the48kHz clock, including stereo/input compensation.
     pub fn lookahead_48k(&self) -> u32 {
         312
     }
-    /// Clear every input/stereo/channel/bitrate history, retaining configured rates.
+    /// Enable native silence suppression. Disabled by default. Suppressed packets
+    /// contain only TOC (one byte), with final range zero, even in CBR mode.
+    /// Encoding still advances all analysis/quantizer state and can fail normally.
+    pub fn set_dtx(&mut self, enabled: bool) {
+        self.dtx.enabled = enabled;
+    }
+    /// Whether the last successfully encoded packet suppressed its payload.
+    pub fn in_dtx(&self) -> bool {
+        self.dtx.suppressed
+    }
+    /// Clear every stream history, retaining configured rates and DTX settings.
     pub fn reset(&mut self) {
+        let enabled = self.dtx.enabled;
         *self = Self::new(self.input, self.internal);
+        self.set_dtx(enabled);
     }
     /// Encode one10/20/40/60ms interleaved L/R packet. Byte budget includes TOC /
     /// packet padding and is3..=1276. CBR fills the budget, variable mode caps it.
+    /// Enabled DTX can instead emit a one-byte packet in either mode.
     /// Any error preserves all resampling, VAD, stereo and channel state.
     pub fn encode(
         &mut self,
@@ -518,6 +536,8 @@ impl StereoEncoder {
             return Err(StereoPacketError::InvalidOptions);
         }
         let mut next = self.clone();
+        let digital_silence = input.iter().all(|&v| v == 0);
+        next.dtx.begin(digital_silence);
         let mut pcm = [[0i16; 960]; 2];
         for (channel, converted) in pcm.iter_mut().enumerate() {
             let mut planar = [0i16; 2880];
@@ -571,10 +591,10 @@ impl StereoEncoder {
             if !stereo.mid_only() && next.previous_mid_only {
                 next.channels[1].restart_prediction();
             }
-            let mid_activity = next.vad[0]
+            let mut mid_activity = next.vad[0]
                 .analyze(self.internal, duration.frame_duration(), stereo.mid())
                 .map_err(FrameError::from)?;
-            let side_activity = if stereo.mid_only() {
+            let mut side_activity = if stereo.mid_only() {
                 None
             } else {
                 Some(
@@ -583,8 +603,18 @@ impl StereoEncoder {
                         .map_err(FrameError::from)?,
                 )
             };
+            if next.dtx.enabled && digital_silence {
+                mid_activity.probability_q8 = mid_activity.probability_q8.min(12);
+                if let Some(side) = &mut side_activity {
+                    side.probability_q8 = side.probability_q8.min(12);
+                }
+            }
             flags[0][index] = mid_activity.probability_q8 >= 13;
             flags[1][index] = side_activity.is_some_and(|a| a.probability_q8 >= 13);
+            next.dtx.frame(0, flags[0][index] && !digital_silence);
+            if side_activity.is_some() {
+                next.dtx.frame(1, flags[1][index] && !digital_silence);
+            }
             stereo.encode_prefix(&mut writer, flags[1][index])?;
             let limit = match (frames, index) {
                 (2, 0) => maximum * 3 / 5,
@@ -671,19 +701,29 @@ impl StereoEncoder {
                 PacketDuration::Ms40 => 2,
                 PacketDuration::Ms60 => 3,
             };
+        let decision = next.dtx.finish(duration, 2, digital_silence);
         let result = StereoPacket {
-            packet: packet(
-                (config << 3) | 4,
-                payload,
-                if options.variable_bitrate {
-                    payload.len() + 1
-                } else {
-                    packet_bytes
-                },
-                range,
-            ),
+            packet: if decision != Decision::Transmit {
+                packet((config << 3) | 4, &[], 1, 0)
+            } else {
+                packet(
+                    (config << 3) | 4,
+                    payload,
+                    if options.variable_bitrate {
+                        payload.len() + 1
+                    } else {
+                        packet_bytes
+                    },
+                    range,
+                )
+            },
         };
-        next.excess = (next.excess + payload.len() as i32 * 8 - nominal_bits).clamp(0, 10000);
+        let payload_bits = if decision == Decision::Silk {
+            0
+        } else {
+            payload.len() as i32 * 8
+        };
+        next.excess = (next.excess + payload_bits - nominal_bits).clamp(0, 10000);
         *self = next;
         Ok(result)
     }

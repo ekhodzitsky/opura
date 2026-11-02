@@ -89,9 +89,10 @@ def main():
             try:
                 with args.vectors.open('rb') as vectors:
                     magic = vectors.read(8)
-                    if magic not in [b'OPURAM01', b'OPURAS01']:
+                    if magic not in [b'OPURAM01', b'OPURAS01', b'OPURAD01', b'OPURAD02']:
                         raise SystemExit('Invalid Rust vector header')
-                    channels = 1 if magic == b'OPURAM01' else 2
+                    channels = 1 if magic in [b'OPURAM01', b'OPURAD01'] else 2
+                    expected_packets = 12000 if magic.startswith(b'OPURAD') else 1440 if channels == 1 else 2880
                     while header := vectors.read(17):
                         if len(header) != 17:
                             raise SystemExit('Truncated vector metadata')
@@ -119,7 +120,7 @@ def main():
             finally:
                 if decoder:
                     lib.opus_decoder_destroy(decoder)
-            if packets != (1440 if channels == 1 else 2880) or streams != 120:
+            if packets != expected_packets or streams != 120:
                 raise SystemExit(f'Unexpected corpus size: {streams} streams/{packets} packets')
             print(f'PASS: {streams} raw-PCM {channels}-channel streams, {packets} packets match unchanged native PCM/final ranges')
 

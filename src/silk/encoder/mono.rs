@@ -2,6 +2,7 @@
 use super::{
     analysis::VoiceActivityDetector,
     channel::{ChannelFrameEncoder, FrameControls, FrameError},
+    dtx::{Decision, DtxState},
 };
 use crate::{
     range::{EncoderError, RangeEncoder},
@@ -143,7 +144,7 @@ impl MonoPacket {
 }
 /// Fixed-bandwidth mono PCM encoder for all five external rates. Uses native
 /// DC rejection, encoder resampling, VAD, SNR tables and packet bit reservoir.
-/// Does not yet perform adaptive bandwidth switching, stereo, DTX or FEC.
+/// Supports opt-in DTX; adaptive bandwidth switching and FEC remain separate work.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MonoEncoder {
     input: OutputRate,
@@ -154,6 +155,7 @@ pub struct MonoEncoder {
     vad: VoiceActivityDetector,
     channel: ChannelFrameEncoder,
     excess: i32,
+    dtx: DtxState,
 }
 impl MonoEncoder {
     /// Start an independent mono stream at a fixed input rate/internal bandwidth.
@@ -167,6 +169,7 @@ impl MonoEncoder {
             vad: VoiceActivityDetector::default(),
             channel: ChannelFrameEncoder::new(internal),
             excess: 0,
+            dtx: DtxState::default(),
         }
     }
     /// Nominal pre-skip on the 48 kHz Opus clock: 6.5 ms, including the native
@@ -174,13 +177,25 @@ impl MonoEncoder {
     pub fn lookahead_48k(&self) -> u32 {
         312
     }
-    /// Reset all input, VAD, predictor and bitrate history, retaining rates.
+    /// Enable native silence suppression. Disabled by default. Suppressed packets
+    /// contain only TOC (one byte), with final range zero, even in CBR mode.
+    /// Encoding still advances all analysis/quantizer state and can fail normally.
+    pub fn set_dtx(&mut self, enabled: bool) {
+        self.dtx.enabled = enabled;
+    }
+    /// Whether the last successfully encoded packet suppressed its payload.
+    pub fn in_dtx(&self) -> bool {
+        self.dtx.suppressed
+    }
+    /// Reset all input, VAD, predictor and bitrate history, retaining rates and DTX settings.
     pub fn reset(&mut self) {
+        let enabled = self.dtx.enabled;
         *self = Self::new(self.input, self.internal);
+        self.set_dtx(enabled);
     }
     /// Encode exactly one duration of mono PCM. packet_bytes includes TOC and
     /// packet padding, excludes transport/container overhead, and is 3..=1276.
-    /// VBR is a hard byte cap; CBR produces exactly packet_bytes. Any error
+    /// VBR is a hard byte cap; CBR produces exactly packet_bytes unless DTX suppresses it. Any error
     /// preserves all input/analysis/quantizer and rate-control history.
     pub fn encode(
         &mut self,
@@ -201,6 +216,8 @@ impl MonoEncoder {
             return Err(MonoError::InvalidOptions);
         }
         let mut staged = self.clone();
+        let digital_silence = input.iter().all(|&v| v == 0);
+        staged.dtx.begin(digital_silence);
         let mut filtered = [0i16; 2880];
         dc_reject(
             &mut staged.dc,
@@ -238,11 +255,15 @@ impl MonoEncoder {
             }
             target = target.clamp(bitrate.min(5000), bitrate.max(5000));
             let snr = target_snr(self.internal, duration.frame_duration(), target);
-            let activity = staged
+            let mut activity = staged
                 .vad
                 .analyze(self.internal, duration.frame_duration(), frame)
                 .map_err(FrameError::from)?;
+            if staged.dtx.enabled && digital_silence {
+                activity.probability_q8 = activity.probability_q8.min(12);
+            }
             let active = activity.probability_q8 >= 13;
+            staged.dtx.frame(0, active && !digital_silence);
             let limit = match (frames, index) {
                 (2, 0) => maximum * 3 / 5,
                 (3, 0) => maximum * 2 / 5,
@@ -293,17 +314,27 @@ impl MonoEncoder {
                 PacketDuration::Ms40 => 2,
                 PacketDuration::Ms60 => 3,
             };
-        let result = packet(
-            config << 3,
-            payload,
-            if options.variable_bitrate {
-                payload.len() + 1
-            } else {
-                packet_bytes
-            },
-            range,
-        );
-        staged.excess = (staged.excess + payload.len() as i32 * 8 - nominal_bits).clamp(0, 10000);
+        let decision = staged.dtx.finish(duration, 1, digital_silence);
+        let result = if decision != Decision::Transmit {
+            packet(config << 3, &[], 1, 0)
+        } else {
+            packet(
+                config << 3,
+                payload,
+                if options.variable_bitrate {
+                    payload.len() + 1
+                } else {
+                    packet_bytes
+                },
+                range,
+            )
+        };
+        let payload_bits = if decision == Decision::Silk {
+            0
+        } else {
+            payload.len() as i32 * 8
+        };
+        staged.excess = (staged.excess + payload_bits - nominal_bits).clamp(0, 10000);
         *self = staged;
         Ok(result)
     }

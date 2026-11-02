@@ -30,7 +30,7 @@ type Result<T> = std::result::Result<T, Box<dyn Error>>;
 fn invalid(message: impl Into<String>) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message.into())
 }
-const HELP: &str = "opura encode INPUT.wav OUTPUT.opus [--mode celt|silk] [--bitrate BPS] [--frame-ms MS] [--bandwidth nb|mb|wb]\nopura decode INPUT.opus OUTPUT.wav\nopura --version\n\nEncode: PCM16 WAV at 8/12/16/24/48 kHz.\nCELT: mono/stereo, frames 2.5/5/10/20 ms. SILK: mono/stereo, frames 10/20/40/60 ms.\nDefaults: CELT, 64000 bits/s (SILK: 24000 mono/48000 stereo), 20 ms. SILK bandwidth defaults to input-rate NB/MB/WB. Ogg overhead is additional.\nDecode: one mono/stereo Ogg Opus stream, zero header gain; output PCM16/48 kHz.\nExisting outputs are refused. Errors may leave a partial new output.";
+const HELP: &str = "opura encode INPUT.wav OUTPUT.opus [--mode celt|silk] [--bitrate BPS] [--frame-ms MS] [--bandwidth nb|mb|wb] [--dtx]\nopura decode INPUT.opus OUTPUT.wav\nopura --version\n\nEncode: PCM16 WAV at 8/12/16/24/48 kHz.\nCELT: mono/stereo, frames 2.5/5/10/20 ms. SILK: mono/stereo, frames 10/20/40/60 ms.\nDefaults: CELT, 64000 bits/s (SILK: 24000 mono/48000 stereo), 20 ms. SILK bandwidth defaults to input-rate NB/MB/WB. --dtx enables SILK silence suppression, including in CBR. Ogg overhead is additional.\nDecode: one mono/stereo Ogg Opus stream, zero header gain; output PCM16/48 kHz.\nExisting outputs are refused. Errors may leave a partial new output.";
 fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
@@ -59,8 +59,14 @@ fn run() -> Result<()> {
             let mut size = None;
             let mut mode = None;
             let mut bandwidth = None;
+            let mut dtx = false;
             let mut i = 3;
             while i < args.len() {
+                if args[i] == "--dtx" && !dtx {
+                    dtx = true;
+                    i += 1;
+                    continue;
+                }
                 let value = args
                     .get(i + 1)
                     .and_then(|v| v.to_str())
@@ -111,10 +117,11 @@ fn run() -> Result<()> {
                     bitrate,
                     duration,
                     bandwidth,
+                    dtx,
                 )
             } else {
-                if bandwidth.is_some() {
-                    return Err(invalid("bandwidth is available with mode silk").into());
+                if bandwidth.is_some() || dtx {
+                    return Err(invalid("bandwidth and dtx are available with mode silk").into());
                 }
                 let frame = match size.unwrap_or("20") {
                     "2.5" => FrameSize::Ms2_5,
@@ -221,6 +228,7 @@ fn encode_silk(
     bitrate: Option<u32>,
     duration: PacketDuration,
     bandwidth: Option<SilkRate>,
+    dtx: bool,
 ) -> Result<()> {
     let start = Instant::now();
     let mut source = wav::Reader::new(BufReader::new(File::open(input)?))?;
@@ -251,6 +259,10 @@ fn encode_silk(
     } else {
         SilkFileEncoder::Stereo(Box::new(StereoEncoder::new(rate, bandwidth)))
     };
+    match &mut encoder {
+        SilkFileEncoder::Mono(e) => e.set_dtx(dtx),
+        SilkFileEncoder::Stereo(e) => e.set_dtx(dtx),
+    }
     let lookahead = u64::from(encoder.lookahead_48k());
     let original_samples = source.frames * u64::from(48000 / source.rate);
     let end = original_samples

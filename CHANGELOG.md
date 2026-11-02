@@ -7,6 +7,32 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.69] - 2026-11-02
+
+- Add opt-in mono/stereo SILK DTX through `set_dtx` / `in_dtx` and CLI
+  `--mode silk --dtx`. Preserve native inactive-frame hangover, periodic refresh,
+  packet-sticky per-channel decisions and outer digital-silence timing.
+  Suppressed output is one TOC byte with final range zero, including in CBR.
+  Keep full analysis/quantizer histories running through pauses and preserve
+  configured DTX on reset; defaults remain unchanged.
+- Fix near-silent Burg analysis rejecting legitimate signed residual roundoff.
+  Retain an unchanged native probe returning -4 in Q16 with exact coefficients;
+  preserve that estimate in spectrum interpolation instead of rejecting PCM.
+- Match 4220 native VAD/counter transitions, 400 outer clock decisions and
+  all 2400 complete native mono/stereo suppression decisions across packet
+  durations, silence, quiet nonzero input, speech resumption and control toggles.
+- Independently decode 12000 mono and 12000 stereo packets across every input
+  rate, SILK bandwidth, packet duration and CBR/capped-variable mode, including
+  6720 suppressed packets per layout. Compare full PCM fingerprints/final ranges.
+- Validate 60 mono and 60 stereo DTX CLI files with independent FFmpeg/libopus
+  for exact durations, pre-skip, packet counts and fractional CBR/DTX budgets.
+  Add silence byte-saving, reset, late-failure rollback and native regressions.
+- All seven required offline gates pass, including 19 Python tool tests. Native
+  traces regenerate exactly; both default packet corpora and all 120 default
+  CLI PCM hashes remain unchanged from 0.1.68.
+- FEC, adaptive bandwidth, Hybrid encoding and representative quality/speed
+  evaluation remain open; DTX does not imply a computational speed improvement.
+
 ## [0.1.68] - 2026-11-02
 
 - Add stereo SILK PCM-to-packet encoding at all five input rates, fixed
