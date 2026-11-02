@@ -11,6 +11,8 @@ use super::{
 };
 use std::fmt;
 
+mod tf;
+pub use tf::{TfAnalysis, TfAnalysisOptions, analyze_tf};
 mod transient;
 mod transient_tables;
 pub use transient::{TransientAnalysis, analyze_transients};
@@ -26,6 +28,8 @@ pub enum AnalysisError {
     Transform(MdctError),
     /// Band ends require 1<=effective_end<=end<=21.
     InvalidBands,
+    /// TF estimate is outside Q14 unit range or LM0 is marked transient.
+    InvalidTfParameters,
     /// Signal magnitude, headroom or accumulation exceeds the stage's
     /// documented checked arithmetic domain.
     ArithmeticOverflow,
@@ -38,6 +42,7 @@ impl fmt::Display for AnalysisError {
             Self::InvalidGeometry => f.write_str("invalid CELT analysis channel geometry"),
             Self::Transform(e) => write!(f, "CELT frame analysis: {e}"),
             Self::InvalidBands => f.write_str("invalid CELT analysis band ends"),
+            Self::InvalidTfParameters => f.write_str("invalid CELT TF analysis controls"),
             Self::ArithmeticOverflow => {
                 f.write_str("CELT analysis exceeds checked arithmetic domain")
             }

@@ -6,8 +6,9 @@ and mode transitions with redundant CELT tails at all five standard output rates
 The separate SILK/CELT/Hybrid APIs and their component stages remain available.
 **A baseline CELT-only encoder now accepts signed16 PCM at all five standard
 input rates and emits complete one-frame Opus packets.** Its current policy uses
-long windows by default, with optional native transient detection/short windows;
-further adaptive decisions and SILK/Hybrid encoding remain work.
+long windows by default, with optional native transient detection/short windows
+and per-band TF analysis. Further adaptive decisions and SILK/Hybrid encoding
+remain work.
 **The decoder passes all120 official RFC8251 vector/rate/channel cases.**
 The first complete-decoder benchmark is recorded: Opura trails the pinned scalar
 libopus reference in all ten configurations; complete adaptive encoding remains under development. The accepted direction is a complete decoder first, then an encoder,
@@ -2376,7 +2377,7 @@ window can be signalled. It selects short MDCT blocks, standard transient TF
 fallback, transient allocation and the native anti-collapse bit based on the
 previous short/disabled-window streak. `transient_detection()` reports the
 setting; reset retains it and clears histories. The default remains the baseline
-all-long policy, preserving existing packet bytes. Fine TF/spread/dynamic/pitch
+all-long policy, preserving existing packet bytes. Adaptive spread/dynamic/pitch
 analysis and the reference's missed-transient spectral patch remain future work.
 
 All 1,788 original analysis contexts match both weak policies (3,576 results),
@@ -2412,3 +2413,57 @@ The optional diagnostic observer copies the original transient routine only to
 read the internal mask metric, and cross-checks ordinary outputs against the
 unchanged original routine on every context. Original native code remains an
 external validation tool and is never a build/test dependency.
+
+
+## CELT time/frequency resolution analysis
+
+`celt::analysis::analyze_tf` accepts one selected normalized Q24 channel of exactly
+`size.samples()` coefficients and an exclusive band end in 1..21. Each active
+band must have squared norm at most 5/4 in Q48; zero bands are accepted, and
+inactive bins are ignored. `TfAnalysisOptions` supplies long/short context,
+Q14 temporal estimate in 0..16384, a `u16` switching penalty and 21 `u8` importance
+weights. LM0 cannot be marked transient. Default controls use long input,
+zero estimate, penalty 80 and neutral weights 13. Invalid geometry, controls and
+active norms return typed errors, without input mutation or partial results.
+
+The result exposes binary TF decisions, an alternate mapping flag, analyzed end
+and Q1 best-level metrics. Existing native Haar stages search frequency/time
+resolution using biased L1 costs, including the transient extra level and
+narrow-band midpoint correction. Weighted Viterbi search preserves original
+predecessor/final ties; alternate mapping is chosen only for transients with
+strictly lower cost. Storage is fixed and analysis allocates no heap memory.
+
+`CeltEncoder::set_tf_analysis(true)` enables packet integration independently of
+transient detection; `tf_analysis()` reports the setting and reset retains it.
+The native gate requires at least 15 payload bytes/channel and excludes strong
+tones after temporal-estimate confidence adjustment. Penalty is
+`max(80,20480/payload_bytes+2)`; the detector selects the analysis channel.
+Importance is explicitly neutral 13 until perceptual dynamic-allocation analysis
+is implemented. Both settings default false, preserving baseline packet bytes;
+transient-only packets also retain their previous bytes.
+
+All 672 original normalized contexts match 7,056 long/short/penalty/weight
+analyses, including 221 alternate selections, zero-weight path ties and inactive
+extreme tails. The scalar oracle covers all 16,385 temporal estimates and 2,400
+L1 results across 96 vectors. Another 960 complete original-component TF-policy
+packets match full bytes/history/accounting, native enable gates and effective
+TF resolutions. Analysis is enabled in 770 frames, including 176 alternate
+mappings. Public original libopus verifies all 9,600 PCM/range/energy-history
+decodes; no native history differences occur in this corpus. Exact 15/30-byte
+enable thresholds, 144 additional TF budget frames, setting independence/reset
+and all four setting combinations under injected pre/post-finalization errors
+are checked. All 31 non-equivalent targeted mutations are detected. These are
+implementation/interoperability checks, not quality or performance comparisons against the adaptive reference encoder.
+
+```sh
+python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --tf-analysis > /tmp/celt-tf-analysis-fixtures.txt
+diff -u tests/celt-tf-analysis-fixtures.txt /tmp/celt-tf-analysis-fixtures.txt
+python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --tf-math > /tmp/celt-tf-math-fixtures.txt
+diff -u tests/celt-tf-math-fixtures.txt /tmp/celt-tf-math-fixtures.txt
+python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --tf-packets > /tmp/celt-encoder-tf-fixtures.txt
+diff -u tests/celt-encoder-tf-fixtures.txt /tmp/celt-encoder-tf-fixtures.txt
+```
+
+A separate original TF observer reads only internal metrics and cross-checks
+ordinary decisions/select against unchanged original analysis for every context.
+All native code remains optional external validation, with no Cargo dependencies.

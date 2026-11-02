@@ -98,14 +98,27 @@ fn public_pcm_packets_are_decodable_and_failures_preserve_whole_state()
 #[test]
 fn original_policy_packets_and_public_libopus_pcm_match_at_every_output_geometry()
 -> Result<(), Box<dyn std::error::Error>> {
-    verify_public_packets(include_str!("celt-encoder-fixtures.txt"), false)
+    verify_public_packets(include_str!("celt-encoder-fixtures.txt"), false, false)
 }
 #[test]
 fn original_transient_packets_and_public_libopus_pcm_match_at_every_output_geometry()
 -> Result<(), Box<dyn std::error::Error>> {
-    verify_public_packets(include_str!("celt-encoder-transient-fixtures.txt"), true)
+    verify_public_packets(
+        include_str!("celt-encoder-transient-fixtures.txt"),
+        true,
+        false,
+    )
 }
-fn verify_public_packets(fixtures: &str, detect: bool) -> Result<(), Box<dyn std::error::Error>> {
+#[test]
+fn original_tf_packets_and_public_libopus_pcm_match_at_every_output_geometry()
+-> Result<(), Box<dyn std::error::Error>> {
+    verify_public_packets(include_str!("celt-encoder-tf-fixtures.txt"), true, true)
+}
+fn verify_public_packets(
+    fixtures: &str,
+    detect: bool,
+    tf_analysis: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     use opura::Packet;
     let rates = [
         OutputRate::Khz8,
@@ -116,6 +129,7 @@ fn verify_public_packets(fixtures: &str, detect: bool) -> Result<(), Box<dyn std
     ];
     let mut encoder = CeltEncoder::new(InputRate::Khz48, 1)?;
     encoder.set_transient_detection(detect);
+    encoder.set_tf_analysis(tf_analysis);
     let mut decoders: Vec<_> = rates
         .into_iter()
         .flat_map(|rate| {
@@ -164,6 +178,7 @@ fn verify_public_packets(fixtures: &str, detect: bool) -> Result<(), Box<dyn std
         if encoder.input_rate() != rate || encoder.channels() != channels {
             encoder = CeltEncoder::new(rate, channels)?;
             encoder.set_transient_detection(detect);
+            encoder.set_tf_analysis(tf_analysis);
         } else if reset {
             encoder.reset();
         }
@@ -335,5 +350,68 @@ fn transient_setting_is_opt_in_continuous_and_retained_by_reset()
         )?
         .transient()
     );
+    Ok(())
+}
+
+#[test]
+fn tf_setting_is_independent_continuous_retained_and_budget_bounded()
+-> Result<(), Box<dyn std::error::Error>> {
+    let mut completed = 0;
+    for detect in [false, true] {
+        for channels in [1, 2] {
+            let mut encoder = CeltEncoder::new(InputRate::Khz48, channels)?;
+            assert!(!encoder.tf_analysis());
+            encoder.set_transient_detection(detect);
+            encoder.set_tf_analysis(true);
+            let mut decoder = OpusDecoder::new(
+                OutputRate::Khz48,
+                if channels == 1 {
+                    PcmChannels::Mono
+                } else {
+                    PcmChannels::Stereo
+                },
+            )?;
+            for size in SIZES {
+                let n = size.samples() * channels;
+                let input: Vec<i16> = (0..n)
+                    .map(|i| {
+                        if i == n / 2 {
+                            32767
+                        } else {
+                            (i as i16).wrapping_mul(7659)
+                        }
+                    })
+                    .collect();
+                for budget in [2, 14, 15, 16, 29, 30, 31, 64, 256] {
+                    let packet = encoder.encode(size, &input, budget)?;
+                    assert_eq!(
+                        decoder.decode(packet.as_bytes())?.final_range(),
+                        packet.final_range()
+                    );
+                    completed += 1;
+                }
+            }
+            let before = encoder.clone();
+            assert_eq!(
+                encoder.encode(FrameSize::Ms20, &[], 128),
+                Err(EncoderError::InvalidInput)
+            );
+            assert_eq!(encoder, before);
+            encoder.reset();
+            let mut fresh = CeltEncoder::new(InputRate::Khz48, channels)?;
+            fresh.set_transient_detection(detect);
+            fresh.set_tf_analysis(true);
+            assert_eq!(encoder, fresh);
+            let input = vec![0; 960 * channels];
+            assert_eq!(
+                encoder.encode(FrameSize::Ms20, &input, 128)?,
+                fresh.encode(FrameSize::Ms20, &input, 128)?
+            );
+            encoder.set_tf_analysis(false);
+            assert!(!encoder.tf_analysis());
+            assert_eq!(encoder.transient_detection(), detect);
+        }
+    }
+    assert_eq!(completed, 144);
     Ok(())
 }

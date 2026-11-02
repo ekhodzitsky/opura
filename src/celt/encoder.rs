@@ -1,6 +1,7 @@
 //! Stateful signed16 PCM to single-frame CELT-only Opus packets.
-//! All-long default with optional tone/transient short-window selection. Further
-//! adaptive decisions and SILK/Hybrid encoding remain separate work. See THIRD_PARTY_NOTICES.md for constituent algorithms.
+//! All-long default with optional transient windows and per-band TF analysis.
+//! Further adaptive decisions and SILK/Hybrid encoding remain separate work.
+//! See THIRD_PARTY_NOTICES.md for constituent algorithms.
 //! Copyright (c) 2007-2008 CSIRO; 2007-2010 Xiph.Org Foundation;
 //! 2008 Gregory Maxwell.
 //!
@@ -159,7 +160,8 @@ impl EncodedPacket {
 ///
 /// Default policy uses long transforms (optional native transient detection),
 /// disabled pitch comb/silence suppression,
-/// standard TF/Normal spreading, zero dynamic boosts, trim five, full-band
+/// standard TF (optional native TF analysis)/Normal spreading, zero dynamic
+/// boosts, trim five, full-band
 /// intensity, no dual stereo, two-pass energy and stereo theta RDO. This supplies
 /// valid audio packet coding, not adaptive Opus mode/quality selection.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -173,6 +175,7 @@ pub struct CeltEncoder {
     previous_coded: usize,
     first: bool,
     detect_transients: bool,
+    analyze_tf: bool,
     transient_streak: u8,
 }
 impl CeltEncoder {
@@ -191,6 +194,7 @@ impl CeltEncoder {
             previous_coded: 0,
             first: true,
             detect_transients: false,
+            analyze_tf: false,
             transient_streak: 0,
         })
     }
@@ -211,11 +215,21 @@ impl CeltEncoder {
     pub fn set_transient_detection(&mut self, enabled: bool) {
         self.detect_transients = enabled;
     }
+    /// Whether native per-band time/frequency analysis is enabled.
+    pub fn tf_analysis(&self) -> bool {
+        self.analyze_tf
+    }
+    /// Enable native TF analysis with neutral importance (initially disabled).
+    /// Native budget/tone gating applies; histories and transient setting persist.
+    /// Reset retains this setting. Dynamic perceptual importance is separate work.
+    pub fn set_tf_analysis(&mut self, enabled: bool) {
+        self.analyze_tf = enabled;
+    }
     /// Last completed packet final range, initially zero.
     pub fn final_range(&self) -> u32 {
         self.range
     }
-    /// Clear histories and diagnostics, retaining geometry and transient setting.
+    /// Clear histories and diagnostics, retaining geometry and analysis settings.
     pub fn reset(&mut self) {
         self.preemphasis = [PreemphasisState::default(), PreemphasisState::default()];
         self.overlap = [[0; 120]; 2];
@@ -238,6 +252,9 @@ impl CeltEncoder {
         payload_bytes: usize,
     ) -> Result<EncodedPacket, EncoderError> {
         self.encode_with(size, pcm, payload_bytes, RangeEncoder::finish)
+    }
+    fn tf_permitted(&self, diagnostics: analysis::TransientAnalysis, payload_bytes: usize) -> bool {
+        self.analyze_tf && payload_bytes >= 15 * self.channels && !diagnostics.tf_tonal()
     }
     // Static finalization injection verifies rollback after every preceding stage.
     fn encode_with(
@@ -289,15 +306,19 @@ impl CeltEncoder {
             writer.encode_bit_logp(false, 1)?;
         }
         let transient_allowed = size != FrameSize::Ms2_5 && writer.tell() + 3 <= budget;
-        let transient = self.detect_transients
-            && transient_allowed
-            && analysis::analyze_transients(
+        let diagnostics = if (self.detect_transients && transient_allowed) || self.analyze_tf {
+            Some(analysis::analyze_transients(
                 size,
                 &context[..self.channels * stride],
                 self.channels,
                 false,
-            )?
-            .transient();
+            )?)
+        } else {
+            None
+        };
+        let transient = self.detect_transients
+            && transient_allowed
+            && diagnostics.is_some_and(|d| d.transient());
         if transient_allowed {
             writer.encode_bit_logp(transient, 3)?;
         }
@@ -351,14 +372,27 @@ impl CeltEncoder {
                 lfe: false,
             },
         )?;
-        let tf = control::encode_tf(
-            &mut writer,
-            size,
-            0..end,
-            transient,
-            &[transient; 21],
-            false,
-        )?;
+        let mut decisions = [false; 21];
+        decisions[..end].fill(transient);
+        let mut select = false;
+        if let Some(d) = diagnostics.filter(|&d| self.tf_permitted(d, payload_bytes)) {
+            let analyzed = analysis::analyze_tf(
+                size,
+                bands
+                    .normalized(d.channel())
+                    .ok_or(EncoderError::InvalidChannels)?,
+                end,
+                analysis::TfAnalysisOptions {
+                    transient,
+                    lambda: (20480 / payload_bytes + 2).max(80) as u16,
+                    estimate: d.tf_estimate(),
+                    importance: [13; 21],
+                },
+            )?;
+            decisions = *analyzed.decisions();
+            select = analyzed.select();
+        }
+        let tf = control::encode_tf(&mut writer, size, 0..end, transient, &decisions, select)?;
         let spread = control::encode_spread(&mut writer, Spread::Normal)?;
         let allocation = allocation::encode_allocation(
             &mut writer,
@@ -449,13 +483,19 @@ mod tests {
     fn injected_finalization_errors_preserve_complete_stream_state()
     -> Result<(), Box<dyn std::error::Error>> {
         for detect in [false, true] {
-            verify_finalization_failure(detect)?;
+            for tf in [false, true] {
+                verify_finalization_failure(detect, tf)?;
+            }
         }
         Ok(())
     }
-    fn verify_finalization_failure(detect: bool) -> Result<(), Box<dyn std::error::Error>> {
+    fn verify_finalization_failure(
+        detect: bool,
+        tf: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut encoder = CeltEncoder::new(InputRate::Khz48, 2)?;
         encoder.set_transient_detection(detect);
+        encoder.set_tf_analysis(tf);
         encoder.encode(FrameSize::Ms10, &[0; 960], 128)?;
         let before = encoder.clone();
         let mut input = vec![0; 1920];
@@ -488,7 +528,11 @@ mod tests {
     #[test]
     fn original_complete_packets_histories_and_accounting_match()
     -> Result<(), Box<dyn std::error::Error>> {
-        verify_packets(include_str!("../../tests/celt-encoder-fixtures.txt"), false)
+        verify_packets(
+            include_str!("../../tests/celt-encoder-fixtures.txt"),
+            false,
+            false,
+        )
     }
     #[test]
     fn original_transient_packets_histories_and_accounting_match()
@@ -496,9 +540,23 @@ mod tests {
         verify_packets(
             include_str!("../../tests/celt-encoder-transient-fixtures.txt"),
             true,
+            false,
         )
     }
-    fn verify_packets(fixtures: &str, detect: bool) -> Result<(), Box<dyn std::error::Error>> {
+    #[test]
+    fn original_tf_packets_histories_and_accounting_match() -> Result<(), Box<dyn std::error::Error>>
+    {
+        verify_packets(
+            include_str!("../../tests/celt-encoder-tf-fixtures.txt"),
+            true,
+            true,
+        )
+    }
+    fn verify_packets(
+        fixtures: &str,
+        detect: bool,
+        tf_analysis: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         use crate::{celt::energy::EnergyState, range::RangeDecoder};
         let sizes = [
             FrameSize::Ms2_5,
@@ -508,6 +566,7 @@ mod tests {
         ];
         let mut encoder = CeltEncoder::new(InputRate::Khz48, 1)?;
         encoder.set_transient_detection(detect);
+        encoder.set_tf_analysis(tf_analysis);
         let mut decoded_energy = EnergyState::default();
         let mut lines = fixtures.lines().filter(|l| !l.starts_with('#'));
         let mut rows = 0;
@@ -534,10 +593,20 @@ mod tests {
                 .map(|x| x as i16)
                 .collect();
             let state = numbers(lines.next().ok_or("state")?)?;
-            assert_eq!(state.len(), if detect { 334 } else { 332 });
+            assert_eq!(
+                state.len(),
+                if tf_analysis {
+                    378
+                } else if detect {
+                    334
+                } else {
+                    332
+                }
+            );
             if encoder.rate != rate || encoder.channels != channels {
                 encoder = CeltEncoder::new(rate, channels)?;
                 encoder.set_transient_detection(detect);
+                encoder.set_tf_analysis(tf_analysis);
                 decoded_energy.reset();
             } else if f[1] == "1" {
                 encoder.reset();
@@ -545,6 +614,28 @@ mod tests {
             }
             let seed = encoder.range;
             let streak = encoder.transient_streak;
+            if tf_analysis {
+                let stride = size.samples() + 120;
+                let mut context = vec![0; channels * stride];
+                for c in 0..channels {
+                    context[c * stride..c * stride + 120].copy_from_slice(&encoder.overlap[c]);
+                    let mut preemphasis = encoder.preemphasis[c].clone();
+                    preemphasis.process(
+                        size,
+                        rate,
+                        &input,
+                        channels,
+                        c,
+                        &mut context[c * stride + 120..(c + 1) * stride],
+                    )?;
+                }
+                let diagnostics = analysis::analyze_transients(size, &context, channels, false)?;
+                assert_eq!(
+                    i64::from(encoder.tf_permitted(diagnostics, bytes)),
+                    state[334],
+                    "TF gate frame{rows}"
+                );
+            }
             let packet = encoder.encode(size, &input, bytes)?;
             assert_eq!(packet.as_bytes(), expected, "packet frame{rows}");
             assert_eq!(
@@ -590,6 +681,7 @@ mod tests {
                 );
             }
             assert_eq!(encoder.transient_detection(), detect);
+            assert_eq!(encoder.tf_analysis(), tf_analysis);
             let end = match rate {
                 InputRate::Khz8 => 13,
                 InputRate::Khz12 | InputRate::Khz16 => 17,
@@ -603,6 +695,15 @@ mod tests {
             assert_eq!(prefix.transient(), detect && state[332] != 0);
             decoded_energy.coarse(&mut read, layout, size, prefix.intra())?;
             let tf = control::decode_tf(&mut read, size, 0..end, prefix.transient())?;
+            if tf_analysis {
+                for i in 0..21 {
+                    assert_eq!(
+                        i64::from(tf.values()[i]),
+                        state[357 + i],
+                        "TF frame{rows} band{i}"
+                    );
+                }
+            }
             let spread = control::decode_spread(&mut read)?;
             let allocation =
                 allocation::decode_allocation(&mut read, size, layout, prefix.transient())?;

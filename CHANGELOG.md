@@ -7,6 +7,24 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.57] - 2026-11-02
+
+- Add bounded immutable CELT TF analysis: native biased L1/Haar levels,
+  narrow-band midpoint metrics and weighted Viterbi/select decisions with exact
+  tie behavior. Expose fixed-storage results and documented normalized domains.
+- Add independent opt-in TF packet analysis with native budget/adjusted-tone
+  gating and switching penalty, using explicit neutral importance. Reset retains
+  both analysis settings; default and transient-only packets remain unchanged.
+- Match 7,056 analyses over 672 original contexts, all 16,385 bias inputs and
+  2,400 L1 scalars. Match 960 full TF-policy packets, effective TF/gate diagnostics
+  and 9,600 original public PCM/range/energy-history decodes. Exact 15*C thresholds,
+  144 additional boundary packets, reset/toggles and all four setting combinations
+  under injected finalization errors pass. All 31 non-equivalent targeted mutants
+  are detected; a one-unit clamp mutation is equivalent after quantization.
+- Optional evidence reproduces and seven offline gates pass with zero dependencies.
+  Perceptual dynamic/spread/pitch analysis, SILK/Hybrid encoding and measured
+  quality/performance comparisons remain work.
+
 ## [0.1.56] - 2026-11-02
 
 - Add bounded fixed-storage CELT tone/temporal-mask analysis with native LPC,

@@ -1461,3 +1461,15 @@ its public fractional-domain contract remains unchanged. Rust bounds immutable
 physical input and uses fixed safe storage. Optional packet selection and the
 anti-collapse streak follow original encoder control flow. The external metric
 observer cross-checks all ordinary outputs against unchanged original analysis.
+
+
+# CELT time/frequency analysis attribution
+
+`src/celt/analysis/tf.rs` follows `celt/celt_encoder.c::l1_metric` and
+`tf_analysis` at the pinned revision, reusing original `haar1` arithmetic and
+`tf_select_table` through the existing Rust stages/tables. Existing CELT encoder,
+band and control notices and terms apply. Rust adds bounded immutable normalized
+input, fixed storage and typed validation. Packet integration follows native
+budget/tone gating and switching cost with explicit neutral importance. The
+optional read-only metric observer cross-checks ordinary decisions/select
+against unchanged original analysis; native code is never a Cargo dependency.
