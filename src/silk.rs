@@ -7,6 +7,7 @@
 pub mod channel;
 pub mod cng;
 pub mod decoder;
+pub mod encoder;
 pub mod excitation;
 pub mod gains;
 pub mod lpc;

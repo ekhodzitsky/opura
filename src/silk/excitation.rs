@@ -10,7 +10,7 @@ use crate::range::{RangeDecoder, RangeError};
 use std::fmt;
 
 #[path = "excitation_tables.rs"]
-mod tables;
+pub(super) mod tables;
 use tables::*;
 
 /// Failure to decode or reconstruct excitation.

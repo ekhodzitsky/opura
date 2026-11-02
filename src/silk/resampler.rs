@@ -1,4 +1,4 @@
-//! Fixed-point SILK decoder resampling with reference delay compensation.
+//! Fixed-point SILK encoder/decoder resampling with reference delay compensation.
 //!
 //! Adapted from Opus v1.6.1 silk/resampler*.c; see THIRD_PARTY_NOTICES.md.
 //! This stage resamples internal PCM. Opus mono/stereo buffering is separate.
@@ -12,7 +12,7 @@ use std::fmt;
 mod tables;
 use tables::*;
 
-/// Supported standard Opus PCM output rates.
+/// Supported standard Opus PCM rates.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum OutputRate {
     /// 8000 samples per second.
@@ -95,45 +95,108 @@ enum Method {
     },
 }
 
-/// Persistent one-channel decoder resampler with fixed buffers and no allocation.
-///
-/// Output rate is selected at construction. An input-rate change clears filter
-/// and delay history, matching a new upstream resampler initialization. The
-/// caller must separately preserve any Opus mono/stereo input buffering.
+/// Persistent decoder resampler. Rate changes clear filter/delay history.
+/// All storage is fixed; output-rate buffering is separate.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ResamplerState {
-    input: Option<SilkRate>,
-    output: OutputRate,
-    iir: [i32; 6],
-    fir16: [i16; 8],
-    fir32: [i32; 24],
-    delay: [i16; 16],
-    method: Method,
-    ratio: u32,
-    input_delay: usize,
+    core: ResamplerCore<16, 24, 184>,
 }
 impl ResamplerState {
     /// Start with empty filter/delay history at a fixed output rate.
     pub fn new(output: OutputRate) -> Self {
         Self {
+            core: ResamplerCore::new(output, false),
+        }
+    }
+    /// Output rate selected at construction.
+    pub fn output_rate(&self) -> OutputRate {
+        self.core.output
+    }
+    /// Clear input/filter/delay history, retaining the output rate.
+    pub fn reset(&mut self) {
+        self.core.reset();
+    }
+    /// Convert 1..=120 whole milliseconds of internal PCM into the output buffer.
+    /// Geometry/capacity errors change neither history nor any output sample.
+    /// Extra output tail is untouched; arbitrary whole-ms chunking is supported.
+    pub fn process(
+        &mut self,
+        rate: SilkRate,
+        input: &[i16],
+        output: &mut [i16],
+    ) -> Result<usize, ResampleError> {
+        self.core.process(pcm_rate(rate), input, output)
+    }
+}
+
+/// Encoder PCM conversion from any standard external rate to internal SILK PCM.
+/// Uses the native encoder delay matrix, including same-rate compensation.
+/// One state handles one channel; packet/channel orchestration is separate.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EncoderResamplerState {
+    input: OutputRate,
+    core: ResamplerCore<48, 36, 516>,
+}
+impl EncoderResamplerState {
+    /// Start a channel converter at fixed external and internal sampling rates.
+    pub fn new(input: OutputRate, internal: SilkRate) -> Self {
+        Self {
+            input,
+            core: ResamplerCore::new(pcm_rate(internal), true),
+        }
+    }
+    /// Clear filter/delay history, retaining the configured rates.
+    pub fn reset(&mut self) {
+        self.core.reset();
+    }
+    /// Convert 1..=120 whole milliseconds of external one-channel PCM.
+    /// All input is consumed. Geometry/capacity errors change neither history
+    /// nor output samples, and any output tail remains untouched. This does not
+    /// add the encoder's separate analysis/lookahead buffering.
+    pub fn process(&mut self, input: &[i16], output: &mut [i16]) -> Result<usize, ResampleError> {
+        self.core.process(self.input, input, output)
+    }
+}
+fn pcm_rate(rate: SilkRate) -> OutputRate {
+    match rate {
+        SilkRate::Khz8 => OutputRate::Khz8,
+        SilkRate::Khz12 => OutputRate::Khz12,
+        SilkRate::Khz16 => OutputRate::Khz16,
+    }
+}
+// Const storage keeps decoder history arrays and its maximum work buffer unchanged.
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ResamplerCore<const DELAY: usize, const FIR: usize, const WORK: usize> {
+    input: Option<OutputRate>,
+    output: OutputRate,
+    for_encoder: bool,
+    iir: [i32; 6],
+    fir16: [i16; 8],
+    fir32: [i32; FIR],
+    delay: [i16; DELAY],
+    method: Method,
+    ratio: u32,
+    input_delay: usize,
+}
+impl<const DELAY: usize, const FIR: usize, const WORK: usize> ResamplerCore<DELAY, FIR, WORK> {
+    /// Start with empty filter/delay history at a fixed output rate.
+    fn new(output: OutputRate, for_encoder: bool) -> Self {
+        Self {
             input: None,
+            for_encoder,
             output,
             iir: [0; 6],
             fir16: [0; 8],
-            fir32: [0; 24],
-            delay: [0; 16],
+            fir32: [0; FIR],
+            delay: [0; DELAY],
             method: Method::Copy,
             ratio: 0,
             input_delay: 0,
         }
     }
-    /// Output rate selected at construction.
-    pub fn output_rate(&self) -> OutputRate {
-        self.output
-    }
     /// Clear all input/filter/delay history while retaining the output rate.
     pub fn reset(&mut self) {
-        *self = Self::new(self.output);
+        *self = Self::new(self.output, self.for_encoder);
     }
 
     /// Resample 1..=120 whole milliseconds of internal SILK PCM.
@@ -144,11 +207,11 @@ impl ResamplerState {
     /// This method does not add the separate Opus mono/stereo buffering delay.
     pub fn process(
         &mut self,
-        rate: SilkRate,
+        rate: OutputRate,
         input: &[i16],
         output: &mut [i16],
     ) -> Result<usize, ResampleError> {
-        let khz = rate.khz() as usize;
+        let khz = rate.khz();
         if input.len() < khz || input.len() > khz * 120 || input.len() % khz != 0 {
             return Err(ResampleError::InvalidInputLength);
         }
@@ -174,21 +237,20 @@ impl ResamplerState {
         Ok(needed)
     }
 
-    fn configure(&mut self, rate: SilkRate) {
+    fn configure(&mut self, rate: OutputRate) {
         if self.input == Some(rate) {
             return;
         }
         self.reset();
         self.input = Some(rate);
-        let khz = rate.khz() as usize;
+        let khz = rate.khz();
         let output = self.output.khz();
-        let row = match rate {
-            SilkRate::Khz8 => 0,
-            SilkRate::Khz12 => 1,
-            SilkRate::Khz16 => 2,
+        self.input_delay = if self.for_encoder {
+            [[6, 0, 3], [0, 7, 3], [0, 1, 10], [0, 2, 6], [18, 10, 12]][rate.index()]
+                [self.output.index()]
+        } else {
+            [[4, 0, 2, 0, 0], [0, 9, 4, 7, 4], [0, 3, 12, 7, 7]][rate.index()][self.output.index()]
         };
-        self.input_delay =
-            [[4, 0, 2, 0, 0], [0, 9, 4, 7, 4], [0, 3, 12, 7, 7]][row][self.output.index()];
         self.method = if output == khz {
             Method::Copy
         } else if output == 2 * khz {
@@ -207,11 +269,31 @@ impl ResamplerState {
                     fractions: 3,
                     coefficients: &DOWN_3_4,
                 },
-                _ => Method::Down {
+                (16, 8) | (24, 12) => Method::Down {
                     order: 24,
                     fractions: 1,
                     coefficients: &DOWN_1_2,
-                }, // 16 -> 8 only.
+                },
+                (24, 16) => Method::Down {
+                    order: 18,
+                    fractions: 2,
+                    coefficients: &DOWN_2_3,
+                },
+                (24, 8) | (48, 16) => Method::Down {
+                    order: 36,
+                    fractions: 1,
+                    coefficients: &DOWN_1_3,
+                },
+                (48, 12) => Method::Down {
+                    order: 36,
+                    fractions: 1,
+                    coefficients: &DOWN_1_4,
+                },
+                _ => Method::Down {
+                    order: 36,
+                    fractions: 1,
+                    coefficients: &DOWN_1_6,
+                }, // 48 -> 8 only.
             }
         };
         let up = u32::from(self.method == Method::UpFir);
@@ -221,7 +303,7 @@ impl ResamplerState {
 
     // process validates complete-ms geometry; every output slice has the exact
     // expected length. At most 10 ms enter a filter batch, keeping stack bounded.
-    fn filter(&mut self, rate: SilkRate, input: &[i16], output: &mut [i16]) {
+    fn filter(&mut self, rate: OutputRate, input: &[i16], output: &mut [i16]) {
         if input.is_empty() {
             return;
         }
@@ -232,7 +314,7 @@ impl ResamplerState {
                 let mut buffer = [0i16; 328];
                 buffer[..8].copy_from_slice(&self.fir16);
                 let mut written = 0;
-                let batch_size = rate.khz() as usize * 10;
+                let batch_size = rate.khz() * 10;
                 for chunk in input.chunks(batch_size) {
                     upsample2(&mut self.iir, chunk, &mut buffer[8..8 + 2 * chunk.len()]);
                     let maximum = (chunk.len() as u32) << 17;
@@ -263,9 +345,9 @@ impl ResamplerState {
                 fractions,
                 coefficients,
             } => {
-                let mut buffer = [0i32; 184];
+                let mut buffer = [0i32; WORK];
                 buffer[..order].copy_from_slice(&self.fir32[..order]);
-                let batch_size = rate.khz() as usize * 10;
+                let batch_size = rate.khz() * 10;
                 let mut written = 0;
                 for chunk in input.chunks(batch_size) {
                     for (i, &sample) in chunk.iter().enumerate() {
@@ -294,9 +376,9 @@ impl ResamplerState {
                                 ));
                             }
                         } else {
-                            for j in 0..12 {
+                            for j in 0..order / 2 {
                                 sum = sum.wrapping_add(mul_wb(
-                                    buffer[at + j].wrapping_add(buffer[at + 23 - j]),
+                                    buffer[at + j].wrapping_add(buffer[at + order - 1 - j]),
                                     i32::from(coefficients[2 + j]),
                                 ));
                             }

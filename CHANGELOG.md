@@ -7,6 +7,22 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Begin the native SILK encoder with complete quantized frame serialization:
+  gain/NLSF/pitch/LTP/seed fields, adaptive pulse rate selection, shell/LSB/sign
+  coding, conditional history and atomic entropy/state failure handling.
+  This API accepts quantized parameters, not PCM; full SILK encoding remains
+  in progress and is not exposed by the audio command yet.
+- Add fixed-storage encoder input resampling for all 15 external/internal rate
+  pairs, native encoder delay compensation and 36-tap downsampling. Share the
+  existing decoder kernels while retaining its history/work buffer bounds.
+- Match 90 unchanged native serialization sequences: 70 complete packets with
+  original public PCM/range fingerprints, 18 unscaled channel frames and two
+  native packet-capacity failures. Match 360 encoder resampler PCM/state cases;
+  the existing 360 decoder resampler cases remain unchanged. Native frame/input
+  fixtures and all three affected table modules reproduce exactly. All seven
+  required offline gates pass, and all 120 official decoder conformance PCM
+  hashes remain unchanged. The full SILK encoder task remains open.
+
 ## [0.1.66] - 2026-11-02
 
 - Add an optional reproducible real-recording CELT file evaluator using hashed

@@ -1559,3 +1559,13 @@ PCM is the original public fixed-point decoder output after pre-skip and tail
 trimming. The manifest records geometry and mode. No third-party recording
 or codec source is embedded in these fixtures. Regeneration is optional;
 normal builds and tests use only Rust and the stored data.
+
+# SILK encoder work in progress
+
+Quantized-frame serialization additionally follows unchanged Opus v1.6.1
+`silk/encode_indices.c`, `silk/encode_pulses.c`, `silk/shell_coder.c` and
+`silk/code_signs.c`, covered by the retained Skype SILK terms above. Encoder
+input conversion uses the encoder delay matrix and additional FIR coefficients
+from `silk/resampler.c` and `silk/resampler_rom.c`. Optional original-source
+oracles generate synthetic serialization and resampling fixtures; no native
+codec source or library is a normal build or test dependency.

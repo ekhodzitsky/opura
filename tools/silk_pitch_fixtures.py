@@ -48,7 +48,7 @@ if args.tables:
         if not match: raise SystemExit('Missing array ' + original)
         values = [int(x) for x in re.findall(r'-?\d+', match[1])]
         if len(values) != length: raise SystemExit('Wrong array size ' + original)
-        print(f'pub(super) const {name}: [{kind}; {length}] = {values};')
+        print(f'pub(in crate::silk) const {name}: [{kind}; {length}] = {values};')
     raise SystemExit(0)
 
 indices = (source / 'silk/decode_indices.c').read_text()

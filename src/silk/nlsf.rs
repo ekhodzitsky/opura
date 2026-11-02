@@ -21,13 +21,13 @@ pub enum NlsfOrder {
     Order16,
 }
 impl NlsfOrder {
-    fn len(self) -> usize {
+    pub(super) fn len(self) -> usize {
         match self {
             Self::Order10 => 10,
             Self::Order16 => 16,
         }
     }
-    fn codebook(self) -> Codebook {
+    pub(super) fn codebook(self) -> Codebook {
         match self {
             Self::Order10 => Codebook {
                 cb1: &NB_MB_CB1,
@@ -213,18 +213,18 @@ impl NlsfState {
     }
 }
 
-struct Codebook {
+pub(super) struct Codebook {
     cb1: &'static [u8],
     weights: &'static [i16],
-    icdf1: &'static [u8],
+    pub(super) icdf1: &'static [u8],
     select: &'static [u8],
-    icdf2: &'static [u8],
+    pub(super) icdf2: &'static [u8],
     pred: &'static [u8],
     delta: &'static [i16],
     step: i32,
 }
 impl Codebook {
-    fn unpack(&self, first: usize, count: usize) -> ([usize; 16], [u8; 16]) {
+    pub(super) fn unpack(&self, first: usize, count: usize) -> ([usize; 16], [u8; 16]) {
         let mut entropy = [0; 16];
         let mut prediction = [0; 16];
         for i in (0..count).step_by(2) {

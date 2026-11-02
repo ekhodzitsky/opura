@@ -11,6 +11,7 @@ REVISION = '22244de5a79bd1d6d623c32e72bf1954b56235be'
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('source', type=Path)
 parser.add_argument('--tables', action='store_true')
+parser.add_argument('--encoder', action='store_true')
 args = parser.parse_args()
 source = args.source.resolve()
 if subprocess.check_output(['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip() != REVISION:
@@ -24,6 +25,9 @@ if args.tables:
     for original, name, count in [('silk_Resampler_3_4_COEFS', 'DOWN_3_4', 29),
                                   ('silk_Resampler_2_3_COEFS', 'DOWN_2_3', 20),
                                   ('silk_Resampler_1_2_COEFS', 'DOWN_1_2', 14),
+                                  ('silk_Resampler_1_3_COEFS', 'DOWN_1_3', 20),
+                                  ('silk_Resampler_1_4_COEFS', 'DOWN_1_4', 20),
+                                  ('silk_Resampler_1_6_COEFS', 'DOWN_1_6', 20),
                                   ('silk_resampler_frac_FIR_12', 'FRACTIONAL', 48)]:
         match = re.search(r'\b' + original + r'\s*\[[^;=]+?=\s*\{(.*?)\};', content, re.S)
         if not match: raise SystemExit('Missing reference table ' + original)
@@ -65,6 +69,9 @@ void probe(int reset, int input_rate, int output_rate, const opus_int16 *input, 
     *out++ = state.FIR_Fracs;
 }
 '''
+if args.encoder:
+    wrapper = wrapper.replace('output_rate * 1000, 0)', 'output_rate * 1000, 1)')
+    wrapper = wrapper.replace('i<24', 'i<36').replace('i<16', 'i<48').replace('i=16;', 'i=48;')
 files = ['resampler', 'resampler_private_up2_HQ', 'resampler_private_IIR_FIR',
          'resampler_private_down_FIR', 'resampler_private_AR2', 'resampler_rom']
 with tempfile.TemporaryDirectory(prefix='opura-resample-reference-') as temp:
@@ -77,12 +84,12 @@ with tempfile.TemporaryDirectory(prefix='opura-resample-reference-') as temp:
     lib = c.CDLL(str(path / 'probe.so'))
     lib.probe.argtypes = [c.c_int] * 3 + [c.POINTER(c.c_int16), c.c_int, c.POINTER(c.c_int16), c.POINTER(c.c_int32)]
     lib.probe.restype = None
-    print('# Opus v1.6.1 original decoder silk_resampler PCM/state:', REVISION)
-    print('# reset input_khz output_khz milliseconds input[length]; next line output[ms*output_khz] IIR[6] FIR16[8] FIR32[24] delay[16] method ratio delay order fractions')
+    print('# Opus v1.6.1 original '+('encoder' if args.encoder else 'decoder')+' silk_resampler PCM/state:', REVISION)
+    print('# reset input_khz output_khz milliseconds input[length]; next line output[ms*output_khz] IIR[6] FIR16[8] FIR32['+('36' if args.encoder else '24')+'] delay['+('48' if args.encoder else '16')+'] method ratio delay order fractions')
     random = 0x72617465
-    for output_rate in [8, 12, 16, 24, 48]:
-        for case in range(72):
-            input_rate = [8, 8, 12, 12, 16, 16, 12, 8][(case // 3) % 8]
+    for output_rate in ([8, 12, 16] if args.encoder else [8, 12, 16, 24, 48]):
+        for case in range(120 if args.encoder else 72):
+            input_rate = ([8, 8, 12, 12, 16, 16, 24, 24, 48, 48] if args.encoder else [8, 8, 12, 12, 16, 16, 12, 8])[(case // 3) % (10 if args.encoder else 8)]
             reset = int(case % 24 == 0)
             ms = [1, 2, 5, 10, 20, 40, 60, 120][case % 8]
             data = []
@@ -95,7 +102,7 @@ with tempfile.TemporaryDirectory(prefix='opura-resample-reference-') as temp:
                             else (32767 if i % 2 else -32768) if kind == 2 else
                             32767 if kind == 3 else -32768 if kind == 4 else (random & 65535) - 32768)
             samples = (c.c_int16 * len(data))(*data)
-            pcm, state = (c.c_int16 * (output_rate * ms))(), (c.c_int32 * 59)()
+            pcm, state = (c.c_int16 * (output_rate * ms))(), (c.c_int32 * (103 if args.encoder else 59))()
             lib.probe(reset, input_rate, output_rate, samples, len(data), pcm, state)
             print(reset, input_rate, output_rate, ms, *data)
             print(*pcm, *state)

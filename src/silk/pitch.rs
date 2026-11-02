@@ -7,7 +7,7 @@ use crate::range::{RangeDecoder, RangeError};
 use std::fmt;
 
 #[path = "pitch_tables.rs"]
-mod tables;
+pub(super) mod tables;
 use tables::*;
 
 /// Internal SILK sampling rate, independent of the output sampling rate.
@@ -28,14 +28,14 @@ impl SilkRate {
             Self::Khz16 => 16,
         }
     }
-    fn low_bits(self) -> &'static [u8] {
+    pub(super) fn low_bits(self) -> &'static [u8] {
         match self {
             Self::Khz8 => &UNIFORM4,
             Self::Khz12 => &UNIFORM6,
             Self::Khz16 => &UNIFORM8,
         }
     }
-    fn contour(self, duration: FrameDuration) -> (&'static [u8], &'static [i8]) {
+    pub(super) fn contour(self, duration: FrameDuration) -> (&'static [u8], &'static [i8]) {
         match (self, duration) {
             (Self::Khz8, FrameDuration::Ms10) => (&CONTOUR10_NB, &LAGS10_NB),
             (Self::Khz8, FrameDuration::Ms20) => (&CONTOUR20_NB, &LAGS20_NB),

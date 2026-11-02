@@ -22,6 +22,8 @@ if subprocess.check_output(['git', '-C', str(source), 'status', '--porcelain', '
 if args.tables:
     content = (source / 'silk/tables_pulses_per_block.c').read_text()
     specs = [('silk_pulses_per_block_iCDF', 'SUMS', 180), ('silk_rate_levels_iCDF', 'RATES', 18),
+             ('silk_pulses_per_block_BITS_Q5', 'SUM_COST', 162),
+             ('silk_rate_levels_BITS_Q5', 'RATE_COST', 18),
              ('silk_shell_code_table_offsets', 'OFFSETS', 17), ('silk_sign_iCDF', 'SIGNS', 42)]
     specs += [(f'silk_shell_code_table{i}', f'SHELL{i}', 152) for i in range(4)]
     print('// Generated from Opus v1.6.1 by tools/silk_excitation_fixtures.py --tables.')
@@ -31,7 +33,7 @@ if args.tables:
         if not match: raise SystemExit('Missing table ' + original)
         values = [int(s) for s in re.findall(r'\d+', match[1])]
         if len(values) != size: raise SystemExit('Wrong table length ' + original)
-        print(f'pub(super) const {name}: [u8; {size}] = {values};')
+        print(f'pub(in crate::silk) const {name}: [u8; {size}] = {values};')
     raise SystemExit(0)
 
 core = (source / 'silk/decode_core.c').read_text()
