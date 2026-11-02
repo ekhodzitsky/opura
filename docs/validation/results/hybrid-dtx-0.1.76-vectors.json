@@ -1,0 +1,10 @@
+{
+  "status": "pass",
+  "reference_revision": "22244de5a79bd1d6d623c32e72bf1954b56235be",
+  "vector_sha256": "1bdefa6c7eac215f64394a6b7c3b02b6a827f793a4df57e8e8cb1c23516c57e7",
+  "profile": "dtx",
+  "streams": 144,
+  "records": 21600,
+  "lost": 288,
+  "dtx_packets": 10728
+}

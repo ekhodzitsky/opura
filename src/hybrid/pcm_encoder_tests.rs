@@ -253,3 +253,188 @@ fn invalid_geometry_and_budget_boundaries_preserve_stream() -> Result<(), Box<dy
     }
     Ok(())
 }
+
+#[test]
+fn original_hybrid_dtx_schedule_and_layer_order_match() -> Result<(), Box<dyn std::error::Error>> {
+    let mut encoder = HybridEncoder::new(InputRate::Khz48, 1, Bandwidth::Fullband)?;
+    let mut counts = [0; 3];
+    let mut rows = 0;
+    for line in include_str!("../../tests/hybrid-encoder-dtx-fixtures.txt")
+        .lines()
+        .filter(|l| !l.starts_with('#'))
+    {
+        let v = line
+            .split_whitespace()
+            .map(str::parse)
+            .collect::<Result<Vec<usize>, _>>()?;
+        assert_eq!(v.len(), 11);
+        let [
+            rate,
+            band,
+            channels,
+            ms,
+            complexity,
+            _,
+            frame,
+            enabled,
+            suppressed,
+            silk_zero,
+            celt_calls,
+        ]: [usize; 11] = v.try_into().map_err(|_| "bad row")?;
+        if frame == 0 {
+            encoder = HybridEncoder::new(
+                if rate == 24000 {
+                    InputRate::Khz24
+                } else {
+                    InputRate::Khz48
+                },
+                channels,
+                if band == 1104 {
+                    Bandwidth::SuperWideband
+                } else {
+                    Bandwidth::Fullband
+                },
+            )?;
+        }
+        encoder.set_dtx(enabled != 0);
+        let n = rate * ms / 1000;
+        let input: Vec<i16> = (0..n * channels)
+            .map(|i| {
+                let phase = (frame * n + i / channels) % 240;
+                if !(5..110).contains(&frame) {
+                    ((phase.min(240 - phase) as i32 - 60) * 200) as i16
+                } else if frame < 55 {
+                    0
+                } else {
+                    ((i / channels + i % channels) % 2) as i16
+                }
+            })
+            .collect();
+        let before = encoder.clone();
+        let mut finished = false;
+        let duration = if ms == 10 {
+            FrameDuration::Ms10
+        } else {
+            FrameDuration::Ms20
+        };
+        let packet = encoder.encode_with(
+            duration,
+            &input,
+            ms * 4 * channels,
+            Options {
+                complexity: complexity as u8,
+                packet_loss_percent: 0,
+            },
+            |writer| {
+                finished = true;
+                writer.finish()
+            },
+        )?;
+        assert_eq!(packet.as_bytes().len() == 1, suppressed != 0, "{line}");
+        assert_eq!(encoder.in_dtx(), suppressed != 0, "{line}");
+        assert_eq!(usize::from(finished), celt_calls, "{line}");
+        assert_eq!(silk_zero != 0, celt_calls == 0);
+        if silk_zero != 0 {
+            assert_eq!(encoder.celt, before.celt);
+            assert_eq!(encoder.delay, before.delay);
+            assert_eq!(encoder.high_gain, before.high_gain);
+            assert_eq!(encoder.width, before.width);
+            counts[0] += 1;
+        } else if suppressed != 0 {
+            counts[1] += 1;
+        } else {
+            counts[2] += 1;
+        }
+        if suppressed != 0 {
+            assert_eq!(packet.final_range(), 0);
+        }
+        rows += 1;
+    }
+    assert_eq!(rows, 10800);
+    assert!(counts.iter().all(|&n| n > 0));
+    Ok(())
+}
+
+#[test]
+fn dtx_finalization_failure_toggles_and_reset_preserve_contracts()
+-> Result<(), Box<dyn std::error::Error>> {
+    for channels in 1..=2 {
+        let mut encoder = HybridEncoder::new(InputRate::Khz48, channels, Bandwidth::Fullband)?;
+        encoder.set_dtx(true);
+        let silence = vec![0; 960 * channels];
+        for _ in 0..12 {
+            encoder.encode(
+                FrameDuration::Ms20,
+                &silence,
+                160 * channels,
+                Options::default(),
+            )?;
+        }
+        assert!(encoder.in_dtx());
+        let before = encoder.clone();
+        let mut called = false;
+        let result = encoder.encode_with(
+            FrameDuration::Ms20,
+            &silence,
+            160 * channels,
+            Options::default(),
+            |writer| {
+                called = true;
+                writer.finish()?;
+                Err(EntropyError::CapacityExhausted)
+            },
+        );
+        assert!(called);
+        assert_eq!(
+            result,
+            Err(EncoderError::Entropy(EntropyError::CapacityExhausted))
+        );
+        assert_eq!(encoder, before);
+        let packet = encoder.encode(
+            FrameDuration::Ms20,
+            &silence,
+            160 * channels,
+            Options::default(),
+        )?;
+        assert_eq!((packet.as_bytes().len(), packet.final_range()), (1, 0));
+        encoder.reset();
+        let mut fresh = HybridEncoder::new(InputRate::Khz48, channels, Bandwidth::Fullband)?;
+        fresh.set_dtx(true);
+        assert_eq!(encoder, fresh);
+        let quiet = vec![1; 960 * channels];
+        for _ in 0..15 {
+            encoder.encode(
+                FrameDuration::Ms20,
+                &quiet,
+                160 * channels,
+                Options::default(),
+            )?;
+        }
+        assert!(encoder.in_dtx());
+        let before = encoder.clone();
+        let mut called = false;
+        let packet = encoder.encode_with(
+            FrameDuration::Ms20,
+            &quiet,
+            160 * channels,
+            Options::default(),
+            |_| {
+                called = true;
+                Err(EntropyError::CapacityExhausted)
+            },
+        )?;
+        assert!(!called);
+        assert_eq!(packet.as_bytes().len(), 1);
+        assert_eq!(encoder.celt, before.celt);
+        encoder.set_dtx(false);
+        let packet = encoder.encode(
+            FrameDuration::Ms10,
+            &quiet[..480 * channels],
+            80 * channels,
+            Options::default(),
+        )?;
+        assert_eq!(packet.as_bytes().len(), 80 * channels);
+        assert!(!encoder.in_dtx());
+    }
+    Ok(())
+}

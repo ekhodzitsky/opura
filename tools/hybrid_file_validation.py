@@ -26,6 +26,7 @@ def main():
     parser.add_argument('binary', type=Path)
     parser.add_argument('corpus', type=Path)
     parser.add_argument('output', type=Path)
+    parser.add_argument('--dtx', action='store_true')
     args = parser.parse_args()
     binary = args.binary.resolve()
     args.output.mkdir(parents=True, exist_ok=False)
@@ -33,7 +34,7 @@ def main():
               'binary_sha256': sha(binary), 'tool_sha256': sha(Path(__file__)),
               'version': subprocess.check_output([str(binary), '--version'], text=True).strip(),
               'scope': 'actual Hybrid CLI/native decode equality only; no native encoder, perceptual or speed comparison',
-              'cases': []}
+              'dtx': args.dtx, 'cases': []}
     fingerprint = hashlib.sha256()
     root = Path(__file__).resolve().parent.parent
     for path in sorted((root/'src').rglob('*.rs')):
@@ -59,12 +60,12 @@ def main():
                         opus = args.output/(stem+'.opus')
                         wav = args.output/(stem+'.wav')
                         subprocess.run([str(binary), 'encode', str(recording), str(opus), '--mode', 'hybrid', '--bandwidth', band,
-                                        '--frame-ms', str(ms), '--bitrate', str(bitrate)], check=True)
+                                        '--frame-ms', str(ms), '--bitrate', str(bitrate)] + (['--dtx'] if args.dtx else []), check=True)
                         subprocess.run([str(binary), 'decode', str(opus), str(wav)], check=True)
                         skip, encoded = packets(opus)
                         if skip != 312:
                             raise ValueError('Wrong Hybrid lookahead')
-                        validate_packet_budgets(encoded, bitrate, ms*48, False)
+                        validate_packet_budgets(encoded, bitrate, ms*48, args.dtx)
                         if any(p[0] >> 3 != (12 if band == 'swb' else 14)+(ms == 20) or ((p[0] >> 2) & 1)+1 != channels for p in encoded):
                             raise ValueError('Wrong Hybrid mode/band/duration/channels')
                         if any(lib.opus_packet_has_lbrr((c.c_ubyte*len(p)).from_buffer_copy(p), len(p)) != 0 for p in encoded):
@@ -77,7 +78,7 @@ def main():
                                 'frame_ms': ms, 'bitrate': bitrate, 'samples_per_channel': count,
                                 'packets': len(encoded), 'skip': skip, 'packet_bytes': sum(map(len, encoded)),
                                 'opus_sha256': sha(opus), 'pcm_sha256': pcm_hash(native), 'native_pcm_match': True,
-                                'lbrr_packets': 0}
+                                'lbrr_packets': 0, 'dtx_packets': sum(len(p) == 1 for p in encoded)}
                         report['cases'].append(case)
                         save()
     if len(report['cases']) != 16:

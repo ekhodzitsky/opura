@@ -3,14 +3,14 @@
 use super::mono::PacketDuration;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum Decision {
+pub(crate) enum Decision {
     Transmit,
     Silk,
     DigitalSilence,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub(super) struct DtxState {
+pub(crate) struct DtxState {
     pub enabled: bool,
     inactive: [u8; 2],
     packet: [bool; 2],

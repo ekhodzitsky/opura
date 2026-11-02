@@ -32,7 +32,7 @@ type Result<T> = std::result::Result<T, Box<dyn Error>>;
 fn invalid(message: impl Into<String>) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message.into())
 }
-const HELP: &str = "opura encode INPUT.wav OUTPUT.opus [--mode celt|silk|hybrid] [--bitrate BPS] [--frame-ms MS] [--bandwidth nb|mb|wb|auto|swb|fb] [--dtx] [--fec LOSS_PERCENT]\nopura decode INPUT.opus OUTPUT.wav\nopura --version\n\nEncode: PCM16 WAV at 8/12/16/24/48 kHz.\nCELT: mono/stereo, frames 2.5/5/10/20 ms. SILK: mono/stereo, frames 10/20/40/60 ms. Hybrid: mono/stereo at 24/48 kHz, frames 10/20 ms; SWB at 24 kHz, SWB/FB at 48 kHz. Hybrid defaults to 32000 mono/64000 stereo bits/s and input-rate SWB/FB; DTX/FEC is not yet supported in Hybrid.\nDefaults: CELT, 64000 bits/s (SILK: 24000 mono/48000 stereo), 20 ms. SILK bandwidth defaults to input-rate NB/MB/WB; auto selects it from bitrate/loss. --dtx enables SILK silence suppression, including in CBR. --fec 1..100 requests SILK in-band FEC with the supplied loss estimate (0 disables it). Ogg overhead is additional.\nDecode: one mono/stereo Ogg Opus stream, zero header gain; output PCM16/48 kHz.\nExisting outputs are refused. Errors may leave a partial new output.";
+const HELP: &str = "opura encode INPUT.wav OUTPUT.opus [--mode celt|silk|hybrid] [--bitrate BPS] [--frame-ms MS] [--bandwidth nb|mb|wb|auto|swb|fb] [--dtx] [--fec LOSS_PERCENT]\nopura decode INPUT.opus OUTPUT.wav\nopura --version\n\nEncode: PCM16 WAV at 8/12/16/24/48 kHz.\nCELT: mono/stereo, frames 2.5/5/10/20 ms. SILK: mono/stereo, frames 10/20/40/60 ms. Hybrid: mono/stereo at 24/48 kHz, frames 10/20 ms; SWB at 24 kHz, SWB/FB at 48 kHz. Hybrid defaults to 32000 mono/64000 stereo bits/s and input-rate SWB/FB; --dtx enables silence suppression. Hybrid FEC is not yet supported.\nDefaults: CELT, 64000 bits/s (SILK: 24000 mono/48000 stereo), 20 ms. SILK bandwidth defaults to input-rate NB/MB/WB; auto selects it from bitrate/loss. --dtx enables SILK/Hybrid silence suppression, including in CBR. --fec 1..100 requests SILK in-band FEC with the supplied loss estimate (0 disables it). Ogg overhead is additional.\nDecode: one mono/stereo Ogg Opus stream, zero header gain; output PCM16/48 kHz.\nExisting outputs are refused. Errors may leave a partial new output.";
 fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
@@ -143,8 +143,8 @@ fn run() -> Result<()> {
                     fec.unwrap_or(0),
                 )
             } else if mode == Some("hybrid") {
-                if dtx || fec.is_some() {
-                    return Err(invalid("Hybrid DTX/FEC is not yet supported").into());
+                if fec.is_some() {
+                    return Err(invalid("Hybrid FEC is not yet supported").into());
                 }
                 let bandwidth = match bandwidth {
                     Some(EncodingBandwidth::Hybrid(bandwidth)) => Some(bandwidth),
@@ -162,6 +162,7 @@ fn run() -> Result<()> {
                     bitrate,
                     duration,
                     bandwidth,
+                    dtx,
                 )
             } else {
                 if bandwidth.is_some() || dtx || fec.is_some() {
@@ -405,6 +406,7 @@ fn encode_hybrid(
     bitrate: Option<u32>,
     duration: FrameDuration,
     bandwidth: Option<Bandwidth>,
+    dtx: bool,
 ) -> Result<()> {
     let start = Instant::now();
     let mut source = wav::Reader::new(BufReader::new(File::open(input)?))?;
@@ -419,6 +421,7 @@ fn encode_hybrid(
         Bandwidth::Fullband
     });
     let mut encoder = HybridEncoder::new(rate, source.channels, bandwidth)?;
+    encoder.set_dtx(dtx);
     let bitrate = bitrate.unwrap_or(if source.channels == 1 { 32000 } else { 64000 });
     let ms = if duration == FrameDuration::Ms10 {
         10u64

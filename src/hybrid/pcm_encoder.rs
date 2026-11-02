@@ -12,7 +12,8 @@ use crate::{
         encoder::{
             analysis::VoiceActivityDetector,
             channel::{ChannelFrameEncoder, FrameControls, FrameError},
-            mono::{dc_reject, target_snr},
+            dtx::{Decision, DtxState},
+            mono::{PacketDuration, dc_reject, target_snr},
             stereo::{StereoAnalysisState, StereoControls, StereoEncodeError},
         },
         gains::{FrameDuration, SignalType},
@@ -75,8 +76,8 @@ impl std::error::Error for EncoderError {
     }
 }
 
-/// Fixed-band CBR Hybrid settings. DTX/FEC and mode switching remain separate
-/// work; loss percentage currently controls SILK LTP and CELT intra policy.
+/// Fixed-band CBR Hybrid settings. Enable silence suppression separately with
+/// [`HybridEncoder::set_dtx`]; loss percentage controls LTP/intra policy, not FEC.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Options {
     /// Native analysis/quantization complexity,0..=10.
@@ -119,8 +120,8 @@ impl EncodedPacket {
 /// Pure Rust fixed-band mono/stereo Hybrid PCM encoder with bounded storage.
 ///
 /// Uses one shared range stream, WB SILK, CELT bands17..19(SWB)/21(FB), native
-/// rate allocation,4ms CELT alignment and high-band gain/stereo fades. DTX/FEC,
-/// cross-mode switching and general rate/channel selection remain unfinished.
+/// rate allocation,4ms CELT alignment, high-band gain/stereo fades and optional
+/// DTX. FEC, cross-mode switching and general rate/channel selection remain unfinished.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HybridEncoder {
     rate: InputRate,
@@ -139,6 +140,7 @@ pub struct HybridEncoder {
     high_gain: i16,
     width: i16,
     celt: CeltEncoder,
+    dtx: DtxState,
 }
 impl HybridEncoder {
     /// Create a fresh stream.24kHz accepts SWB only;48kHz accepts SWB/FB.
@@ -176,6 +178,7 @@ impl HybridEncoder {
             high_gain: 32767,
             width: 16384,
             celt,
+            dtx: DtxState::default(),
         })
     }
     /// Fixed PCM input rate.
@@ -194,8 +197,22 @@ impl HybridEncoder {
     pub fn lookahead_48k(&self) -> u32 {
         312
     }
-    /// Clear both layers, input filters, delays, stereo and bitrate histories.
+    /// Enable native silence suppression. Disabled by default. A suppressed
+    /// packet contains only TOC and reports final range zero, even in CBR mode.
+    /// SILK inactivity can retain CELT history; outer digital silence advances
+    /// both layers before suppression. Errors preserve all state and clocks.
+    pub fn set_dtx(&mut self, enabled: bool) {
+        self.dtx.enabled = enabled;
+    }
+    /// Whether the last successful packet suppressed its payload.
+    pub fn in_dtx(&self) -> bool {
+        self.dtx.suppressed
+    }
+    /// Clear both layers, filters, delays and bitrate histories, retaining DTX.
     pub fn reset(&mut self) {
+        let dtx = self.dtx.enabled;
+        self.dtx = DtxState::default();
+        self.dtx.enabled = dtx;
         self.resamplers = std::array::from_fn(|_| {
             EncoderResamplerState::new(output_rate(self.rate), SilkRate::Khz16)
         });
@@ -216,7 +233,8 @@ impl HybridEncoder {
         self.celt.set_allocation_analysis(true);
     }
     /// Encode one interleaved signed16 frame. Budget includes TOC,3..=1276 bytes.
-    /// Output always fills the budget. Tiny budgets may fail after bounded RDO.
+    /// Output fills the budget unless DTX emits one TOC byte. Tiny budgets may
+    /// fail after bounded RDO, including when silence suppression is enabled.
     /// Every error preserves complete stream state; input is never modified.
     pub fn encode(
         &mut self,
@@ -273,6 +291,8 @@ impl HybridEncoder {
         let samples = input.len() / self.channels;
         let internal = if short { 160 } else { 320 };
         let payload_bytes = packet_bytes - 1;
+        let digital_silence = input.iter().all(|&v| v == 0);
+        self.dtx.begin(digital_silence);
         let allocation = RateAllocation::new(RateControls {
             duration,
             bandwidth: self.bandwidth,
@@ -357,6 +377,15 @@ impl HybridEncoder {
                     .map_err(|e| EncoderError::Silk(FrameError::from(e)))?,
             );
         }
+        for (c, activity) in activities.iter_mut().enumerate().take(self.channels) {
+            if let Some(activity) = activity {
+                if self.dtx.enabled && digital_silence {
+                    activity.probability_q8 = activity.probability_q8.min(12);
+                }
+                self.dtx
+                    .frame(c, activity.probability_q8 >= 13 && !digital_silence);
+            }
+        }
         if let Some(s) = &stereo {
             s.encode_prefix(
                 &mut writer,
@@ -407,9 +436,27 @@ impl HybridEncoder {
         writer
             .patch_initial_bits(flags, header_bits)
             .map_err(EncoderError::Entropy)?;
-        self.excess = (self.excess + writer.tell().div_ceil(8) as i32 * 8
-            - allocation.silk_bitrate() as i32 / fps as i32)
+        let decision = self.dtx.finish(
+            if short {
+                PacketDuration::Ms10
+            } else {
+                PacketDuration::Ms20
+            },
+            self.channels,
+            digital_silence,
+        );
+        let silk_bits = if decision == Decision::Silk {
+            0
+        } else {
+            writer.tell().div_ceil(8) as i32 * 8
+        };
+        self.excess = (self.excess + silk_bits - allocation.silk_bitrate() as i32 / fps as i32)
             .clamp(0, 10000);
+        // Native SILK DTX returns before the outer delay copy, HB fades and
+        // CELT call. Digital-silence DTX instead runs both layers to completion.
+        if decision == Decision::Silk {
+            return Ok(self.suppressed_packet(duration));
+        }
         if writer.tell() + 37 <= payload_bytes as u32 * 8 {
             writer
                 .encode_bit_logp(false, 12)
@@ -464,6 +511,9 @@ impl HybridEncoder {
             .map_err(EncoderError::Celt)?;
         let range = writer.range();
         let payload = finish(&mut writer).map_err(EncoderError::Entropy)?;
+        if decision == Decision::DigitalSilence {
+            return Ok(self.suppressed_packet(duration));
+        }
         let config = if self.bandwidth == Bandwidth::SuperWideband {
             12
         } else {
@@ -478,6 +528,21 @@ impl HybridEncoder {
         packet.bytes[0] = (config << 3) | if self.channels == 2 { 4 } else { 0 };
         packet.bytes[1..packet_bytes].copy_from_slice(payload);
         Ok(packet)
+    }
+    fn suppressed_packet(&self, duration: FrameDuration) -> EncodedPacket {
+        let config = if self.bandwidth == Bandwidth::SuperWideband {
+            12
+        } else {
+            14
+        } + u8::from(duration == FrameDuration::Ms20);
+        let mut packet = EncodedPacket {
+            bytes: [0; 1276],
+            length: 1,
+            range: 0,
+            duration,
+        };
+        packet.bytes[0] = (config << 3) | if self.channels == 2 { 4 } else { 0 };
+        packet
     }
 }
 fn output_rate(rate: InputRate) -> OutputRate {

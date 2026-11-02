@@ -1709,3 +1709,8 @@ SILK/CELT rate control in `src/opus_encoder.c`; high-band analysis/control follo
 `celt/celt_encoder.c` at the same pinned revision under the existing notices.
 Constituent SILK/CELT algorithms retain their attribution above. Optional native
 cross-decoding/fade oracles do not link native code into ordinary builds/tests.
+
+Hybrid DTX reuses the SILK inactivity and fixed-point outer silence policy
+above, retaining the SILK early return and post-CELT digital-silence ordering in
+`src/opus_encoder.c`. The optional forced-Hybrid oracle wraps unchanged public
+encoding and counts original SILK/CELT calls; it modifies no codec algorithm.

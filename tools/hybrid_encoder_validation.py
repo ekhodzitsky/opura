@@ -16,10 +16,11 @@ def main():
     parser.add_argument('source', type=Path)
     parser.add_argument('vectors', type=Path)
     parser.add_argument('report', type=Path)
+    parser.add_argument('--profile', choices=['normal', 'dtx'], default='normal')
     args = parser.parse_args()
     report = {'status': 'in_progress', 'reference_revision': REVISION,
               'vector_sha256': hashlib.sha256(args.vectors.read_bytes()).hexdigest(),
-              'streams': 0, 'records': 0, 'lost': 0}
+              'profile': args.profile, 'streams': 0, 'records': 0, 'lost': 0, 'dtx_packets': 0}
     args.report.write_text(json.dumps(report, indent=2) + '\n')
     with tempfile.TemporaryDirectory(prefix='opura-hybrid-validation-') as temp:
         lib = compile_reference(args.source.resolve(), Path(temp))
@@ -63,11 +64,15 @@ def main():
                         raise ValueError(f'Native mismatch at record {report["records"]}: samples={actual * channels}/{count}, range={final_range.value}/{expected_range}')
                     report['records'] += 1
                     report['lost'] += int(not packet)
+                    report['dtx_packets'] += int(len(packet) == 1)
         finally:
             if decoder:
                 lib.opus_decoder_destroy(decoder)
-    if report['streams'] != 240 or report['records'] != 5760 or report['lost'] != 480:
+    expected = (240, 5760, 480) if args.profile == 'normal' else (144, 21600, 288)
+    if (report['streams'], report['records'], report['lost']) != expected:
         raise ValueError('Unexpected corpus size')
+    if args.profile == 'dtx' and report['dtx_packets'] == 0:
+        raise ValueError('Missing DTX coverage')
     report['status'] = 'pass'
     args.report.write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps(report))

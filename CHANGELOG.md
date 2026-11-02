@@ -7,6 +7,24 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.76] - 2026-11-02
+
+- Add opt-in Hybrid DTX through `HybridEncoder::set_dtx` and CLI `--mode hybrid
+  --dtx`. Suppressed packets contain one TOC byte and final range zero, including
+  CBR. `in_dtx` reports the last successful result; reset retains the setting.
+- Preserve distinct native state ordering: SILK inactivity returns before CELT,
+  input-delay copy and gain/width fades; outer digital silence completes both
+  layers and entropy termination first. All DTX counters and both layers roll
+  back together on errors, including forced termination failure.
+- Retain10800 original forced-Hybrid suppression and layer-call snapshots,
+  covering24/48kHz, mono/stereo, SWB/FB,10/20ms, complexity0/6/10, silence,
+  quiet input, refresh, disabling/re-enabling and speech resume. Default normal
+  Hybrid behavior remains compatible; Hybrid FEC and general adaptation remain
+  unfinished. Independent native decoding matches21600 normal/DTX/loss calls
+  and16 real-recording files (60976 packets,1284 DTX), with exact PCM/ranges/
+  duration and fractional byte budgets. All seven required offline gates pass,
+  including23 Python tests. See docs/validation/hybrid-dtx.md.
+
 ## [0.1.75] - 2026-11-02
 
 - Connect fixed-band mono/stereo Hybrid PCM encoding at24/48kHz,10/20ms and
