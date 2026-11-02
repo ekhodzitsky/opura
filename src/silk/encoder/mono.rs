@@ -1,6 +1,7 @@
 //! Mono PCM-to-Opus packets with explicit SILK bandwidth and explicit byte budgets.
 use super::{
     analysis::VoiceActivityDetector,
+    bandwidth::{BandwidthError, PacketBandwidth},
     channel::{ChannelFrameEncoder, FrameControls, FrameError},
     dtx::{Decision, DtxState},
     fec::{self, FecState},
@@ -86,6 +87,8 @@ pub enum MonoError {
     Resampler(ResampleError),
     /// Channel PCM encoding failed.
     Frame(FrameError),
+    /// Bandwidth transition controls or internal filtering failed.
+    Bandwidth(BandwidthError),
     /// Packet header/termination failed.
     Entropy(EncoderError),
 }
@@ -98,6 +101,7 @@ impl fmt::Display for MonoError {
             Self::InvalidOptions => f.write_str("invalid SILK mono options or packet budget"),
             Self::Resampler(e) => write!(f, "SILK input: {e}"),
             Self::Frame(e) => write!(f, "SILK packet: {e}"),
+            Self::Bandwidth(e) => write!(f, "SILK bandwidth transition: {e}"),
             Self::Entropy(e) => write!(f, "SILK packet entropy: {e}"),
         }
     }
@@ -107,6 +111,7 @@ impl std::error::Error for MonoError {
         match self {
             Self::Resampler(e) => Some(e),
             Self::Frame(e) => Some(e),
+            Self::Bandwidth(e) => Some(e),
             Self::Entropy(e) => Some(e),
             _ => None,
         }
@@ -120,6 +125,11 @@ impl From<ResampleError> for MonoError {
 impl From<FrameError> for MonoError {
     fn from(e: FrameError) -> Self {
         Self::Frame(e)
+    }
+}
+impl From<BandwidthError> for MonoError {
+    fn from(e: BandwidthError) -> Self {
+        Self::Bandwidth(e)
     }
 }
 impl From<EncoderError> for MonoError {
@@ -146,7 +156,7 @@ impl MonoPacket {
 }
 /// Explicit-bandwidth mono PCM encoder for all five external rates. Uses native
 /// DC rejection, encoder resampling, VAD, SNR tables and packet bit reservoir.
-/// Supports opt-in DTX/FEC; adaptive bandwidth switching remains separate work.
+/// Supports DTX/FEC and native gradual transitions to an externally supplied target.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MonoEncoder {
     input: OutputRate,
@@ -159,6 +169,7 @@ pub struct MonoEncoder {
     excess: i32,
     dtx: DtxState,
     fec: FecState<1>,
+    bandwidth_control: PacketBandwidth<1>,
 }
 impl MonoEncoder {
     /// Start an independent mono stream at a fixed input rate/internal bandwidth.
@@ -174,6 +185,7 @@ impl MonoEncoder {
             excess: 0,
             dtx: DtxState::default(),
             fec: FecState::default(),
+            bandwidth_control: PacketBandwidth::default(),
         }
     }
     /// Nominal pre-skip on the 48 kHz Opus clock: 6.5 ms, including the native
@@ -185,12 +197,35 @@ impl MonoEncoder {
     pub fn bandwidth(&self) -> SilkRate {
         self.internal
     }
+    /// Desired internal bandwidth for activity-permitted native LP transitions.
+    /// None selects fixed-band operation. The actual rate is `bandwidth()`;
+    /// the desired rate is capped by the external PCM rate during selection.
+    pub fn bandwidth_target(&self) -> Option<SilkRate> {
+        self.bandwidth_control.target
+    }
+    /// Request native gradual transitions toward an externally selected target.
+    /// This does not select a target from bitrate/music analysis. None stops the
+    /// taper at the current rate. Reset retains this setting. Packet errors
+    /// preserve all transition/filter state and pending switch acknowledgements.
+    pub fn set_bandwidth_target(&mut self, target: Option<SilkRate>) {
+        self.bandwidth_control.set_target(target);
+    }
     /// Force a fixed bandwidth at a packet boundary, retaining converted input
     /// history, VAD/DC, frame counters, DTX and rate-control history. Incompatible
     /// pending FEC is cleared; last-packet diagnostics retain their meaning.
-    /// Adaptive selection/taper scheduling belongs to the outer controller.
+    /// A changed rate stops gradual targeting; an identical-rate call preserves it.
     /// Same-band calls are no-ops; errors preserve the entire stream.
     pub fn set_bandwidth(&mut self, rate: SilkRate) -> Result<(), MonoError> {
+        if rate == self.internal {
+            return Ok(());
+        }
+        let mut next = self.clone();
+        next.change_bandwidth(rate)?;
+        next.bandwidth_control.set_target(None);
+        *self = next;
+        Ok(())
+    }
+    fn change_bandwidth(&mut self, rate: SilkRate) -> Result<(), MonoError> {
         if rate == self.internal {
             return Ok(());
         }
@@ -227,13 +262,15 @@ impl MonoEncoder {
     pub fn in_dtx(&self) -> bool {
         self.dtx.suppressed
     }
-    /// Reset all input, VAD, predictor and bitrate history, retaining rates and DTX/FEC settings.
+    /// Reset all input, VAD, predictor and bitrate history, retaining rates, bandwidth target and DTX/FEC settings.
     pub fn reset(&mut self) {
+        let target = self.bandwidth_control.target;
         let enabled = self.dtx.enabled;
         let fec = self.fec.enabled;
         *self = Self::new(self.input, self.internal);
         self.set_dtx(enabled);
         self.set_inband_fec(fec);
+        self.set_bandwidth_target(target);
     }
     /// Encode exactly one duration of mono PCM. packet_bytes includes TOC and
     /// packet padding, excludes transport/container overhead, and is 3..=1276.
@@ -258,6 +295,13 @@ impl MonoEncoder {
             return Err(MonoError::InvalidOptions);
         }
         let mut staged = self.clone();
+        let rate = staged.bandwidth_control.begin(
+            self.input,
+            self.internal,
+            duration,
+            (packet_bytes as u32 - 1) * 8,
+        )?;
+        staged.change_bandwidth(rate)?;
         let digital_silence = input.iter().all(|&v| v == 0);
         staged.dtx.begin(digital_silence);
         let mut filtered = [0i16; 2880];
@@ -319,8 +363,8 @@ impl MonoEncoder {
         let converted = pcm.len();
         let frames = duration.frames();
         let frame_samples = converted / frames;
-        let maximum = (packet_bytes as u32 - 1) * 8;
-        let bitrate = maximum as i32 * 1000 / ms as i32;
+        let maximum = self.bandwidth_control.maximum;
+        let bitrate = (packet_bytes as i32 - 1) * 8 * 1000 / ms as i32;
         let nominal_bits = bitrate * ms as i32 / 1000;
 
         let mut writer = RangeEncoder::new(1275)?;
@@ -339,6 +383,7 @@ impl MonoEncoder {
             })?;
         let per_frame = (nominal_bits - self.fec.used_bits) / frames as i32;
         let mut flags = 0;
+        let mut last_activity = 0;
         for (index, frame) in pcm[..converted].chunks_exact(frame_samples).enumerate() {
             let mut target = per_frame
                 * if duration == PacketDuration::Ms10 {
@@ -360,6 +405,14 @@ impl MonoEncoder {
             if (self.dtx.enabled || self.fec.enabled) && digital_silence {
                 activity.probability_q8 = activity.probability_q8.min(12);
             }
+            last_activity = activity.probability_q8;
+            let mut tapered = [0i16; 320];
+            tapered[..frame.len()].copy_from_slice(frame);
+            self.bandwidth_control.transitions[0].filter(
+                self.internal,
+                duration.frame_duration(),
+                &mut tapered[..frame.len()],
+            )?;
             let active = activity.probability_q8 >= 13;
             self.dtx.frame(0, active && !digital_silence);
             let limit = match (frames, index) {
@@ -371,7 +424,7 @@ impl MonoEncoder {
             let fec_controls = self.fec.controls(0, index);
             let encoded = self.channel.encode_with_redundancy(
                 &mut writer,
-                frame,
+                &tapered[..frame.len()],
                 FrameControls {
                     duration: duration.frame_duration(),
                     complexity: options.complexity,
@@ -444,6 +497,7 @@ impl MonoEncoder {
             payload.len() as i32 * 8
         };
         self.excess = (self.excess + payload_bits - nominal_bits).clamp(0, 10000);
+        self.bandwidth_control.finish(last_activity, duration);
         Ok(result)
     }
 }

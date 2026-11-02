@@ -1682,3 +1682,10 @@ Channel history migration and resampler priming follow `silk_setup_resamplers`
 and prediction resets in `silk_setup_fs`, both in `silk/control_codec.c`.
 Optional oracles call unchanged original functions and retain synthetic
 PCM/state fingerprints; they add no native build/test dependency.
+
+Connected mono/stereo bandwidth scheduling additionally follows packet activity
+permission in `silk/enc_API.c`, per-channel LP placement in
+`silk/fixed/encode_frame_FIX.c` and successful-packet readiness acknowledgement in
+`src/opus_encoder.c` at the same pinned revision. The optional scheduling oracle
+calls the unchanged original control/filter functions and native activity macros;
+external reference code remains outside all Cargo builds and ordinary tests.

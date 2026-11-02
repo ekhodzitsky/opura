@@ -371,3 +371,51 @@ fn stereo_packets_decode_through_mid_only_and_side_restart() -> Result<()> {
     assert!(restarts > 30);
     Ok(())
 }
+
+#[test]
+fn gradual_stereo_bandwidth_tracks_mid_and_pauses_omitted_side_filter() -> Result<()> {
+    use crate::{decoder::OpusDecoder, silk::decoder::PcmChannels};
+    let mut encoder = StereoEncoder::new(OutputRate::Khz48, SilkRate::Khz16);
+    encoder.set_dtx(true);
+    encoder.set_inband_fec(true);
+    let options = StereoOptions {
+        complexity: 0,
+        packet_loss_percent: 20,
+        ..StereoOptions::default()
+    };
+    for _ in 0..5 {
+        encoder.encode(PacketDuration::Ms60, &[0; 5760], 90, options)?;
+    }
+    encoder.set_bandwidth_target(Some(SilkRate::Khz8));
+    encoder.encode(PacketDuration::Ms60, &[0; 5760], 90, options)?;
+    assert!(encoder.previous_mid_only);
+    assert_eq!(encoder.bandwidth_control.transitions[0].position(), 250);
+    assert_eq!(encoder.bandwidth_control.transitions[1].position(), 256);
+    let saved = encoder.clone();
+    assert!(
+        encoder
+            .encode(PacketDuration::Ms60, &[12000; 5760], 3, options)
+            .is_err()
+    );
+    assert_eq!(encoder, saved);
+    let mut decoder = OpusDecoder::new(OutputRate::Khz48, PcmChannels::Stereo)?;
+    let mut seen = [false; 3];
+    for packet in 0..360 {
+        if packet == 130 {
+            encoder.set_bandwidth_target(Some(SilkRate::Khz16));
+        }
+        let encoded = encoder.encode(PacketDuration::Ms60, &[0; 5760], 480, options)?;
+        seen[match encoder.bandwidth() {
+            SilkRate::Khz8 => 0,
+            SilkRate::Khz12 => 1,
+            SilkRate::Khz16 => 2,
+        }] = true;
+        assert_eq!(decoder.decode(encoded.as_bytes())?.samples().len(), 5760);
+        assert_eq!(decoder.final_range(), encoded.final_range());
+    }
+    assert_eq!(seen, [true; 3]);
+    assert_eq!(encoder.bandwidth(), SilkRate::Khz16);
+    encoder.reset();
+    assert_eq!(encoder.bandwidth_target(), Some(SilkRate::Khz16));
+    Ok(())
+}

@@ -232,3 +232,50 @@ fn original_dc_rejection_matches_pcm_and_filter_history() -> Result<()> {
     assert_eq!(cases, 40);
     Ok(())
 }
+
+#[test]
+fn gradual_bandwidth_targets_filter_migrate_and_roll_back_atomically() -> Result<()> {
+    let mut encoder = MonoEncoder::new(OutputRate::Khz48, SilkRate::Khz16);
+    encoder.set_inband_fec(true);
+    encoder.set_dtx(true);
+    let options = MonoOptions {
+        complexity: 0,
+        packet_loss_percent: 20,
+        ..MonoOptions::default()
+    };
+    encoder.encode(PacketDuration::Ms60, &[0; 2880], 240, options)?;
+    encoder.set_bandwidth_target(Some(SilkRate::Khz8));
+    encoder.encode(PacketDuration::Ms60, &[0; 2880], 240, options)?;
+    assert_eq!(encoder.bandwidth(), SilkRate::Khz16);
+    assert_eq!(encoder.bandwidth_control.transitions[0].direction(), -2);
+    let saved = encoder.clone();
+    assert!(
+        encoder
+            .encode(PacketDuration::Ms60, &[12000; 2880], 3, options)
+            .is_err()
+    );
+    assert_eq!(encoder, saved);
+    let mut decoder = OpusDecoder::new(OutputRate::Khz48, PcmChannels::Mono)?;
+    let mut seen = [false; 3];
+    for packet in 0..360 {
+        if packet == 130 {
+            encoder.set_bandwidth_target(Some(SilkRate::Khz16));
+        }
+        let encoded = encoder.encode(PacketDuration::Ms60, &[0; 2880], 240, options)?;
+        seen[match encoder.bandwidth() {
+            SilkRate::Khz8 => 0,
+            SilkRate::Khz12 => 1,
+            SilkRate::Khz16 => 2,
+        }] = true;
+        assert_eq!(decoder.decode(encoded.as_bytes())?.samples().len(), 2880);
+        assert_eq!(decoder.final_range(), encoded.final_range());
+    }
+    assert_eq!(seen, [true; 3]);
+    assert_eq!(encoder.bandwidth(), SilkRate::Khz16);
+    encoder.reset();
+    assert_eq!(encoder.bandwidth_target(), Some(SilkRate::Khz16));
+    assert_eq!(encoder.bandwidth_control.transitions[0].direction(), 0);
+    encoder.set_bandwidth_target(None);
+    assert_eq!(encoder.bandwidth_target(), None);
+    Ok(())
+}

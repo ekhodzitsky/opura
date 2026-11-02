@@ -1,6 +1,7 @@
 //! Adaptive SILK L/R-to-M/S prediction, stereo width and bitrate allocation.
 //! Adapted from Opus v1.6.1 stereo encoder sources; see THIRD_PARTY_NOTICES.md.
 use super::{
+    bandwidth::{BandwidthError, PacketBandwidth},
     dtx::{Decision, DtxState},
     fec::{self, FecState, StereoPrefix},
     math::{divide_q, energy},
@@ -404,6 +405,8 @@ pub enum StereoPacketError {
     Stereo(StereoEncodeError),
     /// A mid/side channel frame could not be encoded.
     Frame(FrameError),
+    /// Bandwidth transition controls or internal filtering failed.
+    Bandwidth(BandwidthError),
     /// Packet headers or entropy termination failed.
     Entropy(EncoderError),
 }
@@ -417,6 +420,7 @@ impl fmt::Display for StereoPacketError {
             Self::Resampler(e) => write!(f, "SILK stereo input: {e}"),
             Self::Stereo(e) => write!(f, "SILK stereo analysis: {e}"),
             Self::Frame(e) => write!(f, "SILK stereo channel: {e}"),
+            Self::Bandwidth(e) => write!(f, "SILK bandwidth transition: {e}"),
             Self::Entropy(e) => write!(f, "SILK stereo packet: {e}"),
         }
     }
@@ -427,6 +431,7 @@ impl std::error::Error for StereoPacketError {
             Self::Resampler(e) => Some(e),
             Self::Stereo(e) => Some(e),
             Self::Frame(e) => Some(e),
+            Self::Bandwidth(e) => Some(e),
             Self::Entropy(e) => Some(e),
             _ => None,
         }
@@ -445,6 +450,11 @@ impl From<StereoEncodeError> for StereoPacketError {
 impl From<FrameError> for StereoPacketError {
     fn from(e: FrameError) -> Self {
         Self::Frame(e)
+    }
+}
+impl From<BandwidthError> for StereoPacketError {
+    fn from(e: BandwidthError) -> Self {
+        Self::Bandwidth(e)
     }
 }
 impl From<EncoderError> for StereoPacketError {
@@ -470,7 +480,7 @@ impl StereoPacket {
 /// Raw interleaved stereo PCM to explicit-bandwidth SILK Opus packets. Supports
 /// adaptive M/S prediction/width, panned mid-only omission and side restarts.
 /// External rate/channel count remain fixed; internal bandwidth can be changed
-/// at packet boundaries. Supports DTX/FEC; automatic taper scheduling is separate.
+/// at packet boundaries. Supports DTX/FEC and gradual externally targeted transitions.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StereoEncoder {
     input: OutputRate,
@@ -485,6 +495,7 @@ pub struct StereoEncoder {
     excess: i32,
     dtx: DtxState,
     fec: FecState<2>,
+    bandwidth_control: PacketBandwidth<2>,
 }
 impl StereoEncoder {
     /// Start a stereo stream at any standard PCM rate and fixed SILK bandwidth.
@@ -502,6 +513,7 @@ impl StereoEncoder {
             excess: 0,
             dtx: DtxState::default(),
             fec: FecState::default(),
+            bandwidth_control: PacketBandwidth::default(),
         }
     }
     /// Nominal pre-skip on the48kHz clock, including stereo/input compensation.
@@ -512,12 +524,36 @@ impl StereoEncoder {
     pub fn bandwidth(&self) -> SilkRate {
         self.internal
     }
+    /// Desired internal bandwidth for activity-permitted native LP transitions.
+    /// None selects fixed-band operation. The actual rate is `bandwidth()`;
+    /// the desired rate is capped by the external PCM rate during selection.
+    pub fn bandwidth_target(&self) -> Option<SilkRate> {
+        self.bandwidth_control.target
+    }
+    /// Request native gradual transitions toward an externally selected target.
+    /// This does not select a target from bitrate/music analysis. None stops the
+    /// taper at the current rate. Reset retains this setting. Packet errors
+    /// preserve all transition/filter state and pending switch acknowledgements.
+    pub fn set_bandwidth_target(&mut self, target: Option<SilkRate>) {
+        self.bandwidth_control.set_target(target);
+    }
     /// Force a fixed bandwidth at a packet boundary. Both channel histories and
     /// live resamplers migrate atomically; stereo predictors, VAD/DC, counters,
     /// DTX and reservoir persist. Incompatible queued FEC is cleared. Last-packet
-    /// diagnostics keep their meaning. Adaptive taper scheduling is separate.
+    /// diagnostics keep their meaning. A changed rate stops gradual targeting;
+    /// an identical-rate call preserves it.
     /// Same-band calls are no-ops; errors preserve the entire stream.
     pub fn set_bandwidth(&mut self, rate: SilkRate) -> Result<(), StereoPacketError> {
+        if rate == self.internal {
+            return Ok(());
+        }
+        let mut next = self.clone();
+        next.change_bandwidth(rate)?;
+        next.bandwidth_control.set_target(None);
+        *self = next;
+        Ok(())
+    }
+    fn change_bandwidth(&mut self, rate: SilkRate) -> Result<(), StereoPacketError> {
         if rate == self.internal {
             return Ok(());
         }
@@ -555,13 +591,15 @@ impl StereoEncoder {
     pub fn in_dtx(&self) -> bool {
         self.dtx.suppressed
     }
-    /// Clear every stream history, retaining configured rates and DTX/FEC settings.
+    /// Clear every stream history, retaining rates, bandwidth target and DTX/FEC settings.
     pub fn reset(&mut self) {
+        let target = self.bandwidth_control.target;
         let enabled = self.dtx.enabled;
         let fec = self.fec.enabled;
         *self = Self::new(self.input, self.internal);
         self.set_dtx(enabled);
         self.set_inband_fec(fec);
+        self.set_bandwidth_target(target);
     }
     /// Encode one10/20/40/60ms interleaved L/R packet. Byte budget includes TOC /
     /// packet padding and is3..=1276. CBR fills the budget, variable mode caps it.
@@ -586,6 +624,13 @@ impl StereoEncoder {
             return Err(StereoPacketError::InvalidOptions);
         }
         let mut next = self.clone();
+        let rate = next.bandwidth_control.begin(
+            self.input,
+            self.internal,
+            duration,
+            (packet_bytes as u32 - 1) * 8,
+        )?;
+        next.change_bandwidth(rate)?;
         let digital_silence = input.iter().all(|&v| v == 0);
         next.dtx.begin(digital_silence);
         let mut pcm = [[0i16; 960]; 2];
@@ -644,8 +689,8 @@ impl StereoEncoder {
         let ms = duration.milliseconds() as usize;
         let frames = duration.frames();
         let frame_samples = ms * self.internal.khz() as usize / frames;
-        let maximum = (packet_bytes as u32 - 1) * 8;
-        let bitrate = maximum as i32 * 1000 / ms as i32;
+        let maximum = self.bandwidth_control.maximum;
+        let bitrate = (packet_bytes as i32 - 1) * 8 * 1000 / ms as i32;
         let nominal_bits = bitrate * ms as i32 / 1000;
 
         let mut writer = RangeEncoder::new(1275)?;
@@ -762,13 +807,21 @@ impl StereoEncoder {
                 } else {
                     cap
                 };
+                let frame = if channel == 0 {
+                    stereo.mid()
+                } else {
+                    stereo.side()
+                };
+                let mut tapered = [0i16; 320];
+                tapered[..frame.len()].copy_from_slice(frame);
+                self.bandwidth_control.transitions[channel].filter(
+                    self.internal,
+                    duration.frame_duration(),
+                    &mut tapered[..frame.len()],
+                )?;
                 let encoded = self.channels[channel].encode_with_redundancy(
                     &mut writer,
-                    if channel == 0 {
-                        stereo.mid()
-                    } else {
-                        stereo.side()
-                    },
+                    &tapered[..frame.len()],
                     FrameControls {
                         duration: duration.frame_duration(),
                         complexity: options.complexity,
@@ -848,6 +901,7 @@ impl StereoEncoder {
             payload.len() as i32 * 8
         };
         self.excess = (self.excess + payload_bits - nominal_bits).clamp(0, 10000);
+        self.bandwidth_control.finish(self.activity, duration);
         Ok(result)
     }
 }

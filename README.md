@@ -84,9 +84,17 @@ recovery, queue transitions, bounded retry and independent decoding.
 Library streams can call `set_bandwidth(SilkRate::Khz8/Khz12/Khz16)` between
 packets and inspect `bandwidth()`. Input history and live resamplers migrate;
 VAD/stereo/DTX state persists and incompatible pending FEC is cleared. This is a
-forced change. Automatic rate policy and LP taper scheduling remain separate;
+forced change. Automatic target policy remains separate;
 the CLI still uses one selected bandwidth per file. See
 [bandwidth switching validation](docs/validation/silk-bandwidth-switching.md).
+
+Unreleased: `set_bandwidth_target(Some(rate))` connects native activity-permitted
+LP transitions to mono/stereo PCM. `bandwidth()` reports the actual rate;
+`set_bandwidth_target(None)` stops the taper. Targets are capped by the input
+rate, reset retains the request, and failed packets roll back all transition
+state. This supplies the inner SILK handshake; bitrate/music-driven automatic
+target selection and cross-mode redundancy remain unfinished. See
+[connected transition validation](docs/validation/silk-adaptive-bandwidth.md).
 
 Decoding accepts SILK, Hybrid and CELT in one mono/stereo Ogg Opus stream
 (mapping family zero, zero header output gain), and writes PCM16 WAV at 48 kHz.

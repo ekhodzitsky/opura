@@ -262,6 +262,98 @@ fn interpolate<const N: usize>(table: &[[i32; N]; 5], index: usize, fraction: i3
     })
 }
 
+// Shared packet scheduling for the raw mono/stereo SILK frontends. The outer
+// Opus mode/rate policy supplies a desired rate; this layer owns native timing.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(super) struct PacketBandwidth<const N: usize> {
+    pub target: Option<SilkRate>,
+    pub transitions: [BandwidthTransition; N],
+    started: bool,
+    allowed: bool,
+    elapsed_ms: i32,
+    can_switch: bool,
+    ready: bool,
+    pub maximum: u32,
+}
+impl<const N: usize> Default for PacketBandwidth<N> {
+    fn default() -> Self {
+        Self {
+            target: None,
+            transitions: std::array::from_fn(|_| BandwidthTransition::default()),
+            started: false,
+            allowed: false,
+            elapsed_ms: 0,
+            can_switch: false,
+            ready: false,
+            maximum: 0,
+        }
+    }
+}
+impl<const N: usize> PacketBandwidth<N> {
+    pub fn set_target(&mut self, target: Option<SilkRate>) {
+        if target.is_none() && self.target.is_some() {
+            // Returning to fixed operation stops any in-progress taper.
+            self.transitions = std::array::from_fn(|_| BandwidthTransition::default());
+            self.can_switch = false;
+            self.ready = false;
+        }
+        self.target = target;
+    }
+    pub fn begin(
+        &mut self,
+        input: OutputRate,
+        current: SilkRate,
+        duration: PacketDuration,
+        maximum: u32,
+    ) -> Result<SilkRate, BandwidthError> {
+        self.maximum = maximum;
+        self.ready = false;
+        let Some(target) = self.target else {
+            return Ok(current);
+        };
+        let mut rate = current;
+        for (channel, transition) in self.transitions.iter_mut().enumerate() {
+            let decision = transition.select(BandwidthControls {
+                current: self.started.then_some(current),
+                input,
+                minimum: SilkRate::Khz8,
+                maximum: SilkRate::Khz16,
+                desired: at_most_input(target, input),
+                allow_switch: self.allowed,
+                can_switch: self.can_switch,
+                duration,
+                max_bits: self.maximum,
+            })?;
+            // Native side control runs its own handshake/budget before setup_fs
+            // forces the side to the mid's actual rate.
+            if channel == 0 {
+                rate = decision.rate();
+            }
+            self.ready |= decision.switch_ready();
+            self.maximum = decision.max_bits();
+        }
+        if rate != current {
+            for transition in &mut self.transitions {
+                transition.reset_filter_delay();
+            }
+        }
+        Ok(rate)
+    }
+    pub fn finish(&mut self, activity_q8: u8, duration: PacketDuration) {
+        // Original silk_Encode activity permission uses the final mid frame.
+        let threshold = 13 + mul_wb(3188, self.elapsed_ms);
+        self.allowed = i32::from(activity_q8) < threshold;
+        if self.allowed {
+            self.elapsed_ms = 0;
+        } else {
+            self.elapsed_ms += duration.milliseconds() as i32;
+        }
+        self.started = true;
+        // Acknowledge only after the whole packet (including DTX) succeeds.
+        self.can_switch = self.ready;
+    }
+}
+
 #[cfg(test)]
 #[path = "bandwidth_tests.rs"]
 mod tests;

@@ -282,3 +282,135 @@ fn public_pcm_band_changes_decode_continuously_at_every_input_rate() -> Result<(
     }
     Ok(())
 }
+
+fn schedule<const N: usize>(
+    id: usize,
+    input: OutputRate,
+    initial: SilkRate,
+    profile: usize,
+) -> Result<(u64, usize, usize, usize)> {
+    fn add(hash: &mut u64, value: i32) {
+        for byte in value.to_le_bytes() {
+            *hash = (*hash ^ u64::from(byte)).wrapping_mul(1099511628211);
+        }
+    }
+    let mut state = PacketBandwidth::<N>::default();
+    let mut current = initial;
+    let mut hash = 14695981039346656037;
+    let (mut changes, mut readies, mut omitted) = (0, 0, 0);
+    for packet in 0..900 {
+        let mut target = [
+            initial,
+            SilkRate::Khz8,
+            SilkRate::Khz16,
+            SilkRate::Khz12,
+            SilkRate::Khz8,
+            SilkRate::Khz16,
+        ][packet / 150];
+        if (225..235).contains(&packet) {
+            target = SilkRate::Khz16;
+        }
+        state.set_target(Some(target));
+        let duration = if profile == 0 {
+            PacketDuration::Ms60
+        } else {
+            [
+                PacketDuration::Ms10,
+                PacketDuration::Ms20,
+                PacketDuration::Ms40,
+                PacketDuration::Ms60,
+            ][packet % 4]
+        };
+        let next = state.begin(
+            input,
+            current,
+            duration,
+            [16, 127, 512, 4096, 10200][packet % 5],
+        )?;
+        changes += usize::from(next != current);
+        current = next;
+        readies += usize::from(state.ready);
+        add(&mut hash, current.khz());
+        add(&mut hash, i32::from(state.ready));
+        add(&mut hash, state.maximum as i32);
+        let ms = if duration == PacketDuration::Ms10 {
+            10
+        } else {
+            20
+        };
+        for frame in 0..duration.frames() {
+            for channel in 0..N {
+                if channel == 1 && packet % 73 < 35 {
+                    omitted += 1;
+                    continue;
+                }
+                let mut random =
+                    0x73636864u32 ^ (id * 100000 + packet * 8 + frame * 2 + channel) as u32;
+                let mut pcm = [0i16; 320];
+                let samples = &mut pcm[..ms * current.khz() as usize];
+                for sample in samples.iter_mut() {
+                    random = random.wrapping_mul(1664525).wrapping_add(1013904223);
+                    *sample = ((random >> 16) as i32 - 32768) as i16;
+                }
+                state.transitions[channel].filter(current, duration.frame_duration(), samples)?;
+                for sample in samples {
+                    add(&mut hash, i32::from(*sample));
+                }
+            }
+        }
+        let activity = if packet % 91 < 5 {
+            0
+        } else {
+            (255 - packet % 17) as u8
+        };
+        state.finish(activity, duration);
+        add(&mut hash, i32::from(state.allowed));
+        add(&mut hash, state.elapsed_ms);
+        add(&mut hash, i32::from(state.can_switch));
+        for transition in &state.transitions {
+            add(&mut hash, i32::from(transition.position));
+            add(&mut hash, i32::from(transition.direction));
+            for delay in transition.delay {
+                add(&mut hash, delay);
+            }
+        }
+    }
+    Ok((hash, changes, readies, omitted))
+}
+#[test]
+fn connected_packet_scheduling_matches_native_long_sequences() -> Result<()> {
+    let mut count = 0;
+    let mut changes = 0;
+    let mut ready = 0;
+    for (id, line) in include_str!("../../../tests/silk-encoder-bandwidth-schedule-fixtures.txt")
+        .lines()
+        .filter(|s| !s.starts_with('#'))
+        .enumerate()
+    {
+        let fields: Vec<_> = line.split_whitespace().collect();
+        let input = input_rate(fields[1].parse()?);
+        let initial = rate(fields[2].parse()?);
+        let profile = fields[4].parse()?;
+        let actual = if fields[3] == "1" {
+            schedule::<1>(id, input, initial, profile)?
+        } else {
+            schedule::<2>(id, input, initial, profile)?
+        };
+        assert_eq!(
+            actual,
+            (
+                fields[5].parse()?,
+                fields[6].parse()?,
+                fields[7].parse()?,
+                fields[8].parse()?
+            ),
+            "schedule {id}"
+        );
+        changes += actual.1;
+        ready += actual.2;
+        count += 1;
+    }
+    assert_eq!(count, 60);
+    assert!(changes > 100 && ready > 100);
+    Ok(())
+}

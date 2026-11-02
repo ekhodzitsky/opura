@@ -7,6 +7,24 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Connect native SILK LP bandwidth transitions to raw mono/stereo PCM encoding.
+  `set_bandwidth_target(Some(rate))` supplies an external target; actual changes
+  follow native activity permission and packet acknowledgements, retain converted
+  history, clear incompatible FEC and cap the desired rate by the PCM input rate.
+  VAD sees unfiltered input; omitted stereo side frames do not advance their LP.
+  `None` stops the taper at the current rate; reset retains the requested target.
+  Errors roll back switching/filter state along with the rest of the stream.
+- Match 60 unchanged native control/LP/activity sequences of 900 packets each,
+  including 176 rate changes, 164 readiness events, direction reversals, duration
+  changes, shared stereo bit reservations and 31635 omitted side frames.
+  Bitrate/music-driven outer target selection, cross-mode transition redundancy,
+  Hybrid encoding and quality/speed leadership remain unfinished.
+- Independent unchanged libopus decoding matches 432000 gradual-band normal/loss
+  records, including 72000 FEC requests. The workload guards completed NB↔MB and
+  MB↔WB changes rather than counting requests as transitions. All seven offline
+  gates pass; 19 Python tests and all 12 previous fixed/FEC/forced-band packet
+  corpora remain passing and byte-identical.
+
 ## [0.1.71] - 2026-11-02
 
 - Add `bandwidth` / `set_bandwidth` to mono/stereo SILK PCM encoders for forced
