@@ -1515,3 +1515,14 @@ post-dynamic trim availability guard, desired intensity hysteresis and LM0 M/S
 policy in celt_encoder.c. The fixed Rust rate engine remains shared with decoding;
 external original component assembly and artificial entropy-tail probes are
 validation tools only. Existing encoder/allocation notices and terms apply.
+
+
+# CELT encoder pitch analysis attribution
+
+`src/celt/pitch/encoder.rs` follows unchanged `celt/pitch.c::remove_doubling`
+and `compute_pitch_gain`; shared private downsampling/whitening/search geometry
+additionally follows `celt/celt_encoder.c::run_prefilter` at the pinned revision.
+Existing CSIRO/Xiph.Org/Jean-Marc Valin pitch, LPC and scalar-math notices and
+terms apply. Rust checks geometry/history/signal and accumulator domains with
+immutable inputs and fixed storage. Original scalar/context observers remain
+optional external validation; no reference implementation enters Cargo.

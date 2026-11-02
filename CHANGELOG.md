@@ -7,6 +7,26 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.62] - 2026-11-02
+
+- Add fixed-storage native CELT encoder pitch search and remove-doubling
+  period/gain diagnostics with checked previous comb histories and immutable Q12
+  input. Share bounded whitening/search kernels with PLC, preserving its output.
+  Check unsupported inner-product/rolling-energy/normalization domains explicitly.
+- Match 11,972 original contexts, full active whitening fingerprints, eight
+  continuity sequences and 10,407 refined periods. Match 82,025 scalar gain
+  cases and 203,729 isolated refinement cases, including last-lag and continuity
+  boundaries and a minimized one-unit threshold regression (seed 8382).
+- Verify geometry/history/signal endpoints, checked accumulator failures and
+  1,024 bounded random contexts. All 42 non-equivalent targeted mutations are
+  detected; the 979-to-978 search-bound change is equivalent after native floors
+  and is replaced by a 977-bound mutation. Four optional modes reproduce,
+  including unchanged prior PLC evidence. All seven offline gates pass with
+  zero dependencies.
+- These standalone stages do not yet apply tone shortcuts, gain thresholds,
+  quantization/cancellation, prefilter comb or packet signaling. Complete encoder
+  quality/performance evaluation remains work; no SOTA claim is established.
+
 ## [0.1.61] - 2026-11-02
 
 - Add independent opt-in CELT PCM allocation analysis: native equivalent rate,

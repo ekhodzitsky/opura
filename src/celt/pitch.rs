@@ -1,17 +1,27 @@
-//! Classic CELT PLC pitch analysis over decoded internal signal history.
+//! Classic CELT PLC and encoder pitch analysis over internal signal histories.
 //! Copyright (c) 2007-2008 CSIRO; 2007-2009 Xiph.Org Foundation.
 //! Downsampling/whitening and coarse/fine search follow pinned pitch.c;
-//! see THIRD_PARTY_NOTICES.md. No encoder pitch/remove-doubling is provided.
+//! see THIRD_PARTY_NOTICES.md. Encoder geometry shares the same scalar kernels.
 use super::lpc::{self, LpcError};
 use std::fmt;
-/// Invalid history geometry/signal or LPC whitening failure.
+mod encoder;
+pub use encoder::{EncoderPitch, PitchHistory, encoder_pitch};
+/// Invalid history geometry/signal, checked refinement or LPC whitening failure.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum PitchError {
     /// Each channel must contain exactly2048 internal samples.
     InvalidGeometry,
-    /// Internal signal must fit the decoder saturation domain +/-536870911.
+    /// Internal Q12 signal must fit the saturation domain +/-536870911.
     InvalidSignal,
+    /// Encoder input needs 1024 history plus one complete frame per channel.
+    InvalidEncoderGeometry,
+    /// Encoder previous period/gain is outside the native packet domain.
+    InvalidHistory,
+    /// Refined pitch math is outside its checked accumulator domain.
+    ArithmeticOverflow,
+    /// Fixed-point gain normalization failed.
+    Math(super::math::MathError),
     /// Whitening analysis failed.
     Lpc(LpcError),
 }
@@ -19,7 +29,11 @@ impl fmt::Display for PitchError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidGeometry => f.write_str("CELT PLC pitch needs2048 samples per channel"),
-            Self::InvalidSignal => f.write_str("CELT PLC pitch signal exceeds decoder saturation"),
+            Self::InvalidSignal => f.write_str("CELT pitch signal exceeds saturation domain"),
+            Self::InvalidEncoderGeometry => f.write_str("invalid CELT encoder pitch geometry"),
+            Self::InvalidHistory => f.write_str("invalid CELT encoder pitch history"),
+            Self::ArithmeticOverflow => f.write_str("CELT encoder pitch accumulator overflow"),
+            Self::Math(e) => write!(f, "CELT pitch gain: {e}"),
             Self::Lpc(e) => write!(f, "CELT pitch whitening: {e}"),
         }
     }
@@ -28,6 +42,7 @@ impl std::error::Error for PitchError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Lpc(e) => Some(e),
+            Self::Math(e) => Some(e),
             _ => None,
         }
     }
@@ -67,14 +82,23 @@ pub fn plc_pitch(left: &[i32], right: Option<&[i32]>) -> Result<PlcPitch, PitchE
     {
         return Err(PitchError::InvalidSignal);
     }
+    let mut lp = [0i16; 1024];
+    whiten(left, right, &mut lp)?;
+    let period = 720 - search(&lp, 360, 1328, 620);
+    Ok(PlcPitch {
+        period: period as u16,
+        whitened: lp,
+    })
+}
+// Callers validate geometry and signal first. The output slice starts at zero.
+fn whiten(left: &[i32], right: Option<&[i32]>, lp: &mut [i16]) -> Result<(), PitchError> {
     let max = left
         .iter()
         .chain(right.into_iter().flatten())
         .fold(1, |max, v| max.max(v.abs()));
     let shift = (ilog(max) - 10).max(0) as u32 + u32::from(right.is_some());
-    let mut lp = [0i16; 1024];
     for channel in std::iter::once(left).chain(right) {
-        for i in 0..1024 {
+        for i in 0..lp.len() {
             let center = channel[2 * i] >> (shift + 1);
             let previous = if i > 0 {
                 channel[2 * i - 1] >> (shift + 2)
@@ -85,7 +109,7 @@ pub fn plc_pitch(left: &[i32], right: Option<&[i32]>) -> Result<PlcPitch, PitchE
             lp[i] = lp[i].wrapping_add((previous + next + center) as i16);
         }
     }
-    let correlation = lpc::autocorrelation(&lp, 4, false)?;
+    let correlation = lpc::autocorrelation(lp, 4, false)?;
     let mut ac = [0i32; 5];
     ac.copy_from_slice(correlation.values());
     ac[0] += ac[0] >> 13;
@@ -106,7 +130,7 @@ pub fn plc_pitch(left: &[i32], right: Option<&[i32]>) -> Result<PlcPitch, PitchE
     }
     fir[4] = ((26214 * i32::from(coeff[3])) >> 15) as i16;
     let mut memory = [0i16; 5];
-    for value in &mut lp {
+    for value in lp {
         let input = *value;
         let mut sum = i32::from(input) << 12;
         for j in 0..5 {
@@ -116,59 +140,58 @@ pub fn plc_pitch(left: &[i32], right: Option<&[i32]>) -> Result<PlcPitch, PitchE
         memory[0] = input;
         *value = (sum.wrapping_add(2048) >> 12) as i16;
     }
-    let period = 720 - search(&lp);
-    Ok(PlcPitch {
-        period: period as u16,
-        whitened: lp,
-    })
+    Ok(())
 }
-fn search(lp: &[i16; 1024]) -> i32 {
-    // PLC uses len=2048-720=1328 and max_pitch=720-100=620.
+fn search(lp: &[i16], start: usize, length: usize, max_pitch: usize) -> i32 {
+    // Bounded by PLC (1328/620) and encoder (120..960/979) geometry.
     let mut x4 = [0i16; 332];
     let mut y4 = [0i16; 487];
+    let x4 = &mut x4[..length / 4];
+    let y4 = &mut y4[..(length + max_pitch) / 4];
     for (j, v) in x4.iter_mut().enumerate() {
-        *v = lp[360 + 2 * j];
+        *v = lp[start + 2 * j];
     }
     for (j, v) in y4.iter_mut().enumerate() {
         *v = lp[2 * j];
     }
     let max = x4
         .iter()
-        .chain(&y4)
+        .chain(y4.iter())
         .fold(1, |max, &v| max.max(i32::from(v).abs()));
-    let mut shift = (ilog(max) - 14 + 5).max(0) as u32;
+    let mut shift = (ilog(max) - 14 + ilog(length as i32) / 2).max(0) as u32;
     if shift > 0 {
-        for v in x4.iter_mut().chain(&mut y4) {
+        for v in x4.iter_mut().chain(y4.iter_mut()) {
             *v >>= shift;
         }
         shift *= 2;
     }
-    let mut corr = [0i32; 310];
+    let mut corr = [0i32; 489];
+    let corr = &mut corr[..max_pitch / 2];
     let mut maxcorr = 1;
-    for i in 0..155 {
+    for i in 0..max_pitch / 4 {
         let mut sum = 0i32;
-        for j in 0..332 {
+        for j in 0..length / 4 {
             sum = sum.wrapping_add(i32::from(x4[j]) * i32::from(y4[i + j]));
         }
         corr[i] = sum;
         maxcorr = maxcorr.max(sum);
     }
-    let coarse = find_best(&corr[..155], &y4, 332, 0, maxcorr);
+    let coarse = find_best(&corr[..max_pitch / 4], y4, length / 4, 0, maxcorr);
     maxcorr = 1;
-    for i in 0..310 {
+    for i in 0..max_pitch / 2 {
         corr[i] = 0;
         if i.abs_diff(2 * coarse[0]) > 2 && i.abs_diff(2 * coarse[1]) > 2 {
             continue;
         }
         let mut sum = 0i32;
-        for j in 0..664 {
-            sum = sum.wrapping_add((i32::from(lp[360 + j]) * i32::from(lp[i + j])) >> shift);
+        for j in 0..length / 2 {
+            sum = sum.wrapping_add((i32::from(lp[start + j]) * i32::from(lp[i + j])) >> shift);
         }
         corr[i] = sum.max(-1);
         maxcorr = maxcorr.max(sum);
     }
-    let best = find_best(&corr, lp, 664, shift + 1, maxcorr)[0];
-    let offset = if best > 0 && best < 309 {
+    let best = find_best(corr, lp, length / 2, shift + 1, maxcorr)[0];
+    let offset = if best > 0 && best < max_pitch / 2 - 1 {
         let a = corr[best - 1];
         let b = corr[best];
         let c = corr[best + 1];

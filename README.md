@@ -1541,7 +1541,8 @@ The fixed-storage `PlcPitch` exposes a48kHz period within100..=720 and the full
 The implementation follows original factor2 triangular downsampling with stereo
 headroom, stabilized LPC4, FIR5 rounding, quarter-rate coarse correlation, two
 fine candidate neighborhoods, normalized two-best ranking/sliding energy and
-pseudo interpolation. No encoder pitch/remove-doubling stage is included.
+pseudo interpolation. Encoder pitch geometry and remove-doubling refinement
+are available separately, as described below.
 
 [2202 original pitch cases](tests/celt-pitch-fixtures.txt) compare every whitened
 sample and period across every target period100..720 in mono/stereo, low/full
@@ -2724,4 +2725,54 @@ python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --allocation-packets
 diff -u tests/celt-encoder-allocation-fixtures.txt /tmp/celt-encoder-allocation-fixtures.txt
 python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --allocation-tails > /tmp/celt-allocation-tail-fixtures.txt
 diff -u tests/celt-allocation-tail-fixtures.txt /tmp/celt-allocation-tail-fixtures.txt
+```
+
+
+## CELT encoder pitch search
+
+`pitch::encoder_pitch(size, left, optional_right, previous)` analyzes exactly
+1024 raw pre-emphasized history samples followed by one 2.5/5/10/20 ms frame
+per channel. Inputs are immutable Q12 values in +/-536870911. `PitchHistory`
+checks previous periods 15..1022 and gain 0..24576 Q15; initial period zero
+requires gain zero. It exposes read-only period/gain and defaults to zero.
+The immutable fixed-storage `EncoderPitch` exposes coarse and refined periods,
+raw Q15 gain and all active half-rate whitened samples. Refined periods are
+15..1023 before the outer prefilter clamp to 1022.
+
+PLC and encoder now share private factor-two lowpass/LPC4/FIR5 whitening and
+coarse/fine search with bounded geometry/scratch storage. Encoder search retains
+the original odd maximum lag 979, offset 512 and frame-dependent scaling.
+Refinement follows native normalized reciprocal-square-root gain, exponent
+parity, rolling energies, subharmonic checks/second correlations, continuity
+bias, strict gain selection and pseudo-interpolation. The original later
+high-pitch threshold branch is unreachable after its earlier broader condition;
+the port preserves the effective order. Signed32 final inner products, rolling
+energies and normalization domains are checked; unsupported accumulations return
+an error with no input/history mutation. No heap allocation or unsafe is used.
+
+All 11,972 original contexts match coarse/refined period, gain and fingerprints
+of every active whitened sample. They cover all initial periods 15..1023,
+mono/stereo, every duration, signal extremes and all eight signal recipes,
+nearby previous periods/gains and eight 40-step continuity sequences. Refinement
+changes 10,407 coarse periods. All 82,025 original gain scalars match across
+zero, exponent/normalization boundaries, signed correlations and saturation.
+Another 203,729 isolated original refinement cases cover bounded whitened
+mixtures/double pulses, last-lag lookup and continuity boundaries. A retained
+seed 8382 regression detects a one-unit change of the Q15 gain threshold:
+original period 120 becomes 239 in the faulty variant. Original PLC evidence
+remains unchanged. Invalid geometry/signal/history,
+exact input endpoints, checked accumulator failures and 1,024 bounded random
+contexts are verified. All 42 non-equivalent targeted mutations are detected;
+all four optional pitch evidence modes reproduce and all seven offline gates
+pass with zero dependencies. These are standalone component results: tone shortcuts,
+prefilter thresholds/quantization/cancellation, comb filtering and packet
+integration remain subsequent work.
+
+```sh
+python3 tools/celt_pitch_fixtures.py /path/to/opus-v1.6.1 --encoder > /tmp/celt-encoder-pitch-fixtures.txt
+diff -u tests/celt-encoder-pitch-fixtures.txt /tmp/celt-encoder-pitch-fixtures.txt
+python3 tools/celt_pitch_fixtures.py /path/to/opus-v1.6.1 --encoder-math > /tmp/celt-encoder-pitch-math-fixtures.txt
+diff -u tests/celt-encoder-pitch-math-fixtures.txt /tmp/celt-encoder-pitch-math-fixtures.txt
+python3 tools/celt_pitch_fixtures.py /path/to/opus-v1.6.1 --refinement > /tmp/celt-pitch-refinement-fixtures.txt
+diff -u tests/celt-pitch-refinement-fixtures.txt /tmp/celt-pitch-refinement-fixtures.txt
 ```
