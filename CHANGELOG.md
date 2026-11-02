@@ -7,6 +7,21 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.66] - 2026-11-02
+
+- Add an optional reproducible real-recording CELT file evaluator using hashed
+  official Opus speech/music examples and unchanged pinned fixed-point libopus.
+  Keep downloaded recordings and listening outputs local; normal builds/tests
+  gain no dependencies. Compare aligned signal diagnostics at matched packet
+  budgets and retain repeated Opura CLI wall times, hardware and tool provenance.
+- All seven offline gates pass, including 19 Python tool tests; signal
+  diagnostics and PCM hashes reproduce across runs.
+- Cover two recordings, two bitrates each and 5/20 ms frames. Validate native
+  cross-decoding, exact sample counts, matching packet sizes and deterministic
+  file output. Diagnostic SNR is not a perceptual quality score; process timing
+  is not a competitive core-codec speed comparison. Full SILK/Hybrid encoding
+  and broader subjective/competitive evaluation remain work.
+
 ## [0.1.65] - 2026-11-02
 
 - Add the native `opura encode` / `opura decode` CLI with bounded RIFF/WAVE

@@ -67,8 +67,10 @@ leave a newly created partial output, which must be discarded.
 The [interoperability record](docs/validation/audio-cli-0.1.65.md) covers
 independent decoding, exact durations, packet budgets and original native
 mode files. It does not establish perceptual quality or performance leadership.
-SILK/Hybrid encoding and representative audio quality/speed comparisons remain
-work. Library packet parsing itself does not parse Ogg containers.
+The [initial real-recording baseline](docs/benchmarks/audio-0.1.66.md) reports
+speech/music signal diagnostics and Opura file wall time with explicit limits.
+SILK/Hybrid encoding and broader subjective/competitive comparisons remain work.
+Library packet parsing itself does not parse Ogg containers.
 
 ## Development
 
