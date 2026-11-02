@@ -11,6 +11,10 @@ use super::{
 };
 use std::fmt;
 
+mod transient;
+mod transient_tables;
+pub use transient::{TransientAnalysis, analyze_transients};
+
 /// Invalid channel/context layout or underlying transform failure.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
@@ -22,8 +26,8 @@ pub enum AnalysisError {
     Transform(MdctError),
     /// Band ends require 1<=effective_end<=end<=21.
     InvalidBands,
-    /// An active coefficient magnitude, headroom expression or squared sum
-    /// exceeds the reference's signed-32 arithmetic domain.
+    /// Signal magnitude, headroom or accumulation exceeds the stage's
+    /// documented checked arithmetic domain.
     ArithmeticOverflow,
     /// Refined band scalar arithmetic rejected its input.
     Math(MathError),
@@ -35,7 +39,7 @@ impl fmt::Display for AnalysisError {
             Self::Transform(e) => write!(f, "CELT frame analysis: {e}"),
             Self::InvalidBands => f.write_str("invalid CELT analysis band ends"),
             Self::ArithmeticOverflow => {
-                f.write_str("CELT analysis exceeds signed-32 energy domain")
+                f.write_str("CELT analysis exceeds checked arithmetic domain")
             }
             Self::Math(e) => write!(f, "CELT band analysis: {e}"),
         }

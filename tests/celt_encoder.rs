@@ -98,6 +98,14 @@ fn public_pcm_packets_are_decodable_and_failures_preserve_whole_state()
 #[test]
 fn original_policy_packets_and_public_libopus_pcm_match_at_every_output_geometry()
 -> Result<(), Box<dyn std::error::Error>> {
+    verify_public_packets(include_str!("celt-encoder-fixtures.txt"), false)
+}
+#[test]
+fn original_transient_packets_and_public_libopus_pcm_match_at_every_output_geometry()
+-> Result<(), Box<dyn std::error::Error>> {
+    verify_public_packets(include_str!("celt-encoder-transient-fixtures.txt"), true)
+}
+fn verify_public_packets(fixtures: &str, detect: bool) -> Result<(), Box<dyn std::error::Error>> {
     use opura::Packet;
     let rates = [
         OutputRate::Khz8,
@@ -107,6 +115,7 @@ fn original_policy_packets_and_public_libopus_pcm_match_at_every_output_geometry
         OutputRate::Khz48,
     ];
     let mut encoder = CeltEncoder::new(InputRate::Khz48, 1)?;
+    encoder.set_transient_detection(detect);
     let mut decoders: Vec<_> = rates
         .into_iter()
         .flat_map(|rate| {
@@ -116,9 +125,7 @@ fn original_policy_packets_and_public_libopus_pcm_match_at_every_output_geometry
         })
         .map(|(rate, channels)| OpusDecoder::new(rate, channels))
         .collect::<Result<_, _>>()?;
-    let mut lines = include_str!("celt-encoder-fixtures.txt")
-        .lines()
-        .filter(|l| !l.starts_with('#'));
+    let mut lines = fixtures.lines().filter(|l| !l.starts_with('#'));
     let mut frames = 0;
     let mut decoded = 0;
     while let Some(line) = lines.next() {
@@ -156,6 +163,7 @@ fn original_policy_packets_and_public_libopus_pcm_match_at_every_output_geometry
             .collect::<Result<_, _>>()?;
         if encoder.input_rate() != rate || encoder.channels() != channels {
             encoder = CeltEncoder::new(rate, channels)?;
+            encoder.set_transient_detection(detect);
         } else if reset {
             encoder.reset();
         }
@@ -210,7 +218,10 @@ fn original_policy_packets_and_public_libopus_pcm_match_at_every_output_geometry
         }
         frames += 1;
     }
-    assert_eq!((frames, decoded), (720, 7200));
+    assert_eq!(
+        (frames, decoded),
+        if detect { (960, 9600) } else { (720, 7200) }
+    );
     Ok(())
 }
 
@@ -266,5 +277,63 @@ fn invalid_geometry_and_reset_preserve_or_clear_the_complete_state()
             assert_eq!(encoder, second);
         }
     }
+    Ok(())
+}
+
+#[test]
+fn transient_setting_is_opt_in_continuous_and_retained_by_reset()
+-> Result<(), Box<dyn std::error::Error>> {
+    use opura::{celt::control, range::RangeDecoder};
+    let mut encoder = CeltEncoder::new(InputRate::Khz48, 2)?;
+    assert!(!encoder.transient_detection());
+    let mut input = vec![0; 1920];
+    input[960] = 32767;
+    input[961] = -32768;
+    let baseline = encoder.encode(FrameSize::Ms20, &input, 128)?;
+    assert!(
+        !control::decode_prefix(
+            &mut RangeDecoder::new(&baseline.as_bytes()[1..]),
+            FrameSize::Ms20,
+            0
+        )?
+        .transient()
+    );
+    encoder.set_transient_detection(true);
+    assert!(encoder.transient_detection());
+    let before = encoder.clone();
+    assert_eq!(
+        encoder.encode(FrameSize::Ms20, &input[..1919], 128),
+        Err(EncoderError::InvalidInput)
+    );
+    assert_eq!(encoder, before);
+    for _ in 0..4 {
+        let packet = encoder.encode(FrameSize::Ms20, &input, 128)?;
+        assert!(
+            control::decode_prefix(
+                &mut RangeDecoder::new(&packet.as_bytes()[1..]),
+                FrameSize::Ms20,
+                0
+            )?
+            .transient()
+        );
+    }
+    encoder.reset();
+    let mut fresh = CeltEncoder::new(InputRate::Khz48, 2)?;
+    fresh.set_transient_detection(true);
+    assert_eq!(encoder, fresh);
+    assert_eq!(
+        encoder.encode(FrameSize::Ms20, &input, 128)?,
+        fresh.encode(FrameSize::Ms20, &input, 128)?
+    );
+    encoder.set_transient_detection(false);
+    let packet = encoder.encode(FrameSize::Ms20, &input, 128)?;
+    assert!(
+        !control::decode_prefix(
+            &mut RangeDecoder::new(&packet.as_bytes()[1..]),
+            FrameSize::Ms20,
+            0
+        )?
+        .transient()
+    );
     Ok(())
 }

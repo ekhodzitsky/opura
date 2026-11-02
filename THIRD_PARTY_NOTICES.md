@@ -1449,3 +1449,15 @@ Optional evidence includes original `celt_encoder.c` to call private component
 helpers, links the unchanged original source externally and appends read-only
 decoder-state observers. Unused inactive residual scratch is canonicalized
 without changing any selected-band coding or decoded signal.
+
+
+# CELT tone/transient analysis attribution
+
+`src/celt/analysis/transient.rs` and its constants follow `tone_detect`,
+`tone_lpc`, `transient_analysis`, `acos_approx` and their inverse table in
+`celt/celt_encoder.c` at the pinned revision. Existing CELT encoder notices and
+terms apply. Private wide-Q29 division follows `celt/mathops.c::frac_div32_q29`;
+its public fractional-domain contract remains unchanged. Rust bounds immutable
+physical input and uses fixed safe storage. Optional packet selection and the
+anti-collapse streak follow original encoder control flow. The external metric
+observer cross-checks all ordinary outputs against unchanged original analysis.

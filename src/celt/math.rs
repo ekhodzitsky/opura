@@ -281,6 +281,19 @@ pub fn fractional_divide_q29(a: i32, b: i32) -> Result<i32, MathError> {
     if i64::from(a).abs() > i64::from(b) {
         return Err(MathError::NotFractional);
     }
+    Ok(fractional_divide_q29_inner(a, b))
+}
+/// Internal tone-LPC ratios strictly inside (-2,2), preserving public unit bounds.
+pub(crate) fn fractional_divide_wide_q29(a: i32, b: i32) -> Result<i32, MathError> {
+    if b <= 0 {
+        return Err(MathError::InvalidDenominator);
+    }
+    if i64::from(a).abs() >= 2 * i64::from(b) {
+        return Err(MathError::NotFractional);
+    }
+    Ok(fractional_divide_q29_inner(a, b))
+}
+fn fractional_divide_q29_inner(a: i32, b: i32) -> i32 {
     let shift = ilog(b) - 29;
     let a = vshift(a, shift);
     let b = vshift(b, shift);
@@ -288,8 +301,7 @@ pub fn fractional_divide_q29(a: i32, b: i32) -> Result<i32, MathError> {
     let rcp = ((reciprocal_positive(rounded_b) + 4) >> 3) as i16 as i32;
     let result = ((i64::from(rcp) * i64::from(a)) >> 15) as i32;
     let remainder = ((a + 2) >> 2) - ((i64::from(result) * i64::from(b)) >> 31) as i32;
-    Ok(result
-        .wrapping_add((((i64::from(rcp) * i64::from(remainder)) >> 15) as i32).wrapping_shl(2)))
+    result.wrapping_add((((i64::from(rcp) * i64::from(remainder)) >> 15) as i32).wrapping_shl(2))
 }
 
 /// Approximate a/b in saturated Q31, for b>0 and -b<=a<=b.

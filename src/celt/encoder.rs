@@ -1,6 +1,6 @@
 //! Stateful signed16 PCM to single-frame CELT-only Opus packets.
-//! Initial all-long policy; adaptive signal decisions and SILK/Hybrid encoding
-//! remain separate work. See THIRD_PARTY_NOTICES.md for constituent algorithms.
+//! All-long default with optional tone/transient short-window selection. Further
+//! adaptive decisions and SILK/Hybrid encoding remain separate work. See THIRD_PARTY_NOTICES.md for constituent algorithms.
 //! Copyright (c) 2007-2008 CSIRO; 2007-2010 Xiph.Org Foundation;
 //! 2008 Gregory Maxwell.
 //!
@@ -157,7 +157,8 @@ impl EncodedPacket {
 
 /// Fixed-rate/channel CELT-only encoder with bounded storage and no allocation.
 ///
-/// Initial policy uses long transforms, disabled pitch comb/silence suppression,
+/// Default policy uses long transforms (optional native transient detection),
+/// disabled pitch comb/silence suppression,
 /// standard TF/Normal spreading, zero dynamic boosts, trim five, full-band
 /// intensity, no dual stereo, two-pass energy and stereo theta RDO. This supplies
 /// valid audio packet coding, not adaptive Opus mode/quality selection.
@@ -171,6 +172,8 @@ pub struct CeltEncoder {
     range: u32,
     previous_coded: usize,
     first: bool,
+    detect_transients: bool,
+    transient_streak: u8,
 }
 impl CeltEncoder {
     /// Start a fresh one/two-channel stream at a standard PCM input rate.
@@ -187,6 +190,8 @@ impl CeltEncoder {
             range: 0,
             previous_coded: 0,
             first: true,
+            detect_transients: false,
+            transient_streak: 0,
         })
     }
     /// Fixed PCM input rate.
@@ -197,11 +202,20 @@ impl CeltEncoder {
     pub fn channels(&self) -> usize {
         self.channels
     }
+    /// Whether native tone/transient analysis selects short MDCT windows.
+    pub fn transient_detection(&self) -> bool {
+        self.detect_transients
+    }
+    /// Enable native transient detection (initially disabled for baseline policy).
+    /// Histories remain continuous; reset retains this setting.
+    pub fn set_transient_detection(&mut self, enabled: bool) {
+        self.detect_transients = enabled;
+    }
     /// Last completed packet final range, initially zero.
     pub fn final_range(&self) -> u32 {
         self.range
     }
-    /// Clear histories and diagnostics, retaining rate/channel geometry.
+    /// Clear histories and diagnostics, retaining geometry and transient setting.
     pub fn reset(&mut self) {
         self.preemphasis = [PreemphasisState::default(), PreemphasisState::default()];
         self.overlap = [[0; 120]; 2];
@@ -209,6 +223,7 @@ impl CeltEncoder {
         self.range = 0;
         self.previous_coded = 0;
         self.first = true;
+        self.transient_streak = 0;
     }
     /// Encode exactly one frame of interleaved signed16 PCM into a full packet.
     ///
@@ -266,6 +281,26 @@ impl CeltEncoder {
             )?;
             self.overlap[c].copy_from_slice(&channel[n..n + 120]);
         }
+        let mut writer = RangeEncoder::new(payload_bytes)?;
+        let budget = payload_bytes as u32 * 8;
+        writer.encode_bit_logp(false, 15)?;
+        // Comb presence uses the decoder's cached initial tell=1.
+        if 16 < budget {
+            writer.encode_bit_logp(false, 1)?;
+        }
+        let transient_allowed = size != FrameSize::Ms2_5 && writer.tell() + 3 <= budget;
+        let transient = self.detect_transients
+            && transient_allowed
+            && analysis::analyze_transients(
+                size,
+                &context[..self.channels * stride],
+                self.channels,
+                false,
+            )?
+            .transient();
+        if transient_allowed {
+            writer.encode_bit_logp(transient, 3)?;
+        }
         let (end, config) = match self.rate {
             InputRate::Khz8 => (13, 16),
             InputRate::Khz12 | InputRate::Khz16 => (17, 20),
@@ -279,7 +314,7 @@ impl CeltEncoder {
             self.channels,
             self.channels,
             self.rate,
-            false,
+            transient,
         )?;
         let bands = analysis::analyze_bands(size, spectrum.values(), self.channels, end, end)?;
         let mut target = [[0; 21]; 2];
@@ -302,16 +337,6 @@ impl CeltEncoder {
                 }
             }
         }
-        let mut writer = RangeEncoder::new(payload_bytes)?;
-        let budget = payload_bytes as u32 * 8;
-        writer.encode_bit_logp(false, 15)?;
-        // Decoder comb presence uses the cached initial tell=1.
-        if 16 < budget {
-            writer.encode_bit_logp(false, 1)?;
-        }
-        if size != FrameSize::Ms2_5 && writer.tell() + 3 <= budget {
-            writer.encode_bit_logp(false, 3)?;
-        }
         self.energy.coarse(
             &mut writer,
             &target,
@@ -326,13 +351,20 @@ impl CeltEncoder {
                 lfe: false,
             },
         )?;
-        let tf = control::encode_tf(&mut writer, size, 0..end, false, &[false; 21], false)?;
+        let tf = control::encode_tf(
+            &mut writer,
+            size,
+            0..end,
+            transient,
+            &[transient; 21],
+            false,
+        )?;
         let spread = control::encode_spread(&mut writer, Spread::Normal)?;
         let allocation = allocation::encode_allocation(
             &mut writer,
             size,
             layout,
-            false,
+            transient,
             AllocationEncoding {
                 boosts: [0; 21],
                 trim: 5,
@@ -360,6 +392,9 @@ impl CeltEncoder {
                 theta_rdo: true,
             },
         )?;
+        if allocation.anti_collapse_reserved() {
+            writer.encode_bits(u32::from(self.transient_streak < 2), 1)?;
+        }
         let left = budget
             .checked_sub(writer.tell())
             .ok_or(EncoderError::BudgetExhausted)?;
@@ -389,6 +424,12 @@ impl CeltEncoder {
             (self.previous_coded + 1).min((self.previous_coded - 1).max(coded))
         };
         self.range = range;
+        // Native short/disabled-window streak only matters below threshold2.
+        self.transient_streak = if transient || !transient_allowed {
+            (self.transient_streak + 1).min(2)
+        } else {
+            0
+        };
         self.first = false;
         Ok(packet)
     }
@@ -407,10 +448,19 @@ mod tests {
     #[test]
     fn injected_finalization_errors_preserve_complete_stream_state()
     -> Result<(), Box<dyn std::error::Error>> {
+        for detect in [false, true] {
+            verify_finalization_failure(detect)?;
+        }
+        Ok(())
+    }
+    fn verify_finalization_failure(detect: bool) -> Result<(), Box<dyn std::error::Error>> {
         let mut encoder = CeltEncoder::new(InputRate::Khz48, 2)?;
+        encoder.set_transient_detection(detect);
         encoder.encode(FrameSize::Ms10, &[0; 960], 128)?;
         let before = encoder.clone();
-        let input: Vec<i16> = (0..1920).map(|i| (i as i16).wrapping_mul(7659)).collect();
+        let mut input = vec![0; 1920];
+        input[960] = 32767;
+        input[961] = -32768;
         let original = input.clone();
         for after_finish in [false, true] {
             let mut called = false;
@@ -438,6 +488,17 @@ mod tests {
     #[test]
     fn original_complete_packets_histories_and_accounting_match()
     -> Result<(), Box<dyn std::error::Error>> {
+        verify_packets(include_str!("../../tests/celt-encoder-fixtures.txt"), false)
+    }
+    #[test]
+    fn original_transient_packets_histories_and_accounting_match()
+    -> Result<(), Box<dyn std::error::Error>> {
+        verify_packets(
+            include_str!("../../tests/celt-encoder-transient-fixtures.txt"),
+            true,
+        )
+    }
+    fn verify_packets(fixtures: &str, detect: bool) -> Result<(), Box<dyn std::error::Error>> {
         use crate::{celt::energy::EnergyState, range::RangeDecoder};
         let sizes = [
             FrameSize::Ms2_5,
@@ -446,10 +507,9 @@ mod tests {
             FrameSize::Ms20,
         ];
         let mut encoder = CeltEncoder::new(InputRate::Khz48, 1)?;
+        encoder.set_transient_detection(detect);
         let mut decoded_energy = EnergyState::default();
-        let mut lines = include_str!("../../tests/celt-encoder-fixtures.txt")
-            .lines()
-            .filter(|l| !l.starts_with('#'));
+        let mut lines = fixtures.lines().filter(|l| !l.starts_with('#'));
         let mut rows = 0;
         while let Some(line) = lines.next() {
             let f: Vec<_> = line.split_whitespace().collect();
@@ -474,15 +534,17 @@ mod tests {
                 .map(|x| x as i16)
                 .collect();
             let state = numbers(lines.next().ok_or("state")?)?;
-            assert_eq!(state.len(), 332);
+            assert_eq!(state.len(), if detect { 334 } else { 332 });
             if encoder.rate != rate || encoder.channels != channels {
                 encoder = CeltEncoder::new(rate, channels)?;
+                encoder.set_transient_detection(detect);
                 decoded_energy.reset();
             } else if f[1] == "1" {
                 encoder.reset();
                 decoded_energy.reset();
             }
             let seed = encoder.range;
+            let streak = encoder.transient_streak;
             let packet = encoder.encode(size, &input, bytes)?;
             assert_eq!(packet.as_bytes(), expected, "packet frame{rows}");
             assert_eq!(
@@ -520,6 +582,14 @@ mod tests {
                     );
                 }
             }
+            if detect {
+                assert_eq!(
+                    i64::from(encoder.transient_streak),
+                    state[333],
+                    "streak frame{rows}"
+                );
+            }
+            assert_eq!(encoder.transient_detection(), detect);
             let end = match rate {
                 InputRate::Khz8 => 13,
                 InputRate::Khz12 | InputRate::Khz16 => 17,
@@ -529,14 +599,23 @@ mod tests {
             let layout = BandLayout::new(channels, 0, end)?;
             let mut read = RangeDecoder::new(&expected[1..]);
             let prefix = control::decode_prefix(&mut read, size, 0)?;
-            assert!(!prefix.transient() && !prefix.silence());
+            assert!(!prefix.silence());
+            assert_eq!(prefix.transient(), detect && state[332] != 0);
             decoded_energy.coarse(&mut read, layout, size, prefix.intra())?;
-            let tf = control::decode_tf(&mut read, size, 0..end, false)?;
+            let tf = control::decode_tf(&mut read, size, 0..end, prefix.transient())?;
             let spread = control::decode_spread(&mut read)?;
-            let allocation = allocation::decode_allocation(&mut read, size, layout, false)?;
-            assert!(!allocation.anti_collapse_reserved());
+            let allocation =
+                allocation::decode_allocation(&mut read, size, layout, prefix.transient())?;
+
             decoded_energy.fine(&mut read, layout, allocation.fine_bits())?;
             partition::decode_spectrum(&mut read, &allocation, &tf, spread, seed, false)?;
+            if allocation.anti_collapse_reserved() {
+                assert_eq!(
+                    read.decode_bits(1)?,
+                    u32::from(streak < 2),
+                    "anti control frame{rows}"
+                );
+            }
             let left = bytes as u32 * 8 - read.tell();
             decoded_energy.finalise(
                 &mut read,
@@ -563,7 +642,7 @@ mod tests {
             }
             rows += 1;
         }
-        assert_eq!(rows, 720);
+        assert_eq!(rows, if detect { 960 } else { 720 });
         Ok(())
     }
 }

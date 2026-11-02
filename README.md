@@ -6,7 +6,8 @@ and mode transitions with redundant CELT tails at all five standard output rates
 The separate SILK/CELT/Hybrid APIs and their component stages remain available.
 **A baseline CELT-only encoder now accepts signed16 PCM at all five standard
 input rates and emits complete one-frame Opus packets.** Its current policy uses
-long windows; adaptive signal decisions and SILK/Hybrid encoding remain work.
+long windows by default, with optional native transient detection/short windows;
+further adaptive decisions and SILK/Hybrid encoding remain work.
 **The decoder passes all120 official RFC8251 vector/rate/channel cases.**
 The first complete-decoder benchmark is recorded: Opura trails the pinned scalar
 libopus reference in all ten configurations; complete adaptive encoding remains under development. The accepted direction is a complete decoder first, then an encoder,
@@ -2306,7 +2307,7 @@ remain under development.
 PCM-to-packet API. Construct it with `InputRate` (8/12/16/24/48 kHz) and one/two
 channels, then encode one interleaved signed16 frame at 2.5/5/10/20 ms. Rate and
 channel geometry stay fixed; frame duration and payload budget may change.
-`reset()` clears every history while retaining geometry.
+`reset()` clears every history while retaining geometry and settings.
 
 ```rust
 use opura::celt::{FrameSize, encoder::CeltEncoder, input::InputRate};
@@ -2331,7 +2332,7 @@ It includes native stable-energy quarter-error feedback. Pre-emphasis and
 120-sample overlap persist across durations, retained-band history moves at most
 one band per frame, and the next folding seed is the previous packet final range.
 8 kHz input selects NB, 12/16 kHz WB, 24 kHz SWB and 48 kHz FB. SILK/Hybrid,
-transient/pitch/TF policy analysis, DTX/VBR/FEC encoding, containers and quality
+pitch/TF/spread/allocation policy analysis, DTX/VBR/FEC encoding, containers and quality
 optimization remain work. This baseline is a usable CELT encoder, not a claim of
 reference-adaptive quality or SOTA performance.
 
@@ -2356,3 +2357,58 @@ baseline decisions and the original public decoder. Its full external native
 build is never a Cargo dependency. This comparison validates implementation and
 packet interoperability; comparison against the reference's adaptive encoder
 requires separate quality/performance measurements and representative audio.
+
+
+## CELT tone and transient analysis
+
+`celt::analysis::analyze_transients` accepts immutable planar pre-emphasized
+context before pitch filtering: one/two channels, exactly
+`channels*(size.samples()+120)` coefficients, each magnitude at most 2^28.
+It uses native tone LPC/frequency estimation and forward/backward temporal
+masking, returning strong/weak decisions, Q14 TF estimate, selected channel,
+Q13 tone frequency, Q29 pole radius and mask metric. The optional weak policy
+suppresses moderate attacks. LM0 diagnostics are supported independently of
+packet coding, which always uses long windows at 2.5 ms. Invalid shape or
+magnitude returns a typed error. Analysis uses fixed storage and preserves input.
+
+`CeltEncoder::set_transient_detection(true)` enables this analysis when a short
+window can be signalled. It selects short MDCT blocks, standard transient TF
+fallback, transient allocation and the native anti-collapse bit based on the
+previous short/disabled-window streak. `transient_detection()` reports the
+setting; reset retains it and clears histories. The default remains the baseline
+all-long policy, preserving existing packet bytes. Fine TF/spread/dynamic/pitch
+analysis and the reference's missed-transient spectral patch remain future work.
+
+All 1,788 original analysis contexts match both weak policies (3,576 results),
+including exact 200/600 mask thresholds, odd stereo rounding and a seeded paired
+energy-rounding regression. Another 65,537 original acos inputs and 4,290 wide-Q29
+ratios verify the scalar helpers. Wide division is private; existing public
+fractional-division domains remain unchanged. Canonical constants use the original
+C floating-literal macro results, which can differ from real-number rounding.
+
+A separate original-component sequence produces 960 complete packets, including
+611 short-window frames, changing durations/budgets, consecutive attacks and
+resets. Full bytes, histories, streaks and accounting match. Unchanged public
+libopus PCM/final-range/energy histories match all 9,600 output-rate/channel
+cases, with no native energy-history differences in this corpus. The old 720
+baseline packets remain unchanged. Invalid input, toggles, reset and injected
+pre/post-finalization errors retain atomic stream behavior. All 31 targeted
+mutations are detected. These checks establish compatibility, not encoder quality
+or speed superiority.
+
+```sh
+python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --analysis > /tmp/celt-transient-analysis-fixtures.txt
+diff -u tests/celt-transient-analysis-fixtures.txt /tmp/celt-transient-analysis-fixtures.txt
+python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --analysis-math > /tmp/celt-transient-math-fixtures.txt
+diff -u tests/celt-transient-math-fixtures.txt /tmp/celt-transient-math-fixtures.txt
+python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --analysis-tables > /tmp/transient_tables.rs
+rustfmt --edition 2024 /tmp/transient_tables.rs
+diff -u src/celt/analysis/transient_tables.rs /tmp/transient_tables.rs
+python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --transients > /tmp/celt-encoder-transient-fixtures.txt
+diff -u tests/celt-encoder-transient-fixtures.txt /tmp/celt-encoder-transient-fixtures.txt
+```
+
+The optional diagnostic observer copies the original transient routine only to
+read the internal mask metric, and cross-checks ordinary outputs against the
+unchanged original routine on every context. Original native code remains an
+external validation tool and is never a build/test dependency.

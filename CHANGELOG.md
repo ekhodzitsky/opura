@@ -7,6 +7,23 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.56] - 2026-11-02
+
+- Add bounded fixed-storage CELT tone/temporal-mask analysis with native LPC,
+  frequency, strong/weak attack, channel and TF diagnostics. Keep existing public
+  math contracts while adding private wide-Q29 division for tone estimation.
+- Add opt-in transient detection to `CeltEncoder`, short MDCT/TF/allocation and
+  native anti-collapse streak control. Default baseline packets remain unchanged;
+  reset retains the setting and errors preserve all stream histories.
+- Match 1,788 native contexts under both weak policies, 65,537 acos inputs and
+  4,290 ratios, including exact mask thresholds and stereo/paired-energy rounding.
+  Match 960 full packets (611 transient) and 9,600 original public PCM/range/history
+  decodes, alongside the unchanged 720-packet baseline. All 31 targeted mutations,
+  toggles/reset and injected pre/post-finalization rollback are detected.
+- Optional evidence reproduces and seven offline gates pass with zero dependencies.
+  Further adaptive CELT analysis, SILK/Hybrid encoding and quality/performance
+  evaluation remain work; compatibility results establish no SOTA claim.
+
 ## [0.1.55] - 2026-11-02
 
 - Add public fixed-storage `celt::encoder::CeltEncoder` and complete one-frame
