@@ -22,6 +22,8 @@ use crate::{
 };
 use std::fmt;
 
+pub mod encoder;
+
 /// A Hybrid operation fails atomically, including both layers and entropy.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]

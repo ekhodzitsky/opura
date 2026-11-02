@@ -7,6 +7,21 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.74] - 2026-11-02
+
+- Add Hybrid rate-control calculations for mono/stereo, SWB/FB and 10/20 ms:
+  native per-channel interpolation, selected-FEC/stereo/bandwidth corrections,
+  CBR 25% borrowing and VBR SILK bit caps. Keep target bitrate separate from
+  physical shared payload capacity; reject invalid controls before arithmetic.
+- Separate CELT frame coding from entropy initialization/termination and packet
+  assembly, preserving existing bytes and whole-stream error rollback. This
+  prepares a shared Hybrid writer; complete Hybrid PCM encoding remains work.
+- Retain 8688 decisions from unchanged pinned original libopus, including table
+  boundaries, odd stereo rates, capped targets and tiny/maximum budgets. Optional
+  fixture generation adds no Cargo dependency. Validation details are recorded
+  in docs/validation/hybrid-encoder-rates.md. All seven required offline gates
+  pass, including 23 Python tests.
+
 ## [0.1.73] - 2026-11-02
 
 - Extend the optional recording baseline with matched SILK controls, explicit

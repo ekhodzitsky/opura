@@ -1696,3 +1696,9 @@ API/hard-rate bounds and outer budget-overflow PLC signaling in
 `src/opus_encoder.c` at the same pinned revision. The policy oracle extracts
 unchanged original functions/blocks/tables; the overflow oracle wraps original
 public encoding and frame calls. Neither adds a native Cargo dependency.
+
+Hybrid encoder rate controls follow `compute_silk_rate_for_hybrid` and the
+CBR/VBR SILK cap blocks in `src/opus_encoder.c` at the same pinned revision,
+under the existing Opus notices above. The optional oracle extracts unchanged
+source functions/blocks into a temporary reference executable; only numerical
+fixtures are retained, with no native build or ordinary-test dependency.

@@ -7,8 +7,8 @@ The separate SILK/CELT/Hybrid APIs and their component stages remain available.
 **The CELT encoder accepts mono/stereo PCM at all five standard input rates.
 The fixed-bandwidth SILK encoder accepts mono/stereo PCM and emits 10/20/40/60 ms
 NB/MB/WB Opus packets.** Both paths are available through the WAV/Ogg CLI.
-SILK supports opt-in DTX/FEC and explicit packet-boundary bandwidth changes;
-automatic bandwidth selection and Hybrid encoding remain in progress.
+SILK supports opt-in DTX/FEC and explicit, gradual or automatic bandwidth
+selection. Hybrid encoding remains in progress.
 **The decoder passes all120 official RFC8251 vector/rate/channel cases.**
 The first complete-decoder benchmark is recorded: Opura trails the pinned scalar
 libopus reference in all ten configurations; complete adaptive encoding remains under development. The accepted direction is a complete decoder first, then an encoder,
@@ -125,7 +125,7 @@ Fixed-bandwidth SILK library paths are available under
 10/20/40/60 ms, with exact CBR byte budgets or capped variable length. See the
 [mono interoperability record](docs/validation/silk-mono-packets.md) and
 [stereo validation](docs/validation/silk-stereo-packets.md).
-Adaptive bandwidth remains in progress. The validation record also
+The validation record also
 retains a reproduced default-FFmpeg decoder tail-trimming issue; FFmpeg/libopus
 and the native decoder preserve exact duration.
 Library packet parsing itself does not parse Ogg containers.
@@ -136,6 +136,15 @@ SILK controls match native encoder PCM; protected profiles retain every SNR loss
 backup-coverage tradeoff and PLC count. These are two-recording waveform
 checks, with process timings and no perceptual or native speed advantage claim.
 Hybrid encoding and general Opus mode/channel adaptation remain unfinished.
+
+Hybrid encoder control calculations are available in `hybrid::encoder`:
+`RateAllocation` reproduces native SILK/high-band rate splitting and the SILK
+CBR/VBR bit cap, including selected FEC, bandwidth and stereo corrections.
+The target bitrate excludes TOC/transition costs; the payload capacity is shared
+by both layers. This control API does not encode PCM or certify that a frame fits.
+CELT packet termination is separated from its frame engine for upcoming shared
+entropy integration; existing packet bytes and rollback contracts are preserved.
+See [Hybrid rate validation](docs/validation/hybrid-encoder-rates.md).
 
 ## Development
 

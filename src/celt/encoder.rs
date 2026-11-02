@@ -398,6 +398,37 @@ impl CeltEncoder {
         payload_bytes: usize,
         finish: impl for<'a> FnOnce(&'a mut RangeEncoder) -> Result<&'a [u8], EntropyError>,
     ) -> Result<EncodedPacket, EncoderError> {
+        let mut writer = RangeEncoder::new(payload_bytes)?;
+        self.encode_frame(size, pcm, &mut writer)?;
+        let range = writer.range();
+        let payload = finish(&mut writer)?;
+        let config = match self.rate {
+            InputRate::Khz8 => 16,
+            InputRate::Khz12 | InputRate::Khz16 => 20,
+            InputRate::Khz24 => 24,
+            InputRate::Khz48 => 28,
+        };
+        let mut packet = EncodedPacket {
+            bytes: [0; 1276],
+            length: payload_bytes + 1,
+            size,
+            channels: self.channels,
+            range,
+        };
+        packet.bytes[0] =
+            ((config + size.lm()) as u8) << 3 | if self.channels == 2 { 4 } else { 0 };
+        packet.bytes[1..packet.length].copy_from_slice(payload);
+        Ok(packet)
+    }
+    // Operates on staged state and a live entropy writer. The enclosing packet
+    // owns entropy initialization/termination and commits only after finishing.
+    fn encode_frame(
+        &mut self,
+        size: FrameSize,
+        pcm: &[i16],
+        writer: &mut RangeEncoder,
+    ) -> Result<(), EncoderError> {
+        let payload_bytes = writer.capacity();
         let n = size.samples();
         let stride = n + 120;
         let mut context = [0; 2160];
@@ -414,7 +445,6 @@ impl CeltEncoder {
             )?;
             self.overlap[c].copy_from_slice(&channel[n..n + 120]);
         }
-        let mut writer = RangeEncoder::new(payload_bytes)?;
         let budget = payload_bytes as u32 * 8;
         writer.encode_bit_logp(false, 15)?;
         let transient_candidate = size != FrameSize::Ms2_5 && writer.tell() + 3 <= budget;
@@ -454,7 +484,7 @@ impl CeltEncoder {
             },
         )?;
         context[..self.channels * stride].copy_from_slice(filtered.values());
-        encode_comb(&mut writer, filtered.parameters())?;
+        encode_comb(writer, filtered.parameters())?;
         let transient_allowed = size != FrameSize::Ms2_5 && writer.tell() + 3 <= budget;
         let transient = self.detect_transients
             && transient_allowed
@@ -462,11 +492,11 @@ impl CeltEncoder {
         if transient_allowed {
             writer.encode_bit_logp(transient, 3)?;
         }
-        let (end, config) = match self.rate {
-            InputRate::Khz8 => (13, 16),
-            InputRate::Khz12 | InputRate::Khz16 => (17, 20),
-            InputRate::Khz24 => (19, 24),
-            InputRate::Khz48 => (21, 28),
+        let end = match self.rate {
+            InputRate::Khz8 => 13,
+            InputRate::Khz12 | InputRate::Khz16 => 17,
+            InputRate::Khz24 => 19,
+            InputRate::Khz48 => 21,
         };
         let layout = BandLayout::new(self.channels, 0, end)?;
         let spectrum = analysis::analyze_frame(
@@ -545,7 +575,7 @@ impl CeltEncoder {
             }
         }
         self.energy.coarse(
-            &mut writer,
+            writer,
             &target,
             CoarseEncoding {
                 layout,
@@ -581,9 +611,9 @@ impl CeltEncoder {
             decisions = *analyzed.decisions();
             select = analyzed.select();
         }
-        let tf = control::encode_tf(&mut writer, size, 0..end, transient, &decisions, select)?;
+        let tf = control::encode_tf(writer, size, 0..end, transient, &decisions, select)?;
         let spread = self.encode_spreading(
-            &mut writer,
+            writer,
             &bands,
             transient,
             perceptual.as_ref(),
@@ -600,7 +630,7 @@ impl CeltEncoder {
             && size != FrameSize::Ms2_5
             && analysis::analyze_stereo(size, bands.normalized_values())?;
         let allocation = allocation::encode_analyzed(
-            &mut writer,
+            writer,
             size,
             layout,
             transient,
@@ -637,10 +667,9 @@ impl CeltEncoder {
                     .map_err(AllocationError::Analysis)
             },
         )?;
-        self.energy
-            .fine(&mut writer, layout, allocation.fine_bits())?;
+        self.energy.fine(writer, layout, allocation.fine_bits())?;
         partition::encode_spectrum(
-            &mut writer,
+            writer,
             &allocation,
             &tf,
             spread,
@@ -662,31 +691,19 @@ impl CeltEncoder {
             .checked_sub(writer.tell())
             .ok_or(EncoderError::BudgetExhausted)?;
         self.energy.finalise(
-            &mut writer,
+            writer,
             layout,
             allocation.fine_bits(),
             allocation.fine_priority(),
             left,
         )?;
-        let range = writer.range();
-        let payload = finish(&mut writer)?;
-        let mut packet = EncodedPacket {
-            bytes: [0; 1276],
-            length: payload_bytes + 1,
-            size,
-            channels: self.channels,
-            range,
-        };
-        packet.bytes[0] =
-            ((config + size.lm()) as u8) << 3 | if self.channels == 2 { 4 } else { 0 };
-        packet.bytes[1..packet.length].copy_from_slice(payload);
         let coded = allocation.coded_bands();
         self.previous_coded = if self.previous_coded == 0 {
             coded
         } else {
             (self.previous_coded + 1).min((self.previous_coded - 1).max(coded))
         };
-        self.range = range;
+        self.range = writer.range();
         // Native short/disabled-window streak only matters below threshold2.
         self.transient_streak = if transient || !transient_allowed {
             (self.transient_streak + 1).min(2)
@@ -694,7 +711,7 @@ impl CeltEncoder {
             0
         };
         self.first = false;
-        Ok(packet)
+        Ok(())
     }
 }
 
