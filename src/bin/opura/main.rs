@@ -30,7 +30,7 @@ type Result<T> = std::result::Result<T, Box<dyn Error>>;
 fn invalid(message: impl Into<String>) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message.into())
 }
-const HELP: &str = "opura encode INPUT.wav OUTPUT.opus [--mode celt|silk] [--bitrate BPS] [--frame-ms MS] [--bandwidth nb|mb|wb] [--dtx] [--fec LOSS_PERCENT]\nopura decode INPUT.opus OUTPUT.wav\nopura --version\n\nEncode: PCM16 WAV at 8/12/16/24/48 kHz.\nCELT: mono/stereo, frames 2.5/5/10/20 ms. SILK: mono/stereo, frames 10/20/40/60 ms.\nDefaults: CELT, 64000 bits/s (SILK: 24000 mono/48000 stereo), 20 ms. SILK bandwidth defaults to input-rate NB/MB/WB. --dtx enables SILK silence suppression, including in CBR. --fec 1..100 requests SILK in-band FEC with the supplied loss estimate (0 disables it). Ogg overhead is additional.\nDecode: one mono/stereo Ogg Opus stream, zero header gain; output PCM16/48 kHz.\nExisting outputs are refused. Errors may leave a partial new output.";
+const HELP: &str = "opura encode INPUT.wav OUTPUT.opus [--mode celt|silk] [--bitrate BPS] [--frame-ms MS] [--bandwidth nb|mb|wb|auto] [--dtx] [--fec LOSS_PERCENT]\nopura decode INPUT.opus OUTPUT.wav\nopura --version\n\nEncode: PCM16 WAV at 8/12/16/24/48 kHz.\nCELT: mono/stereo, frames 2.5/5/10/20 ms. SILK: mono/stereo, frames 10/20/40/60 ms.\nDefaults: CELT, 64000 bits/s (SILK: 24000 mono/48000 stereo), 20 ms. SILK bandwidth defaults to input-rate NB/MB/WB; auto selects it from bitrate/loss. --dtx enables SILK silence suppression, including in CBR. --fec 1..100 requests SILK in-band FEC with the supplied loss estimate (0 disables it). Ogg overhead is additional.\nDecode: one mono/stereo Ogg Opus stream, zero header gain; output PCM16/48 kHz.\nExisting outputs are refused. Errors may leave a partial new output.";
 fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
@@ -103,10 +103,11 @@ fn run() -> Result<()> {
                     }
                     Some("--bandwidth") if bandwidth.is_none() => {
                         bandwidth = Some(match value {
-                            "nb" => SilkRate::Khz8,
-                            "mb" => SilkRate::Khz12,
-                            "wb" => SilkRate::Khz16,
-                            _ => return Err(invalid("bandwidth must be nb/mb/wb").into()),
+                            "nb" => SilkBandwidth::Fixed(SilkRate::Khz8),
+                            "mb" => SilkBandwidth::Fixed(SilkRate::Khz12),
+                            "wb" => SilkBandwidth::Fixed(SilkRate::Khz16),
+                            "auto" => SilkBandwidth::Automatic,
+                            _ => return Err(invalid("bandwidth must be nb/mb/wb/auto").into()),
                         });
                     }
                     _ => return Err(invalid("unknown or repeated encode option").into()),
@@ -223,6 +224,11 @@ fn encode(input: &Path, output: &Path, bitrate: u32, size: FrameSize) -> Result<
     );
     Ok(())
 }
+#[derive(Clone, Copy)]
+enum SilkBandwidth {
+    Fixed(SilkRate),
+    Automatic,
+}
 enum SilkFileEncoder {
     Mono(Box<MonoEncoder>),
     Stereo(Box<StereoEncoder>),
@@ -240,7 +246,7 @@ fn encode_silk(
     output: &Path,
     bitrate: Option<u32>,
     duration: PacketDuration,
-    bandwidth: Option<SilkRate>,
+    bandwidth: Option<SilkBandwidth>,
     dtx: bool,
     fec_loss: u8,
 ) -> Result<()> {
@@ -255,11 +261,15 @@ fn encode_silk(
         48000 => OutputRate::Khz48,
         _ => return Err(invalid("unsupported input rate").into()),
     };
-    let bandwidth = bandwidth.unwrap_or(match source.rate {
-        8000 => SilkRate::Khz8,
-        12000 => SilkRate::Khz12,
-        _ => SilkRate::Khz16,
-    });
+    let automatic = matches!(bandwidth, Some(SilkBandwidth::Automatic));
+    let bandwidth = match bandwidth {
+        Some(SilkBandwidth::Fixed(rate)) => rate,
+        _ => match source.rate {
+            8000 => SilkRate::Khz8,
+            12000 => SilkRate::Khz12,
+            _ => SilkRate::Khz16,
+        },
+    };
     let numerator = u64::from(bitrate) * u64::from(duration.milliseconds());
     let denominator = 8000;
     if numerator / denominator < 3 || numerator.div_ceil(denominator) > 1276 {
@@ -275,10 +285,12 @@ fn encode_silk(
     };
     match &mut encoder {
         SilkFileEncoder::Mono(e) => {
+            e.set_automatic_bandwidth(automatic);
             e.set_dtx(dtx);
             e.set_inband_fec(fec_loss > 0);
         }
         SilkFileEncoder::Stereo(e) => {
+            e.set_automatic_bandwidth(automatic);
             e.set_dtx(dtx);
             e.set_inband_fec(fec_loss > 0);
         }
@@ -300,6 +312,7 @@ fn encode_silk(
     let length = source.rate as usize / 1000 * duration.milliseconds() as usize * source.channels;
     let mut credit = denominator / 2;
     let mut packet_bytes = 0u64;
+    let mut plc_packets = 0u64;
     for index in 0..frames {
         pcm.fill(0);
         source.read_samples(&mut pcm[..length])?;
@@ -323,6 +336,7 @@ fn encode_silk(
                         ..MonoOptions::default()
                     },
                 )?;
+                plc_packets += u64::from(packet.used_plc());
                 writer.packet(packet.as_bytes(), granule, final_frame)?;
                 packet.as_bytes().len()
             }
@@ -336,6 +350,7 @@ fn encode_silk(
                         ..MonoOptions::default()
                     },
                 )?;
+                plc_packets += u64::from(packet.used_plc());
                 writer.packet(packet.as_bytes(), granule, final_frame)?;
                 packet.as_bytes().len()
             }
@@ -343,7 +358,7 @@ fn encode_silk(
         packet_bytes += written as u64;
     }
     eprintln!(
-        "encoded SILK {} samples/channel at {} Hz, {} channels; {frames} packets, {packet_bytes} packet bytes; {:.3} s",
+        "encoded SILK {} samples/channel at {} Hz, {} channels; {frames} packets, {packet_bytes} packet bytes, {plc_packets} PLC fallback packets; {:.3} s",
         source.frames,
         source.rate,
         source.channels,

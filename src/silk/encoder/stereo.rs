@@ -380,12 +380,12 @@ fn quantize(prediction: &mut [i32; 2]) -> [[u8; 3]; 2] {
 #[path = "stereo_tests.rs"]
 mod tests;
 
-/// Shared complexity, byte-policy and loss controls for fixed-bandwidth stereo.
+/// Shared complexity, byte-policy and loss controls for stereo encoding.
 pub use super::mono::MonoOptions as StereoOptions;
 use super::{
     analysis::VoiceActivityDetector,
     channel::{ChannelFrameEncoder, FrameControls, FrameError},
-    mono::{MonoPacket, PacketDuration, dc_reject, packet, target_snr},
+    mono::{MonoPacket, PacketDuration, dc_reject, packet, plc_packet, target_snr},
 };
 use crate::silk::{
     pitch::PitchCoding,
@@ -472,6 +472,11 @@ impl StereoPacket {
     pub fn as_bytes(&self) -> &[u8] {
         self.packet.as_bytes()
     }
+    /// Automatic-mode output requested decoder concealment after a native SILK
+    /// packet budget overflow. This is distinct from DTX.
+    pub fn used_plc(&self) -> bool {
+        self.packet.used_plc()
+    }
     /// Final entropy range for independent decoder validation.
     pub fn final_range(&self) -> u32 {
         self.packet.final_range()
@@ -480,7 +485,7 @@ impl StereoPacket {
 /// Raw interleaved stereo PCM to explicit-bandwidth SILK Opus packets. Supports
 /// adaptive M/S prediction/width, panned mid-only omission and side restarts.
 /// External rate/channel count remain fixed; internal bandwidth can be changed
-/// at packet boundaries. Supports DTX/FEC and gradual externally targeted transitions.
+/// at packet boundaries. Supports DTX/FEC, gradual targets and automatic bandwidth.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StereoEncoder {
     input: OutputRate,
@@ -524,13 +529,25 @@ impl StereoEncoder {
     pub fn bandwidth(&self) -> SilkRate {
         self.internal
     }
+    /// Whether native fixed-point AUDIO bandwidth selection is enabled.
+    pub fn automatic_bandwidth(&self) -> bool {
+        self.bandwidth_control.automatic
+    }
+    /// Select SILK bandwidth from the full packet byte budget, complexity, loss
+    /// and native AUDIO thresholds/hysteresis. Fixed channel layout is retained.
+    /// FEC may lower the target bandwidth. Disabled by default; enabling clears
+    /// an external target, disabling stops the taper at the current rate. Reset
+    /// retains this mode. All policy/transition state rolls back on packet errors.
+    pub fn set_automatic_bandwidth(&mut self, enabled: bool) {
+        self.bandwidth_control.set_automatic(enabled);
+    }
     /// Desired internal bandwidth for activity-permitted native LP transitions.
-    /// None selects fixed-band operation. The actual rate is `bandwidth()`;
+    /// None means no external target (fixed or automatic selection). The actual rate is `bandwidth()`;
     /// the desired rate is capped by the external PCM rate during selection.
     pub fn bandwidth_target(&self) -> Option<SilkRate> {
         self.bandwidth_control.target
     }
-    /// Request native gradual transitions toward an externally selected target.
+    /// Request native gradual transitions toward an external target, disabling automatic selection.
     /// This does not select a target from bitrate/music analysis. None stops the
     /// taper at the current rate. Reset retains this setting. Packet errors
     /// preserve all transition/filter state and pending switch acknowledgements.
@@ -591,8 +608,9 @@ impl StereoEncoder {
     pub fn in_dtx(&self) -> bool {
         self.dtx.suppressed
     }
-    /// Clear every stream history, retaining rates, bandwidth target and DTX/FEC settings.
+    /// Clear every stream history, retaining rates, bandwidth mode/target and DTX/FEC settings.
     pub fn reset(&mut self) {
+        let automatic = self.automatic_bandwidth();
         let target = self.bandwidth_control.target;
         let enabled = self.dtx.enabled;
         let fec = self.fec.enabled;
@@ -600,11 +618,14 @@ impl StereoEncoder {
         self.set_dtx(enabled);
         self.set_inband_fec(fec);
         self.set_bandwidth_target(target);
+        self.set_automatic_bandwidth(automatic);
     }
     /// Encode one10/20/40/60ms interleaved L/R packet. Byte budget includes TOC /
     /// packet padding and is3..=1276. CBR fills the budget, variable mode caps it.
     /// Enabled DTX can instead emit a one-byte packet in either mode.
     /// Any error preserves all resampling, VAD, stereo and channel state.
+    /// Automatic mode can return native PLC output on packet overflow; inspect
+    /// the returned packet's `used_plc()` flag separately from DTX.
     pub fn encode(
         &mut self,
         duration: PacketDuration,
@@ -624,11 +645,13 @@ impl StereoEncoder {
             return Err(StereoPacketError::InvalidOptions);
         }
         let mut next = self.clone();
-        let rate = next.bandwidth_control.begin(
+        let rate = next.bandwidth_control.prepare(
             self.input,
             self.internal,
             duration,
-            (packet_bytes as u32 - 1) * 8,
+            packet_bytes,
+            options,
+            self.fec.enabled,
         )?;
         next.change_bandwidth(rate)?;
         let digital_silence = input.iter().all(|&v| v == 0);
@@ -696,11 +719,12 @@ impl StereoEncoder {
         let mut writer = RangeEncoder::new(1275)?;
         let header_bits = (frames as u32 + 1) * 2;
         writer.encode_icdf(0, &[(256 - (256 >> header_bits)) as u8, 0], 8)?;
-        self.fec.begin(
+        self.fec.begin_with_policy(
             duration,
             self.internal,
             bitrate,
             options.packet_loss_percent,
+            self.bandwidth_control.fec_override(),
         );
         let channels = &mut self.channels;
         self.fec
@@ -796,7 +820,9 @@ impl StereoEncoder {
                     PitchCoding::Conditional
                 };
                 let fec_controls = self.fec.controls(channel, index);
-                let hard = if fec_controls.is_some() || self.fec.sent.iter().any(|&v| v) {
+                let hard = if self.automatic_bandwidth() {
+                    writer.capacity() as u32 * 8
+                } else if fec_controls.is_some() || self.fec.sent.iter().any(|&v| v) {
                     if channel == 0 && stereo.rates_bps()[1] > 0 {
                         maximum.saturating_sub(
                             maximum.saturating_sub(writer.tell()) / (frames as u32 * 2),
@@ -856,13 +882,22 @@ impl StereoEncoder {
             header = (header << 1) | u32::from(has_fec);
         }
         writer.patch_initial_bits(header, header_bits)?;
-        let payload = writer.tell().div_ceil(8) as usize;
-        if payload >= packet_bytes {
+        let encoded_length = writer.tell().div_ceil(8) as usize;
+        let overflow = encoded_length >= packet_bytes;
+        // Native outer Opus converts a completed SILK overshoot into PLC. Give
+        // queued FEC one prefix-free retry first, preserving primary audio.
+        if overflow
+            && (!self.automatic_bandwidth() || (include_fec && self.fec.sent.iter().any(|&v| v)))
+        {
             return Err(FrameError::BitBudgetExceeded.into());
         }
-        writer.shrink(payload)?;
-        let range = writer.range();
-        let payload = writer.finish()?;
+        let range = if overflow { 0 } else { writer.range() };
+        let payload = if overflow {
+            &[0][..]
+        } else {
+            writer.shrink(encoded_length)?;
+            writer.finish()?
+        };
         let base = match self.internal {
             SilkRate::Khz8 => 0,
             SilkRate::Khz12 => 4,
@@ -876,12 +911,21 @@ impl StereoEncoder {
                 PacketDuration::Ms60 => 3,
             };
         let decision = self.dtx.finish(duration, 2, digital_silence);
-        if decision != Decision::Transmit {
+        if decision != Decision::Transmit || overflow {
             self.fec.suppress();
         }
         let result = StereoPacket {
             packet: if decision != Decision::Transmit {
                 packet((config << 3) | 4, &[], 1, 0)
+            } else if overflow {
+                plc_packet(
+                    (config << 3) | 4,
+                    if options.variable_bitrate {
+                        2
+                    } else {
+                        packet_bytes
+                    },
+                )
             } else {
                 packet(
                     (config << 3) | 4,
@@ -898,7 +942,7 @@ impl StereoEncoder {
         let payload_bits = if decision == Decision::Silk {
             0
         } else {
-            payload.len() as i32 * 8
+            encoded_length as i32 * 8
         };
         self.excess = (self.excess + payload_bits - nominal_bits).clamp(0, 10000);
         self.bandwidth_control.finish(self.activity, duration);

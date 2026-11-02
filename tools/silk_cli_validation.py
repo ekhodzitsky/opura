@@ -4,10 +4,12 @@
 Uses independent FFmpeg decoding; ordinary Cargo tests need no external tool.
 """
 import argparse
+import array
 import ctypes as c
 from ctypes.util import find_library
 import hashlib
 import json
+import re
 from pathlib import Path
 import struct
 import subprocess
@@ -25,6 +27,7 @@ def main():
     parser.add_argument('output', type=Path)
     parser.add_argument('--channels', type=int, choices=[1, 2], default=1)
     parser.add_argument('--dtx', action='store_true')
+    parser.add_argument('--automatic', action='store_true')
     parser.add_argument('--fec', type=int, choices=range(101), default=0)
     args = parser.parse_args()
     channels = args.channels
@@ -46,7 +49,7 @@ def main():
     args.output.mkdir(parents=True, exist_ok=False)
     rows = []
     for rate in [8000, 12000, 16000, 24000, 48000]:
-        for bandwidth in ['nb', 'mb', 'wb']:
+        for bandwidth in (['auto'] if args.automatic else ['nb', 'mb', 'wb']):
             for ms in [10, 20, 40, 60]:
                 folder = args.output/f'{rate}-{bandwidth}-{ms}'
                 folder.mkdir()
@@ -61,9 +64,13 @@ def main():
                 with wave.open(str(folder/'input.wav'), 'wb') as output:
                     output.setparams((channels, 2, rate, 0, 'NONE', 'not compressed'))
                     output.writeframes(struct.pack('<'+'h'*len(samples), *samples))
-                run([str(binary), 'encode', str(folder/'input.wav'), str(folder/'encoded.opus'),
+                encoded = run([str(binary), 'encode', str(folder/'input.wav'), str(folder/'encoded.opus'),
                      '--mode', 'silk', '--bandwidth', bandwidth, '--frame-ms', str(ms), '--bitrate', str(bitrate),
                      *(['--dtx'] if args.dtx else []), *(['--fec', str(args.fec)] if args.fec else [])])
+                plc_match = re.search(rb'(\d+) PLC fallback packets', encoded.stderr)
+                if plc_match is None:
+                    raise SystemExit('Missing CLI PLC diagnostics')
+                plc_packets = int(plc_match[1])
                 run([str(binary), 'decode', str(folder/'encoded.opus'), str(folder/'opura.wav')])
                 def decoded_with(decoder, path):
                     return run(['ffmpeg', '-v', 'error', '-c:a', decoder, '-i', str(path),
@@ -78,6 +85,12 @@ def main():
                     pcm = decoded.readframes(expected)
                 if len(independent) != expected_bytes:
                     raise SystemExit(f'Independent duration mismatch: {folder.name}: {len(independent)//(channels*2)}/{expected}')
+                # FFmpeg can embed a different libopus version/configuration.
+                # Retain its PCM deltas; exact fixed-point reference equality is
+                # separately enforced by silk_cli_native_validation.py.
+                own_samples = array.array('h', pcm)
+                other_samples = array.array('h', independent)
+                deltas = [abs(a-b) for a,b in zip(own_samples,other_samples) if a!=b]
                 reproduction = None
                 if len(builtin) != expected_bytes:
                     # Do not hide a default-decoder failure: require an independent
@@ -85,8 +98,8 @@ def main():
                     original = folder/'ffmpeg-original.opus'
                     run(['ffmpeg', '-v', 'error', '-i', str(folder/'input.wav'), '-c:a', 'libopus',
                          '-application', 'voip', '-frame_duration', str(ms), '-cutoff',
-                         {'nb': '4000', 'mb': '6000', 'wb': '8000'}[bandwidth], '-b:a',
-                         {'nb': '16000', 'mb': '20000', 'wb': '24000'}[bandwidth], '-vbr', 'off', str(original)])
+                         {'nb': '4000', 'mb': '6000', 'wb': '8000'}.get(bandwidth, str(min(rate//2, 8000))), '-b:a',
+                         {'nb': '16000', 'mb': '20000', 'wb': '24000'}.get(bandwidth, str(bitrate)), '-vbr', 'off', str(original)])
                     reproduced = decoded_with('opus', original)
                     reference = decoded_with('libopus', original)
                     if len(reproduced) != len(builtin) or len(reference) != expected_bytes:
@@ -119,11 +132,13 @@ def main():
                     raise SystemExit('Incorrect SILK pre-skip')
                 rows.append({'rate': rate, 'bandwidth': bandwidth, 'frame_ms': ms,
                              'channels': channels, 'bitrate': bitrate, 'fec_loss_percent': args.fec,
-                             'fec_packets': fec_packets, 'dtx': args.dtx, 'dtx_packets': suppressed,
+                             'fec_packets': fec_packets, 'plc_packets': plc_packets, 'dtx': args.dtx, 'dtx_packets': suppressed,
                              'packets': len(encoded_packets), 'packet_bytes': sum(map(len, encoded_packets)),
                              'source_samples': frames, 'decoded_samples_48k': expected,
                              'opura_pcm_sha256': hashlib.sha256(pcm).hexdigest(),
                              'ffmpeg_libopus_pcm_sha256': hashlib.sha256(independent).hexdigest(),
+                             'ffmpeg_libopus_differing_samples': len(deltas),
+                             'ffmpeg_libopus_max_abs_difference': max(deltas,default=0),
                              'ffmpeg_builtin_samples_48k': len(builtin)//(channels*2),
                              'ffmpeg_builtin_reference_reproduction': reproduction,
                              'ogg_sha256': hashlib.sha256(packet_data).hexdigest()})
@@ -132,9 +147,9 @@ def main():
               'fec_probe_version': probe_version,
               'ffmpeg_version': run(['ffmpeg', '-version']).stdout.decode().splitlines()[0],
               'cases': rows, 'status': 'pass',
-              'scope': f'60 synthetic {channels}-channel CLI files, DTX={args.dtx}, FEC loss={args.fec}; FFmpeg/libopus exact duration, pre-skip; builtin decoder failures retained and independently reproduced; no quality or speed claim'}
+              'scope': f'{len(rows)} synthetic {channels}-channel CLI files, DTX={args.dtx}, FEC loss={args.fec}; FFmpeg/libopus exact duration, pre-skip; builtin decoder failures retained and independently reproduced; no quality or speed claim'}
     (args.output/'report.json').write_text(json.dumps(report, indent=2)+'\n')
-    print(f'PASS: 60 {channels}-channel SILK CLI files have exact FFmpeg/libopus durations and312-sample pre-skip')
+    print(f'PASS: {len(rows)} {channels}-channel SILK CLI files have exact FFmpeg/libopus durations and312-sample pre-skip')
     print('Retained default FFmpeg decoder duration failures:', sum(row['ffmpeg_builtin_reference_reproduction'] is not None for row in rows))
 
 

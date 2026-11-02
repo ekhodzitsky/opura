@@ -1,15 +1,16 @@
 # Connected SILK bandwidth transitions
 
-The unreleased SILK PCM frontends connect the native controller and LP taper to
+The Opura 0.1.72 SILK PCM frontends connect the native controller and LP taper to
 actual mono/stereo encoding. `set_bandwidth_target(Some(rate))` supplies an
 external desired NB/MB/WB rate; `bandwidth_target()` returns that request while
 `bandwidth()` reports the actual rate. Selection caps the desired rate by the
 external PCM rate. `None` stops the taper and retains the current bandwidth.
 Reset retains the request and clears stream/filter/handshake history.
 
-This is the inner SILK adaptation pipeline. It does not yet choose targets from
-bitrate, voice/music classification or global Opus mode decisions. The CLI still
-uses fixed bandwidth. Cross-mode CELT transition redundancy and Hybrid encoding
+This API supplies the inner SILK adaptation pipeline. Version 0.1.72 also
+connects [automatic fixed-point AUDIO bandwidth](silk-automatic-bandwidth.md)
+through the API and CLI. Global Opus mode decisions and voice/music signal
+classification remain unfinished. Cross-mode CELT transition redundancy and Hybrid encoding
 remain separate unfinished work. Valid transitions do not establish click-free
 quality or a quality/CPU advantage.
 
@@ -102,12 +103,12 @@ transition coverage evidence.
 The strengthened final workload passes all four unchanged public native decoder
 replays: 432000 records, including 72000 FEC requests. Per replay mono produces
 43644 protected/33750 DTX packets and stereo 46298 protected/33748 DTX packets.
-Mono completes 64 NB→MB, 72 MB→NB, 36 MB→WB and 44 WB→MB changes; stereo completes
-64, 72, 48 and 56 respectively. Both layouts also have eight cold initial
-WB→NB input-rate caps, separately from the gradual adjacent transitions.
+Mono completes 64 NB→MB, 64 MB→NB, 36 MB→WB and 36 WB→MB changes; stereo completes
+64, 64, 48 and 48 respectively. These counts exclude first-packet selection;
+initial rate choices and API caps are separate from gradual transitions.
 
 All seven mandatory offline gates pass on the final implementation, including
 19 Python tests. Twelve previous corpora remain byte-identical: 28320 no-FEC
 packets, 48000 FEC replay records and 48000 forced-band replay records. The
-optional schedule fixture regenerates exactly. Source and history remain
-Unreleased after v0.1.71 pending the outer automatic target-policy integration.
+optional schedule fixture regenerates exactly. The connected pipeline is included in v0.1.72 alongside the automatic target
+policy.

@@ -223,3 +223,26 @@ fn queue_geometry_budget_retry_dtx_and_errors_preserve_stream_contracts() -> Res
     assert_eq!(stereo, fresh_stereo);
     Ok(())
 }
+
+#[test]
+fn outer_automatic_fec_eligibility_replaces_fixed_per_channel_threshold() {
+    let mut fec = FecState::<2> {
+        enabled: true,
+        ..FecState::default()
+    };
+    fec.begin_with_policy(PacketDuration::Ms20, SilkRate::Khz16, 18000, 20, Some(true));
+    assert!(fec.controls(0, 0).is_some());
+    fec.begin_with_policy(
+        PacketDuration::Ms20,
+        SilkRate::Khz16,
+        64000,
+        20,
+        Some(false),
+    );
+    assert!(fec.controls(0, 0).is_none());
+    fec.begin_with_policy(PacketDuration::Ms20, SilkRate::Khz16, 64000, 0, Some(true));
+    assert!(fec.controls(0, 0).is_none());
+    fec.enabled = false;
+    fec.begin_with_policy(PacketDuration::Ms20, SilkRate::Khz16, 64000, 20, Some(true));
+    assert!(fec.controls(0, 0).is_none());
+}

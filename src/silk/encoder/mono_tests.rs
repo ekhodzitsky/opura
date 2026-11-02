@@ -279,3 +279,40 @@ fn gradual_bandwidth_targets_filter_migrate_and_roll_back_atomically() -> Result
     assert_eq!(encoder.bandwidth_target(), None);
     Ok(())
 }
+
+#[test]
+fn automatic_bandwidth_uses_wire_budget_and_preserves_mode_on_reset() -> Result<()> {
+    let mut encoder = MonoEncoder::new(OutputRate::Khz48, SilkRate::Khz16);
+    encoder.set_inband_fec(true);
+    encoder.set_automatic_bandwidth(true);
+    let saved = encoder.clone();
+    encoder.set_automatic_bandwidth(true);
+    assert_eq!(encoder, saved);
+    let options = MonoOptions {
+        complexity: 10,
+        packet_loss_percent: 20,
+        ..MonoOptions::default()
+    };
+    let encoded = encoder.encode(PacketDuration::Ms20, &[0; 960], 45, options)?;
+    assert_eq!(encoder.bandwidth(), SilkRate::Khz8);
+    assert_eq!(encoded.as_bytes().len(), 45);
+    assert!(encoder.automatic_bandwidth());
+    assert_eq!(encoder.bandwidth_target(), None);
+    encoder.resampler = EncoderResamplerState::new(OutputRate::Khz8, SilkRate::Khz16);
+    let saved = encoder.clone();
+    assert!(
+        encoder
+            .encode(PacketDuration::Ms20, &[12000; 960], 45, options)
+            .is_err()
+    );
+    assert_eq!(encoder, saved);
+    encoder.reset();
+    assert!(encoder.automatic_bandwidth());
+    encoder.set_bandwidth_target(Some(SilkRate::Khz16));
+    assert!(!encoder.automatic_bandwidth());
+    encoder.set_automatic_bandwidth(true);
+    encoder.set_automatic_bandwidth(false);
+    assert!(!encoder.automatic_bandwidth());
+    assert_eq!(encoder.bandwidth_target(), None);
+    Ok(())
+}

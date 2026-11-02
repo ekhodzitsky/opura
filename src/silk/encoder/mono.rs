@@ -54,7 +54,7 @@ impl PacketDuration {
         }
     }
 }
-/// Fixed-bandwidth mono encoder settings. Packet byte budgets are supplied per call.
+/// Mono encoder settings. Packet byte budgets are supplied per call.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct MonoOptions {
     /// Native complexity, 0..=10.
@@ -143,11 +143,17 @@ pub struct MonoPacket {
     bytes: [u8; 1276],
     length: usize,
     range: u32,
+    plc: bool,
 }
 impl MonoPacket {
     /// Opus TOC, compressed frame and optional packet-level padding.
     pub fn as_bytes(&self) -> &[u8] {
         &self.bytes[..self.length]
+    }
+    /// Automatic-mode output requested decoder concealment because the complete
+    /// native SILK payload exceeded the packet cap. This is distinct from DTX.
+    pub fn used_plc(&self) -> bool {
+        self.plc
     }
     /// Final entropy range for cross-decoder validation.
     pub fn final_range(&self) -> u32 {
@@ -156,7 +162,7 @@ impl MonoPacket {
 }
 /// Explicit-bandwidth mono PCM encoder for all five external rates. Uses native
 /// DC rejection, encoder resampling, VAD, SNR tables and packet bit reservoir.
-/// Supports DTX/FEC and native gradual transitions to an externally supplied target.
+/// Supports DTX/FEC, gradual external targets and opt-in automatic bandwidth.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MonoEncoder {
     input: OutputRate,
@@ -197,13 +203,25 @@ impl MonoEncoder {
     pub fn bandwidth(&self) -> SilkRate {
         self.internal
     }
+    /// Whether native fixed-point AUDIO bandwidth selection is enabled.
+    pub fn automatic_bandwidth(&self) -> bool {
+        self.bandwidth_control.automatic
+    }
+    /// Select SILK bandwidth from the full packet byte budget, complexity, loss
+    /// and native AUDIO thresholds/hysteresis. Fixed channel layout is retained.
+    /// FEC may lower the target bandwidth. Disabled by default; enabling clears
+    /// an external target, disabling stops the taper at the current rate. Reset
+    /// retains this mode. All policy/transition state rolls back on packet errors.
+    pub fn set_automatic_bandwidth(&mut self, enabled: bool) {
+        self.bandwidth_control.set_automatic(enabled);
+    }
     /// Desired internal bandwidth for activity-permitted native LP transitions.
-    /// None selects fixed-band operation. The actual rate is `bandwidth()`;
+    /// None means no external target (fixed or automatic selection). The actual rate is `bandwidth()`;
     /// the desired rate is capped by the external PCM rate during selection.
     pub fn bandwidth_target(&self) -> Option<SilkRate> {
         self.bandwidth_control.target
     }
-    /// Request native gradual transitions toward an externally selected target.
+    /// Request native gradual transitions toward an external target, disabling automatic selection.
     /// This does not select a target from bitrate/music analysis. None stops the
     /// taper at the current rate. Reset retains this setting. Packet errors
     /// preserve all transition/filter state and pending switch acknowledgements.
@@ -248,7 +266,8 @@ impl MonoEncoder {
         self.dtx.enabled = enabled;
     }
     /// Request in-band FEC using `MonoOptions::packet_loss_percent`. Disabled
-    /// by default. Fixed bandwidth is preserved; protection requires sufficient
+    /// by default. Fixed-band operation preserves its rate; automatic bandwidth
+    /// may lower its target for protection. Protection requires sufficient
     /// bitrate and activity. Previously queued redundancy can still be carried
     /// by the next packet after disabling this setting.
     pub fn set_inband_fec(&mut self, enabled: bool) {
@@ -262,8 +281,9 @@ impl MonoEncoder {
     pub fn in_dtx(&self) -> bool {
         self.dtx.suppressed
     }
-    /// Reset all input, VAD, predictor and bitrate history, retaining rates, bandwidth target and DTX/FEC settings.
+    /// Reset all input, VAD, predictor and bitrate history, retaining rates, bandwidth mode/target and DTX/FEC settings.
     pub fn reset(&mut self) {
+        let automatic = self.automatic_bandwidth();
         let target = self.bandwidth_control.target;
         let enabled = self.dtx.enabled;
         let fec = self.fec.enabled;
@@ -271,11 +291,14 @@ impl MonoEncoder {
         self.set_dtx(enabled);
         self.set_inband_fec(fec);
         self.set_bandwidth_target(target);
+        self.set_automatic_bandwidth(automatic);
     }
     /// Encode exactly one duration of mono PCM. packet_bytes includes TOC and
     /// packet padding, excludes transport/container overhead, and is 3..=1276.
     /// VBR is a hard byte cap; CBR produces exactly packet_bytes unless DTX suppresses it. Any error
     /// preserves all input/analysis/quantizer and rate-control history.
+    /// Automatic mode can return native PLC output on packet overflow; inspect
+    /// the returned packet's `used_plc()` flag separately from DTX.
     pub fn encode(
         &mut self,
         duration: PacketDuration,
@@ -295,11 +318,13 @@ impl MonoEncoder {
             return Err(MonoError::InvalidOptions);
         }
         let mut staged = self.clone();
-        let rate = staged.bandwidth_control.begin(
+        let rate = staged.bandwidth_control.prepare(
             self.input,
             self.internal,
             duration,
-            (packet_bytes as u32 - 1) * 8,
+            packet_bytes,
+            options,
+            self.fec.enabled,
         )?;
         staged.change_bandwidth(rate)?;
         let digital_silence = input.iter().all(|&v| v == 0);
@@ -370,11 +395,12 @@ impl MonoEncoder {
         let mut writer = RangeEncoder::new(1275)?;
         let header_bits = frames as u32 + 1;
         writer.encode_icdf(0, &[(256 - (256 >> header_bits)) as u8, 0], 8)?;
-        self.fec.begin(
+        self.fec.begin_with_policy(
             duration,
             self.internal,
             bitrate,
             options.packet_loss_percent,
+            self.bandwidth_control.fec_override(),
         );
         let channel = &mut self.channel;
         self.fec
@@ -422,6 +448,13 @@ impl MonoEncoder {
                 _ => maximum,
             };
             let fec_controls = self.fec.controls(0, index);
+            let hard = if self.automatic_bandwidth() {
+                writer.capacity() as u32 * 8
+            } else if fec_controls.is_some() || self.fec.sent[0] {
+                maximum
+            } else {
+                limit
+            };
             let encoded = self.channel.encode_with_redundancy(
                 &mut writer,
                 &tapered[..frame.len()],
@@ -443,24 +476,29 @@ impl MonoEncoder {
                     frames_per_packet: frames as u8,
                     redundancy: self.fec.sent[0],
                 },
-                if fec_controls.is_some() || self.fec.sent[0] {
-                    maximum
-                } else {
-                    limit
-                },
+                hard,
                 fec_controls,
             )?;
             self.fec.record(0, index, encoded.redundancy());
             flags = (flags << 1) | u32::from(active);
         }
         writer.patch_initial_bits((flags << 1) | u32::from(self.fec.sent[0]), header_bits)?;
-        let payload = writer.tell().div_ceil(8) as usize;
-        if payload >= packet_bytes {
+        let encoded_length = writer.tell().div_ceil(8) as usize;
+        let overflow = encoded_length >= packet_bytes;
+        // Native outer Opus converts a completed SILK overshoot into PLC. Give
+        // queued FEC one prefix-free retry first, preserving primary audio.
+        if overflow
+            && (!self.automatic_bandwidth() || (include_fec && self.fec.sent.iter().any(|&v| v)))
+        {
             return Err(FrameError::BitBudgetExceeded.into());
         }
-        writer.shrink(payload)?;
-        let range = writer.range();
-        let payload = writer.finish()?;
+        let range = if overflow { 0 } else { writer.range() };
+        let payload = if overflow {
+            &[0][..]
+        } else {
+            writer.shrink(encoded_length)?;
+            writer.finish()?
+        };
         let base = match self.internal {
             SilkRate::Khz8 => 0,
             SilkRate::Khz12 => 4,
@@ -474,11 +512,20 @@ impl MonoEncoder {
                 PacketDuration::Ms60 => 3,
             };
         let decision = self.dtx.finish(duration, 1, digital_silence);
-        if decision != Decision::Transmit {
+        if decision != Decision::Transmit || overflow {
             self.fec.suppress();
         }
         let result = if decision != Decision::Transmit {
             packet(config << 3, &[], 1, 0)
+        } else if overflow {
+            plc_packet(
+                config << 3,
+                if options.variable_bitrate {
+                    2
+                } else {
+                    packet_bytes
+                },
+            )
         } else {
             packet(
                 config << 3,
@@ -494,7 +541,7 @@ impl MonoEncoder {
         let payload_bits = if decision == Decision::Silk {
             0
         } else {
-            payload.len() as i32 * 8
+            encoded_length as i32 * 8
         };
         self.excess = (self.excess + payload_bits - nominal_bits).clamp(0, 10000);
         self.bandwidth_control.finish(last_activity, duration);
@@ -517,11 +564,17 @@ pub(super) fn target_snr(rate: SilkRate, duration: FrameDuration, mut bitrate: i
         u16::from(table[index as usize]) * 21
     }
 }
+pub(super) fn plc_packet(toc: u8, length: usize) -> MonoPacket {
+    let mut result = packet(toc, &[0], length, 0);
+    result.plc = true;
+    result
+}
 pub(super) fn packet(toc: u8, payload: &[u8], length: usize, range: u32) -> MonoPacket {
     let mut result = MonoPacket {
         bytes: [0; 1276],
         length,
         range,
+        plc: false,
     };
     let extra = length - payload.len() - 1;
     if extra == 0 {

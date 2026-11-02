@@ -414,3 +414,41 @@ fn connected_packet_scheduling_matches_native_long_sequences() -> Result<()> {
     assert!(changes > 100 && ready > 100);
     Ok(())
 }
+
+#[test]
+fn automatic_native_plc_fits_minimum_packet_budget_in_both_byte_modes() -> Result<()> {
+    use crate::{
+        decoder::OpusDecoder,
+        silk::{
+            decoder::PcmChannels,
+            encoder::{
+                mono::{MonoEncoder, MonoOptions},
+                stereo::StereoEncoder,
+            },
+        },
+    };
+    for variable in [false, true] {
+        let mut mono = MonoEncoder::new(OutputRate::Khz48, SilkRate::Khz16);
+        let mut stereo = StereoEncoder::new(OutputRate::Khz48, SilkRate::Khz16);
+        mono.set_automatic_bandwidth(true);
+        stereo.set_automatic_bandwidth(true);
+        let options = MonoOptions {
+            complexity: 0,
+            variable_bitrate: variable,
+            ..MonoOptions::default()
+        };
+        let a = mono.encode(PacketDuration::Ms20, &[12000; 960], 3, options)?;
+        let b = stereo.encode(PacketDuration::Ms20, &[12000; 1920], 3, options)?;
+        assert!(a.used_plc() && b.used_plc());
+        assert!(!mono.in_dtx() && !stereo.in_dtx());
+        assert_eq!(a.as_bytes().len(), if variable { 2 } else { 3 });
+        assert_eq!(b.as_bytes().len(), if variable { 2 } else { 3 });
+        assert_eq!(a.final_range(), 0);
+        assert_eq!(b.final_range(), 0);
+        let mut x = OpusDecoder::new(OutputRate::Khz48, PcmChannels::Mono)?;
+        let mut y = OpusDecoder::new(OutputRate::Khz48, PcmChannels::Stereo)?;
+        assert_eq!(x.decode(a.as_bytes())?.samples().len(), 960);
+        assert_eq!(y.decode(b.as_bytes())?.samples().len(), 1920);
+    }
+    Ok(())
+}

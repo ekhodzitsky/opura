@@ -419,3 +419,71 @@ fn gradual_stereo_bandwidth_tracks_mid_and_pauses_omitted_side_filter() -> Resul
     assert_eq!(encoder.bandwidth_target(), Some(SilkRate::Khz16));
     Ok(())
 }
+
+#[test]
+fn automatic_stereo_hard_cap_migrates_both_channels_and_errors_roll_back() -> Result<()> {
+    let mut encoder = StereoEncoder::new(OutputRate::Khz48, SilkRate::Khz16);
+    let options = StereoOptions {
+        complexity: 0,
+        ..StereoOptions::default()
+    };
+    encoder.encode(PacketDuration::Ms20, &[0; 1920], 160, options)?;
+    encoder.set_automatic_bandwidth(true);
+    let original = encoder.resampler[1].clone();
+    encoder.resampler[1] = EncoderResamplerState::new(OutputRate::Khz8, SilkRate::Khz16);
+    let saved = encoder.clone();
+    assert!(
+        encoder
+            .encode(PacketDuration::Ms20, &[12000; 1920], 17, options)
+            .is_err()
+    );
+    assert_eq!(encoder, saved);
+    encoder.resampler[1] = original;
+    encoder.encode(PacketDuration::Ms20, &[0; 1920], 17, options)?;
+    assert_eq!(encoder.bandwidth(), SilkRate::Khz8);
+    for channel in &encoder.channels {
+        assert_eq!(channel.internal_rate(), SilkRate::Khz8);
+    }
+    encoder.reset();
+    assert!(encoder.automatic_bandwidth());
+    encoder.set_bandwidth(SilkRate::Khz16)?;
+    assert!(!encoder.automatic_bandwidth());
+    Ok(())
+}
+
+#[test]
+fn automatic_stereo_native_budget_overflow_emits_explicit_plc() -> Result<()> {
+    use crate::{decoder::OpusDecoder, silk::decoder::PcmChannels};
+    let mut encoder = StereoEncoder::new(OutputRate::Khz48, SilkRate::Khz8);
+    encoder.set_automatic_bandwidth(true);
+    encoder.set_inband_fec(true);
+    encoder.set_dtx(true);
+    let options = StereoOptions {
+        complexity: 0,
+        packet_loss_percent: 20,
+        ..StereoOptions::default()
+    };
+    let pcm: Vec<i16> = (0..480)
+        .flat_map(|i| {
+            (0..2).map(move |ch| {
+                let phase = (i + ch * 17) % 80;
+                ((phase.min(80 - phase) - 20) * 600) as i16
+            })
+        })
+        .collect();
+    let mut decoder = OpusDecoder::new(OutputRate::Khz48, PcmChannels::Stereo)?;
+    let mut plc = 0;
+    for _ in 0..4 {
+        let packet = encoder.encode(PacketDuration::Ms10, &pcm, 34, options)?;
+        assert_eq!(packet.as_bytes().len(), 34);
+        plc += usize::from(packet.used_plc());
+        assert!(!encoder.in_dtx());
+        if packet.used_plc() {
+            assert_eq!(packet.final_range(), 0);
+        }
+        assert_eq!(decoder.decode(packet.as_bytes())?.samples().len(), 960);
+        assert_eq!(decoder.final_range(), packet.final_range());
+    }
+    assert!(plc > 0);
+    Ok(())
+}

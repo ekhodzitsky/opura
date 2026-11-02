@@ -9,6 +9,10 @@ use crate::silk::{
 };
 use std::fmt;
 
+#[path = "bandwidth_automatic.rs"]
+mod automatic;
+use automatic::{AutomaticBandwidth, AutomaticControls};
+
 const B: [[i32; 3]; 5] = [
     [250767114, 501534038, 250767114],
     [209867381, 419732057, 209867381],
@@ -267,6 +271,10 @@ fn interpolate<const N: usize>(table: &[[i32; N]; 5], index: usize, fraction: i3
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) struct PacketBandwidth<const N: usize> {
     pub target: Option<SilkRate>,
+    pub automatic: bool,
+    auto_policy: AutomaticBandwidth,
+    automatic_target: SilkRate,
+    limit: SilkRate,
     pub transitions: [BandwidthTransition; N],
     started: bool,
     allowed: bool,
@@ -279,6 +287,10 @@ impl<const N: usize> Default for PacketBandwidth<N> {
     fn default() -> Self {
         Self {
             target: None,
+            automatic: false,
+            auto_policy: AutomaticBandwidth::default(),
+            automatic_target: SilkRate::Khz16,
+            limit: SilkRate::Khz16,
             transitions: std::array::from_fn(|_| BandwidthTransition::default()),
             started: false,
             allowed: false,
@@ -291,13 +303,57 @@ impl<const N: usize> Default for PacketBandwidth<N> {
 }
 impl<const N: usize> PacketBandwidth<N> {
     pub fn set_target(&mut self, target: Option<SilkRate>) {
-        if target.is_none() && self.target.is_some() {
+        if target.is_none() && (self.target.is_some() || self.automatic) {
             // Returning to fixed operation stops any in-progress taper.
             self.transitions = std::array::from_fn(|_| BandwidthTransition::default());
             self.can_switch = false;
             self.ready = false;
         }
+        self.automatic = false;
+        self.limit = SilkRate::Khz16;
         self.target = target;
+    }
+    pub fn set_automatic(&mut self, enabled: bool) {
+        if self.automatic == enabled {
+            return;
+        }
+        if enabled {
+            self.target = None;
+            self.limit = SilkRate::Khz16;
+            self.auto_policy = AutomaticBandwidth::default();
+            self.automatic = true;
+        } else {
+            self.set_target(None);
+        }
+    }
+    pub fn prepare(
+        &mut self,
+        input: OutputRate,
+        current: SilkRate,
+        duration: PacketDuration,
+        packet_bytes: usize,
+        options: super::mono::MonoOptions,
+        fec: bool,
+    ) -> Result<SilkRate, BandwidthError> {
+        if self.automatic {
+            let (target, limit) = self.auto_policy.select(AutomaticControls {
+                input,
+                duration,
+                packet_bytes: packet_bytes as u32,
+                channels: N as u8,
+                options,
+                fec,
+                allowed: self.allowed,
+                in_wb: current == SilkRate::Khz16 && self.transitions[0].direction() == 0,
+                voice_q7: 48,
+            });
+            self.automatic_target = target;
+            self.limit = limit;
+        }
+        self.begin(input, current, duration, (packet_bytes as u32 - 1) * 8)
+    }
+    pub fn fec_override(&self) -> Option<bool> {
+        self.automatic.then_some(self.auto_policy.fec)
     }
     pub fn begin(
         &mut self,
@@ -308,7 +364,11 @@ impl<const N: usize> PacketBandwidth<N> {
     ) -> Result<SilkRate, BandwidthError> {
         self.maximum = maximum;
         self.ready = false;
-        let Some(target) = self.target else {
+        let Some(target) = (if self.automatic {
+            Some(self.automatic_target)
+        } else {
+            self.target
+        }) else {
             return Ok(current);
         };
         let mut rate = current;
@@ -317,7 +377,7 @@ impl<const N: usize> PacketBandwidth<N> {
                 current: self.started.then_some(current),
                 input,
                 minimum: SilkRate::Khz8,
-                maximum: SilkRate::Khz16,
+                maximum: self.limit,
                 desired: at_most_input(target, input),
                 allow_switch: self.allowed,
                 can_switch: self.can_switch,

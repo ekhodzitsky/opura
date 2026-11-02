@@ -1,0 +1,13 @@
+# Original restricted-SILK WB stereo 27200bps/10ms/complexity0 overflow 22244de5a79bd1d6d623c32e72bf1954b56235be
+channel0 rate16 frame1 before17 soft132 after114 error0 ret0
+channel1 rate16 frame1 before114 soft264 after252 error0 ret0
+packet0 bytes34 toc71 frames1 size32 plc0 range311138883
+channel0 rate16 frame2 before15 soft132 after107 error0 ret0
+channel1 rate16 frame2 before107 soft264 after255 error0 ret0
+packet1 bytes34 toc71 frames1 size32 plc0 range51441832
+channel0 rate16 frame3 before15 soft132 after159 error0 ret0
+channel1 rate16 frame3 before159 soft264 after273 error0 ret0
+packet2 bytes34 toc71 frames1 size1 plc1 range0
+channel0 rate16 frame4 before15 soft132 after159 error0 ret0
+channel1 rate16 frame4 before159 soft264 after270 error0 ret0
+packet3 bytes34 toc71 frames1 size1 plc1 range0

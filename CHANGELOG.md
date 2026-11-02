@@ -7,6 +7,22 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.72] - 2026-11-02
+
+- Add opt-in automatic SILK bandwidth selection to mono/stereo PCM encoders and
+  CLI `--bandwidth auto`. Match original fixed-point AUDIO equivalent-rate,
+  threshold/hysteresis, activity/WB-LP gates, API bounds, bandwidth-reducing FEC
+  and hard byte-budget limits. Fixed channel layout is retained; fixed defaults
+  and externally targeted behavior remain compatible. Reset retains the mode.
+- Report automatic-mode native budget-overflow concealment via packet
+  `used_plc()` and the CLI PLC packet count, separately from DTX. Keep native RDO
+  channel quotas soft, retry queued FEC once without its prefix before falling
+  back to a one-byte zero SILK payload with final range zero. Preserve actual
+  encoded-bit reservoir and next-packet backup history; fixed-mode errors remain
+  unchanged. The original 27200bps/10ms stereo overflow is retained/reproducible.
+- Match 12480 original automatic policy/effective-rate/FEC snapshots across
+  rates, budgets, complexity, loss, channel layouts and hysteresis history.
+
 - Connect native SILK LP bandwidth transitions to raw mono/stereo PCM encoding.
   `set_bandwidth_target(Some(rate))` supplies an external target; actual changes
   follow native activity permission and packet acknowledgements, retain converted
@@ -17,13 +33,24 @@ and validation, without implying full Opus compatibility before PCM decoding.
 - Match 60 unchanged native control/LP/activity sequences of 900 packets each,
   including 176 rate changes, 164 readiness events, direction reversals, duration
   changes, shared stereo bit reservations and 31635 omitted side frames.
-  Bitrate/music-driven outer target selection, cross-mode transition redundancy,
-  Hybrid encoding and quality/speed leadership remain unfinished.
+  General mode/channel selection, signal classification, cross-mode transition
+  redundancy, Hybrid encoding and quality/speed leadership remain unfinished.
 - Independent unchanged libopus decoding matches 432000 gradual-band normal/loss
   records, including 72000 FEC requests. The workload guards completed NB↔MB and
   MB↔WB changes rather than counting requests as transitions. All seven offline
   gates pass; 19 Python tests and all 12 previous fixed/FEC/forced-band packet
   corpora remain passing and byte-identical.
+- Independent native decoding matches 432000 automatic normal/loss records and
+  72000 FEC requests. Count completed transitions separately from cold selection.
+  Retain stress concealment: 9 mono / 5664 stereo PLC outputs per replay at the
+  deliberately low total budgets; this is not a quality advantage claim.
+- All seven mandatory offline gates pass on the versioned implementation. All
+  16 prior packet/replay corpora remain byte-identical. Exact pinned native PCM
+  matches 640 CLI files (480 fixed regressions, 160 automatic), with current
+  binary version/SHA verified and zero PLC outputs at the tested CLI rates.
+  All 480 old CLI PCM hashes remain unchanged. Retain FFmpeg-embedded libopus DTX
+  PCM differences as measured deltas and the known independently reproduced
+  builtin FFmpeg duration issue; neither is hidden by the exact pinned check.
 
 ## [0.1.71] - 2026-11-02
 

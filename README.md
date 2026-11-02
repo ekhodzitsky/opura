@@ -88,13 +88,23 @@ forced change. Automatic target policy remains separate;
 the CLI still uses one selected bandwidth per file. See
 [bandwidth switching validation](docs/validation/silk-bandwidth-switching.md).
 
-Unreleased: `set_bandwidth_target(Some(rate))` connects native activity-permitted
+`set_bandwidth_target(Some(rate))` connects native activity-permitted
 LP transitions to mono/stereo PCM. `bandwidth()` reports the actual rate;
 `set_bandwidth_target(None)` stops the taper. Targets are capped by the input
 rate, reset retains the request, and failed packets roll back all transition
-state. This supplies the inner SILK handshake; bitrate/music-driven automatic
-target selection and cross-mode redundancy remain unfinished. See
+state. This supplies the inner SILK handshake; cross-mode redundancy remains
+unfinished. See
 [connected transition validation](docs/validation/silk-adaptive-bandwidth.md).
+
+Use `--mode silk --bandwidth auto` or `set_automatic_bandwidth(true)` to select
+NB/MB/WB from packet bitrate, complexity, loss and native AUDIO thresholds. FEC
+can lower the target, while channel layout stays fixed. Reset retains the mode.
+Automatic-mode packet overflow follows native PLC signaling; `used_plc()` and the
+CLI PLC packet count distinguish this from DTX. The
+[automatic bandwidth record](docs/validation/silk-automatic-bandwidth.md) retains
+stress-case concealment counts and limitations. General mode/channel selection,
+Hybrid encoding and quality/performance leadership remain unfinished.
+
 
 Decoding accepts SILK, Hybrid and CELT in one mono/stereo Ogg Opus stream
 (mapping family zero, zero header output gain), and writes PCM16 WAV at 48 kHz.

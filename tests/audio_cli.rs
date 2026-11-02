@@ -338,7 +338,7 @@ fn silk_command_preserves_duration_for_all_rates_bandwidths_and_packet_sizes() -
     let temp = Temporary::new()?;
     let mut case = 0;
     for rate in [8000, 12000, 16000, 24000, 48000] {
-        for bandwidth in ["nb", "mb", "wb"] {
+        for bandwidth in ["nb", "mb", "wb", "auto"] {
             for channels in [1u16, 2] {
                 for ms in [10, 20, 40, 60] {
                     let frame = rate as usize / 1000 * ms;
@@ -384,7 +384,7 @@ fn silk_command_preserves_duration_for_all_rates_bandwidths_and_packet_sizes() -
             }
         }
     }
-    assert_eq!(case, 120);
+    assert_eq!(case, 160);
     Ok(())
 }
 #[test]

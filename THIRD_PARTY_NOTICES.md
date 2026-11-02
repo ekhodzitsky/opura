@@ -1689,3 +1689,10 @@ permission in `silk/enc_API.c`, per-channel LP placement in
 `src/opus_encoder.c` at the same pinned revision. The optional scheduling oracle
 calls the unchanged original control/filter functions and native activity macros;
 external reference code remains outside all Cargo builds and ordinary tests.
+
+Automatic fixed-layout SILK bandwidth follows the fixed-point AUDIO default,
+`compute_equiv_rate`, automatic bandwidth thresholds/hysteresis, `decide_fec`,
+API/hard-rate bounds and outer budget-overflow PLC signaling in
+`src/opus_encoder.c` at the same pinned revision. The policy oracle extracts
+unchanged original functions/blocks/tables; the overflow oracle wraps original
+public encoding and frame calls. Neither adds a native Cargo dependency.

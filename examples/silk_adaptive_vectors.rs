@@ -161,7 +161,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             SilkRate::Khz12 => 1,
                             SilkRate::Khz16 => 2,
                         };
-                        if actual_band != previous_band {
+                        if frame > 0 && actual_band != previous_band {
                             changes[index(previous_band)][index(actual_band)] += 1;
                         }
                         if dtx != (bytes.len() == 1) {

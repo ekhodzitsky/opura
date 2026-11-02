@@ -55,7 +55,18 @@ impl<const CHANNELS: usize> FecState<CHANNELS> {
     pub fn has_pending(&self, duration: PacketDuration) -> bool {
         self.duration == Some(duration) && self.pending.iter().flatten().any(Option::is_some)
     }
+    #[cfg(test)]
     pub fn begin(&mut self, duration: PacketDuration, rate: SilkRate, bitrate: i32, loss: u8) {
+        self.begin_with_policy(duration, rate, bitrate, loss, None);
+    }
+    pub fn begin_with_policy(
+        &mut self,
+        duration: PacketDuration,
+        rate: SilkRate,
+        bitrate: i32,
+        loss: u8,
+        policy: Option<bool>,
+    ) {
         if self.duration != Some(duration) {
             self.clear_pending();
         }
@@ -68,7 +79,8 @@ impl<const CHANNELS: usize> FecState<CHANNELS> {
         // Native fixed-point threshold, evaluated at the requested fixed bandwidth.
         // An explicit bandwidth is never silently reduced just to enable FEC.
         let threshold = (threshold * (125 - i32::from(loss.min(25))) * 655) >> 16;
-        self.generating = self.enabled && loss > 0 && bitrate / CHANNELS as i32 > threshold;
+        self.generating =
+            self.enabled && loss > 0 && policy.unwrap_or(bitrate / CHANNELS as i32 > threshold);
         self.gain_increase = if self.previous_enabled {
             (7 - ((i32::from(loss) * 13107) >> 16)).max(3) as u8
         } else {
