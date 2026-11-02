@@ -186,6 +186,38 @@ fn verify_public_policy_packets(
     spreading_corpus: bool,
     allocation_corpus: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    verify_full_public_packets(
+        fixtures,
+        detect,
+        tf_analysis,
+        dynamic_analysis,
+        spreading_corpus,
+        allocation_corpus,
+        false,
+    )
+}
+#[test]
+fn original_pitch_packets_and_public_libopus_pcm_match_at_every_output_geometry()
+-> Result<(), Box<dyn std::error::Error>> {
+    verify_full_public_packets(
+        include_str!("celt-encoder-pitch-packets-fixtures.txt"),
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+    )
+}
+fn verify_full_public_packets(
+    fixtures: &str,
+    detect: bool,
+    tf_analysis: bool,
+    dynamic_analysis: bool,
+    spreading_corpus: bool,
+    allocation_corpus: bool,
+    pitch_corpus: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     use opura::Packet;
     let rates = [
         OutputRate::Khz8,
@@ -214,19 +246,26 @@ fn verify_public_policy_packets(
     while let Some(line) = lines.next() {
         let f: Vec<_> = line.split_whitespace().collect();
         assert_eq!(f[0], "frame");
-        let (detect, tf_analysis, dynamic_analysis, spreading_enabled, allocation_enabled) =
-            if spreading_corpus || allocation_corpus {
-                let flags = f[7].parse::<u8>()?;
-                (
-                    flags & 1 != 0,
-                    flags & 2 != 0,
-                    flags & 4 != 0,
-                    flags & 8 != 0,
-                    flags & 16 != 0,
-                )
-            } else {
-                (detect, tf_analysis, dynamic_analysis, false, false)
-            };
+        let (
+            detect,
+            tf_analysis,
+            dynamic_analysis,
+            spreading_enabled,
+            allocation_enabled,
+            pitch_enabled,
+        ) = if spreading_corpus || allocation_corpus || pitch_corpus {
+            let flags = f[7].parse::<u8>()?;
+            (
+                flags & 1 != 0,
+                flags & 2 != 0,
+                flags & 4 != 0,
+                flags & 8 != 0,
+                flags & 16 != 0,
+                flags & 32 != 0,
+            )
+        } else {
+            (detect, tf_analysis, dynamic_analysis, false, false, false)
+        };
 
         let reset = f[1] == "1";
         let rate = match f[2] {
@@ -277,6 +316,7 @@ fn verify_public_policy_packets(
         encoder.set_dynamic_allocation(dynamic_analysis);
         encoder.set_spreading_analysis(spreading_enabled);
         encoder.set_allocation_analysis(allocation_enabled);
+        encoder.set_pitch_prefilter(pitch_enabled);
         let packet = encoder.encode(size, &input, budget)?;
         assert_eq!(packet.as_bytes(), expected, "frame{frames}");
         assert_eq!(i64::from(packet.final_range()), state[0]);
@@ -325,7 +365,9 @@ fn verify_public_policy_packets(
     }
     assert_eq!(
         (frames, decoded),
-        if allocation_corpus {
+        if pitch_corpus {
+            (1920, 19200)
+        } else if allocation_corpus {
             (1440, 14400)
         } else if detect {
             (960, 9600)
@@ -664,13 +706,15 @@ fn allocation_setting_combinations_reset_and_small_budgets_are_transactional()
         encoder.set_dynamic_allocation(flags & 4 != 0);
         encoder.set_spreading_analysis(flags & 8 != 0);
         encoder.set_allocation_analysis(flags & 16 != 0);
+        encoder.set_pitch_prefilter(flags & 32 != 0);
     }
     let mut frames = 0;
-    for flags in 0..32 {
+    for flags in 0..64 {
         for rate in [InputRate::Khz8, InputRate::Khz48] {
             for channels in [1, 2] {
                 let mut encoder = CeltEncoder::new(rate, channels)?;
                 assert!(!encoder.allocation_analysis());
+                assert!(!encoder.pitch_prefilter());
                 configure(&mut encoder, flags);
                 let mut decoder = OpusDecoder::new(
                     OutputRate::Khz48,
@@ -715,12 +759,15 @@ fn allocation_setting_combinations_reset_and_small_budgets_are_transactional()
                 let mut toggled = encoder.clone();
                 toggled.set_allocation_analysis(flags & 16 == 0);
                 toggled.set_allocation_analysis(flags & 16 != 0);
+                toggled.set_pitch_prefilter(flags & 32 == 0);
+                toggled.set_pitch_prefilter(flags & 32 != 0);
                 assert_eq!(toggled, encoder);
                 encoder.reset();
                 let mut fresh = CeltEncoder::new(rate, channels)?;
                 configure(&mut fresh, flags);
                 assert_eq!(encoder, fresh);
                 assert_eq!(encoder.allocation_analysis(), flags & 16 != 0);
+                assert_eq!(encoder.pitch_prefilter(), flags & 32 != 0);
                 assert_eq!(encoder.transient_detection(), flags & 1 != 0);
                 assert_eq!(encoder.tf_analysis(), flags & 2 != 0);
                 assert_eq!(encoder.dynamic_allocation(), flags & 4 != 0);
@@ -733,6 +780,6 @@ fn allocation_setting_combinations_reset_and_small_budgets_are_transactional()
             }
         }
     }
-    assert_eq!(frames, 4096);
+    assert_eq!(frames, 8192);
     Ok(())
 }

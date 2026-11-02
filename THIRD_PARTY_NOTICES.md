@@ -1538,3 +1538,12 @@ reads use separate raw source storage. Original signed16 stereo thresholds,
 rounding, bias, saturation and history order are preserved. External unchanged
 original prefilter/constructor/reset observers are optional validation only and
 never enter Cargo builds or tests.
+
+
+CELT PCM prefilter integration follows original raw-analysis/filter/MDCT order,
+byte/resource gates, cached-tell comb period/gain/tap signaling and actual
+active-long-filter spreading HF updates in celt_encoder.c. Existing encoder,
+prefilter, comb, spreading and control-table notices and terms apply. Optional
+comb-field evidence extracts the original signaling block unchanged; packet
+assembly owns unchanged original prefilter states and read-only history hashes.
+Reference code remains external validation and never enters Cargo.

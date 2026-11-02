@@ -1,5 +1,6 @@
 //! Stateful signed16 PCM to single-frame CELT-only Opus packets.
-//! All-long default with optional transient, TF and dynamic-allocation analysis.
+//! Long-window default with optional native transient, TF, spreading, allocation
+//! and pitch-prefilter policies.
 //! Further adaptive decisions and SILK/Hybrid encoding remain separate work.
 //! See THIRD_PARTY_NOTICES.md for constituent algorithms.
 //! Copyright (c) 2007-2008 CSIRO; 2007-2010 Xiph.Org Foundation;
@@ -17,9 +18,12 @@ use super::{
     allocation::{self, AllocationEncoding, AllocationError},
     analysis::{self, AnalysisError},
     control::{self, ControlError},
+    control_tables::TAPSET,
     energy::{BandLayout, CoarseEncoding, EnergyEncoder, EnergyEncodingError, EnergyError},
     input::{InputError, InputRate, PreemphasisState},
     partition::{self, PartitionError, SpectrumEncoding, SpectrumInput},
+    postfilter::{PostfilterParams, Tapset},
+    prefilter::{PrefilterError, PrefilterOptions, PrefilterState},
     pvq::Spread,
 };
 use crate::range::{EncoderError as EntropyError, RangeEncoder};
@@ -41,6 +45,8 @@ pub enum EncoderError {
     Input(InputError),
     /// Transform or band analysis failed.
     Analysis(AnalysisError),
+    /// Native pitch prefilter failed.
+    Prefilter(PrefilterError),
     /// Band layout failed.
     Layout(EnergyError),
     /// Energy quantization failed.
@@ -62,6 +68,7 @@ impl fmt::Display for EncoderError {
             Self::InvalidBudget => f.write_str("CELT payload budget must be 2..1275 bytes"),
             Self::BudgetExhausted => f.write_str("CELT frame exceeds requested byte budget"),
             Self::Input(e) => write!(f, "CELT encoder input: {e}"),
+            Self::Prefilter(e) => write!(f, "CELT encoder prefilter: {e}"),
             Self::Analysis(e) => write!(f, "CELT encoder analysis: {e}"),
             Self::Layout(e) => write!(f, "CELT encoder layout: {e}"),
             Self::Energy(e) => write!(f, "CELT encoder energy: {e}"),
@@ -77,6 +84,7 @@ impl std::error::Error for EncoderError {
         match self {
             Self::Input(e) => Some(e),
             Self::Analysis(e) => Some(e),
+            Self::Prefilter(e) => Some(e),
             Self::Layout(e) => Some(e),
             Self::Energy(e) => Some(e),
             Self::Control(e) => Some(e),
@@ -90,6 +98,11 @@ impl std::error::Error for EncoderError {
 impl From<InputError> for EncoderError {
     fn from(e: InputError) -> Self {
         Self::Input(e)
+    }
+}
+impl From<PrefilterError> for EncoderError {
+    fn from(e: PrefilterError) -> Self {
+        Self::Prefilter(e)
     }
 }
 impl From<AnalysisError> for EncoderError {
@@ -159,7 +172,7 @@ impl EncodedPacket {
 /// Fixed-rate/channel CELT-only encoder with bounded storage and no allocation.
 ///
 /// Default policy uses long transforms (optional native transient detection),
-/// disabled pitch comb/silence suppression,
+/// disabled pitch comb (optional native prefilter)/silence suppression,
 /// standard TF (optional native TF analysis)/Normal spreading, zero dynamic
 /// boosts, trim five, full-band
 /// intensity, no dual stereo, two-pass energy and stereo theta RDO. This supplies
@@ -179,6 +192,8 @@ pub struct CeltEncoder {
     analyze_dynamic: bool,
     analyze_spreading: bool,
     analyze_allocation: bool,
+    pitch_prefilter: bool,
+    prefilter: PrefilterState,
     intensity: analysis::IntensityState,
     trim: analysis::TrimState,
     spreading: analysis::SpreadingState,
@@ -204,6 +219,8 @@ impl CeltEncoder {
             analyze_dynamic: false,
             analyze_spreading: false,
             analyze_allocation: false,
+            pitch_prefilter: false,
+            prefilter: PrefilterState::new(channels)?,
             intensity: analysis::IntensityState::default(),
             trim: analysis::TrimState::default(),
             spreading: analysis::SpreadingState::default(),
@@ -270,6 +287,16 @@ impl CeltEncoder {
     pub fn set_allocation_analysis(&mut self, enabled: bool) {
         self.analyze_allocation = enabled;
     }
+    /// Whether native pitch prefilter selection and comb signaling is enabled.
+    pub fn pitch_prefilter(&self) -> bool {
+        self.pitch_prefilter
+    }
+    /// Enable native pitch filtering (initially disabled). Native byte/resource
+    /// gates apply; raw/filtered histories remain continuous and old gain ramps
+    /// out on disabling. Other settings are independent; reset retains this one.
+    pub fn set_pitch_prefilter(&mut self, enabled: bool) {
+        self.pitch_prefilter = enabled;
+    }
     /// Last completed packet final range, initially zero.
     pub fn final_range(&self) -> u32 {
         self.range
@@ -286,6 +313,7 @@ impl CeltEncoder {
         self.spreading.reset();
         self.intensity.reset();
         self.trim.reset();
+        self.prefilter.reset();
     }
     /// Encode exactly one frame of interleaved signed16 PCM into a full packet.
     ///
@@ -311,6 +339,7 @@ impl CeltEncoder {
         bands: &analysis::BandAnalysis,
         transient: bool,
         perceptual: Option<&analysis::DynallocAnalysis>,
+        active_prefilter: bool,
     ) -> Result<Spread, EncoderError> {
         let payload_bytes = writer.capacity();
         let budget = payload_bytes as u32 * 8;
@@ -333,7 +362,7 @@ impl CeltEncoder {
                     channels: self.channels,
                     end,
                     weights,
-                    update_hf: false,
+                    update_hf: active_prefilter,
                 },
             )?
         } else {
@@ -388,16 +417,13 @@ impl CeltEncoder {
         let mut writer = RangeEncoder::new(payload_bytes)?;
         let budget = payload_bytes as u32 * 8;
         writer.encode_bit_logp(false, 15)?;
-        // Comb presence uses the decoder's cached initial tell=1.
-        if 16 < budget {
-            writer.encode_bit_logp(false, 1)?;
-        }
-        let transient_allowed = size != FrameSize::Ms2_5 && writer.tell() + 3 <= budget;
-        let diagnostics = if (self.detect_transients && transient_allowed)
+        let transient_candidate = size != FrameSize::Ms2_5 && writer.tell() + 3 <= budget;
+        let diagnostics = if (self.detect_transients && transient_candidate)
             || self.analyze_tf
             || self.analyze_dynamic
             || self.analyze_spreading
             || self.analyze_allocation
+            || self.pitch_prefilter
         {
             Some(analysis::analyze_transients(
                 size,
@@ -408,6 +434,28 @@ impl CeltEncoder {
         } else {
             None
         };
+        let mut current = [0; 1920];
+        for channel in 0..self.channels {
+            current[channel * n..(channel + 1) * n]
+                .copy_from_slice(&context[channel * stride + 120..(channel + 1) * stride]);
+        }
+        let filtered = self.prefilter.process(
+            size,
+            &current[..self.channels * n],
+            PrefilterOptions {
+                enabled: self.pitch_prefilter && payload_bytes > 12 * self.channels && 16 < budget,
+                available_bytes: payload_bytes as u16,
+                tf_estimate: diagnostics.map_or(0, |d| d.tf_estimate()),
+                tone_frequency: diagnostics.map_or(-1, |d| d.tone_frequency()),
+                toneishness: diagnostics.map_or(0, |d| d.adjusted_toneishness()),
+                tapset: [Tapset::Set0, Tapset::Set1, Tapset::Set2]
+                    [usize::from(self.spreading.tapset())],
+                ..PrefilterOptions::default()
+            },
+        )?;
+        context[..self.channels * stride].copy_from_slice(filtered.values());
+        encode_comb(&mut writer, filtered.parameters())?;
+        let transient_allowed = size != FrameSize::Ms2_5 && writer.tell() + 3 <= budget;
         let transient = self.detect_transients
             && transient_allowed
             && diagnostics.is_some_and(|d| d.transient());
@@ -534,7 +582,13 @@ impl CeltEncoder {
             select = analyzed.select();
         }
         let tf = control::encode_tf(&mut writer, size, 0..end, transient, &decisions, select)?;
-        let spread = self.encode_spreading(&mut writer, &bands, transient, perceptual.as_ref())?;
+        let spread = self.encode_spreading(
+            &mut writer,
+            &bands,
+            transient,
+            perceptual.as_ref(),
+            filtered.active(),
+        )?;
         let rate = analysis::equivalent_rate(size, self.channels, payload_bytes)?;
         let intensity = if self.analyze_allocation && self.channels == 2 {
             self.intensity.select((rate / 1000) as i16, layout)
@@ -644,6 +698,30 @@ impl CeltEncoder {
     }
 }
 
+// Fresh CELT prefix after silence=false; cached initial tell is one.
+// Whole-frame staging owns every entropy error. Native positive gain is possible
+// only beyond the outer >12*C byte gate, so the complete tap field fits.
+fn encode_comb(
+    writer: &mut RangeEncoder,
+    parameters: PostfilterParams,
+) -> Result<(), EncoderError> {
+    if parameters.gain() != 0 && (parameters.period() > 1022 || parameters.gain() % 3072 != 0) {
+        return Err(ControlError::InvalidContext.into());
+    }
+    if 16 < writer.capacity() as u32 * 8 {
+        writer.encode_bit_logp(parameters.gain() != 0, 1)?;
+        if parameters.gain() != 0 {
+            let period = u32::from(parameters.period()) + 1;
+            let octave = (32 - period.leading_zeros()) - 5;
+            writer.encode_uint(octave, 6)?;
+            writer.encode_bits(period - (16 << octave), 4 + octave)?;
+            writer.encode_bits(u32::from(parameters.gain()) / 3072 - 1, 3)?;
+            writer.encode_icdf(parameters.tapset() as usize, &TAPSET, 2)?;
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -655,6 +733,83 @@ mod tests {
             .collect::<Result<_, _>>()?)
     }
     #[test]
+    fn original_comb_field_bytes_and_accounting_match() -> Result<(), Box<dyn std::error::Error>> {
+        use crate::range::RangeDecoder;
+        let taps = [Tapset::Set0, Tapset::Set1, Tapset::Set2];
+        let mut count = 0;
+        for line in include_str!("../../tests/celt-comb-encoder-fixtures.txt")
+            .lines()
+            .filter(|l| !l.starts_with('#'))
+        {
+            let f: Vec<_> = line.split_whitespace().collect();
+            assert_eq!(f[0], "comb");
+            assert_eq!(f.len(), 9);
+            let v: Vec<u32> = f[1..8]
+                .iter()
+                .map(|s| s.parse())
+                .collect::<Result<_, _>>()?;
+            let params = PostfilterParams::new(
+                u16::try_from(v[1])?,
+                u16::try_from(v[2])?,
+                taps[v[3] as usize],
+            )?;
+            let mut writer = RangeEncoder::new(v[0] as usize)?;
+            writer.encode_bit_logp(false, 15)?;
+            encode_comb(&mut writer, params)?;
+            assert_eq!(
+                [writer.range(), writer.tell(), writer.tell_frac()],
+                v[4..7],
+                "{line}"
+            );
+            let expected: Vec<u8> = (0..f[8].len())
+                .step_by(2)
+                .map(|i| u8::from_str_radix(&f[8][i..i + 2], 16))
+                .collect::<Result<_, _>>()?;
+            assert_eq!(writer.finish()?, expected, "{line}");
+            let mut read = RangeDecoder::new(&expected);
+            assert!(!read.decode_bit_logp(15)?);
+            let mut decoded = PostfilterParams::default();
+            if 16 < v[0] * 8 && read.decode_bit_logp(1)? {
+                let octave = read.decode_uint(6)?;
+                let period = (16 << octave) + read.decode_bits(4 + octave)? - 1;
+                let gain = (read.decode_bits(3)? + 1) * 3072;
+                assert!(read.tell() + 2 <= v[0] * 8);
+                let tap = read.decode_icdf(&TAPSET, 2)?;
+                decoded = PostfilterParams::new(period as u16, gain as u16, taps[tap])?;
+            }
+            assert_eq!(
+                decoded,
+                if params.gain() == 0 {
+                    PostfilterParams::default()
+                } else {
+                    params
+                },
+                "{line}"
+            );
+            assert_eq!(
+                [read.range(), read.tell(), read.tell_frac()],
+                v[4..7],
+                "paired {line}"
+            );
+            count += 1;
+        }
+        assert_eq!(count, 96828);
+        let mut writer = RangeEncoder::new(32)?;
+        writer.encode_bit_logp(false, 15)?;
+        let before = writer.clone();
+        for params in [
+            PostfilterParams::new(1023, 3072, Tapset::Set0)?,
+            PostfilterParams::new(15, 1, Tapset::Set0)?,
+        ] {
+            assert_eq!(
+                encode_comb(&mut writer, params),
+                Err(EncoderError::Control(ControlError::InvalidContext))
+            );
+            assert_eq!(writer, before);
+        }
+        Ok(())
+    }
+    #[test]
     fn injected_finalization_errors_preserve_complete_stream_state()
     -> Result<(), Box<dyn std::error::Error>> {
         for detect in [false, true] {
@@ -662,9 +817,11 @@ mod tests {
                 for dynamic in [false, true] {
                     for spreading in [false, true] {
                         for allocation in [false, true] {
-                            verify_finalization_failure(
-                                detect, tf, dynamic, spreading, allocation,
-                            )?;
+                            for pitch in [false, true] {
+                                verify_finalization_failure(
+                                    detect, tf, dynamic, spreading, allocation, pitch,
+                                )?;
+                            }
                         }
                     }
                 }
@@ -678,6 +835,7 @@ mod tests {
         dynamic: bool,
         spreading: bool,
         allocation: bool,
+        pitch: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut encoder = CeltEncoder::new(InputRate::Khz48, 2)?;
         encoder.set_transient_detection(detect);
@@ -685,7 +843,23 @@ mod tests {
         encoder.set_dynamic_allocation(dynamic);
         encoder.set_spreading_analysis(spreading);
         encoder.set_allocation_analysis(allocation);
-        encoder.encode(FrameSize::Ms10, &[0; 960], 128)?;
+        encoder.set_pitch_prefilter(pitch);
+        if pitch {
+            let warm: Vec<i16> = (0..480)
+                .flat_map(|i| {
+                    let value = ((i32::from(super::super::math::cos_norm(i * 131072 / 240))
+                        * 12000)
+                        >> 15) as i16;
+                    [value, value]
+                })
+                .collect();
+            for _ in 0..3 {
+                encoder.encode(FrameSize::Ms10, &warm, 128)?;
+            }
+            assert!(encoder.prefilter.parameters().gain() > 0);
+        } else {
+            encoder.encode(FrameSize::Ms10, &[0; 960], 128)?;
+        }
         let before = encoder.clone();
         let mut input = vec![0; 1920];
         input[960] = 32767;
@@ -786,7 +960,7 @@ mod tests {
             }
             assert_eq!(writer.tell() as usize, bytes * 8 - remaining);
             let decision =
-                encoder.encode_spreading(&mut writer, &bands, false, Some(&perceptual))?;
+                encoder.encode_spreading(&mut writer, &bands, false, Some(&perceptual), false)?;
             assert_eq!(decision as i64, native[0], "decision case{cases}");
             assert_eq!(
                 encoder, reference,
@@ -898,6 +1072,38 @@ mod tests {
         spreading_corpus: bool,
         allocation_corpus: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        verify_full_packet_policies(
+            fixtures,
+            detect,
+            tf_analysis,
+            dynamic_analysis,
+            spreading_corpus,
+            allocation_corpus,
+            false,
+        )
+    }
+    #[test]
+    fn original_pitch_packets_histories_and_accounting_match()
+    -> Result<(), Box<dyn std::error::Error>> {
+        verify_full_packet_policies(
+            include_str!("../../tests/celt-encoder-pitch-packets-fixtures.txt"),
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+        )
+    }
+    fn verify_full_packet_policies(
+        fixtures: &str,
+        detect: bool,
+        tf_analysis: bool,
+        dynamic_analysis: bool,
+        spreading_corpus: bool,
+        allocation_corpus: bool,
+        pitch_corpus: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         use crate::{celt::energy::EnergyState, range::RangeDecoder};
         let sizes = [
             FrameSize::Ms2_5,
@@ -916,19 +1122,26 @@ mod tests {
         while let Some(line) = lines.next() {
             let f: Vec<_> = line.split_whitespace().collect();
             assert_eq!(f[0], "frame");
-            let (detect, tf_analysis, dynamic_analysis, spreading_enabled, allocation_enabled) =
-                if spreading_corpus || allocation_corpus {
-                    let flags = f[7].parse::<u8>()?;
-                    (
-                        flags & 1 != 0,
-                        flags & 2 != 0,
-                        flags & 4 != 0,
-                        flags & 8 != 0,
-                        flags & 16 != 0,
-                    )
-                } else {
-                    (detect, tf_analysis, dynamic_analysis, false, false)
-                };
+            let (
+                detect,
+                tf_analysis,
+                dynamic_analysis,
+                spreading_enabled,
+                allocation_enabled,
+                pitch_enabled,
+            ) = if spreading_corpus || allocation_corpus || pitch_corpus {
+                let flags = f[7].parse::<u8>()?;
+                (
+                    flags & 1 != 0,
+                    flags & 2 != 0,
+                    flags & 4 != 0,
+                    flags & 8 != 0,
+                    flags & 16 != 0,
+                    flags & 32 != 0,
+                )
+            } else {
+                (detect, tf_analysis, dynamic_analysis, false, false, false)
+            };
 
             let rate = match f[2] {
                 "8000" => InputRate::Khz8,
@@ -952,7 +1165,9 @@ mod tests {
             let state = numbers(lines.next().ok_or("state")?)?;
             assert_eq!(
                 state.len(),
-                if allocation_corpus {
+                if pitch_corpus {
+                    468
+                } else if allocation_corpus {
                     455
                 } else if spreading_corpus {
                     447
@@ -982,9 +1197,10 @@ mod tests {
             encoder.set_dynamic_allocation(dynamic_analysis);
             encoder.set_spreading_analysis(spreading_enabled);
             encoder.set_allocation_analysis(allocation_enabled);
+            encoder.set_pitch_prefilter(pitch_enabled);
             let seed = encoder.range;
             let streak = encoder.transient_streak;
-            if tf_analysis || spreading_corpus || allocation_corpus {
+            if (tf_analysis || spreading_corpus || allocation_corpus) && !pitch_corpus {
                 let stride = size.samples() + 120;
                 let mut context = vec![0; channels * stride];
                 for c in 0..channels {
@@ -1140,6 +1356,49 @@ mod tests {
                 );
             }
 
+            assert_eq!(encoder.pitch_prefilter(), pitch_enabled);
+            if pitch_corpus {
+                let params = encoder.prefilter.parameters();
+                assert_eq!(
+                    [
+                        i64::from(params.gain() != 0),
+                        i64::from(params.period()),
+                        i64::from(params.gain()),
+                        if params.gain() == 0 {
+                            0
+                        } else {
+                            i64::from(params.gain() / 3072 - 1)
+                        },
+                        params.tapset() as i64
+                    ],
+                    state[455..460],
+                    "prefilter parameters frame{rows}"
+                );
+                for channel in 0..2 {
+                    let hash = |input: Option<&[i32]>| -> u64 {
+                        input.map_or(0, |input| {
+                            let mut h = 14695981039346656037u64;
+                            for value in input {
+                                for byte in value.to_le_bytes() {
+                                    h = (h ^ u64::from(byte)).wrapping_mul(1099511628211);
+                                }
+                            }
+                            h
+                        })
+                    };
+                    let raw = hash(encoder.prefilter.raw_history(channel).map(|a| a.as_slice()));
+                    let overlap = hash(encoder.prefilter.overlap(channel).map(|a| a.as_slice()));
+                    let base = 460 + channel * 4;
+                    assert_eq!(
+                        [raw, overlap],
+                        [
+                            state[base] as u64 | ((state[base + 1] as u64) << 32),
+                            state[base + 2] as u64 | ((state[base + 3] as u64) << 32)
+                        ],
+                        "prefilter histories frame{rows} C{channel}"
+                    );
+                }
+            }
             assert_eq!(encoder.allocation_analysis(), allocation_enabled);
             if allocation_corpus {
                 assert_eq!(
@@ -1165,6 +1424,17 @@ mod tests {
             let mut read = RangeDecoder::new(&expected[1..]);
             let prefix = control::decode_prefix(&mut read, size, 0)?;
             assert!(!prefix.silence());
+            if pitch_corpus {
+                assert_eq!(
+                    prefix.postfilter(),
+                    if state[455] != 0 {
+                        encoder.prefilter.parameters()
+                    } else {
+                        PostfilterParams::default()
+                    },
+                    "comb prefix frame{rows}"
+                );
+            }
             assert_eq!(prefix.transient(), detect && state[332] != 0);
             decoded_energy.coarse(&mut read, layout, size, prefix.intra())?;
             let tf = control::decode_tf(&mut read, size, 0..end, prefix.transient())?;
@@ -1234,7 +1504,9 @@ mod tests {
         }
         assert_eq!(
             rows,
-            if allocation_corpus {
+            if pitch_corpus {
+                1920
+            } else if allocation_corpus {
                 1440
             } else if detect {
                 960

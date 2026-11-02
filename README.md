@@ -2766,7 +2766,7 @@ contexts are verified. All 42 non-equivalent targeted mutations are detected;
 all four optional pitch evidence modes reproduce and all seven offline gates
 pass with zero dependencies. These are standalone component results. The prefilter stage below adds tone
 shortcuts, thresholds/quantization/cancellation and separate-source comb filtering;
-packet integration remains subsequent work.
+optional packet integration is described below.
 
 ```sh
 python3 tools/celt_pitch_fixtures.py /path/to/opus-v1.6.1 --encoder > /tmp/celt-encoder-pitch-fixtures.txt
@@ -2814,10 +2814,54 @@ loss, exact TF/byte gates, extremes, within-stream disables and reset. Another
 1,024 bounded contexts, invalid/endpoint/reset checks and injected pitch failure
 pass. All 62 targeted mutations are detected. All 22 optional encoder evidence
 modes reproduce and all seven offline gates pass with zero dependencies.
-`CeltEncoder` still disables comb signaling; packet integration is subsequent
-work. These component results establish no encoder quality or speed lead.
+`CeltEncoder` defaults to disabled comb; the optional packet integration below
+enables it. These component results establish no encoder quality or speed lead.
 
 ```sh
 python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --prefilter > /tmp/celt-prefilter-fixtures.txt
 diff -u tests/celt-prefilter-fixtures.txt /tmp/celt-prefilter-fixtures.txt
+```
+
+
+## CELT pitch-filtered packets
+
+`CeltEncoder::set_pitch_prefilter(true)` independently enables native pitch
+selection and comb signaling. Raw pre-emphasized overlap feeds tone/transient
+analysis before filtering. The filtered MDCT context feeds both normal/short
+transforms and transient long-window allocation comparison. Native payload
+threshold >12*channels and cached-prefix resources gate new gain; transient
+availability is checked after comb fields. The private fresh-prefix writer
+signals native period+1/octave, quantized gain and tapset. It rejects positive
+period1023/nonquantized gain even though the general DSP parameter type permits
+these values. Default packet behavior remains unchanged.
+
+Raw1024 and filtered120 histories advance on every frame. Disabling ramps the
+old gain out; setters preserve history. Reset retains all six settings and clears
+histories. Spreading HF/tap estimation runs only with actual active long filtering
+and its existing independent setting/resource guards; the new tap affects the
+next frame. Full-frame staging includes all new state and late errors.
+
+All 96,828 original comb-field cases match complete bytes, ranges and counters,
+covering every positive period15..1022, eight gains and three tapsets over four
+budgets, plus disabled/cached-budget cases and paired decoding. Another 1,920
+complete original packets match state, prefilter history fingerprints and
+19,200 unchanged public native PCM/range/history decodes. Eight policies and
+within-stream pitch toggles exercise 382 active frames, 53 active short frames,
+21/37 tap1/tap2 requests and HF average up to41, with zero native active-energy
+history differences. Periodic LF+HF pilots retain real filtering while testing
+HF/tap propagation.
+
+Another 8,192 packets cover all 64 setting combinations, NB/FB, small budgets,
+reset and invalid-input contracts. Pre/post-finalize injection preserves full
+state for all 64 combinations, including positive gain histories. All 16 focused
+integration mutations are detected; the existing prefilter/pitch component
+campaigns remain applicable. All 24 optional encoder modes reproduce and all
+seven offline gates pass with zero dependencies. SILK/Hybrid encoding, audio
+tooling and representative quality/performance comparisons remain work.
+
+```sh
+python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --comb-fields > /tmp/celt-comb-encoder-fixtures.txt
+diff -u tests/celt-comb-encoder-fixtures.txt /tmp/celt-comb-encoder-fixtures.txt
+python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --pitch-packets > /tmp/celt-encoder-pitch-packets-fixtures.txt
+diff -u tests/celt-encoder-pitch-packets-fixtures.txt /tmp/celt-encoder-pitch-packets-fixtures.txt
 ```

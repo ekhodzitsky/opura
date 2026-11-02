@@ -16,7 +16,7 @@ REVISION='22244de5a79bd1d6d623c32e72bf1954b56235be'
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('source',type=Path)
 mode=parser.add_mutually_exclusive_group()
-for name in ['analysis','analysis-math','analysis-tables','transients','tf-analysis','tf-packets','tf-math','dynalloc-tables','dynalloc-analysis','dynalloc-packets','dynalloc-math','spreading-analysis','spreading-packets','spreading-tails','allocation-analysis-tables','allocation-analysis-math','stereo-analysis','trim-analysis','allocation-packets','allocation-tails','prefilter']:mode.add_argument('--'+name,action='store_true')
+for name in ['analysis','analysis-math','analysis-tables','transients','tf-analysis','tf-packets','tf-math','dynalloc-tables','dynalloc-analysis','dynalloc-packets','dynalloc-math','spreading-analysis','spreading-packets','spreading-tails','allocation-analysis-tables','allocation-analysis-math','stereo-analysis','trim-analysis','allocation-packets','allocation-tails','prefilter','comb-fields','pitch-packets']:mode.add_argument('--'+name,action='store_true')
 args=parser.parse_args();source=args.source.resolve()
 if subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip()!=REVISION:
     raise SystemExit('Expected pinned Opus v1.6.1')
@@ -34,18 +34,24 @@ wrapper=r'''
 #error "Canonical fast64 fixed-point Q24 required"
 #endif
 int allocation_intensity(int rate,int previous);
+void *prefilter_create(int C);
+int prefilter_reset(CELTEncoder *s);
+int prefilter_process(CELTEncoder *s,int LM,const int *input,const int *options,int *context,int *out);
+void original_write_comb(ec_enc *enc,int bytes,int period,int gain,int tap);
+opus_uint64 prefilter_history_hash(const opus_int32 *values,int length);
 struct baseline {
     int rate,C,first,previous,detect,streak,spread,average,hf,tapset;unsigned rng;
-    int intensity;opus_val16 saving;
+    int intensity;opus_val16 saving;CELTEncoder *prefilter;
     opus_int32 preem[2],overlap[240],energy[42],residual[42],delayed;
 };
 void *baseline_create(int rate,int C,int detect){
     struct baseline *s=calloc(1,sizeof(*s));if(!s)return NULL;
+    s->prefilter=prefilter_create(C);if(!s->prefilter){free(s);return NULL;}
     s->rate=rate;s->C=C;s->detect=detect;s->first=1;s->spread=SPREAD_NORMAL;s->average=256;return s;
 }
-void baseline_reset(struct baseline *s){int rate=s->rate,C=s->C,detect=s->detect;memset(s,0,sizeof(*s));s->rate=rate;s->C=C;s->detect=detect;s->first=1;s->spread=SPREAD_NORMAL;s->average=256;}
+int baseline_reset(struct baseline *s){int rate=s->rate,C=s->C,detect=s->detect;CELTEncoder *pf=s->prefilter;memset(s,0,sizeof(*s));s->prefilter=pf;s->rate=rate;s->C=C;s->detect=detect;s->first=1;s->spread=SPREAD_NORMAL;s->average=256;return prefilter_reset(pf);}
 void baseline_set_flags(struct baseline *s,int flags){s->detect=flags;}
-void baseline_destroy(struct baseline *s){free(s);}
+void baseline_destroy(struct baseline *s){if(s){free(s->prefilter);free(s);}}
 int baseline_encode(struct baseline *s,int LM,const opus_int16 *pcm,int bytes,unsigned char *data,int *out){
     int error;const CELTMode *m=opus_custom_mode_create(48000,960,&error);
     if(!m||error)return -1;
@@ -60,15 +66,19 @@ int baseline_encode(struct baseline *s,int LM,const opus_int16 *pcm,int bytes,un
     }
     ec_enc enc;ec_enc_init(&enc,data+1,bytes);unsigned budget=bytes*8;
     ec_enc_bit_logp(&enc,0,15);
-    if(1+16<=budget)ec_enc_bit_logp(&enc,0,1);
     int allowed=LM && ec_tell(&enc)+3<=budget;
     int transient=0,channel=0;opus_val32 radius=0;opus_val16 estimate=0,frequency=-1;
-    if(((s->detect&1)&&allowed)||(s->detect&30)){
+    if(((s->detect&1)&&allowed)||(s->detect&62)){
         frequency=tone_detect(in,C,N+120,&radius,48000);int weak=0;
         int detected=transient_analysis(in,N+120,C,&estimate,&channel,0,&weak,frequency,radius);
         transient=(s->detect&1)&&allowed&&detected;
         radius=MIN32(radius,QCONST32(1.f,29)-SHL32(estimate,15));
     }
+    opus_int32 raw_current[1920]={0};for(int ch=0;ch<C;ch++)OPUS_COPY(raw_current+ch*N,in+ch*(N+120)+120,N);
+    int pf_options[8]={(s->detect&32)&&bytes>12*C&&1+16<=budget,10,bytes,estimate,frequency,radius,0,s->tapset};
+    int pf_result[5];if(prefilter_process(s->prefilter,LM,raw_current,pf_options,in,pf_result))return -4;
+    original_write_comb(&enc,bytes,pf_result[1],pf_result[2],pf_result[4]);
+    allowed=LM&&ec_tell(&enc)+3<=budget;transient=transient&&allowed;
     if(allowed)ec_enc_bit_logp(&enc,transient,3);
     compute_mdcts(m,transient?(1<<LM):0,in,freq,C,C,LM,upsample,0);
     compute_band_energies(m,freq,amplitudes,end,C,LM,0);
@@ -108,7 +118,7 @@ int baseline_encode(struct baseline *s,int LM,const opus_int16 *pcm,int bytes,un
     tf_encode(0,end,transient,tf,LM,select,&enc);
     if(ec_tell(&enc)+4<=budget){
         if((s->detect&8)&&!transient&&bytes>=10*C)
-            s->spread=spreading_decision(m,X,&s->average,s->spread,&s->hf,&s->tapset,0,end,C,1<<LM,spread_weight);
+            s->spread=spreading_decision(m,X,&s->average,s->spread,&s->hf,&s->tapset,pf_result[0]&&!transient,end,C,1<<LM,spread_weight);
         else s->spread=SPREAD_NORMAL;
         ec_enc_icdf(&enc,s->spread,spread_icdf,5);
     } else s->spread=SPREAD_NORMAL;
@@ -157,6 +167,13 @@ int baseline_encode(struct baseline *s,int LM,const opus_int16 *pcm,int bytes,un
     for(int i=0;i<240;i++)out[6+i]=s->overlap[i];
     for(int i=0;i<42;i++){out[246+i]=s->energy[i];out[288+i]=s->residual[i];}
     out[330]=ec_tell(&enc);out[331]=ec_tell_frac(&enc);out[332]=transient;out[333]=s->streak;out[334]=!!analysis_enabled;out[335]=select;for(int i=0;i<21;i++)out[336+i]=requested_tf[i];for(int i=0;i<21;i++)out[357+i]=tf[i];
+    for(int i=0;i<5;i++)out[455+i]=pf_result[i];
+    for(int ch=0;ch<2;ch++){
+        opus_uint64 raw_hash=ch<C?prefilter_history_hash(s->prefilter->in_mem+C*120+ch*1024,1024):0;
+        opus_uint64 overlap_hash=ch<C?prefilter_history_hash(s->prefilter->in_mem+ch*120,120):0;
+        out[460+ch*4]=(opus_uint32)raw_hash;out[461+ch*4]=(opus_uint32)(raw_hash>>32);
+        out[462+ch*4]=(opus_uint32)overlap_hash;out[463+ch*4]=(opus_uint32)(overlap_hash>>32);
+    }
     out[447]=s->saving;out[448]=s->intensity;out[449]=trim;out[450]=intensity;out[451]=dual;out[452]=trim_fits;out[453]=requested_dual;out[454]=rate;
     out[378]=dyn_depth;out[379]=dyn_total;out[443]=s->spread;out[444]=s->average;out[445]=s->hf;out[446]=s->tapset;
     for(int i=0;i<21;i++){out[380+i]=requests[i];out[401+i]=i<end?importance[i]:0;out[422+i]=spread_weight[i];}
@@ -181,6 +198,28 @@ def original_function(text,signature):
         depth+=(text[end]=='{')-(text[end]=='}');end+=1
     return text[start:end]
 encoder_source=(source/'celt/celt_encoder.c').read_text()
+comb_signature='      if (pf_on==0)'
+comb_begin=encoder_source.index(comb_signature)
+comb_first=original_function(encoder_source,comb_signature)
+comb_next=comb_begin+len(comb_first)
+if not encoder_source[comb_next:].startswith(' else {'):raise SystemExit('Original comb branch changed')
+comb_brace=encoder_source.index('{',comb_next);comb_depth=1;comb_end=comb_brace+1
+while comb_depth:
+    comb_depth+=(encoder_source[comb_end]=='{')-(encoder_source[comb_end]=='}');comb_end+=1
+comb_block=encoder_source[comb_begin:comb_end]
+wrapper+=r'''
+void original_write_comb(ec_enc *enc,int bytes,int period,int gain,int tap){
+    int hybrid=0,tell=1,total_bits=bytes*8,pf_on=gain!=0;
+    int pitch_index=period,qg=gain?gain/3072-1:0,prefilter_tapset=tap;
+'''+comb_block+r'''
+}
+int comb_field_probe(int bytes,int period,int gain,int tap,unsigned char *data,int *out){
+    ec_enc enc;ec_enc_init(&enc,data,bytes);ec_enc_bit_logp(&enc,0,15);
+    original_write_comb(&enc,bytes,period,gain,tap);
+    out[0]=enc.rng;out[1]=ec_tell(&enc);out[2]=ec_tell_frac(&enc);
+    ec_enc_done(&enc);return ec_get_error(&enc);
+}
+'''
 observed=original_function(encoder_source,'static int transient_analysis(')
 observed=observed.replace('static int transient_analysis(','static int transient_analysis_observed(',1)
 needle='   tf_max = MAX16(0,celt_sqrt(27*mask_metric)-42);'
@@ -342,6 +381,12 @@ int allocation_tail(int LM,int C,int bytes,int remaining,int boost,int saving,un
 }
 '''
 wrapper+=r'''
+opus_uint64 prefilter_history_hash(const opus_int32 *values,int length){
+    opus_uint64 hash=14695981039346656037ULL;
+    for(int i=0;i<length;i++)for(int byte=0;byte<4;byte++)hash=(hash^(((opus_uint32)values[i]>>(8*byte))&255))*1099511628211ULL;
+    return hash;
+}
+void prefilter_destroy(CELTEncoder *s){free(s);}
 void *prefilter_create(int C){
     CELTEncoder *s=malloc(celt_encoder_get_size(C));if(!s)return NULL;
     if(celt_encoder_init(s,48000,C,0)){free(s);return NULL;}return s;
@@ -382,13 +427,34 @@ void decoder_energy(const OpusDecoder *s,int *out){baseline_decoder_energy((cons
                     *['-I'+str(source/p) for p in ['include','celt','silk','silk/fixed','src']],str(path/'probe.c'),str(path/'celt_decoder.c'),str(path/'opus_decoder.c'),
                     *[str(source/f) for f in files if f not in ['celt/celt_encoder.c','celt/celt_decoder.c','src/opus_decoder.c']],'-lm','-o',str(path/'probe.so')],check=True)
     lib=c.CDLL(str(path/'probe.so'));ptr=c.c_void_p;i16=c.POINTER(c.c_int16);u8=c.POINTER(c.c_ubyte);u32=c.POINTER(c.c_uint32);i32=c.POINTER(c.c_int)
-    for name,types,result in [('baseline_create',[c.c_int,c.c_int,c.c_int],ptr),('baseline_reset',[ptr],None),('baseline_destroy',[ptr],None),
+    for name,types,result in [('baseline_create',[c.c_int,c.c_int,c.c_int],ptr),('baseline_reset',[ptr],c.c_int),('baseline_destroy',[ptr],None),
         ('baseline_set_flags',[ptr,c.c_int],None),
         ('baseline_encode',[ptr,c.c_int,i16,c.c_int,u8,i32],c.c_int),('opus_decoder_create',[c.c_int,c.c_int,i32],ptr),('opus_decoder_destroy',[ptr],None),
         ('decode_packet',[ptr,u8,c.c_int,i16,u32],c.c_int),('reset_decoder',[ptr],c.c_int),('decoder_energy',[ptr,i32],None)]:
         fn=getattr(lib,name);fn.argtypes=types;fn.restype=result
+    if args.comb_fields:
+        lib.comb_field_probe.argtypes=[c.c_int]*4+[u8,i32];lib.comb_field_probe.restype=c.c_int
+        print('# Unchanged original fresh-prefix comb encoding block:',REVISION)
+        print('# comb BYTES PERIOD GAIN TAP RANGE TELL FRAC HEX')
+        rows=0
+        for budget in [3,4,8,16]:
+            for period in range(15,1023):
+                for gain in range(3072,24577,3072):
+                    for tap in range(3):
+                        data=(c.c_ubyte*budget)();out=(c.c_int32*3)()
+                        if lib.comb_field_probe(budget,period,gain,tap,data,out):raise SystemExit('Original comb field failed')
+                        print('comb',budget,period,gain,tap,c.c_uint32(out[0]).value,out[1],out[2],bytes(data).hex());rows+=1
+        for budget in [2,3,4,8,16]:
+            for period in [0,15,1022,1023]:
+                for tap in range(3):
+                    data=(c.c_ubyte*budget)();out=(c.c_int32*3)()
+                    if lib.comb_field_probe(budget,period,0,tap,data,out):raise SystemExit('Original disabled comb field failed')
+                    print('comb',budget,period,0,tap,c.c_uint32(out[0]).value,out[1],out[2],bytes(data).hex());rows+=1
+        print(f'# rows={rows}')
+        raise SystemExit
     if args.prefilter:
         lib.prefilter_create.argtypes=[c.c_int];lib.prefilter_create.restype=ptr
+        lib.prefilter_destroy.argtypes=[ptr];lib.prefilter_destroy.restype=None
         lib.prefilter_reset.argtypes=[ptr];lib.prefilter_reset.restype=c.c_int
         lib.prefilter_observe.argtypes=[ptr,i32];lib.prefilter_observe.restype=None
         lib.prefilter_process.argtypes=[ptr,c.c_int,i32,i32,i32,i32];lib.prefilter_process.restype=c.c_int
@@ -450,7 +516,7 @@ void decoder_energy(const OpusDecoder *s,int *out){baseline_decoder_energy((cons
                         print('overlap',*history[3:3+channels*120]);print('raw',*history[3+channels*120:])
                         if list(history[:3])!=[out[1],out[2],out[4]]:raise SystemExit('Original prefilter history mismatch')
                         rows+=1;active+=out[0]
-                finally:lib.baseline_destroy(state)
+                finally:lib.prefilter_destroy(state)
         print(f'# rows={rows} active={active}')
         raise SystemExit
     if args.stereo_analysis or args.trim_analysis:
@@ -946,13 +1012,16 @@ void decoder_energy(const OpusDecoder *s,int *out){baseline_decoder_energy((cons
         emit(3,1,values)
         print(f'# frames={rows} analyses={rows*2}')
         raise SystemExit
-    print('# Original '+('allocation/spreading/dynamic/TF/transient ' if args.allocation_packets else 'spreading/dynamic/TF/transient ' if args.spreading_packets else 'dynamic/TF/transient ' if args.dynalloc_packets else 'TF/transient ' if args.tf_packets else 'tone/transient ' if args.transients else 'fixed-policy ')+'CELT components and public Opus decoding:',REVISION)
+    print('# Original '+('pitch/allocation/spreading/dynamic/TF/transient ' if args.pitch_packets else 'allocation/spreading/dynamic/TF/transient ' if args.allocation_packets else 'spreading/dynamic/TF/transient ' if args.spreading_packets else 'dynamic/TF/transient ' if args.dynalloc_packets else 'TF/transient ' if args.tf_packets else 'tone/transient ' if args.transients else 'fixed-policy ')+'CELT components and public Opus decoding:',REVISION)
     print('# frame RESET INPUT_HZ C LM PAYLOAD_BYTES HEX; input PCM; state RANGE PREVIOUS FIRST DELAYED PREEM[2] OVERLAP[240] ENERGY[42] RESIDUAL[42] TELL FRAC; decoded RATE API COUNT RANGE ENERGY[42] PCM[COUNT*API] (ten per frame)')
     if args.tf_packets:print('# TF state tail: TRANSIENT STREAK ENABLED SELECT REQUESTED_TF[21] EFFECTIVE_TF[21]')
     if args.dynalloc_packets:print('# Dynamic state tail adds DEPTH TOTAL RAW_REQUESTS[21] IMPORTANCE[21] SPREAD_WEIGHTS[21]')
     if args.spreading_packets:print('# Frame tail FLAGS: bit0 transient,bit1 TF,bit2 dynamic,bit3 spreading; base policies8,10,13,15; bit3 toggled off on frames7/11/17/23')
     if args.spreading_packets:print('# State after first332: TRANSIENT STREAK TF_ENABLED TF_SELECT REQUESTED_TF[21] EFFECTIVE_TF[21] DEPTH TOTAL RAW_REQUESTS[21] IMPORTANCE[21] SPREAD_WEIGHTS[21] DECISION TONAL_AVERAGE HF_AVERAGE TAPSET')
     if args.allocation_packets:print('# Frame FLAGS bits0..4 transient/TF/dynamic/spreading/allocation; base16,17,18,20,24,31; allocation off frames7/11/17/23. State tail after447: SAVING DESIRED_INTENSITY TRIM EFFECTIVE_INTENSITY DUAL TRIM_FITS REQUESTED_DUAL EQUIVALENT_RATE')
+    if args.pitch_packets:
+        lib.analysis_cos.argtypes=[c.c_int];lib.analysis_cos.restype=c.c_int
+        print('# FLAGS bit5 pitch prefilter, base32/33/34/36/40/48/47/63; pitch off7/11/17/23. State after455: PF_ON PERIOD GAIN QGAIN TAP RAW0_LO RAW0_HI OVERLAP0_LO OVERLAP0_HI RAW1_LO RAW1_HI OVERLAP1_LO OVERLAP1_HI')
     random=0x50434d45;rows=0;history_differences=0
     def next_random():
         global random
@@ -960,8 +1029,8 @@ void decoder_energy(const OpusDecoder *s,int *out){baseline_decoder_energy((cons
         return random
     for rate in [8000,12000,16000,24000,48000]:
         for channels in [1,2]:
-            for sequence in range(6 if args.allocation_packets else 4 if (args.transients or args.tf_packets or args.dynalloc_packets or args.spreading_packets) else 3):
-                flags=[16,17,18,20,24,31][sequence] if args.allocation_packets else [8,10,13,15][sequence] if args.spreading_packets else 7 if args.dynalloc_packets else 3 if args.tf_packets else int(args.transients)
+            for sequence in range(8 if args.pitch_packets else 6 if args.allocation_packets else 4 if (args.transients or args.tf_packets or args.dynalloc_packets or args.spreading_packets) else 3):
+                flags=[32,33,34,36,40,48,47,63][sequence] if args.pitch_packets else [16,17,18,20,24,31][sequence] if args.allocation_packets else [8,10,13,15][sequence] if args.spreading_packets else 7 if args.dynalloc_packets else 3 if args.tf_packets else int(args.transients)
                 encoder=lib.baseline_create(rate,channels,flags)
                 decoders=[]
                 if not encoder:raise SystemExit('Encoder allocation failed')
@@ -973,15 +1042,15 @@ void decoder_energy(const OpusDecoder *s,int *out){baseline_decoder_energy((cons
                 phase=0
                 try:
                     for frame in range(24):
-                        reset=frame in [0,13];lm=(frame//6)%4 if sequence>=2 else (frame+sequence)%4;n=120<<lm;count=n*rate//48000
-                        budgets=([2,3,4,8,9,10,11,14,15,16,20,19,21,29,30,31,32,64,128,256,512,1275] if (args.spreading_packets or args.allocation_packets) and sequence==0 else [2,3,4,8,14,15,16,29,30,31,32,64,128,256,512,1275] if (args.tf_packets or args.dynalloc_packets) and sequence==0 else [2,3,4,8,16,32,64,128,256,512,1275] if sequence==0 else [8,16,32,64,128,256] if sequence==2 else [32,64,128,256,512,1275])
+                        reset=frame in [0,13];lm=3 if args.pitch_packets and sequence==4 else (frame//6)%4 if sequence>=2 else (frame+sequence)%4;n=120<<lm;count=n*rate//48000
+                        budgets=([2,3,4,11,12,13,14,15,23,24,25,26,32,64,128,256,512,1275] if args.pitch_packets and sequence==0 else [2,3,4,8,9,10,11,14,15,16,20,19,21,29,30,31,32,64,128,256,512,1275] if (args.spreading_packets or args.allocation_packets or args.pitch_packets) and sequence==0 else [2,3,4,8,14,15,16,29,30,31,32,64,128,256,512,1275] if (args.tf_packets or args.dynalloc_packets) and sequence==0 else [2,3,4,8,16,32,64,128,256,512,1275] if sequence==0 else [8,16,32,64,128,256] if sequence==2 else [32,64,128,256,512,1275])
                         budget=budgets[frame%len(budgets)]
                         if reset:
-                            lib.baseline_reset(encoder)
+                            if lib.baseline_reset(encoder):raise SystemExit('Original baseline reset failed')
                             for output,api,d in decoders:
                                 if lib.reset_decoder(d):raise SystemExit('Original reset failed')
-                        frame_flags=flags^(16 if args.allocation_packets and frame in [7,11,17,23] else 8 if args.spreading_packets and frame in [7,11,17,23] else 0)
-                        if args.spreading_packets or args.allocation_packets:lib.baseline_set_flags(encoder,frame_flags)
+                        frame_flags=flags^(32 if args.pitch_packets and frame in [7,11,17,23] else 16 if args.allocation_packets and frame in [7,11,17,23] else 8 if args.spreading_packets and frame in [7,11,17,23] else 0)
+                        if args.spreading_packets or args.allocation_packets or args.pitch_packets:lib.baseline_set_flags(encoder,frame_flags)
                         samples=[]
                         for i in range(count):
                             for channel in range(channels):
@@ -997,13 +1066,25 @@ void decoder_energy(const OpusDecoder *s,int *out){baseline_decoder_energy((cons
                                 elif pattern==6:value=32767 if channel==0 else -32768
                                 else:value=(next_random()%8192-4096)*(-1 if channel else 1)
                                 if args.allocation_packets and sequence==5 and frame==0:value=(c.c_int16(next_random()).value if channel==0 else 0)
+                                if args.pitch_packets and sequence in [0,1,4,5,6,7]:
+                                    period=max(16,rate//[100,200,400][frame//8]);at=(phase+i+(period//3 if channel and frame%4==2 else 0))%period
+                                    value=(lib.analysis_cos((phase+i)*131072//period)*[24000,30000,16000][frame//8])>>15
+                                    if sequence==1 and i==count//2:value=32767
+                                    if sequence==4:
+                                        value=(lib.analysis_cos((phase+i)*131072//period)*18000)>>15
+                                        for high_frequency in [10000,14000,18000]:value+=(lib.analysis_cos((phase+i)*high_frequency*131072//rate)*2000)>>15
+                                    if sequence==6:value=(value*3+(c.c_int16(next_random()).value//8))//4
+                                    if sequence==7:value=(value+((at*2-period)*16000//period))//2
+                                    if channel and frame%4==1:value=-value
+                                    if channel and frame%4==3:value=0
                                 samples.append(value)
                         phase+=count
-                        data=(c.c_ubyte*1276)();state=(c.c_int32*455)()
+                        data=(c.c_ubyte*1276)();state=(c.c_int32*468)()
                         length=lib.baseline_encode(encoder,lm,(c.c_int16*len(samples))(*samples),budget,data,state)
                         if length!=budget+1:raise SystemExit(f'Original baseline failed {rate,channels,sequence,frame,budget,length}')
                         values=list(state);values[0]=c.c_uint32(values[0]).value
-                        print('frame',int(reset),rate,channels,lm,budget,bytes(data[:length]).hex(),*([frame_flags] if args.spreading_packets or args.allocation_packets else []));print('input',*samples);print('state',*(values if args.allocation_packets else values[:447] if args.spreading_packets else values[:443] if args.dynalloc_packets else values[:378] if args.tf_packets else values[:334] if args.transients else values[:332]))
+                        for index in range(460,468):values[index]=c.c_uint32(values[index]).value
+                        print('frame',int(reset),rate,channels,lm,budget,bytes(data[:length]).hex(),*([frame_flags] if args.spreading_packets or args.allocation_packets or args.pitch_packets else []));print('input',*samples);print('state',*(values if args.pitch_packets else values[:455] if args.allocation_packets else values[:447] if args.spreading_packets else values[:443] if args.dynalloc_packets else values[:378] if args.tf_packets else values[:334] if args.transients else values[:332]))
                         for output,api,d in decoders:
                             pcm=(c.c_int16*11520)();final=c.c_uint32();actual=lib.decode_packet(d,data,length,pcm,c.byref(final))
                             if actual!=n*output//48000 or final.value!=values[0]:raise SystemExit(f'Original packet decode mismatch {rate,channels,sequence,frame,output,api,actual}')

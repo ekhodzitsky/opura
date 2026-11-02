@@ -7,6 +7,27 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.64] - 2026-11-02
+
+- Integrate independent opt-in native pitch prefilter and comb signaling into
+  CELT PCM encoding. Analyze raw context before filtering, transform filtered
+  overlap/current samples (including dynamic-allocation long comparison), and
+  preserve exact period/gain/tap signaling and post-comb transient availability.
+- Keep raw/filtered histories continuous through disabling and reset; old gain
+  ramps out. Drive spreading HF/tap updates from actual active long filtering,
+  propagating the selected tap to the next frame. Reset retains all six settings;
+  whole-frame rollback includes every prefilter/history field.
+- Match all 96,828 original comb-field byte/range/accounting cases and paired
+  decoding. Match 1,920 packets, state/history fingerprints and 19,200 unchanged
+  public native PCM/range/history decodes; 382 frames use new gain, including
+  53 short frames, with tap1/tap2 propagation and zero native energy differences.
+- Verify 8,192 additional frames across all 64 settings, reset/small budgets and
+  pre/post-finalize failure rollback with positive gain histories. All 16 focused
+  integration mutations are detected. All 24 optional encoder evidence modes
+  reproduce; seven offline gates pass with zero dependencies. Default packet
+  corpora remain unchanged. Audio tooling, SILK/Hybrid encoding and representative
+  quality/performance evaluation remain work; compatibility is no SOTA claim.
+
 ## [0.1.63] - 2026-11-02
 
 - Add safe fixed-storage CELT encoder prefilter state and immutable filtered
