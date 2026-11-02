@@ -1729,3 +1729,13 @@ bias, transient floor and post-dynalloc/trim minimum-size/shrink blocks in
 The optional target oracle extracts unchanged native arithmetic blocks. VBR
 Hybrid disables native constrained-CELT drift/reservoir feedback; its target
 and hard capacity remain separate. Existing constituent attributions apply.
+
+CELT VBR/CVBR target selection, temporal spectrum averaging, initial constrained
+capacity and post-control reservoir/drift/count feedback follow the original
+scalar fixed-point `compute_vbr` and surrounding blocks in
+`celt/celt_encoder.c` at the same pinned revision. The packet-owning API uses
+the original CELT signalling deduction for its TOC-inclusive nominal rate.
+Native digital silence includes the preceding raw input overlap and resets
+active reconstructed energies after quantization. Optional oracles compile
+unchanged arithmetic blocks with controlled inputs; no native codec dependency
+is introduced. Existing constituent notices and licenses apply.

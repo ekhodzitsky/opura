@@ -95,6 +95,11 @@ impl EnergyEncoder {
     pub fn reset(&mut self) {
         *self = Self::default();
     }
+    pub(crate) fn silence(&mut self, layout: BandLayout) {
+        for channel in 0..layout.channels() {
+            self.energies.values[channel][layout.bands()].fill(-(28 << 24));
+        }
+    }
     /// Reconstructed energy histories, including inactive bands/channels.
     pub fn energies(&self) -> &EnergyState {
         &self.energies

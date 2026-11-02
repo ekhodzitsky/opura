@@ -7,6 +7,27 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.79] - 2026-11-02
+
+- Add actual CELT VBR/CVBR PCM/packet encoding at all five standard input rates,
+  mono/stereo and2.5/5/10/20ms. Expose compatible `encode_vbr`/`VbrOptions` and
+  CLI `--vbr`/`--cvbr` with a separate hard `--max-packet-bytes` cap. Keep CBR
+  defaults and fixed SILK/CELT/Hybrid packet behavior.
+- Connect native fixed-point stereo/depth/boost/TF/temporal targets, constrained
+  pre-cap, post-trim shrink, reservoir/drift/count and spectrum histories. Deduct
+  TOC bits from the nominal target using native CELT signalling accounting.
+  Native silence retains the previous raw input overlap and advances analysis;
+  all rate/audio histories roll back on errors, including late termination.
+- Validate8192 unchanged-original target/state decisions and1024 temporal
+  history snapshots, actual native PCM/ranges/loss and recording budgets/duration.
+  General mode/channel adaptation, longer packets and competitive evaluation
+  remain unfinished. See docs/validation/celt-vbr.md for final evidence and limits.
+- Independent native PCM/ranges match10240 records including440 losses and2299
+  silence packets.32 recording files preserve native PCM/duration over304816
+  packets; measured CVBR bitrate error stays below0.09% on this corpus. Six
+  fixed SILK/CELT file regressions and all four Hybrid raw corpora retain bytes.
+  All seven required offline gates pass, including23 Python tests.
+
 ## [0.1.78] - 2026-11-02
 
 - Add actual unconstrained Hybrid VBR through compatible `encode_vbr` and CLI

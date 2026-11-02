@@ -27,11 +27,18 @@ use super::{
     pvq::Spread,
 };
 use crate::range::{EncoderError as EntropyError, RangeEncoder};
-use std::fmt;
+use std::{cell::Cell, fmt};
+#[path = "vbr.rs"]
+mod vbr;
+pub use vbr::VbrOptions;
+use vbr::{VbrFrame, VbrRate, VbrState, VbrTarget};
 #[path = "hybrid_vbr.rs"]
 mod hybrid_vbr;
 pub(crate) use hybrid_vbr::HybridVbr;
 use hybrid_vbr::VbrBudget;
+#[cfg(test)]
+#[path = "vbr_tests.rs"]
+mod vbr_tests;
 
 /// Invalid PCM/geometry/budget or a failed constituent encoding stage.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -43,6 +50,8 @@ pub enum EncoderError {
     InvalidInput,
     /// Requested CELT payload must contain 2..1275 bytes, excluding the TOC byte.
     InvalidBudget,
+    /// Nominal VBR rate must supply at least24 bits/frame and be at most1500000bps.
+    InvalidRate,
     /// The selected frame cannot fit the requested physical budget.
     BudgetExhausted,
     /// PCM pre-emphasis failed.
@@ -70,6 +79,7 @@ impl fmt::Display for EncoderError {
             Self::InvalidChannels => f.write_str("CELT input must have one or two channels"),
             Self::InvalidInput => f.write_str("CELT PCM length does not match input geometry"),
             Self::InvalidBudget => f.write_str("CELT payload budget must be 2..1275 bytes"),
+            Self::InvalidRate => f.write_str("invalid CELT nominal VBR bitrate"),
             Self::BudgetExhausted => f.write_str("CELT frame exceeds requested byte budget"),
             Self::Input(e) => write!(f, "CELT encoder input: {e}"),
             Self::Prefilter(e) => write!(f, "CELT encoder prefilter: {e}"),
@@ -202,6 +212,8 @@ pub struct CeltEncoder {
     trim: analysis::TrimState,
     spreading: analysis::SpreadingState,
     transient_streak: u8,
+    vbr: VbrState,
+    overlap_nonzero: bool,
 }
 // Only the enclosing Hybrid packet transaction calls this frame engine.
 #[derive(Clone, Copy)]
@@ -238,6 +250,8 @@ impl CeltEncoder {
             trim: analysis::TrimState::default(),
             spreading: analysis::SpreadingState::default(),
             transient_streak: 0,
+            vbr: VbrState::default(),
+            overlap_nonzero: false,
         })
     }
     /// Fixed PCM input rate.
@@ -327,6 +341,8 @@ impl CeltEncoder {
         self.intensity.reset();
         self.trim.reset();
         self.prefilter.reset();
+        self.vbr = VbrState::default();
+        self.overlap_nonzero = false;
     }
     /// Encode exactly one frame of interleaved signed16 PCM into a full packet.
     ///
@@ -342,6 +358,25 @@ impl CeltEncoder {
     ) -> Result<EncodedPacket, EncoderError> {
         self.encode_with(size, pcm, payload_bytes, RangeEncoder::finish)
     }
+    /// Encode VBR/CVBR with a separate nominal TOC-inclusive rate and hard
+    /// payload cap. Native per-channel/physical limits can reduce the target.
+    /// Native zero-input silence signaling includes the preceding input overlap.
+    /// Existing analysis/prefilter switches still apply. Errors preserve all
+    /// stream histories, including variable-rate feedback and pending overlap.
+    pub fn encode_vbr(
+        &mut self,
+        size: FrameSize,
+        pcm: &[i16],
+        options: VbrOptions,
+    ) -> Result<EncodedPacket, EncoderError> {
+        self.encode_with_rate(
+            size,
+            pcm,
+            options.payload_bytes,
+            Some(options),
+            RangeEncoder::finish,
+        )
+    }
     pub(crate) fn encode_high_band(
         &mut self,
         size: FrameSize,
@@ -349,7 +384,7 @@ impl CeltEncoder {
         writer: &mut RangeEncoder,
         controls: HybridControls,
     ) -> Result<(), EncoderError> {
-        self.encode_frame(size, pcm, writer, Some(controls))
+        self.encode_frame(size, pcm, writer, Some(controls), None)
     }
     fn tf_permitted(&self, diagnostics: analysis::TransientAnalysis, payload_bytes: usize) -> bool {
         self.analyze_tf && payload_bytes >= 15 * self.channels && !diagnostics.tf_tonal()
@@ -402,14 +437,40 @@ impl CeltEncoder {
         payload_bytes: usize,
         finish: impl for<'a> FnOnce(&'a mut RangeEncoder) -> Result<&'a [u8], EntropyError>,
     ) -> Result<EncodedPacket, EncoderError> {
+        self.encode_with_rate(size, pcm, payload_bytes, None, finish)
+    }
+    fn encode_with_rate(
+        &mut self,
+        size: FrameSize,
+        pcm: &[i16],
+        payload_bytes: usize,
+        options: Option<VbrOptions>,
+        finish: impl for<'a> FnOnce(&'a mut RangeEncoder) -> Result<&'a [u8], EntropyError>,
+    ) -> Result<EncodedPacket, EncoderError> {
         if !(2..=1275).contains(&payload_bytes) {
             return Err(EncoderError::InvalidBudget);
         }
         if pcm.len() != size.samples() / self.rate.factor() * self.channels {
             return Err(EncoderError::InvalidInput);
         }
+        let rate = if let Some(options) = options {
+            let fps = (400 >> size.lm()) as u32;
+            if !(24 * fps..=1500000).contains(&options.bitrate) {
+                return Err(EncoderError::InvalidRate);
+            }
+            Some(VbrRate {
+                bitrate: options
+                    .bitrate
+                    .min(750000 * self.channels as u32)
+                    .min((payload_bytes as u32 + 1) * 8 * fps) as i32,
+                constrained: options.constrained,
+                capacity: payload_bytes,
+            })
+        } else {
+            None
+        };
         let mut next = self.clone();
-        let packet = next.encode_inner(size, pcm, payload_bytes, finish)?;
+        let packet = next.encode_inner(size, pcm, payload_bytes, rate, finish)?;
         *self = next;
         Ok(packet)
     }
@@ -418,10 +479,14 @@ impl CeltEncoder {
         size: FrameSize,
         pcm: &[i16],
         payload_bytes: usize,
+        rate: Option<VbrRate>,
         finish: impl for<'a> FnOnce(&'a mut RangeEncoder) -> Result<&'a [u8], EntropyError>,
     ) -> Result<EncodedPacket, EncoderError> {
         let mut writer = RangeEncoder::new(payload_bytes)?;
-        self.encode_frame(size, pcm, &mut writer, None)?;
+        if let Some(rate) = rate {
+            writer.shrink(self.vbr.capacity(size, rate, payload_bytes))?;
+        }
+        self.encode_frame(size, pcm, &mut writer, None, rate)?;
         let range = writer.range();
         let payload = finish(&mut writer)?;
         let config = match self.rate {
@@ -432,7 +497,7 @@ impl CeltEncoder {
         };
         let mut packet = EncodedPacket {
             bytes: [0; 1276],
-            length: payload_bytes + 1,
+            length: payload.len() + 1,
             size,
             channels: self.channels,
             range,
@@ -450,7 +515,14 @@ impl CeltEncoder {
         pcm: &[i16],
         writer: &mut RangeEncoder,
         hybrid: Option<HybridControls>,
+        vbr_rate: Option<VbrRate>,
     ) -> Result<(), EncoderError> {
+        let silence = vbr_rate.is_some() && !self.overlap_nonzero && pcm.iter().all(|&v| v == 0);
+        let tail = 120 / self.rate.factor() * self.channels;
+        self.overlap_nonzero = pcm[pcm.len() - tail..].iter().any(|&v| v != 0);
+        if silence {
+            writer.shrink(2)?;
+        }
         let payload_bytes = writer.capacity();
         let initial_tell_q3 = writer.tell_frac();
         let start = if hybrid.is_some() { 17 } else { 0 };
@@ -459,9 +531,14 @@ impl CeltEncoder {
         } else {
             payload_bytes
         };
-        let effective_bytes = hybrid
-            .and_then(|h| h.vbr)
-            .map_or(available, |v| v.analysis_bytes(size));
+        let effective_bytes = vbr_rate.map_or_else(
+            || {
+                hybrid
+                    .and_then(|h| h.vbr)
+                    .map_or(available, |v| v.analysis_bytes(size))
+            },
+            |rate| (rate.q3(size) as usize >> 6).clamp(2, 1275),
+        );
         let n = size.samples();
         let stride = n + 120;
         let mut context = [0; 2160];
@@ -480,7 +557,7 @@ impl CeltEncoder {
         }
         let budget = payload_bytes as u32 * 8;
         if hybrid.is_none() {
-            writer.encode_bit_logp(false, 15)?;
+            writer.encode_bit_logp(silence, 15)?;
         }
         let transient_candidate = size != FrameSize::Ms2_5 && writer.tell() + 3 <= budget;
         let diagnostics = if (self.detect_transients && transient_candidate)
@@ -489,6 +566,7 @@ impl CeltEncoder {
             || self.analyze_spreading
             || self.analyze_allocation
             || self.pitch_prefilter
+            || vbr_rate.is_some()
         {
             Some(analysis::analyze_transients(
                 size,
@@ -510,6 +588,7 @@ impl CeltEncoder {
             PrefilterOptions {
                 enabled: hybrid.is_none()
                     && self.pitch_prefilter
+                    && !silence
                     && payload_bytes > 12 * self.channels
                     && 16 < budget,
                 available_bytes: payload_bytes as u16,
@@ -563,7 +642,10 @@ impl CeltEncoder {
             target[c] = *bands.log_energies(c).ok_or(EncoderError::InvalidChannels)?;
             amplitudes[c] = *bands.amplitudes(c).ok_or(EncoderError::InvalidChannels)?;
         }
-        let perceptual = if (self.analyze_dynamic || self.analyze_spreading)
+        let temporal = self
+            .vbr
+            .temporal(&target, self.channels, start, end, size, transient);
+        let perceptual = if (self.analyze_dynamic || self.analyze_spreading || vbr_rate.is_some())
             && (hybrid.is_none() || effective_bytes >= 2)
         {
             let d = diagnostics.ok_or(EncoderError::Analysis(
@@ -601,6 +683,8 @@ impl CeltEncoder {
                 analysis::DynallocOptions {
                     payload_bytes: effective_bytes as u16,
                     transient,
+                    vbr: vbr_rate.is_some(),
+                    constrained_vbr: vbr_rate.is_some_and(|v| v.constrained),
                     tone_frequency: d.tone_frequency(),
                     toneishness: if hybrid.is_some_and(|h| h.complexity == 0) {
                         d.toneishness()
@@ -654,9 +738,17 @@ impl CeltEncoder {
                 select = transient;
             }
         }
-        if let Some(d) =
-            diagnostics.filter(|&d| hybrid.is_none() && self.tf_permitted(d, payload_bytes))
-        {
+        if let Some(d) = diagnostics.filter(|&d| {
+            hybrid.is_none()
+                && self.tf_permitted(
+                    d,
+                    if vbr_rate.is_some() {
+                        effective_bytes
+                    } else {
+                        payload_bytes
+                    },
+                )
+        }) {
             let analyzed = analysis::analyze_tf(
                 size,
                 bands
@@ -665,7 +757,14 @@ impl CeltEncoder {
                 end,
                 analysis::TfAnalysisOptions {
                     transient,
-                    lambda: (20480 / payload_bytes + 2).max(80) as u16,
+                    lambda: (20480
+                        / if vbr_rate.is_some() {
+                            effective_bytes
+                        } else {
+                            payload_bytes
+                        }
+                        + 2)
+                    .max(80) as u16,
                     estimate: d.tf_estimate(),
                     importance: perceptual
                         .as_ref()
@@ -703,6 +802,9 @@ impl CeltEncoder {
                 vbr.rate as i32 - (40 * self.channels as i32 + 20) * ((400 >> size.lm()) - 50),
             );
         }
+        if let Some(vbr) = vbr_rate {
+            rate = vbr.equivalent(size, self.channels);
+        }
         let intensity = if self.analyze_allocation && self.channels == 2 {
             self.intensity.select((rate / 1000) as i16, layout)
         } else {
@@ -726,6 +828,23 @@ impl CeltEncoder {
                 diagnostics.map_or(0, |d| d.tf_estimate())
             },
         };
+        let saving = Cell::new(self.trim.stereo_saving());
+        let rate_target = VbrTarget {
+            size,
+            channels: self.channels,
+            coded_bands: self.previous_coded,
+            intensity,
+            stereo_saving: 0,
+            intended_boost: perceptual
+                .as_ref()
+                .filter(|_| self.analyze_dynamic)
+                .map_or(0, |p| p.total_boost()),
+            tf_estimate: diagnostics.map_or(0, |d| d.tf_estimate()),
+            max_depth: perceptual.as_ref().map_or(0, |p| p.max_depth()),
+            temporal,
+            equivalent_rate: rate,
+        };
+        let rate_state = &mut self.vbr;
         let allocation = allocation::encode_analyzed_resized(
             writer,
             size,
@@ -760,12 +879,31 @@ impl CeltEncoder {
                             surround_trim: 0,
                         },
                     )
-                    .map(|d| d.index())
+                    .map(|d| {
+                        saving.set(self.trim.stereo_saving());
+                        d.index()
+                    })
                     .map_err(AllocationError::Analysis)
             },
             |writer, boost| {
                 if let Some(vbr) = vbr {
                     vbr.resize(writer, vbr_budget, boost)?;
+                }
+                if let Some(rate) = vbr_rate {
+                    let capacity = rate_state
+                        .finish(VbrFrame {
+                            rate,
+                            target: VbrTarget {
+                                stereo_saving: saving.get(),
+                                ..rate_target
+                            },
+                            capacity: writer.capacity(),
+                            tell_q3: writer.tell_frac(),
+                            actual_boost: boost,
+                            silence,
+                        })
+                        .map_err(AllocationError::Analysis)?;
+                    writer.shrink(capacity)?;
                 }
                 Ok(())
             },
@@ -801,6 +939,9 @@ impl CeltEncoder {
             allocation.fine_priority(),
             left,
         )?;
+        if silence {
+            self.energy.silence(layout);
+        }
         let coded = allocation.coded_bands();
         self.previous_coded = if self.previous_coded == 0 {
             coded

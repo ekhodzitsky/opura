@@ -4,7 +4,8 @@ Opura is a pure Rust, zero-dependency Opus implementation under development.
 **The unified decoder supports SILK, CELT and Hybrid PCM, loss/DTX, in-band FEC
 and mode transitions with redundant CELT tails at all five standard output rates.**
 The separate SILK/CELT/Hybrid APIs and their component stages remain available.
-**The CELT encoder accepts mono/stereo PCM at all five standard input rates.
+**The CELT encoder accepts mono/stereo PCM at all five standard input rates,
+with CBR, VBR and constrained VBR.
 The fixed-bandwidth SILK encoder accepts mono/stereo PCM and emits 10/20/40/60 ms
 NB/MB/WB Opus packets.** Both paths are available through the WAV/Ogg CLI.
 SILK supports opt-in DTX/FEC and explicit, gradual or automatic bandwidth
@@ -54,7 +55,14 @@ Encoding accepts little-endian RIFF/WAVE PCM16, mono/stereo, at
 8/12/16/24/48 kHz. It enables all six adaptive CELT analyses. Frame durations
 are 2.5, 5, 10 or 20 ms; defaults are 20 ms and 64,000 bits/s. Bitrate includes
 Opus packet TOC bytes and excludes Ogg overhead; fractional byte budgets carry
-between packets. The encoder flushes its 120-sample delay at 48 kHz; pre-skip
+between CBR packets. Add `--vbr` for unconstrained variable rate or `--cvbr`
+for native constrained capacity/reservoir/drift feedback. Their separate hard
+packet cap is `--max-packet-bytes` (default1276, including TOC); silence can
+use three-byte packets. CBR remains the default. Library users call
+`CeltEncoder::encode_vbr` with `VbrOptions`, whose payload cap excludes TOC.
+The nominal rate includes TOC and can be limited by channel/capacity bounds;
+unattainable budgets fail explicitly. See [CELT VBR validation](docs/validation/celt-vbr.md).
+The encoder flushes its 120-sample delay at 48 kHz; pre-skip
 and the final granule preserve the exact input duration after resampling.
 
 Speech can be encoded through SILK:

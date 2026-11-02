@@ -757,7 +757,7 @@ fn hybrid_vbr_cli_uses_variable_lengths_with_explicit_caps() -> Result<()> {
     let source = temp.0.join("invalid-vbr.wav");
     fs::write(&source, wave(48000, 1, 960))?;
     for args in [
-        vec!["--vbr"],
+        vec!["--mode", "silk", "--vbr"],
         vec!["--mode", "hybrid", "--max-packet-bytes", "200"],
         vec!["--mode", "hybrid", "--vbr", "--max-packet-bytes", "2"],
         vec!["--mode", "hybrid", "--vbr", "--max-packet-bytes", "1277"],
@@ -770,6 +770,75 @@ fn hybrid_vbr_cli_uses_variable_lengths_with_explicit_caps() -> Result<()> {
             !cli()
                 .arg("encode")
                 .arg(&source)
+                .arg(&output)
+                .args(args)
+                .output()?
+                .status
+                .success()
+        );
+        assert!(!output.exists());
+    }
+    Ok(())
+}
+#[test]
+fn celt_vbr_cvbr_cli_caps_silence_duration_and_rejects_conflicts() -> Result<()> {
+    let temp = Temporary::new()?;
+    for rate in [8000, 12000, 16000, 24000, 48000] {
+        for channels in [1u16, 2] {
+            for ms in ["2.5", "5", "10", "20"] {
+                for mode in ["--vbr", "--cvbr"] {
+                    let count = rate as usize / 10 + 1;
+                    let source = temp
+                        .0
+                        .join(format!("celt-{rate}-{channels}-{ms}{mode}.wav"));
+                    let opus = source.with_extension("opus");
+                    let output = source.with_extension("decoded.wav");
+                    let mut data = wave(rate, channels, count);
+                    data[44..44 + count * usize::from(channels)].fill(0);
+                    fs::write(&source, data)?;
+                    success(cli().arg("encode").arg(&source).arg(&opus).args([
+                        mode,
+                        "--frame-ms",
+                        ms,
+                        "--bitrate",
+                        "64001",
+                        "--max-packet-bytes",
+                        "200",
+                    ]))?;
+                    success(cli().arg("decode").arg(&opus).arg(&output))?;
+                    output_pcm(
+                        &fs::read(&output)?,
+                        channels,
+                        count * (48000 / rate) as usize,
+                    )?;
+                    let packets = audio_packets(&fs::read(&opus)?)?;
+                    let sizes: std::collections::BTreeSet<_> =
+                        packets.iter().map(Vec::len).collect();
+                    assert!(sizes.len() > 1);
+                    assert!(sizes.iter().all(|&n| (3..=200).contains(&n)));
+                    assert!(sizes.contains(&3));
+                }
+            }
+        }
+    }
+    let input = temp.0.join("bad-cvbr.wav");
+    fs::write(&input, wave(48000, 1, 960))?;
+    for args in [
+        vec!["--cvbr", "--cvbr"],
+        vec!["--vbr", "--cvbr"],
+        vec!["--cvbr", "--vbr"],
+        vec!["--cvbr", "--mode", "hybrid"],
+        vec!["--cvbr", "--mode", "silk"],
+        vec!["--max-packet-bytes", "200"],
+        vec!["--cvbr", "--bitrate", "1500001"],
+        vec!["--cvbr", "--bitrate", "0"],
+        vec!["--cvbr", "--frame-ms", "2.5", "--bitrate", "9599"],
+    ] {
+        let output = temp.0.join("bad-cvbr.opus");
+        assert!(
+            !cli()
+                .arg("encode")
+                .arg(&input)
                 .arg(&output)
                 .args(args)
                 .output()?

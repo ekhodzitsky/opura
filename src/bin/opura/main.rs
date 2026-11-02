@@ -5,7 +5,11 @@ mod ogg;
 mod wav;
 use opura::{
     Bandwidth, Packet,
-    celt::{FrameSize, encoder::CeltEncoder, input::InputRate},
+    celt::{
+        FrameSize,
+        encoder::{CeltEncoder, VbrOptions},
+        input::InputRate,
+    },
     decoder::OpusDecoder,
     hybrid::encoder::{HybridEncoder, Options as HybridOptions},
     silk::{
@@ -32,7 +36,7 @@ type Result<T> = std::result::Result<T, Box<dyn Error>>;
 fn invalid(message: impl Into<String>) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message.into())
 }
-const HELP: &str = "opura encode INPUT.wav OUTPUT.opus [--mode celt|silk|hybrid] [--bitrate BPS] [--frame-ms MS] [--bandwidth nb|mb|wb|auto|swb|fb] [--dtx] [--fec LOSS_PERCENT] [--vbr] [--max-packet-bytes BYTES]\nopura decode INPUT.opus OUTPUT.wav\nopura --version\n\nEncode: PCM16 WAV at 8/12/16/24/48 kHz.\nCELT: mono/stereo, frames 2.5/5/10/20 ms. SILK: mono/stereo, frames 10/20/40/60 ms. Hybrid: mono/stereo at 24/48 kHz, frames 10/20 ms; SWB at 24 kHz, SWB/FB at 48 kHz. Hybrid --vbr uses a nominal --bitrate and a separate hard --max-packet-bytes cap (default1276); CBR remains the default. Hybrid defaults to 32000 mono/64000 stereo bits/s and input-rate SWB/FB; --dtx enables silence suppression. --fec requests SILK-band protection while retaining the requested Hybrid bandwidth.\nDefaults: CELT, 64000 bits/s (SILK: 24000 mono/48000 stereo), 20 ms. SILK bandwidth defaults to input-rate NB/MB/WB; auto selects it from bitrate/loss. --dtx enables SILK/Hybrid silence suppression, including in CBR. --fec 1..100 requests SILK/Hybrid in-band FEC with the supplied loss estimate (0 disables it). Ogg overhead is additional.\nDecode: one mono/stereo Ogg Opus stream, zero header gain; output PCM16/48 kHz.\nExisting outputs are refused. Errors may leave a partial new output.";
+const HELP: &str = "opura encode INPUT.wav OUTPUT.opus [--mode celt|silk|hybrid] [--bitrate BPS] [--frame-ms MS] [--bandwidth nb|mb|wb|auto|swb|fb] [--dtx] [--fec LOSS_PERCENT] [--vbr|--cvbr] [--max-packet-bytes BYTES]\nopura decode INPUT.opus OUTPUT.wav\nopura --version\n\nEncode: PCM16 WAV at 8/12/16/24/48 kHz.\nCELT: mono/stereo, frames 2.5/5/10/20 ms. --vbr or --cvbr selects nominal-rate variable encoding with a hard --max-packet-bytes cap (default1276); cvbr enables reservoir/drift limits. CBR remains the default. SILK: mono/stereo, frames 10/20/40/60 ms. Hybrid: mono/stereo at 24/48 kHz, frames 10/20 ms; SWB at 24 kHz, SWB/FB at 48 kHz. Hybrid --vbr uses a nominal --bitrate and a separate hard --max-packet-bytes cap (default1276); CBR remains the default. Hybrid defaults to 32000 mono/64000 stereo bits/s and input-rate SWB/FB; --dtx enables silence suppression. --fec requests SILK-band protection while retaining the requested Hybrid bandwidth.\nDefaults: CELT, 64000 bits/s (SILK: 24000 mono/48000 stereo), 20 ms. SILK bandwidth defaults to input-rate NB/MB/WB; auto selects it from bitrate/loss. --dtx enables SILK/Hybrid silence suppression, including in CBR. --fec 1..100 requests SILK/Hybrid in-band FEC with the supplied loss estimate (0 disables it). Ogg overhead is additional.\nDecode: one mono/stereo Ogg Opus stream, zero header gain; output PCM16/48 kHz.\nExisting outputs are refused. Errors may leave a partial new output.";
 fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
@@ -64,9 +68,16 @@ fn run() -> Result<()> {
             let mut dtx = false;
             let mut fec = None;
             let mut vbr = false;
+            let mut constrained = false;
             let mut max_packet_bytes = None;
             let mut i = 3;
             while i < args.len() {
+                if args[i] == "--cvbr" && !vbr {
+                    vbr = true;
+                    constrained = true;
+                    i += 1;
+                    continue;
+                }
                 if args[i] == "--vbr" && !vbr {
                     vbr = true;
                     i += 1;
@@ -138,8 +149,13 @@ fn run() -> Result<()> {
                 }
                 i += 2;
             }
-            if (vbr || max_packet_bytes.is_some()) && mode != Some("hybrid") {
-                return Err(invalid("vbr/max-packet-bytes require mode hybrid").into());
+            if (vbr || max_packet_bytes.is_some()) && mode == Some("silk") {
+                return Err(
+                    invalid("vbr/cvbr/max-packet-bytes require mode celt or hybrid").into(),
+                );
+            }
+            if constrained && mode == Some("hybrid") {
+                return Err(invalid("cvbr requires mode celt").into());
             }
             if max_packet_bytes.is_some() && !vbr {
                 return Err(invalid("max-packet-bytes requires vbr").into());
@@ -178,9 +194,10 @@ fn run() -> Result<()> {
                 encode_hybrid(
                     Path::new(&args[1]),
                     Path::new(&args[2]),
-                    HybridFileRate {
+                    FileRate {
                         bitrate,
                         vbr,
+                        constrained,
                         maximum: max_packet_bytes.unwrap_or(1276),
                     },
                     duration,
@@ -204,7 +221,12 @@ fn run() -> Result<()> {
                 encode(
                     Path::new(&args[1]),
                     Path::new(&args[2]),
-                    bitrate.unwrap_or(64000),
+                    FileRate {
+                        bitrate,
+                        vbr,
+                        constrained,
+                        maximum: max_packet_bytes.unwrap_or(1276),
+                    },
                     frame,
                 )
             }
@@ -216,7 +238,8 @@ fn run() -> Result<()> {
 fn create(path: &Path) -> io::Result<File> {
     OpenOptions::new().write(true).create_new(true).open(path)
 }
-fn encode(input: &Path, output: &Path, bitrate: u32, size: FrameSize) -> Result<()> {
+fn encode(input: &Path, output: &Path, rate_control: FileRate, size: FrameSize) -> Result<()> {
+    let bitrate = rate_control.bitrate.unwrap_or(64000);
     let start = Instant::now();
     let mut source = wav::Reader::new(BufReader::new(File::open(input)?))?;
     let rate = match source.rate {
@@ -229,7 +252,11 @@ fn encode(input: &Path, output: &Path, bitrate: u32, size: FrameSize) -> Result<
     };
     let numerator = u64::from(bitrate) * size.samples() as u64;
     let denominator = 48000 * 8;
-    if numerator / denominator < 3 || numerator.div_ceil(denominator) > 1276 {
+    if if rate_control.vbr {
+        bitrate < (24 * 48000 / size.samples()) as u32 || bitrate > 1500000
+    } else {
+        numerator / denominator < 3 || numerator.div_ceil(denominator) > 1276
+    } {
         return Err(invalid(
             "bitrate/frame combination requires packet size outside 3..1276 bytes",
         )
@@ -262,7 +289,19 @@ fn encode(input: &Path, output: &Path, bitrate: u32, size: FrameSize) -> Result<
         credit += numerator;
         let bytes = credit / denominator;
         credit %= denominator;
-        let packet = encoder.encode(size, &pcm[..length], bytes as usize - 1)?;
+        let packet = if rate_control.vbr {
+            encoder.encode_vbr(
+                size,
+                &pcm[..length],
+                VbrOptions {
+                    bitrate,
+                    constrained: rate_control.constrained,
+                    payload_bytes: rate_control.maximum - 1,
+                },
+            )?
+        } else {
+            encoder.encode(size, &pcm[..length], bytes as usize - 1)?
+        };
         let final_frame = index + 1 == frames;
         let granule = if final_frame {
             end
@@ -424,15 +463,16 @@ fn encode_silk(
     );
     Ok(())
 }
-struct HybridFileRate {
+struct FileRate {
     bitrate: Option<u32>,
     vbr: bool,
+    constrained: bool,
     maximum: usize,
 }
 fn encode_hybrid(
     input: &Path,
     output: &Path,
-    rate_control: HybridFileRate,
+    rate_control: FileRate,
     duration: FrameDuration,
     bandwidth: Option<Bandwidth>,
     dtx: bool,
