@@ -37,6 +37,9 @@ mod hybrid_vbr;
 pub(crate) use hybrid_vbr::HybridVbr;
 use hybrid_vbr::VbrBudget;
 #[cfg(test)]
+#[path = "hybrid_dynalloc_tests.rs"]
+mod hybrid_dynalloc_tests;
+#[cfg(test)]
 #[path = "vbr_tests.rs"]
 mod vbr_tests;
 
@@ -672,7 +675,7 @@ impl CeltEncoder {
                     }
                 }
             }
-            Some(analysis::analyze_dynalloc(
+            Some(analyze_dynamic(
                 size,
                 layout,
                 analysis::DynallocInput {
@@ -683,8 +686,6 @@ impl CeltEncoder {
                 analysis::DynallocOptions {
                     payload_bytes: effective_bytes as u16,
                     transient,
-                    vbr: vbr_rate.is_some(),
-                    constrained_vbr: vbr_rate.is_some_and(|v| v.constrained),
                     tone_frequency: d.tone_frequency(),
                     toneishness: if hybrid.is_some_and(|h| h.complexity == 0) {
                         d.toneishness()
@@ -693,6 +694,8 @@ impl CeltEncoder {
                     },
                     ..analysis::DynallocOptions::default()
                 },
+                hybrid,
+                vbr_rate,
             )?)
         } else {
             None
@@ -958,6 +961,20 @@ impl CeltEncoder {
         self.first = false;
         Ok(())
     }
+}
+
+// Both packet modes share analysis, but Hybrid never enables constrained VBR.
+fn analyze_dynamic(
+    size: FrameSize,
+    layout: BandLayout,
+    input: analysis::DynallocInput<'_>,
+    mut options: analysis::DynallocOptions,
+    hybrid: Option<HybridControls>,
+    vbr: Option<VbrRate>,
+) -> Result<analysis::DynallocAnalysis, AnalysisError> {
+    options.vbr = vbr.is_some() || hybrid.is_some_and(|h| h.vbr.is_some());
+    options.constrained_vbr = vbr.is_some_and(|v| v.constrained);
+    analysis::analyze_dynalloc(size, layout, input, options)
 }
 
 // Fresh CELT prefix after silence=false; cached initial tell is one.

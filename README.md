@@ -173,6 +173,8 @@ exposes the same behavior. CBR defaults remain unchanged. VBR retains the
 original temporal/SILK-offset target and conservative shared-entropy length
 floors; DTX/FEC and error/reset contracts still apply. See
 [Hybrid VBR validation](docs/validation/hybrid-vbr.md).
+Version0.1.80 corrects its high-band dynamic-analysis policy; see the
+[policy correction evidence](docs/validation/hybrid-vbr-dynalloc.md).
 Cross-mode switching and general mode/channel selection remain unfinished. See [Hybrid PCM validation](docs/validation/hybrid-pcm-packets.md).
 
 ```sh

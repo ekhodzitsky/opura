@@ -16,7 +16,7 @@ REVISION='22244de5a79bd1d6d623c32e72bf1954b56235be'
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('source',type=Path)
 mode=parser.add_mutually_exclusive_group()
-for name in ['analysis','analysis-math','analysis-tables','transients','tf-analysis','tf-packets','tf-math','dynalloc-tables','dynalloc-analysis','dynalloc-packets','dynalloc-math','spreading-analysis','spreading-packets','spreading-tails','allocation-analysis-tables','allocation-analysis-math','stereo-analysis','trim-analysis','allocation-packets','allocation-tails','prefilter','comb-fields','pitch-packets']:mode.add_argument('--'+name,action='store_true')
+for name in ['analysis','analysis-math','analysis-tables','transients','tf-analysis','tf-packets','tf-math','dynalloc-tables','hybrid-dynalloc-analysis','dynalloc-analysis','dynalloc-packets','dynalloc-math','spreading-analysis','spreading-packets','spreading-tails','allocation-analysis-tables','allocation-analysis-math','stereo-analysis','trim-analysis','allocation-packets','allocation-tails','prefilter','comb-fields','pitch-packets']:mode.add_argument('--'+name,action='store_true')
 args=parser.parse_args();source=args.source.resolve()
 if subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip()!=REVISION:
     raise SystemExit('Expected pinned Opus v1.6.1')
@@ -786,6 +786,38 @@ void decoder_energy(const OpusDecoder *s,int *out){baseline_decoder_energy((cons
                 for _ in range(n):values.append([-32<<24,0,32<<24][remaining%3]);remaining//=3
                 print('median',n,*values,lib.dynalloc_median(n,(c.c_int32*n)(*values)))
         print(f'# importance={len(inputs)} medians={3**3+3**5}')
+        raise SystemExit
+    if args.hybrid_dynalloc_analysis:
+        lib.dynalloc_probe.argtypes=[c.c_int]*9+[i32]*5;lib.dynalloc_probe.restype=c.c_int
+        print('# Original Hybrid dynamic analysis policy:',REVISION)
+        frames=0;analyses=0
+        for lm in [2,3]:
+            threshold=30+5*lm
+            for channels in [1,2]:
+                for end in [19,21]:
+                    for pattern in range(4):
+                        arrays=[]
+                        for kind in range(3):
+                            values=[2147483647]*42
+                            for channel in range(channels):
+                                for band in range(end):
+                                    if pattern==0:value=0
+                                    elif pattern==1:value=((24 if band==end-2 else -12)+channel*2-kind)*(1<<24)
+                                    elif pattern==2:value=((band%5)*4-8+channel*3-kind)*(1<<24)
+                                    else:value=(28 if (band+channel+kind)%2 else -28)*(1<<24)
+                                    values[channel*21+band]=value
+                            arrays.append(values)
+                        print('frame',lm,channels,17,end,24,*arrays[0],*arrays[1],*arrays[2]);frames+=1
+                        for transient in [0,1]:
+                            for budget in [threshold-1,threshold,threshold+1,64,128,1275]:
+                                for variable in [0,1]:
+                                    flags=transient|variable*2
+                                    surround=[0]*21;out=(c.c_int32*65)()
+                                    frequency=-1;tone=0
+                                    error=lib.dynalloc_probe(lm,channels,17,end,budget,16,flags,frequency,tone,*[(c.c_int32*42)(*v) for v in arrays],(c.c_int32*21)(*surround),out)
+                                    if error:raise SystemExit('Original Hybrid dynamic analysis failed')
+                                    print('dyn',budget,16,flags,frequency,tone,*surround,*out);analyses+=1
+        print(f'# frames={frames} analyses={analyses}')
         raise SystemExit
     if args.dynalloc_analysis:
         lib.dynalloc_probe.argtypes=[c.c_int]*9+[i32]*5;lib.dynalloc_probe.restype=c.c_int

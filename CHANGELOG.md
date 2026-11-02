@@ -7,6 +7,21 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.80] - 2026-11-02
+
+- Fix Hybrid VBR high-band dynamic analysis incorrectly using CBR halving and
+  boost caps. Select variable analysis for both CELT and Hybrid VBR controls;
+  keep constrained feedback exclusive to CELT. Hybrid VBR packets/audio may
+  intentionally change; all CBR/SILK/CELT behavior and APIs remain compatible.
+- Retain768 unchanged-native high-band policy cases; the connected old path
+  fails before the fix (672 versus1392 eighth-bit boost units in one case).
+  Independent native PCM/ranges match184320 actual decoder records, and48
+  recording files preserve interoperability/duration over182928 packets.
+  Three unprotected recordings change PCM; existing protected profiles, old
+  Hybrid CBR/DTX/FEC, CELT VBR/CVBR and six SILK/CELT file regressions retain bytes.
+  All seven required offline gates pass, including23 Python tests. See
+  docs/validation/hybrid-vbr-dynalloc.md for reproducible evidence and limits.
+
 ## [0.1.79] - 2026-11-02
 
 - Add actual CELT VBR/CVBR PCM/packet encoding at all five standard input rates,

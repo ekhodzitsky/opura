@@ -1,0 +1,14 @@
+{
+  "status": "pass",
+  "reference_revision": "22244de5a79bd1d6d623c32e72bf1954b56235be",
+  "vector_sha256": "2c47d0b5366caeb810ad1b1b62ebb2270614f54fd1d25d68d362921ce4142fb5",
+  "profile": "vbr",
+  "streams": 1152,
+  "records": 184320,
+  "lost": 0,
+  "dtx_packets": 25534,
+  "fec_requests": 30528,
+  "fec_requests_with_any_lbrr": 10650,
+  "lbrr_primary_records": 54042,
+  "dtx_fec_requests": 5304
+}
