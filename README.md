@@ -4,9 +4,12 @@ Opura is a pure Rust, zero-dependency Opus implementation under development.
 **The unified decoder supports SILK, CELT and Hybrid PCM, loss/DTX, in-band FEC
 and mode transitions with redundant CELT tails at all five standard output rates.**
 The separate SILK/CELT/Hybrid APIs and their component stages remain available.
+**A baseline CELT-only encoder now accepts signed16 PCM at all five standard
+input rates and emits complete one-frame Opus packets.** Its current policy uses
+long windows; adaptive signal decisions and SILK/Hybrid encoding remain work.
 **The decoder passes all120 official RFC8251 vector/rate/channel cases.**
 The first complete-decoder benchmark is recorded: Opura trails the pinned scalar
-libopus reference in all ten configurations; encoding remains under development. The accepted direction is a complete decoder first, then an encoder,
+libopus reference in all ten configurations; complete adaptive encoding remains under development. The accepted direction is a complete decoder first, then an encoder,
 prioritizing speed and reliability. See the
 [decoder-first decision](docs/decisions/0002-decoder-first.md) for evaluation
 requirements; SOTA performance is an ambition, not a current claim.
@@ -2295,3 +2298,61 @@ diff -u tests/celt-allocation-encoder-fixtures.txt /tmp/celt-allocation-encoder-
 Original dynamic/trim/rate probes remain optional and external to Cargo. Audio
 packet API, signal-driven policies, SILK/Hybrid encoding and quality comparisons
 remain under development.
+
+
+## Stateful CELT PCM packet encoder
+
+`opura::celt::encoder::CeltEncoder` is a safe, zero-dependency, fixed-storage
+PCM-to-packet API. Construct it with `InputRate` (8/12/16/24/48 kHz) and one/two
+channels, then encode one interleaved signed16 frame at 2.5/5/10/20 ms. Rate and
+channel geometry stay fixed; frame duration and payload budget may change.
+`reset()` clears every history while retaining geometry.
+
+```rust
+use opura::celt::{FrameSize, encoder::CeltEncoder, input::InputRate};
+
+let mut encoder = CeltEncoder::new(InputRate::Khz48, 1)?;
+let packet = encoder.encode(FrameSize::Ms20, &[0; 960], 128)?;
+assert_eq!(packet.as_bytes().len(), 129);
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+Input length is exactly `size.samples()/rate.factor()*channels`. Payload budget
+is 2..1275 bytes, excluding the one-byte TOC; successful packets are budget+1
+bytes. Small budgets can fail explicitly. `EncodedPacket` exposes complete bytes,
+frame size, channels and final range. No container/transport framing is added.
+All errors preserve the entire encoder state and immutable caller PCM, including
+late entropy finalization. Normal operation allocates no heap memory.
+
+The initial reproducible policy uses long MDCT windows, disabled pitch comb and
+silence suppression, standard TF/Normal spread, zero boosts, trim five,
+full selected intensity/no dual stereo, two-pass energy and stereo theta RDO.
+It includes native stable-energy quarter-error feedback. Pre-emphasis and
+120-sample overlap persist across durations, retained-band history moves at most
+one band per frame, and the next folding seed is the previous packet final range.
+8 kHz input selects NB, 12/16 kHz WB, 24 kHz SWB and 48 kHz FB. SILK/Hybrid,
+transient/pitch/TF policy analysis, DTX/VBR/FEC encoding, containers and quality
+optimization remain work. This baseline is a usable CELT encoder, not a claim of
+reference-adaptive quality or SOTA performance.
+
+All 720 independently generated original-component packets match full bytes,
+energy/residual/pre-emphasis/overlap/coded-band histories and bit accounting.
+They include signal extremes, tiny/impulse/noise/periodic/stable inputs,
+changing durations/budgets and resets. Unchanged public libopus verifies PCM,
+final ranges and decoder energy histories in 7,200 rate/channel decodes; no
+native encoder/decoder energy-history differences occurred in this set. Original
+two-pass residual scratch outside selected bands is uninitialized/unused, so
+optional observations canonicalize only those entries. Another 2,560 public
+budget/rate/channel/duration cases all encode/decode successfully. Invalid/reset,
+pre/post-finalization rollback and 22 targeted mutations are verified.
+
+```sh
+python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 > /tmp/celt-encoder-fixtures.txt
+diff -u tests/celt-encoder-fixtures.txt /tmp/celt-encoder-fixtures.txt
+```
+
+The optional oracle uses unchanged original components under the same explicit
+baseline decisions and the original public decoder. Its full external native
+build is never a Cargo dependency. This comparison validates implementation and
+packet interoperability; comparison against the reference's adaptive encoder
+requires separate quality/performance measurements and representative audio.

@@ -1,0 +1,270 @@
+//! Stateful CELT packet API and independently retained whole-codec evidence.
+use opura::{
+    celt::{
+        FrameSize,
+        encoder::{CeltEncoder, EncoderError},
+        input::InputRate,
+    },
+    decoder::OpusDecoder,
+    silk::{decoder::PcmChannels, resampler::OutputRate},
+};
+const SIZES: [FrameSize; 4] = [
+    FrameSize::Ms2_5,
+    FrameSize::Ms5,
+    FrameSize::Ms10,
+    FrameSize::Ms20,
+];
+#[test]
+fn public_pcm_packets_are_decodable_and_failures_preserve_whole_state()
+-> Result<(), Box<dyn std::error::Error>> {
+    let mut successes = 0;
+    let mut rejected = 0;
+    for rate in [
+        InputRate::Khz8,
+        InputRate::Khz12,
+        InputRate::Khz16,
+        InputRate::Khz24,
+        InputRate::Khz48,
+    ] {
+        for channels in [1, 2] {
+            for budget in [2, 3, 4, 5, 6, 7, 8, 12, 16, 24, 32, 64, 128, 256, 512, 1275] {
+                let mut encoder = CeltEncoder::new(rate, channels)?;
+                let mut decoder = OpusDecoder::new(
+                    OutputRate::Khz48,
+                    if channels == 1 {
+                        PcmChannels::Mono
+                    } else {
+                        PcmChannels::Stereo
+                    },
+                )?;
+                for frame in 0..16 {
+                    let size = SIZES[frame % 4];
+                    let n = size.samples();
+                    let input: Vec<i16> = (0..n / rate.factor() * channels)
+                        .map(|i| match frame % 4 {
+                            0 => 0,
+                            1 => {
+                                if i % 2 == 0 {
+                                    32767
+                                } else {
+                                    -32768
+                                }
+                            }
+                            2 => (i as i16).wrapping_mul(7659).wrapping_add(frame as i16),
+                            _ => {
+                                if i % 17 == 0 {
+                                    1
+                                } else {
+                                    0
+                                }
+                            }
+                        })
+                        .collect();
+                    let original = input.clone();
+                    let before = encoder.clone();
+                    match encoder.encode(size, &input, budget) {
+                        Ok(packet) => {
+                            assert_eq!(packet.as_bytes().len(), budget + 1);
+                            assert_eq!(packet.frame_size(), size);
+                            assert_eq!(packet.channels(), channels);
+                            assert_eq!(encoder.final_range(), packet.final_range());
+                            let pcm = decoder.decode(packet.as_bytes()).map_err(|e| {
+                                format!(
+                                    "rate{} C{channels} budget{budget} frame{frame}: {e}",
+                                    rate.hz()
+                                )
+                            })?;
+                            assert_eq!(pcm.samples_per_channel(), n);
+                            assert_eq!(pcm.channels(), channels);
+                            assert_eq!(pcm.final_range(), packet.final_range());
+                            successes += 1;
+                        }
+                        Err(error) => {
+                            assert_eq!(encoder, before);
+                            match error{EncoderError::BudgetExhausted|EncoderError::Entropy(opura::range::EncoderError::CapacityExhausted)|EncoderError::Energy(opura::celt::energy::EnergyEncodingError::Entropy(opura::range::EncoderError::CapacityExhausted))=>{},_=>return Err(format!("unexpected rate{} C{channels} budget{budget} frame{frame}: {error}",rate.hz()).into())}
+                            rejected += 1;
+                        }
+                    }
+                    assert_eq!(input, original);
+                }
+            }
+        }
+    }
+    eprintln!("packets{successes}, capacity-rejected{rejected}");
+    assert_eq!((successes, rejected), (2560, 0));
+    Ok(())
+}
+
+#[test]
+fn original_policy_packets_and_public_libopus_pcm_match_at_every_output_geometry()
+-> Result<(), Box<dyn std::error::Error>> {
+    use opura::Packet;
+    let rates = [
+        OutputRate::Khz8,
+        OutputRate::Khz12,
+        OutputRate::Khz16,
+        OutputRate::Khz24,
+        OutputRate::Khz48,
+    ];
+    let mut encoder = CeltEncoder::new(InputRate::Khz48, 1)?;
+    let mut decoders: Vec<_> = rates
+        .into_iter()
+        .flat_map(|rate| {
+            [PcmChannels::Mono, PcmChannels::Stereo]
+                .into_iter()
+                .map(move |channels| (rate, channels))
+        })
+        .map(|(rate, channels)| OpusDecoder::new(rate, channels))
+        .collect::<Result<_, _>>()?;
+    let mut lines = include_str!("celt-encoder-fixtures.txt")
+        .lines()
+        .filter(|l| !l.starts_with('#'));
+    let mut frames = 0;
+    let mut decoded = 0;
+    while let Some(line) = lines.next() {
+        let f: Vec<_> = line.split_whitespace().collect();
+        assert_eq!(f[0], "frame");
+        let reset = f[1] == "1";
+        let rate = match f[2] {
+            "8000" => InputRate::Khz8,
+            "12000" => InputRate::Khz12,
+            "16000" => InputRate::Khz16,
+            "24000" => InputRate::Khz24,
+            "48000" => InputRate::Khz48,
+            _ => return Err("input rate".into()),
+        };
+        let channels = f[3].parse::<usize>()?;
+        let size = SIZES[f[4].parse::<usize>()?];
+        let budget = f[5].parse::<usize>()?;
+        let expected: Vec<u8> = (0..f[6].len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&f[6][i..i + 2], 16))
+            .collect::<Result<_, _>>()?;
+        let input: Vec<i16> = lines
+            .next()
+            .ok_or("input")?
+            .split_whitespace()
+            .skip(1)
+            .map(|s| s.parse())
+            .collect::<Result<_, _>>()?;
+        let state: Vec<i64> = lines
+            .next()
+            .ok_or("state")?
+            .split_whitespace()
+            .skip(1)
+            .map(|s| s.parse())
+            .collect::<Result<_, _>>()?;
+        if encoder.input_rate() != rate || encoder.channels() != channels {
+            encoder = CeltEncoder::new(rate, channels)?;
+        } else if reset {
+            encoder.reset();
+        }
+        if reset {
+            for decoder in &mut decoders {
+                decoder.reset();
+            }
+        }
+        let packet = encoder.encode(size, &input, budget)?;
+        assert_eq!(packet.as_bytes(), expected, "frame{frames}");
+        assert_eq!(i64::from(packet.final_range()), state[0]);
+        let parsed = Packet::parse(packet.as_bytes())?;
+        assert_eq!(parsed.frame_samples(), size.samples() as u16);
+        assert_eq!(usize::from(parsed.channels()), channels);
+        assert_eq!(parsed.frames().len(), 1);
+        for decoder in &mut decoders {
+            let c: Vec<_> = lines.next().ok_or("decoded")?.split_whitespace().collect();
+            assert_eq!(c[0], "decoded");
+            let output = c[1].parse::<u32>()?;
+            let api = c[2].parse::<usize>()?;
+            let count = c[3].parse::<usize>()?;
+            let range = c[4].parse::<u32>()?;
+            assert_eq!(decoder.output_rate().hz(), output);
+            assert_eq!(decoder.output_channels().count(), api);
+            let result = decoder.decode(packet.as_bytes())?;
+            assert_eq!(result.samples_per_channel(), count);
+            assert_eq!(result.final_range(), range);
+            let pcm: Vec<i16> = c[47..]
+                .iter()
+                .map(|s| s.parse())
+                .collect::<Result<_, _>>()?;
+            assert_eq!(
+                result.samples(),
+                pcm,
+                "native PCM frame{frames} rate{output} api{api}"
+            );
+            for ch in 0..2 {
+                let energy = decoder
+                    .celt()
+                    .energy()
+                    .channel(ch)
+                    .ok_or("decoder energy")?;
+                for i in 0..21 {
+                    assert_eq!(
+                        energy[i],
+                        c[5 + ch * 21 + i].parse::<i32>()?,
+                        "decoder history frame{frames}"
+                    );
+                }
+            }
+            decoded += 1;
+        }
+        frames += 1;
+    }
+    assert_eq!((frames, decoded), (720, 7200));
+    Ok(())
+}
+
+#[test]
+fn invalid_geometry_and_reset_preserve_or_clear_the_complete_state()
+-> Result<(), Box<dyn std::error::Error>> {
+    for channels in [0, 3, usize::MAX] {
+        assert_eq!(
+            CeltEncoder::new(InputRate::Khz48, channels),
+            Err(EncoderError::InvalidChannels)
+        );
+    }
+    for rate in [
+        InputRate::Khz8,
+        InputRate::Khz12,
+        InputRate::Khz16,
+        InputRate::Khz24,
+        InputRate::Khz48,
+    ] {
+        for channels in [1, 2] {
+            let mut encoder = CeltEncoder::new(rate, channels)?;
+            let fresh = encoder.clone();
+            let size = FrameSize::Ms20;
+            let length = size.samples() / rate.factor() * channels;
+            let samples = vec![12345; length];
+            encoder.encode(size, &samples, 128)?;
+            assert_ne!(encoder, fresh);
+            let before = encoder.clone();
+            for bytes in [0, 1, 1276, usize::MAX] {
+                assert_eq!(
+                    encoder.encode(size, &samples, bytes),
+                    Err(EncoderError::InvalidBudget)
+                );
+                assert_eq!(encoder, before);
+            }
+            for input in [&[][..], &samples[..length - 1], &vec![0; length + 1][..]] {
+                assert_eq!(
+                    encoder.encode(size, input, 128),
+                    Err(EncoderError::InvalidInput)
+                );
+                assert_eq!(encoder, before);
+            }
+            encoder.reset();
+            assert_eq!(encoder, fresh);
+            assert_eq!(encoder.final_range(), 0);
+            assert_eq!(encoder.input_rate(), rate);
+            assert_eq!(encoder.channels(), channels);
+            let mut second = fresh;
+            assert_eq!(
+                encoder.encode(size, &samples, 128)?,
+                second.encode(size, &samples, 128)?
+            );
+            assert_eq!(encoder, second);
+        }
+    }
+    Ok(())
+}

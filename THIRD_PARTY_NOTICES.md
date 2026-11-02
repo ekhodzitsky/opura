@@ -1435,3 +1435,17 @@ notices and terms apply. Rust shares mandatory numerical allocation math with
 decoding, validates immutable requested policies and stages whole writer commits.
 Optional original probes reuse a deterministic project-owned entropy prefix helper;
 no reference codec code is linked into ordinary builds/tests.
+
+
+# Stateful CELT PCM packet encoder attribution
+
+PCM/frame/energy/control/allocation/spectral composition, stable-energy residual
+feedback and frame-history updates follow `celt/celt_encoder.c` at the pinned
+revision. Existing CELT encoder/component notices and terms apply. Rust adds
+fixed-storage complete Opus packet output, immutable input, typed geometry/budget
+errors and atomic whole-stream commits. Initial explicit all-long control
+policies do not implement the reference encoder's adaptive signal analysis.
+Optional evidence includes original `celt_encoder.c` to call private component
+helpers, links the unchanged original source externally and appends read-only
+decoder-state observers. Unused inactive residual scratch is canonicalized
+without changing any selected-band coding or decoded signal.

@@ -7,6 +7,25 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.55] - 2026-11-02
+
+- Add public fixed-storage `celt::encoder::CeltEncoder` and complete one-frame
+  `EncodedPacket`: signed16 mono/stereo at five input rates, four durations,
+  2..1275-byte payloads, correct TOC/bandwidth, reset and final-range diagnostics.
+- Retain overlap/pre-emphasis, energy residual feedback, two-pass quantization,
+  smoothed coded-band history and packet final-range seeds atomically. Initial
+  policy uses long windows, no pitch/silence suppression, Normal spreading,
+  trim five/zero boosts and stereo theta RDO; adaptive and SILK/Hybrid encoding
+  remain under development.
+- Match 720 complete original component-policy packets and full state/accounting,
+  plus 7,200 independent public libopus PCM/range/history decodes. Native unused
+  two-pass residual scratch is canonicalized outside selected bands only.
+- Verify 2,560 additional public budget/rate/channel/duration frames, typed
+  geometry/reset and injected pre/post-finalization rollback. All 22 targeted
+  mutations detected. Optional evidence reproduces and seven offline gates pass
+  with zero dependencies. These results establish compatibility, not quality or
+  performance superiority over the reference adaptive encoder.
+
 ## [0.1.54] - 2026-11-02
 
 - Add transactional native CELT dynamic/trim and retained-band/stereo allocation

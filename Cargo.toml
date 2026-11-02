@@ -1,9 +1,9 @@
 [package]
 name = "opura"
-version = "0.1.54"
+version = "0.1.55"
 edition = "2024"
 rust-version = "1.87"
-description = "A pure Rust, zero-dependency Opus decoder (SILK, CELT, Hybrid, PLC and FEC)"
+description = "A pure Rust, zero-dependency Opus decoder and baseline CELT encoder"
 publish = false
 
 [lints.rust]
