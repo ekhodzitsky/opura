@@ -1526,3 +1526,15 @@ Existing CSIRO/Xiph.Org/Jean-Marc Valin pitch, LPC and scalar-math notices and
 terms apply. Rust checks geometry/history/signal and accumulator domains with
 immutable inputs and fixed storage. Original scalar/context observers remain
 optional external validation; no reference implementation enters Cargo.
+
+
+# CELT encoder prefilter attribution
+
+`src/celt/prefilter.rs` follows `celt/celt_encoder.c::run_prefilter` and
+`celt/celt.c::comb_filter`/`comb_filter_const_c` at the pinned revision. Existing
+CSIRO/Xiph.Org/Jean-Marc Valin pitch, comb, window and scalar-math notices/terms
+apply. Only immutable tap/window data is shared with the decoder; encoder lag
+reads use separate raw source storage. Original signed16 stereo thresholds,
+rounding, bias, saturation and history order are preserved. External unchanged
+original prefilter/constructor/reset observers are optional validation only and
+never enter Cargo builds or tests.

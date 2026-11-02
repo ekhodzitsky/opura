@@ -32,6 +32,7 @@ mod mdct_tables;
 pub mod output;
 mod output_tables;
 pub mod postfilter;
+pub mod prefilter;
 pub mod synthesis;
 
 /// Classic CELT transform duration at the 48 kHz internal clock.

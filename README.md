@@ -2764,9 +2764,9 @@ remains unchanged. Invalid geometry/signal/history,
 exact input endpoints, checked accumulator failures and 1,024 bounded random
 contexts are verified. All 42 non-equivalent targeted mutations are detected;
 all four optional pitch evidence modes reproduce and all seven offline gates
-pass with zero dependencies. These are standalone component results: tone shortcuts,
-prefilter thresholds/quantization/cancellation, comb filtering and packet
-integration remain subsequent work.
+pass with zero dependencies. These are standalone component results. The prefilter stage below adds tone
+shortcuts, thresholds/quantization/cancellation and separate-source comb filtering;
+packet integration remains subsequent work.
 
 ```sh
 python3 tools/celt_pitch_fixtures.py /path/to/opus-v1.6.1 --encoder > /tmp/celt-encoder-pitch-fixtures.txt
@@ -2775,4 +2775,49 @@ python3 tools/celt_pitch_fixtures.py /path/to/opus-v1.6.1 --encoder-math > /tmp/
 diff -u tests/celt-encoder-pitch-math-fixtures.txt /tmp/celt-encoder-pitch-math-fixtures.txt
 python3 tools/celt_pitch_fixtures.py /path/to/opus-v1.6.1 --refinement > /tmp/celt-pitch-refinement-fixtures.txt
 diff -u tests/celt-pitch-refinement-fixtures.txt /tmp/celt-pitch-refinement-fixtures.txt
+```
+
+
+## CELT encoder prefilter
+
+`prefilter::PrefilterState::new(channels)` owns separate raw 1,024-sample pitch
+histories and filtered 120-sample overlaps for one/two channels. `process` takes
+one immutable planar Q12 frame (120/240/480/960 samples/channel in +/-536870911)
+and checked `PrefilterOptions`, returning a fixed-storage `PrefilteredFrame`
+with channels*(N+120) filtered MDCT context values. Read-only getters expose
+geometry, active flag, gain index, internal pitch/gain/tap and both histories.
+Reset clears histories/parameters and retains channel count. Every error,
+including a constituent pitch failure, preserves all stream state and input.
+
+The caller owns packet resource gating. Options accept enabled, complexity0..10,
+available bytes0..1275, TF estimate0..16384 Q14, tone frequency-1..25736 Q13,
+adjusted tone radius0..2^29 Q29, loss percentage0..100 and a standard tapset.
+Fields are validated even on inactive branches. Native strong-tone period
+alias/doubling bypasses ordinary search regardless of low complexity; ordinary
+search requires complexity>=5 and applies native 0.7/loss attenuation. Continuity,
+TF0.98, byte25/35 and previous-gain adjustments precede native snapping and
+three-bit gain quantization. A zero transmitted gain retains native internal
+period/tap history for the next frame.
+
+Separate-source negative comb filtering reads raw lag samples and never feeds
+filtered output back into its source. It preserves original coefficient/window
+rounding, 120-sample crossfade, constant-filter shortcut, biases and saturation.
+Before/after Q12 L1 checks preserve the original signed16 stereo threshold
+narrowing. Cancellation restores current raw samples and recomputes only the
+old-to-zero overlap. Only immutable tap/window data is shared with the decoder
+feedback filter. No heap allocation, unsafe or Cargo dependency is used.
+
+All 2,048 unchanged-original contexts match every filtered sample, parameter,
+raw and filtered history; 515 frames retain a nonzero new gain. Eight signal/
+control families exercise all durations/channels, mixtures, tone/complexity,
+loss, exact TF/byte gates, extremes, within-stream disables and reset. Another
+1,024 bounded contexts, invalid/endpoint/reset checks and injected pitch failure
+pass. All 62 targeted mutations are detected. All 22 optional encoder evidence
+modes reproduce and all seven offline gates pass with zero dependencies.
+`CeltEncoder` still disables comb signaling; packet integration is subsequent
+work. These component results establish no encoder quality or speed lead.
+
+```sh
+python3 tools/celt_encoder_fixtures.py /path/to/opus-v1.6.1 --prefilter > /tmp/celt-prefilter-fixtures.txt
+diff -u tests/celt-prefilter-fixtures.txt /tmp/celt-prefilter-fixtures.txt
 ```

@@ -17,7 +17,7 @@ pub enum Tapset {
     Set2,
 }
 impl Tapset {
-    fn gains(self) -> [i32; 3] {
+    pub(crate) fn gains(self) -> [i32; 3] {
         match self {
             Self::Set0 => [10048, 7112, 4248],
             Self::Set1 => [15200, 8784, 0],

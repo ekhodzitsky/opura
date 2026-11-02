@@ -16,7 +16,7 @@ REVISION='22244de5a79bd1d6d623c32e72bf1954b56235be'
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('source',type=Path)
 mode=parser.add_mutually_exclusive_group()
-for name in ['analysis','analysis-math','analysis-tables','transients','tf-analysis','tf-packets','tf-math','dynalloc-tables','dynalloc-analysis','dynalloc-packets','dynalloc-math','spreading-analysis','spreading-packets','spreading-tails','allocation-analysis-tables','allocation-analysis-math','stereo-analysis','trim-analysis','allocation-packets','allocation-tails']:mode.add_argument('--'+name,action='store_true')
+for name in ['analysis','analysis-math','analysis-tables','transients','tf-analysis','tf-packets','tf-math','dynalloc-tables','dynalloc-analysis','dynalloc-packets','dynalloc-math','spreading-analysis','spreading-packets','spreading-tails','allocation-analysis-tables','allocation-analysis-math','stereo-analysis','trim-analysis','allocation-packets','allocation-tails','prefilter']:mode.add_argument('--'+name,action='store_true')
 args=parser.parse_args();source=args.source.resolve()
 if subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip()!=REVISION:
     raise SystemExit('Expected pinned Opus v1.6.1')
@@ -341,6 +341,29 @@ int allocation_tail(int LM,int C,int bytes,int remaining,int boost,int saving,un
     ec_enc_done(&enc);return ec_get_error(&enc);
 }
 '''
+wrapper+=r'''
+void *prefilter_create(int C){
+    CELTEncoder *s=malloc(celt_encoder_get_size(C));if(!s)return NULL;
+    if(celt_encoder_init(s,48000,C,0)){free(s);return NULL;}return s;
+}
+int prefilter_reset(CELTEncoder *s){return celt_encoder_ctl(s,OPUS_RESET_STATE);}
+void prefilter_observe(CELTEncoder *s,int *out){
+    int C=s->channels;out[0]=s->prefilter_period;out[1]=s->prefilter_gain;out[2]=s->prefilter_tapset;
+    for(int i=0;i<C*120;i++)out[3+i]=s->in_mem[i];
+    for(int i=0;i<C*1024;i++)out[3+C*120+i]=s->in_mem[C*120+i];
+}
+int prefilter_process(CELTEncoder *s,int LM,const int *input,const int *options,int *context,int *out){
+    int C=s->channels,N=120<<LM;opus_val16 gain;int pitch,qgain;
+    for(int ch=0;ch<C;ch++){
+        for(int i=0;i<120;i++)context[ch*(N+120)+i]=2147483647; /* Unused caller overlap must be replaced. */
+        OPUS_COPY(context+ch*(N+120)+120,input+ch*N,N);
+    }
+    s->loss_rate=options[6];
+    out[0]=run_prefilter(s,context,s->in_mem+C*120,C,N,options[7],&pitch,&gain,&qgain,options[0],options[1],options[3],options[2],&s->analysis,options[4],options[5]);
+    s->prefilter_period=pitch;s->prefilter_gain=gain;s->prefilter_tapset=options[7];
+    out[1]=pitch;out[2]=gain;out[3]=qgain;out[4]=options[7];return 0;
+}
+'''
 files=manifest('silk_sources.mk','SILK_SOURCES')+manifest('silk_sources.mk','SILK_SOURCES_FIXED')+manifest('celt_sources.mk','CELT_SOURCES')+manifest('opus_sources.mk','OPUS_SOURCES')
 with tempfile.TemporaryDirectory(prefix='opura-celt-encoder-') as temp:
     path=Path(temp);(path/'probe.c').write_text(wrapper)
@@ -364,6 +387,72 @@ void decoder_energy(const OpusDecoder *s,int *out){baseline_decoder_energy((cons
         ('baseline_encode',[ptr,c.c_int,i16,c.c_int,u8,i32],c.c_int),('opus_decoder_create',[c.c_int,c.c_int,i32],ptr),('opus_decoder_destroy',[ptr],None),
         ('decode_packet',[ptr,u8,c.c_int,i16,u32],c.c_int),('reset_decoder',[ptr],c.c_int),('decoder_energy',[ptr,i32],None)]:
         fn=getattr(lib,name);fn.argtypes=types;fn.restype=result
+    if args.prefilter:
+        lib.prefilter_create.argtypes=[c.c_int];lib.prefilter_create.restype=ptr
+        lib.prefilter_reset.argtypes=[ptr];lib.prefilter_reset.restype=c.c_int
+        lib.prefilter_observe.argtypes=[ptr,i32];lib.prefilter_observe.restype=None
+        lib.prefilter_process.argtypes=[ptr,c.c_int,i32,i32,i32,i32];lib.prefilter_process.restype=c.c_int
+        lib.analysis_cos.argtypes=[c.c_int];lib.analysis_cos.restype=c.c_int
+        print('# Original unchanged run_prefilter and complete histories:',REVISION)
+        print('# frame RESET LM C ENABLED COMPLEXITY BYTES TF FREQ RADIUS LOSS TAP; input[C*N]; result ON PERIOD GAIN QGAIN TAP; filtered[C*(N+120)]; overlap[C*120]; raw[C*1024]')
+        configs=[]
+        for complexity in [0,4,5,10]:configs.append([1,complexity,128,0,-1,0,0,0])
+        for budget in [0,1,12,24,25,26,34,35,36,1275]:configs.append([1,10,budget,0,-1,0,0,0])
+        for estimate in [0,1,16055,16056,16057,16383,16384]:configs.append([1,10,128,estimate,-1,0,0,0])
+        for loss in [0,1,2,3,4,5,8,9,100]:configs.append([1,10,128,0,-1,0,loss,0])
+        for radius in [531502207,531502208,531502209,536870912]:
+            for frequency in [-1,0,50,51,3194,3195,25735,25736]:configs.append([1,10,128,0,frequency,radius,0,0])
+        configs+=[[0,0,0,16384,25736,536870912,100,0],[0,10,128,0,-1,0,0,0]]
+        rows=0;active=0;random=0x50524546
+        for channels in [1,2]:
+            for sequence in range(8):
+                state=lib.prefilter_create(channels)
+                if not state:raise SystemExit('Original prefilter creation failed')
+                phase=0
+                try:
+                    initial=(c.c_int32*(3+channels*1144))();lib.prefilter_observe(state,initial)
+                    if any(initial):raise SystemExit('Unexpected original initial prefilter state')
+                    for frame in range(128):
+                        reset=frame in [0,67];lm=(frame//8)%4 if sequence%2 else frame%4;n=120<<lm
+                        if reset:
+                            if lib.prefilter_reset(state):raise SystemExit('Original prefilter reset failed')
+                        options=list(configs[(frame+sequence*11)%len(configs)]);options[7]=(frame//3+sequence)%3
+                        period=[31,60,120,239,511,1022][(frame//16+sequence)%6]
+                        amplitude=[1,4096,1<<20,1<<27,536870911][(frame//8+sequence)%5]
+                        if sequence==0:options=[1,10,128,0,(51472+period//2)//period,536870912,0,options[7]]
+                        if sequence==6:options=[1,10,[24,25,34,35][frame%4],0,-1,0,0,options[7]]
+                        if sequence==7:options=[1,[0,4,5,10][frame%4],128,[16055,16056,16057,16384][(frame//4)%4],(51472+(period*(1+(frame%8>=4)))//2)//(period*(1+(frame%8>=4))),536870912,[0,3,5,9,100][(frame//16)%5],options[7]]
+                        if frame in [11,37,92]:options[0]=0
+                        values=[]
+                        for channel in range(channels):
+                            for i in range(n):
+                                random^=(random<<13)&0xffffffff;random^=random>>17;random^=(random<<5)&0xffffffff
+                                at=(phase+i+(period//3 if channel and frame%4==2 else 0))%period
+                                if sequence in [0,3]:value=(lib.analysis_cos((phase+i)*131072//period)*amplitude)>>15
+                                elif sequence==1:value=amplitude*(2*at-period)//period
+                                elif sequence==2:value=(c.c_int32(random).value*amplitude)>>31
+                                elif sequence==4:value=amplitude if at in [0,period//3] else 0
+                                elif sequence==6:
+                                    weight=1+(frame//16)%7
+                                    base=amplitude*(4*min(at,period-at)-period)//period
+                                    noise=(c.c_int32(random).value*amplitude)>>31
+                                    value=(base*weight+noise*(8-weight))//8
+                                elif sequence==7:value=(lib.analysis_cos((phase+i)*131072//period)*amplitude)>>15
+                                else:value=amplitude if i%2 else -amplitude
+                                if channel and frame%4==1:value=-value
+                                if channel and frame%4==3:value=0
+                                values.append(value)
+                        phase+=n
+                        context=(c.c_int32*(channels*(n+120)))();out=(c.c_int32*5)();history=(c.c_int32*(3+channels*1144))()
+                        if lib.prefilter_process(state,lm,(c.c_int32*len(values))(*values),(c.c_int32*8)(*options),context,out):raise SystemExit('Original prefilter failed')
+                        lib.prefilter_observe(state,history)
+                        print('frame',int(reset),lm,channels,*options);print('input',*values);print('result',*out);print('filtered',*context)
+                        print('overlap',*history[3:3+channels*120]);print('raw',*history[3+channels*120:])
+                        if list(history[:3])!=[out[1],out[2],out[4]]:raise SystemExit('Original prefilter history mismatch')
+                        rows+=1;active+=out[0]
+                finally:lib.baseline_destroy(state)
+        print(f'# rows={rows} active={active}')
+        raise SystemExit
     if args.stereo_analysis or args.trim_analysis:
         lib.stereo_policy_probe.argtypes=[c.c_int,i32,i32];lib.stereo_policy_probe.restype=c.c_int
         lib.trim_policy_probe.argtypes=[c.c_int]*8+[i32]*3;lib.trim_policy_probe.restype=c.c_int

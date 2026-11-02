@@ -7,6 +7,26 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.63] - 2026-11-02
+
+- Add safe fixed-storage CELT encoder prefilter state and immutable filtered
+  MDCT contexts. Preserve distinct raw1024/filtered120 histories and internal
+  pitch/gain/tap across durations, reset and disabled transitions. All errors
+  preserve complete state and inputs, including injected pitch-analysis failure.
+- Match native tone shortcuts, ordinary pitch/loss attenuation, continuity/TF/
+  byte thresholds, gain snapping/quantization, separate-source comb rounding,
+  window/bias/saturation and cancellation. Preserve original signed16 stereo
+  threshold narrowing. Share only immutable tap/window data with the decoder.
+- Match every filtered sample, parameter and history in 2,048 unchanged-original
+  stateful contexts (515 active), including mixtures, strong tones at low
+  complexity, TF0.98 and byte25/35 boundaries, loss, extremes and toggles/reset.
+  Another 1,024 bounded contexts and invalid/domain/reset/error checks pass.
+- All 62 targeted mutations are detected, including feedback lag reads, raw vs
+  filtered memory, crossfade/bias/saturation and stereo narrowing. All 22 optional
+  encoder evidence modes reproduce; seven offline gates pass with zero
+  dependencies. Packet comb signaling/integration, SILK/Hybrid encoding and
+  representative quality/performance evaluation remain work.
+
 ## [0.1.62] - 2026-11-02
 
 - Add fixed-storage native CELT encoder pitch search and remove-doubling
