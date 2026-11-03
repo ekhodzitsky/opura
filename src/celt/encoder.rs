@@ -43,6 +43,9 @@ mod channel_encoder_tests;
 #[path = "hybrid_dynalloc_tests.rs"]
 mod hybrid_dynalloc_tests;
 #[cfg(test)]
+#[path = "quality_tests.rs"]
+mod quality_tests;
+#[cfg(test)]
 #[path = "vbr_tests.rs"]
 mod vbr_tests;
 
@@ -538,7 +541,9 @@ impl CeltEncoder {
         let budget = payload_bytes as u32 * 8;
         let size = bands.size();
         let end = bands.end();
-        let requested_spread = if self.analyze_spreading
+        let requested_spread = if self.native_controls.is_some_and(|c| c.complexity == 0) {
+            Spread::None
+        } else if self.analyze_spreading
             && !transient
             && payload_bytes >= 10 * self.encoded_channels
             && writer.tell() + 4 <= budget
@@ -722,16 +727,19 @@ impl CeltEncoder {
             || self.pitch_prefilter
             || vbr_rate.is_some()
         {
-            let analyzed = analysis::analyze_transients(
-                size,
-                &context[..self.channels * stride],
-                self.channels,
-                hybrid.is_some_and(|h| effective_bytes < 15 && !h.voiced),
-            )?;
             Some(if self.native_controls.is_some_and(|c| c.complexity == 0) {
-                analyzed.without_temporal_analysis()
+                analysis::analyze_tone_only(
+                    size,
+                    &context[..self.channels * stride],
+                    self.channels,
+                )?
             } else {
-                analyzed
+                analysis::analyze_transients(
+                    size,
+                    &context[..self.channels * stride],
+                    self.channels,
+                    hybrid.is_some_and(|h| effective_bytes < 15 && !h.voiced),
+                )?
             })
         } else {
             None
@@ -765,12 +773,9 @@ impl CeltEncoder {
             encode_comb(writer, filtered.parameters())?;
         }
         let transient_allowed = size != FrameSize::Ms2_5 && writer.tell() + 3 <= budget;
-        let transient = self.detect_transients
+        let mut transient = self.detect_transients
             && transient_allowed
             && diagnostics.is_some_and(|d| d.transient());
-        if transient_allowed {
-            writer.encode_bit_logp(transient, 3)?;
-        }
         let end = bandwidth_parameters(hybrid.map_or(self.bandwidth, |h| h.bandwidth))?.0;
         let layout = BandLayout::new(self.encoded_channels, start, end)?;
         let spectrum = analysis::analyze_frame(
@@ -781,25 +786,83 @@ impl CeltEncoder {
             self.rate,
             transient,
         )?;
-        let bands =
+        let mut bands =
             analysis::analyze_bands(size, spectrum.values(), self.encoded_channels, end, end)?;
+        // Native updates temporal VBR from the original MDCT, before the
+        // last-chance spectral patch switches to short windows.
+        let mut temporal_logs = [[0; 21]; 2];
+        for (c, logs) in temporal_logs[..self.encoded_channels]
+            .iter_mut()
+            .enumerate()
+        {
+            *logs = *bands.log_energies(c).ok_or(EncoderError::InvalidChannels)?;
+        }
+        let temporal = self.vbr.temporal(
+            &temporal_logs,
+            self.encoded_channels,
+            start,
+            end,
+            size,
+            transient,
+        );
+        let mut patched_comparison = None;
+        if transient_allowed
+            && !transient
+            && hybrid.is_none()
+            && self.native_controls.is_some_and(|c| c.complexity >= 5)
+        {
+            let mut long_logs = temporal_logs;
+            if analysis::patch_missed(
+                &long_logs,
+                self.energy.energies().values(),
+                self.encoded_channels,
+                start,
+                end,
+            ) {
+                transient = true;
+                for logs in &mut long_logs[..self.encoded_channels] {
+                    for value in &mut logs[..end] {
+                        *value += (size.lm() as i32) << 23;
+                    }
+                }
+                patched_comparison = Some(long_logs);
+                let short = analysis::analyze_frame(
+                    size,
+                    &context[..self.channels * stride],
+                    self.channels,
+                    self.encoded_channels,
+                    self.rate,
+                    true,
+                )?;
+                bands =
+                    analysis::analyze_bands(size, short.values(), self.encoded_channels, end, end)?;
+            }
+        }
+        if transient_allowed {
+            writer.encode_bit_logp(transient, 3)?;
+        }
+        // Tone confidence was adjusted before the spectral patch in native.
+        // Override only later TF/trim/VBR estimate, leaving that confidence intact.
+        let tf_estimate = if patched_comparison.is_some() {
+            3277
+        } else {
+            diagnostics.map_or(0, |d| d.tf_estimate())
+        };
         let mut target = [[0; 21]; 2];
         let mut amplitudes = [[0; 21]; 2];
         for c in 0..self.encoded_channels {
             target[c] = *bands.log_energies(c).ok_or(EncoderError::InvalidChannels)?;
             amplitudes[c] = *bands.amplitudes(c).ok_or(EncoderError::InvalidChannels)?;
         }
-        let temporal =
-            self.vbr
-                .temporal(&target, self.encoded_channels, start, end, size, transient);
         let perceptual = if (self.analyze_dynamic || self.analyze_spreading || vbr_rate.is_some())
             && (hybrid.is_none() || effective_bytes >= 2)
         {
             let d = diagnostics.ok_or(EncoderError::Analysis(
                 AnalysisError::InvalidDynallocParameters,
             ))?;
-            let mut comparison = target;
-            if transient
+            let mut comparison = patched_comparison.unwrap_or(target);
+            if patched_comparison.is_none()
+                && transient
                 && self.analyze_dynamic
                 && self.native_controls.is_none_or(|c| c.complexity >= 8)
             {
@@ -927,7 +990,7 @@ impl CeltEncoder {
                         }
                         + 2)
                     .max(80) as u16,
-                    estimate: d.tf_estimate(),
+                    estimate: tf_estimate,
                     importance: perceptual
                         .as_ref()
                         .filter(|_| self.analyze_dynamic)
@@ -988,7 +1051,7 @@ impl CeltEncoder {
             temporal_q14: if hybrid.is_some_and(|h| h.complexity == 0) {
                 0
             } else {
-                diagnostics.map_or(0, |d| d.tf_estimate())
+                tf_estimate
             },
         };
         let saving = Cell::new(self.trim.stereo_saving());
@@ -1002,7 +1065,7 @@ impl CeltEncoder {
                 .as_ref()
                 .filter(|_| self.analyze_dynamic)
                 .map_or(0, |p| p.total_boost()),
-            tf_estimate: diagnostics.map_or(0, |d| d.tf_estimate()),
+            tf_estimate,
             max_depth: perceptual.as_ref().map_or(0, |p| p.max_depth()),
             temporal,
             equivalent_rate: rate,
@@ -1039,7 +1102,7 @@ impl CeltEncoder {
                             end,
                             intensity,
                             equivalent_rate: rate,
-                            tf_estimate: diagnostics.map_or(0, |d| d.tf_estimate()),
+                            tf_estimate,
                             surround_trim: 0,
                         },
                     )

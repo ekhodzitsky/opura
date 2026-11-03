@@ -13,17 +13,6 @@ pub struct TransientAnalysis {
     metric: i32,
 }
 impl TransientAnalysis {
-    // Complexity zero still detects tones, but native skips temporal analysis.
-    pub(crate) fn without_temporal_analysis(self) -> Self {
-        Self {
-            transient: false,
-            weak: false,
-            estimate: 0,
-            channel: 0,
-            metric: 0,
-            ..self
-        }
-    }
     // Native TF gating reduces tone confidence when temporal masking is strong.
     pub(crate) fn tf_tonal(self) -> bool {
         self.adjusted_toneishness() >= TONE_GUARD
@@ -76,6 +65,22 @@ pub fn analyze_transients(
     channels: usize,
     allow_weak: bool,
 ) -> Result<TransientAnalysis, AnalysisError> {
+    analyze_with_temporal(size, input, channels, allow_weak, true)
+}
+pub(crate) fn analyze_tone_only(
+    size: FrameSize,
+    input: &[i32],
+    channels: usize,
+) -> Result<TransientAnalysis, AnalysisError> {
+    analyze_with_temporal(size, input, channels, false, false)
+}
+fn analyze_with_temporal(
+    size: FrameSize,
+    input: &[i32],
+    channels: usize,
+    allow_weak: bool,
+    temporal: bool,
+) -> Result<TransientAnalysis, AnalysisError> {
     let n = size.samples() + 120;
     if !(1..=2).contains(&channels) || input.len() != channels * n {
         return Err(AnalysisError::InvalidGeometry);
@@ -89,6 +94,17 @@ pub fn analyze_transients(
         maximum = maximum.max(abs as i32);
     }
     let (frequency, toneishness) = tone(input, n, channels)?;
+    if !temporal {
+        return Ok(TransientAnalysis {
+            transient: false,
+            weak: false,
+            estimate: 0,
+            channel: 0,
+            frequency,
+            toneishness,
+            metric: 0,
+        });
+    }
     let shift = (ilog(1 + maximum) - 14).max(0) as u32;
     let len2 = n / 2;
     let forward = if allow_weak { 5 } else { 4 };
@@ -279,6 +295,40 @@ fn mul31(a: i32, b: i32) -> i32 {
 }
 fn ilog(x: i32) -> i32 {
     31 - x.leading_zeros() as i32
+}
+
+// Q24-corrected patch_transient_decision: compare long-window logs against
+// spread previous quantized logs. Keep Q24 local differences instead of the
+// original fixed-point int16 narrowing; see docs/validation/celt-quality.md.
+// ADD32 wraps as in the fixed reference.
+pub(crate) fn patch_missed(
+    current: &[[i32; 21]; 2],
+    previous: &[[i32; 21]; 2],
+    channels: usize,
+    start: usize,
+    end: usize,
+) -> bool {
+    let mut spread = [0i32; 21];
+    spread[start] = previous[..channels]
+        .iter()
+        .map(|c| c[start])
+        .max()
+        .unwrap_or(0);
+    for i in start + 1..end {
+        let old = previous[..channels].iter().map(|c| c[i]).max().unwrap_or(0);
+        spread[i] = spread[i - 1].wrapping_sub(1 << 24).max(old);
+    }
+    for i in (start..end - 1).rev() {
+        spread[i] = spread[i].max(spread[i + 1].wrapping_sub(1 << 24));
+    }
+    let begin = start.max(2);
+    let mut mean = 0i32;
+    for channel in &current[..channels] {
+        for i in begin..end - 1 {
+            mean = mean.wrapping_add(channel[i].max(0).wrapping_sub(spread[i].max(0)).max(0));
+        }
+    }
+    mean / (channels * (end - 1 - begin)) as i32 > 1 << 24
 }
 
 #[cfg(test)]

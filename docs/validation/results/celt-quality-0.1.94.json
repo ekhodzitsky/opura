@@ -1,0 +1,517 @@
+{
+  "status": "pass",
+  "version": "0.1.94",
+  "baseline_version": "0.1.93",
+  "baseline_commit": "348be2fea0b60824eb251ae7411e856ee20c3581",
+  "reference_revision": "22244de5a79bd1d6d623c32e72bf1954b56235be",
+  "reference_configuration": "scalar fixed fast64 Q24; float analysis disabled",
+  "reference_checkout_unchanged": true,
+  "reference_decoder_unchanged": true,
+  "encoder_reference_correction": "Private celt_encoder.c copy: only opus_val16 x1, x2; -> celt_glog x1, x2; in patch_transient_decision. This is not pristine native encoder byte parity.",
+  "pristine_native_spectral_patches": 0,
+  "corrected_native_spectral_patches": 966,
+  "actual_celt_calls": 10560,
+  "paired_helper_cases": 768,
+  "controls_and_temporal_spectral_history_match": true,
+  "pcm_and_final_range_match": 10560,
+  "byte_identical_payloads": 10557,
+  "different_codewords_with_equal_pcm_and_range": 3,
+  "fixture_sha256": {
+    "celt-patch-corrected-q24-fixtures.txt": "01cff983ebc52727a5e49354ef0614adec7150f13bf32a632a4a1a1f2e520b18",
+    "celt-quality-corrected-q24-fixtures.txt": "3c59d383b0cf9b3f485e1ffe7f3fbdaab668cf10bbbf104ea2aba4f9279b733d"
+  },
+  "fixtures_regenerate_identically": true,
+  "mutations": [
+    {
+      "mutation": "complexity_zero_spread",
+      "detected": true
+    },
+    {
+      "mutation": "disable_spectral_patch",
+      "detected": true
+    },
+    {
+      "mutation": "patched_tf_estimate",
+      "detected": true
+    },
+    {
+      "mutation": "missing_long_compensation",
+      "detected": true
+    },
+    {
+      "mutation": "strict_threshold",
+      "detected": true
+    }
+  ],
+  "automatic_corpora": [
+    {
+      "name": "short",
+      "bytes": 1454151,
+      "sha256": "c35e01e535fe5619c991165f87c04e244adc0cbeeb06f76cb429f435b10f6b09",
+      "native_pcm_and_range": "pass",
+      "records": 9600,
+      "streams": 100,
+      "lost": 800,
+      "fec_requests": 800
+    },
+    {
+      "name": "long",
+      "bytes": 3582109,
+      "sha256": "6324324a93a0d827de434d5d7a9d96d7fb2dd25844a4cb91f5acbc010f257175",
+      "native_pcm_and_range": "pass",
+      "records": 9600,
+      "streams": 100,
+      "lost": 800,
+      "fec_requests": 800
+    },
+    {
+      "name": "pressure",
+      "bytes": 395337,
+      "sha256": "979c868e57c4d8200677397e27312539aa62754d1c564bc40bcabd629197d33a",
+      "native_pcm_and_range": "pass",
+      "records": 9600,
+      "streams": 100,
+      "lost": 800,
+      "fec_requests": 800
+    }
+  ],
+  "fixed_corpora": {
+    "baseline_version": "0.1.93",
+    "native_replay_repeated": false,
+    "all_sha256_sizes_statistics_identical": true,
+    "corpora": [
+      {
+        "name": "silk-mono",
+        "example": "silk_mono_vectors",
+        "arguments": [],
+        "bytes": 191393,
+        "sha256": "da871733b988ef8d6a6f2517ee08cd5c13c88cea73e76581d78e09c18d451596",
+        "records": 1440,
+        "streams": 120,
+        "lost": 0,
+        "fec_requests": 0,
+        "single_byte_packets": 0
+      },
+      {
+        "name": "silk-stereo",
+        "example": "silk_stereo_vectors",
+        "arguments": [],
+        "bytes": 675534,
+        "sha256": "0c56fcd8ea5c9866d6671629e3fa780f6e741012304efb1c458f7d73413ab2d8",
+        "records": 2880,
+        "streams": 120,
+        "lost": 0,
+        "fec_requests": 0,
+        "single_byte_packets": 0
+      },
+      {
+        "name": "silk-dtx-1",
+        "example": "silk_dtx_vectors",
+        "arguments": [
+          "1"
+        ],
+        "bytes": 702077,
+        "sha256": "1e184c14d0a5622f39f231275f6dcdc3decff169ebd7c3325ccbbf528c6bb8fc",
+        "records": 12000,
+        "streams": 120,
+        "lost": 0,
+        "fec_requests": 0,
+        "single_byte_packets": 6720
+      },
+      {
+        "name": "silk-fec-1-normal",
+        "example": "silk_fec_vectors",
+        "arguments": [
+          "1",
+          "normal"
+        ],
+        "bytes": 1079037,
+        "sha256": "20ee8ebcc02bd4454cc11744e1a3f5c5b89c586d2e978ae8bb9024622ed03e62",
+        "records": 12000,
+        "streams": 120,
+        "lost": 0,
+        "fec_requests": 0,
+        "single_byte_packets": 3600
+      },
+      {
+        "name": "silk-fec-1-loss",
+        "example": "silk_fec_vectors",
+        "arguments": [
+          "1",
+          "loss"
+        ],
+        "bytes": 1073106,
+        "sha256": "0e03501da3d12172e68f10c24443902c1da56b0587c619393788500e38edc1e1",
+        "records": 12000,
+        "streams": 120,
+        "lost": 0,
+        "fec_requests": 3960,
+        "single_byte_packets": 3630
+      },
+      {
+        "name": "silk-bandwidth-1-normal",
+        "example": "silk_bandwidth_vectors",
+        "arguments": [
+          "1",
+          "normal"
+        ],
+        "bytes": 1048961,
+        "sha256": "d2ab821310a4158b71669d0726084b713f7e3b91b06fd3fedaa06ad0c287d649",
+        "records": 12000,
+        "streams": 120,
+        "lost": 0,
+        "fec_requests": 0,
+        "single_byte_packets": 3750
+      },
+      {
+        "name": "silk-bandwidth-1-loss",
+        "example": "silk_bandwidth_vectors",
+        "arguments": [
+          "1",
+          "loss"
+        ],
+        "bytes": 1046437,
+        "sha256": "2489120597ac3de7a7cc386dd01721f5901652a7787030d7a08c5db6e5f754fe",
+        "records": 12000,
+        "streams": 120,
+        "lost": 0,
+        "fec_requests": 3960,
+        "single_byte_packets": 3780
+      },
+      {
+        "name": "silk-adaptive-1-normal",
+        "example": "silk_adaptive_vectors",
+        "arguments": [
+          "1",
+          "normal"
+        ],
+        "bytes": 9826808,
+        "sha256": "91327d04071471752f3947c704244c0545ef8d94f686bd539bdffef3f70d6714",
+        "records": 108000,
+        "streams": 120,
+        "lost": 0,
+        "fec_requests": 0,
+        "single_byte_packets": 33750
+      },
+      {
+        "name": "silk-adaptive-1-loss",
+        "example": "silk_adaptive_vectors",
+        "arguments": [
+          "1",
+          "loss"
+        ],
+        "bytes": 9826624,
+        "sha256": "be95b4be0e1dd921a02c97958320651b355818c412a4b32066a5e22fc71aab58",
+        "records": 108000,
+        "streams": 120,
+        "lost": 0,
+        "fec_requests": 36000,
+        "single_byte_packets": 33750
+      },
+      {
+        "name": "silk-automatic-1-normal",
+        "example": "silk_automatic_vectors",
+        "arguments": [
+          "1",
+          "normal"
+        ],
+        "bytes": 7151823,
+        "sha256": "3602e3c4017a813a68651e65fb19dac52a2c7f7915eb02a15f16d29525703ade",
+        "records": 108000,
+        "streams": 120,
+        "lost": 0,
+        "fec_requests": 0,
+        "single_byte_packets": 33750
+      },
+      {
+        "name": "silk-automatic-1-loss",
+        "example": "silk_automatic_vectors",
+        "arguments": [
+          "1",
+          "loss"
+        ],
+        "bytes": 7152345,
+        "sha256": "122e6e099e9835f19e2f0b21938e367b26b3165f6ec5b2e8529e3ecd2d6976d6",
+        "records": 108000,
+        "streams": 120,
+        "lost": 0,
+        "fec_requests": 36000,
+        "single_byte_packets": 33750
+      },
+      {
+        "name": "silk-dtx-2",
+        "example": "silk_dtx_vectors",
+        "arguments": [
+          "2"
+        ],
+        "bytes": 1213335,
+        "sha256": "3591c14fa24be41e48cbff0ffab34d54f31d585e158af42e43594640565fc685",
+        "records": 12000,
+        "streams": 120,
+        "lost": 0,
+        "fec_requests": 0,
+        "single_byte_packets": 6720
+      },
+      {
+        "name": "silk-fec-2-normal",
+        "example": "silk_fec_vectors",
+        "arguments": [
+          "2",
+          "normal"
+        ],
+        "bytes": 1923587,
+        "sha256": "677ac7bbee9976d8c19d3a04e16e6028a9ef17d3b7444a73d42317d275e1f4d9",
+        "records": 12000,
+        "streams": 120,
+        "lost": 0,
+        "fec_requests": 0,
+        "single_byte_packets": 3600
+      },
+      {
+        "name": "silk-fec-2-loss",
+        "example": "silk_fec_vectors",
+        "arguments": [
+          "2",
+          "loss"
+        ],
+        "bytes": 1910346,
+        "sha256": "49f9ac213ad717b6feb9b6cb1f1c255dad5c445b3feab7630fa27e4919c9c857",
+        "records": 12000,
+        "streams": 120,
+        "lost": 0,
+        "fec_requests": 3960,
+        "single_byte_packets": 3630
+      },
+      {
+        "name": "silk-bandwidth-2-normal",
+        "example": "silk_bandwidth_vectors",
+        "arguments": [
+          "2",
+          "normal"
+        ],
+        "bytes": 1862900,
+        "sha256": "8b6a93b5525893c714d4df816d3c32f0bb13963df3edeff3ce49e9708321cb68",
+        "records": 12000,
+        "streams": 120,
+        "lost": 0,
+        "fec_requests": 0,
+        "single_byte_packets": 3750
+      },
+      {
+        "name": "silk-bandwidth-2-loss",
+        "example": "silk_bandwidth_vectors",
+        "arguments": [
+          "2",
+          "loss"
+        ],
+        "bytes": 1855344,
+        "sha256": "1af0c08d3c51bb0fb1e8b909434fbfd5ca9e6c9a0fe97fda105f21956352c2e7",
+        "records": 12000,
+        "streams": 120,
+        "lost": 0,
+        "fec_requests": 3960,
+        "single_byte_packets": 3780
+      },
+      {
+        "name": "silk-adaptive-2-normal",
+        "example": "silk_adaptive_vectors",
+        "arguments": [
+          "2",
+          "normal"
+        ],
+        "bytes": 17499200,
+        "sha256": "d51bc838d374559e9367354351782a45c5a8812b82e6ce9ad47edee6ba2edfa2",
+        "records": 108000,
+        "streams": 120,
+        "lost": 0,
+        "fec_requests": 0,
+        "single_byte_packets": 33748
+      },
+      {
+        "name": "silk-adaptive-2-loss",
+        "example": "silk_adaptive_vectors",
+        "arguments": [
+          "2",
+          "loss"
+        ],
+        "bytes": 17501600,
+        "sha256": "647cdf7b1fac0c7c03f38e661fc37fc718aeba5f3f7db9f036f3e89079e38baf",
+        "records": 108000,
+        "streams": 120,
+        "lost": 0,
+        "fec_requests": 36000,
+        "single_byte_packets": 33749
+      },
+      {
+        "name": "silk-automatic-2-normal",
+        "example": "silk_automatic_vectors",
+        "arguments": [
+          "2",
+          "normal"
+        ],
+        "bytes": 7070165,
+        "sha256": "dfec3990e61ec601baf6497bed457e26efac35f1e7440586b220b95517d8c47c",
+        "records": 108000,
+        "streams": 120,
+        "lost": 0,
+        "fec_requests": 0,
+        "single_byte_packets": 34600
+      },
+      {
+        "name": "silk-automatic-2-loss",
+        "example": "silk_automatic_vectors",
+        "arguments": [
+          "2",
+          "loss"
+        ],
+        "bytes": 7069028,
+        "sha256": "a082ed3f88290c3d6a0e40b70ad03ba0d83555f111a8b1bbee16abb21b0869c2",
+        "records": 108000,
+        "streams": 120,
+        "lost": 0,
+        "fec_requests": 36000,
+        "single_byte_packets": 34619
+      },
+      {
+        "name": "hybrid-normal",
+        "example": "hybrid_encoder_vectors",
+        "arguments": [],
+        "bytes": 1147688,
+        "sha256": "515c803a325dc44e30a2778bfb1229cf9ea2da11a2a377b662ec79d1f36dbe12",
+        "records": 5760,
+        "streams": 240,
+        "lost": 480,
+        "fec_requests": 0,
+        "single_byte_packets": 0
+      },
+      {
+        "name": "hybrid-dtx",
+        "example": "hybrid_dtx_vectors",
+        "arguments": [],
+        "bytes": 1332656,
+        "sha256": "1bdefa6c7eac215f64394a6b7c3b02b6a827f793a4df57e8e8cb1c23516c57e7",
+        "records": 21600,
+        "streams": 144,
+        "lost": 288,
+        "fec_requests": 0,
+        "single_byte_packets": 10728
+      },
+      {
+        "name": "hybrid-fec",
+        "example": "hybrid_fec_vectors",
+        "arguments": [],
+        "bytes": 20340368,
+        "sha256": "3d14ad5e02b558448e1a93b9e177a99018129b9ab16b1a5f91a23360c4b6dd10",
+        "records": 184320,
+        "streams": 1152,
+        "lost": 0,
+        "fec_requests": 30528,
+        "single_byte_packets": 30840
+      },
+      {
+        "name": "hybrid-vbr-fec",
+        "example": "hybrid_fec_vectors",
+        "arguments": [
+          "vbr"
+        ],
+        "bytes": 20171845,
+        "sha256": "2c47d0b5366caeb810ad1b1b62ebb2270614f54fd1d25d68d362921ce4142fb5",
+        "records": 184320,
+        "streams": 1152,
+        "lost": 0,
+        "fec_requests": 30528,
+        "single_byte_packets": 30838
+      }
+    ],
+    "records": 1384320,
+    "streams": 5088,
+    "lost": 768,
+    "fec_requests": 220896,
+    "single_byte_packets": 387082
+  },
+  "required_offline_checks": [
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--release"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "doc",
+        "--offline",
+        "--locked",
+        "--no-deps"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python3",
+        "tools/check_dependencies.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools",
+        "-p",
+        "test_*.py"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "rustdoc_environment": "RUSTDOCFLAGS=-D warnings",
+  "library_tests": 160,
+  "python_tests": 23,
+  "real_recording_cases": 12,
+  "real_recording_native_pcm_matches": 24,
+  "limitations": [
+    "No full pristine native encoder byte parity claim.",
+    "No perceptual or competitive speed/quality claim.",
+    "Remaining native encoder control audit and representative matched-rate/latency comparisons remain open.",
+    "This milestone does not declare the complete codec ready."
+  ]
+}

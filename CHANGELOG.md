@@ -7,6 +7,33 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.94] - 2026-11-03
+
+- Correct native complexity-zero CELT spreading and skip temporal masking
+  analysis while retaining tone detection. Preserve fixed public defaults.
+- Enable the missed-transient detector with Q24 local differences at native
+  complexity5 and above. Preserve the long-window dynalloc comparison,
+  compensate short-window scaling and set the patched TF estimate. Update
+  temporal VBR history before the spectral window switch.
+- Document an intentional departure from pristine fixed-point libopus: its
+  int16 local narrowing disables this detector. The optional encoder oracle
+  corrects only those local types in a private copy; the reference checkout
+  and all reference decoders remain unchanged.
+- Verify768 paired spectral decisions and10,560 actual CELT frames across
+  input rates, channels, durations, complexity0..10 and changing capacities.
+  Controls, temporal VBR history, decoded PCM and final ranges match the
+  corrected encoder oracle.10,557 payloads are byte-identical; three different
+  codewords produce identical PCM and final range. Five mutations are detected.
+- Add reproducible before/after recording diagnostics for12 automatic AUDIO
+  CBR profiles on complete speech/music recordings. All24 outputs match the
+  unchanged native decoder, exact durations and physical byte budgets.
+  Waveform metrics and process timings do not establish perceptual quality
+  or competitive superiority. See docs/validation/celt-quality.md.
+- Independently replay all three9,600-call shared-owner corpora with exact
+  native PCM/final ranges, including PLC/FEC. All24 complete fixed SILK/Hybrid
+  corpora retain0.1.93 hashes, sizes and statistics (1,384,320 records).
+  All seven required offline gates pass:160 library and23 Python tests.
+
 ## [0.1.93] - 2026-11-03
 
 - Support native early PLC for1/2-byte caps and nominal rates below useful

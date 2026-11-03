@@ -218,6 +218,12 @@ preserve all PCM, speech, CELT and selection histories. `PacketSize` and
 `encode_packet` select one policy for complete packets through120ms, including
 native component scheduling. Native tiny-budget and completed-SILK-overflow
 PLC are connected, with `EncodedPacket::used_plc` reporting loss signalling.
+Native CELT complexity-zero spreading and tone-only analysis are connected.
+The missed-transient detector preserves Q24 differences, intentionally fixing
+an int16 narrowing in the pinned fixed-point reference. Its corrected encoder
+oracle matches PCM/range and temporal VBR history over10,560 frames; the
+reference decoder remains unchanged. See [CELT quality controls and recording
+diagnostics](docs/validation/celt-quality.md).
 The remaining quality/control review and competitive evaluation remain work.
 All applications and automatic file packets through120ms are connected.
 Existing fixed library/CLI defaults are unchanged.

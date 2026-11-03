@@ -1,0 +1,1394 @@
+{
+  "status": "pass",
+  "scope": "two real recordings; automatic AUDIO20ms CBR; before/after process wall timings and aligned waveform diagnostics, no perceptual or competitive claim",
+  "reference_decoder_revision": "22244de5a79bd1d6d623c32e72bf1954b56235be",
+  "platform": "Linux",
+  "architecture": "x86_64",
+  "rounds": 3,
+  "binaries": {
+    "baseline": {
+      "version": "opura 0.1.93",
+      "sha256": "a1b6e7cc61af98c6c3cec491cff91c752106f99451756c5b66aa7c8feab57208"
+    },
+    "candidate": {
+      "version": "opura 0.1.94",
+      "sha256": "ac5d400315ac1e5a30781885848d001751c9f79175503b574b36889f9841643f"
+    }
+  },
+  "cases": [
+    {
+      "recording": "speech_orig",
+      "recording_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "frames": 518400,
+      "channels": 1,
+      "complexity": 0,
+      "bitrate": 32000,
+      "results": {
+        "baseline": {
+          "packet_diagnostics": {
+            "packets": 541,
+            "packet_bytes": 43280,
+            "dtx_packets": 0,
+            "plc_packets": 0,
+            "fec_packets": 0,
+            "bandwidth_packets": {
+              "fb": 541
+            },
+            "mean_packet_bitrate_bps": 32000.0
+          },
+          "mode_packets": {
+            "silk": 0,
+            "hybrid": 0,
+            "celt": 541
+          },
+          "wire_channel_packets": {
+            "1": 541,
+            "2": 0
+          },
+          "file_sha256": "5ce96defb94cb257093dad056065f9cce80b82788131bedf31850462d3be03e2",
+          "packet_stream_sha256": "9863cb26ee27025009028e68bc484a5fd8223416ed94b7e26d4e8f0672b48375",
+          "packet_bytes": 43280,
+          "packets": 541,
+          "process_seconds": [
+            0.03154711400566157,
+            0.02977771099540405,
+            0.026251378003507853
+          ],
+          "median_process_seconds": 0.02977771099540405,
+          "native_pcm_match": true,
+          "waveform": {
+            "samples_interleaved": 518400,
+            "rmse": 91.3329866279071,
+            "snr_db": 16.317584833013502,
+            "identical": false,
+            "correlation": 0.9883257538932296,
+            "rms": 597.708659658393,
+            "peak": 5889,
+            "clipped_samples": 0,
+            "max_abs_error": 1009,
+            "mean_error": 0.3059471450617284
+          }
+        },
+        "candidate": {
+          "packet_diagnostics": {
+            "packets": 541,
+            "packet_bytes": 43280,
+            "dtx_packets": 0,
+            "plc_packets": 0,
+            "fec_packets": 0,
+            "bandwidth_packets": {
+              "fb": 541
+            },
+            "mean_packet_bitrate_bps": 32000.0
+          },
+          "mode_packets": {
+            "silk": 0,
+            "hybrid": 0,
+            "celt": 541
+          },
+          "wire_channel_packets": {
+            "1": 541,
+            "2": 0
+          },
+          "file_sha256": "23c7ea8163bc61c081d8e8b4bc98ff83b4f8a7cde90dda635851db54f11de1b6",
+          "packet_stream_sha256": "9008b084316d71d2c42d1a971e16d80d41c4667f3e990c3ecf1991571b97ce16",
+          "packet_bytes": 43280,
+          "packets": 541,
+          "process_seconds": [
+            0.02596952999010682,
+            0.023571960991830565,
+            0.026317521987948567
+          ],
+          "median_process_seconds": 0.02596952999010682,
+          "native_pcm_match": true,
+          "waveform": {
+            "samples_interleaved": 518400,
+            "rmse": 90.78163759983977,
+            "snr_db": 16.370177769594477,
+            "identical": false,
+            "correlation": 0.9884511722170223,
+            "rms": 596.8735563585411,
+            "peak": 5873,
+            "clipped_samples": 0,
+            "max_abs_error": 1017,
+            "mean_error": 0.2564969135802469
+          }
+        }
+      },
+      "candidate_vs_baseline_waveform": {
+        "samples_interleaved": 518400,
+        "rmse": 39.313370615887145,
+        "snr_db": 23.638985347910687,
+        "identical": false,
+        "correlation": 0.9978348765328338,
+        "rms": 596.8735563585411,
+        "peak": 5873,
+        "clipped_samples": 0,
+        "max_abs_error": 559,
+        "mean_error": -0.049450231481481484
+      },
+      "payload_bytes_equal": true,
+      "candidate_to_baseline_process_ratio": 0.8721130376379503
+    },
+    {
+      "recording": "speech_orig",
+      "recording_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "frames": 518400,
+      "channels": 1,
+      "complexity": 0,
+      "bitrate": 64000,
+      "results": {
+        "baseline": {
+          "packet_diagnostics": {
+            "packets": 541,
+            "packet_bytes": 86560,
+            "dtx_packets": 0,
+            "plc_packets": 0,
+            "fec_packets": 0,
+            "bandwidth_packets": {
+              "fb": 541
+            },
+            "mean_packet_bitrate_bps": 64000.0
+          },
+          "mode_packets": {
+            "silk": 0,
+            "hybrid": 0,
+            "celt": 541
+          },
+          "wire_channel_packets": {
+            "1": 541,
+            "2": 0
+          },
+          "file_sha256": "636a768b4a49c063401f8e956e75d1ce7c254f14c484ae811bf3e3838b9d714a",
+          "packet_stream_sha256": "f6f21a7b961f8dfe2b7debc1ebb5411f017a6414deef22bc1d795bc65c808127",
+          "packet_bytes": 86560,
+          "packets": 541,
+          "process_seconds": [
+            0.02823782799532637,
+            0.02665468299528584,
+            0.0300028729980113
+          ],
+          "median_process_seconds": 0.02823782799532637,
+          "native_pcm_match": true,
+          "waveform": {
+            "samples_interleaved": 518400,
+            "rmse": 49.70508130990927,
+            "snr_db": 21.602122251471002,
+            "identical": false,
+            "correlation": 0.9965441930993634,
+            "rms": 598.0017720790819,
+            "peak": 5736,
+            "clipped_samples": 0,
+            "max_abs_error": 727,
+            "mean_error": 0.05851851851851852
+          }
+        },
+        "candidate": {
+          "packet_diagnostics": {
+            "packets": 541,
+            "packet_bytes": 86560,
+            "dtx_packets": 0,
+            "plc_packets": 0,
+            "fec_packets": 0,
+            "bandwidth_packets": {
+              "fb": 541
+            },
+            "mean_packet_bitrate_bps": 64000.0
+          },
+          "mode_packets": {
+            "silk": 0,
+            "hybrid": 0,
+            "celt": 541
+          },
+          "wire_channel_packets": {
+            "1": 541,
+            "2": 0
+          },
+          "file_sha256": "5b9525b64101b39e4f4ae830c7207a95aabcd15bf9662c1eeac5af934c5554e4",
+          "packet_stream_sha256": "773d14f5427d1677d3876a4ccc63918d054d9dee28a49b205686fffe5400ec4b",
+          "packet_bytes": 86560,
+          "packets": 541,
+          "process_seconds": [
+            0.025353946999530308,
+            0.033972335993894376,
+            0.027281355985905975
+          ],
+          "median_process_seconds": 0.027281355985905975,
+          "native_pcm_match": true,
+          "waveform": {
+            "samples_interleaved": 518400,
+            "rmse": 49.8263344173144,
+            "snr_db": 21.580959252381415,
+            "identical": false,
+            "correlation": 0.9965316734302413,
+            "rms": 598.5928321857964,
+            "peak": 5752,
+            "clipped_samples": 0,
+            "max_abs_error": 637,
+            "mean_error": 0.10705825617283951
+          }
+        }
+      },
+      "candidate_vs_baseline_waveform": {
+        "samples_interleaved": 518400,
+        "rmse": 18.542742842260353,
+        "snr_db": 30.17056991112284,
+        "identical": false,
+        "correlation": 0.999520219621672,
+        "rms": 598.5928321857964,
+        "peak": 5752,
+        "clipped_samples": 0,
+        "max_abs_error": 225,
+        "mean_error": 0.048539737654320986
+      },
+      "payload_bytes_equal": true,
+      "candidate_to_baseline_process_ratio": 0.9661279893914397
+    },
+    {
+      "recording": "speech_orig",
+      "recording_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "frames": 518400,
+      "channels": 1,
+      "complexity": 5,
+      "bitrate": 32000,
+      "results": {
+        "baseline": {
+          "packet_diagnostics": {
+            "packets": 541,
+            "packet_bytes": 43280,
+            "dtx_packets": 0,
+            "plc_packets": 0,
+            "fec_packets": 0,
+            "bandwidth_packets": {
+              "fb": 541
+            },
+            "mean_packet_bitrate_bps": 32000.0
+          },
+          "mode_packets": {
+            "silk": 0,
+            "hybrid": 0,
+            "celt": 541
+          },
+          "wire_channel_packets": {
+            "1": 541,
+            "2": 0
+          },
+          "file_sha256": "837ca3d2de555384cee96a4ab8a398f5fdbfdf25b18c1d6320506b21fbfed53e",
+          "packet_stream_sha256": "1216589a419116fbb1e9216b49cea27505f87540925c69b2cb6e97d0a124b214",
+          "packet_bytes": 43280,
+          "packets": 541,
+          "process_seconds": [
+            0.0466732700006105,
+            0.03153593400202226,
+            0.0401389239996206
+          ],
+          "median_process_seconds": 0.0401389239996206,
+          "native_pcm_match": true,
+          "waveform": {
+            "samples_interleaved": 518400,
+            "rmse": 85.4212913043455,
+            "snr_db": 16.898815376484094,
+            "identical": false,
+            "correlation": 0.9897638052880549,
+            "rms": 596.0606081320454,
+            "peak": 5813,
+            "clipped_samples": 0,
+            "max_abs_error": 1057,
+            "mean_error": -0.004021990740740741
+          }
+        },
+        "candidate": {
+          "packet_diagnostics": {
+            "packets": 541,
+            "packet_bytes": 43280,
+            "dtx_packets": 0,
+            "plc_packets": 0,
+            "fec_packets": 0,
+            "bandwidth_packets": {
+              "fb": 541
+            },
+            "mean_packet_bitrate_bps": 32000.0
+          },
+          "mode_packets": {
+            "silk": 0,
+            "hybrid": 0,
+            "celt": 541
+          },
+          "wire_channel_packets": {
+            "1": 541,
+            "2": 0
+          },
+          "file_sha256": "6a67fae4830343d3786520597b72e7c9ca9ae17c75c8e5a85a0cf985d1e3b1a5",
+          "packet_stream_sha256": "1216589a419116fbb1e9216b49cea27505f87540925c69b2cb6e97d0a124b214",
+          "packet_bytes": 43280,
+          "packets": 541,
+          "process_seconds": [
+            0.03279219700198155,
+            0.044461448007496074,
+            0.039972010999917984
+          ],
+          "median_process_seconds": 0.039972010999917984,
+          "native_pcm_match": true,
+          "waveform": {
+            "samples_interleaved": 518400,
+            "rmse": 85.4212913043455,
+            "snr_db": 16.898815376484094,
+            "identical": false,
+            "correlation": 0.9897638052880549,
+            "rms": 596.0606081320454,
+            "peak": 5813,
+            "clipped_samples": 0,
+            "max_abs_error": 1057,
+            "mean_error": -0.004021990740740741
+          }
+        }
+      },
+      "candidate_vs_baseline_waveform": {
+        "samples_interleaved": 518400,
+        "rmse": 0.0,
+        "snr_db": null,
+        "identical": true,
+        "correlation": 1.0,
+        "rms": 596.0606081320454,
+        "peak": 5813,
+        "clipped_samples": 0,
+        "max_abs_error": 0,
+        "mean_error": 0.0
+      },
+      "payload_bytes_equal": true,
+      "candidate_to_baseline_process_ratio": 0.9958416174857055
+    },
+    {
+      "recording": "speech_orig",
+      "recording_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "frames": 518400,
+      "channels": 1,
+      "complexity": 5,
+      "bitrate": 64000,
+      "results": {
+        "baseline": {
+          "packet_diagnostics": {
+            "packets": 541,
+            "packet_bytes": 86560,
+            "dtx_packets": 0,
+            "plc_packets": 0,
+            "fec_packets": 0,
+            "bandwidth_packets": {
+              "fb": 541
+            },
+            "mean_packet_bitrate_bps": 64000.0
+          },
+          "mode_packets": {
+            "silk": 0,
+            "hybrid": 0,
+            "celt": 541
+          },
+          "wire_channel_packets": {
+            "1": 541,
+            "2": 0
+          },
+          "file_sha256": "a292de62f2111f146779ce4402454f5f0f5a79e3fa6149fb6765a6050a6b0dc2",
+          "packet_stream_sha256": "4ae8ffe77743fe7560e2d0b5bd49d13477fa48d2e175bbddce923a14ee713787",
+          "packet_bytes": 86560,
+          "packets": 541,
+          "process_seconds": [
+            0.04094777800492011,
+            0.05229325400432572,
+            0.0538667499931762
+          ],
+          "median_process_seconds": 0.05229325400432572,
+          "native_pcm_match": true,
+          "waveform": {
+            "samples_interleaved": 518400,
+            "rmse": 45.72410555811351,
+            "snr_db": 22.327233649199144,
+            "identical": false,
+            "correlation": 0.9970706137148326,
+            "rms": 596.69776892834,
+            "peak": 5932,
+            "clipped_samples": 0,
+            "max_abs_error": 513,
+            "mean_error": 0.10706211419753087
+          }
+        },
+        "candidate": {
+          "packet_diagnostics": {
+            "packets": 541,
+            "packet_bytes": 86560,
+            "dtx_packets": 0,
+            "plc_packets": 0,
+            "fec_packets": 0,
+            "bandwidth_packets": {
+              "fb": 541
+            },
+            "mean_packet_bitrate_bps": 64000.0
+          },
+          "mode_packets": {
+            "silk": 0,
+            "hybrid": 0,
+            "celt": 541
+          },
+          "wire_channel_packets": {
+            "1": 541,
+            "2": 0
+          },
+          "file_sha256": "823b647dd28e3bb28aa0211f210c8b5be74c5334f922792e748fa1c454d3b0c9",
+          "packet_stream_sha256": "4ae8ffe77743fe7560e2d0b5bd49d13477fa48d2e175bbddce923a14ee713787",
+          "packet_bytes": 86560,
+          "packets": 541,
+          "process_seconds": [
+            0.051299972998094745,
+            0.041982845999882556,
+            0.04429124000307638
+          ],
+          "median_process_seconds": 0.04429124000307638,
+          "native_pcm_match": true,
+          "waveform": {
+            "samples_interleaved": 518400,
+            "rmse": 45.72410555811351,
+            "snr_db": 22.327233649199144,
+            "identical": false,
+            "correlation": 0.9970706137148326,
+            "rms": 596.69776892834,
+            "peak": 5932,
+            "clipped_samples": 0,
+            "max_abs_error": 513,
+            "mean_error": 0.10706211419753087
+          }
+        }
+      },
+      "candidate_vs_baseline_waveform": {
+        "samples_interleaved": 518400,
+        "rmse": 0.0,
+        "snr_db": null,
+        "identical": true,
+        "correlation": 1.0,
+        "rms": 596.69776892834,
+        "peak": 5932,
+        "clipped_samples": 0,
+        "max_abs_error": 0,
+        "mean_error": 0.0
+      },
+      "payload_bytes_equal": true,
+      "candidate_to_baseline_process_ratio": 0.846978082477189
+    },
+    {
+      "recording": "speech_orig",
+      "recording_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "frames": 518400,
+      "channels": 1,
+      "complexity": 10,
+      "bitrate": 32000,
+      "results": {
+        "baseline": {
+          "packet_diagnostics": {
+            "packets": 541,
+            "packet_bytes": 43280,
+            "dtx_packets": 0,
+            "plc_packets": 0,
+            "fec_packets": 0,
+            "bandwidth_packets": {
+              "fb": 541
+            },
+            "mean_packet_bitrate_bps": 32000.0
+          },
+          "mode_packets": {
+            "silk": 0,
+            "hybrid": 0,
+            "celt": 541
+          },
+          "wire_channel_packets": {
+            "1": 541,
+            "2": 0
+          },
+          "file_sha256": "4b4730c7af916ba9b91a31e5f4e2a4b989a5500b23741a9df82821b0a11c62cd",
+          "packet_stream_sha256": "3b45fbdc27ab0153ca03fa6635652a4176f152d941bf70cb03664547b5e8b531",
+          "packet_bytes": 43280,
+          "packets": 541,
+          "process_seconds": [
+            0.04782194099971093,
+            0.039800269005354494,
+            0.04087786799937021
+          ],
+          "median_process_seconds": 0.04087786799937021,
+          "native_pcm_match": true,
+          "waveform": {
+            "samples_interleaved": 518400,
+            "rmse": 85.12181746103857,
+            "snr_db": 16.929320266947478,
+            "identical": false,
+            "correlation": 0.9898435845024338,
+            "rms": 596.6742310035459,
+            "peak": 5832,
+            "clipped_samples": 0,
+            "max_abs_error": 1102,
+            "mean_error": 0.8096296296296296
+          }
+        },
+        "candidate": {
+          "packet_diagnostics": {
+            "packets": 541,
+            "packet_bytes": 43280,
+            "dtx_packets": 0,
+            "plc_packets": 0,
+            "fec_packets": 0,
+            "bandwidth_packets": {
+              "fb": 541
+            },
+            "mean_packet_bitrate_bps": 32000.0
+          },
+          "mode_packets": {
+            "silk": 0,
+            "hybrid": 0,
+            "celt": 541
+          },
+          "wire_channel_packets": {
+            "1": 541,
+            "2": 0
+          },
+          "file_sha256": "a6047f21cc9d78921b8693588a2d697a5e73817bd563943d4dfc5ba0c9e8cd4c",
+          "packet_stream_sha256": "3b45fbdc27ab0153ca03fa6635652a4176f152d941bf70cb03664547b5e8b531",
+          "packet_bytes": 43280,
+          "packets": 541,
+          "process_seconds": [
+            0.03514171599817928,
+            0.034328533001826145,
+            0.049332408991176635
+          ],
+          "median_process_seconds": 0.03514171599817928,
+          "native_pcm_match": true,
+          "waveform": {
+            "samples_interleaved": 518400,
+            "rmse": 85.12181746103857,
+            "snr_db": 16.929320266947478,
+            "identical": false,
+            "correlation": 0.9898435845024338,
+            "rms": 596.6742310035459,
+            "peak": 5832,
+            "clipped_samples": 0,
+            "max_abs_error": 1102,
+            "mean_error": 0.8096296296296296
+          }
+        }
+      },
+      "candidate_vs_baseline_waveform": {
+        "samples_interleaved": 518400,
+        "rmse": 0.0,
+        "snr_db": null,
+        "identical": true,
+        "correlation": 1.0,
+        "rms": 596.6742310035459,
+        "peak": 5832,
+        "clipped_samples": 0,
+        "max_abs_error": 0,
+        "mean_error": 0.0
+      },
+      "payload_bytes_equal": true,
+      "candidate_to_baseline_process_ratio": 0.8596758519480687
+    },
+    {
+      "recording": "speech_orig",
+      "recording_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "frames": 518400,
+      "channels": 1,
+      "complexity": 10,
+      "bitrate": 64000,
+      "results": {
+        "baseline": {
+          "packet_diagnostics": {
+            "packets": 541,
+            "packet_bytes": 86560,
+            "dtx_packets": 0,
+            "plc_packets": 0,
+            "fec_packets": 0,
+            "bandwidth_packets": {
+              "fb": 541
+            },
+            "mean_packet_bitrate_bps": 64000.0
+          },
+          "mode_packets": {
+            "silk": 0,
+            "hybrid": 0,
+            "celt": 541
+          },
+          "wire_channel_packets": {
+            "1": 541,
+            "2": 0
+          },
+          "file_sha256": "d993e94b6066f13f917ae499578fd6fe534e59afa2e49a8a867efd7092ef9d81",
+          "packet_stream_sha256": "7859ff1130cf2c57a8e2cd93797f324b5b3115636eaf33f0af2e1a9c85f5ba30",
+          "packet_bytes": 86560,
+          "packets": 541,
+          "process_seconds": [
+            0.055906159002915956,
+            0.04904242599150166,
+            0.05384640199190471
+          ],
+          "median_process_seconds": 0.05384640199190471,
+          "native_pcm_match": true,
+          "waveform": {
+            "samples_interleaved": 518400,
+            "rmse": 44.98238696378702,
+            "snr_db": 22.46928807711572,
+            "identical": false,
+            "correlation": 0.9971659700950511,
+            "rms": 597.1232498078047,
+            "peak": 5824,
+            "clipped_samples": 0,
+            "max_abs_error": 564,
+            "mean_error": 0.2999826388888889
+          }
+        },
+        "candidate": {
+          "packet_diagnostics": {
+            "packets": 541,
+            "packet_bytes": 86560,
+            "dtx_packets": 0,
+            "plc_packets": 0,
+            "fec_packets": 0,
+            "bandwidth_packets": {
+              "fb": 541
+            },
+            "mean_packet_bitrate_bps": 64000.0
+          },
+          "mode_packets": {
+            "silk": 0,
+            "hybrid": 0,
+            "celt": 541
+          },
+          "wire_channel_packets": {
+            "1": 541,
+            "2": 0
+          },
+          "file_sha256": "6a833cdf0099e4d05cba25041ff3e618ba4b26e93169cda04e0838a4a46c67f0",
+          "packet_stream_sha256": "7859ff1130cf2c57a8e2cd93797f324b5b3115636eaf33f0af2e1a9c85f5ba30",
+          "packet_bytes": 86560,
+          "packets": 541,
+          "process_seconds": [
+            0.047909223998431116,
+            0.047307346991146915,
+            0.039469280003686436
+          ],
+          "median_process_seconds": 0.047307346991146915,
+          "native_pcm_match": true,
+          "waveform": {
+            "samples_interleaved": 518400,
+            "rmse": 44.98238696378702,
+            "snr_db": 22.46928807711572,
+            "identical": false,
+            "correlation": 0.9971659700950511,
+            "rms": 597.1232498078047,
+            "peak": 5824,
+            "clipped_samples": 0,
+            "max_abs_error": 564,
+            "mean_error": 0.2999826388888889
+          }
+        }
+      },
+      "candidate_vs_baseline_waveform": {
+        "samples_interleaved": 518400,
+        "rmse": 0.0,
+        "snr_db": null,
+        "identical": true,
+        "correlation": 1.0,
+        "rms": 597.1232498078047,
+        "peak": 5824,
+        "clipped_samples": 0,
+        "max_abs_error": 0,
+        "mean_error": 0.0
+      },
+      "payload_bytes_equal": true,
+      "candidate_to_baseline_process_ratio": 0.8785609667709853
+    },
+    {
+      "recording": "music_orig",
+      "recording_sha256": "ccc1fef039e7c77a0e3d3a8719cf5ec0a775dce5849113b7646a910d11a7b869",
+      "frames": 4358219,
+      "channels": 2,
+      "complexity": 0,
+      "bitrate": 32000,
+      "results": {
+        "baseline": {
+          "packet_diagnostics": {
+            "packets": 4541,
+            "packet_bytes": 363280,
+            "dtx_packets": 0,
+            "plc_packets": 0,
+            "fec_packets": 0,
+            "bandwidth_packets": {
+              "fb": 4541
+            },
+            "mean_packet_bitrate_bps": 32000.000000000004
+          },
+          "mode_packets": {
+            "silk": 0,
+            "hybrid": 0,
+            "celt": 4541
+          },
+          "wire_channel_packets": {
+            "1": 0,
+            "2": 4541
+          },
+          "file_sha256": "4e2839426bc42d368f6679c46b5549ab8c744531a35481911c89d55b7293a3bb",
+          "packet_stream_sha256": "aafc94f16ce77f4aee066e826214dfdad41eb69fd48b865eb9367e1a675db479",
+          "packet_bytes": 363280,
+          "packets": 4541,
+          "process_seconds": [
+            0.25072592600190546,
+            0.24520972699974664,
+            0.2694197219971102
+          ],
+          "median_process_seconds": 0.25072592600190546,
+          "native_pcm_match": true,
+          "waveform": {
+            "samples_interleaved": 8716438,
+            "rmse": 977.708384230235,
+            "snr_db": 11.30859604180628,
+            "identical": false,
+            "correlation": 0.9628261419031735,
+            "rms": 3575.6054083026283,
+            "peak": 32768,
+            "clipped_samples": 47,
+            "max_abs_error": 41886,
+            "mean_error": 20.46244509511798
+          }
+        },
+        "candidate": {
+          "packet_diagnostics": {
+            "packets": 4541,
+            "packet_bytes": 363280,
+            "dtx_packets": 0,
+            "plc_packets": 0,
+            "fec_packets": 0,
+            "bandwidth_packets": {
+              "fb": 4541
+            },
+            "mean_packet_bitrate_bps": 32000.000000000004
+          },
+          "mode_packets": {
+            "silk": 0,
+            "hybrid": 0,
+            "celt": 4541
+          },
+          "wire_channel_packets": {
+            "1": 0,
+            "2": 4541
+          },
+          "file_sha256": "b516561ebe9f1a732e6317ddeffa32923395dcaa4ffb9caf464f127ca3aa9cd3",
+          "packet_stream_sha256": "ed7548bf1411f70b8cb023a8c7ec7472ce1fd70ee312b88106c82e96c71f8e24",
+          "packet_bytes": 363280,
+          "packets": 4541,
+          "process_seconds": [
+            0.22236952699313406,
+            0.21215118099644314,
+            0.22409397599403746
+          ],
+          "median_process_seconds": 0.22236952699313406,
+          "native_pcm_match": true,
+          "waveform": {
+            "samples_interleaved": 8716438,
+            "rmse": 973.967614857097,
+            "snr_db": 11.341892500583837,
+            "identical": false,
+            "correlation": 0.9631282377749384,
+            "rms": 3577.6317013232583,
+            "peak": 32768,
+            "clipped_samples": 30,
+            "max_abs_error": 40640,
+            "mean_error": 20.622858328138168
+          }
+        }
+      },
+      "candidate_vs_baseline_waveform": {
+        "samples_interleaved": 8716438,
+        "rmse": 502.4800733591066,
+        "snr_db": 17.044614834006474,
+        "identical": false,
+        "correlation": 0.9901314030087941,
+        "rms": 3577.6317013232583,
+        "peak": 32768,
+        "clipped_samples": 30,
+        "max_abs_error": 21818,
+        "mean_error": 0.16041323302018554
+      },
+      "payload_bytes_equal": true,
+      "candidate_to_baseline_process_ratio": 0.8869028047440299
+    },
+    {
+      "recording": "music_orig",
+      "recording_sha256": "ccc1fef039e7c77a0e3d3a8719cf5ec0a775dce5849113b7646a910d11a7b869",
+      "frames": 4358219,
+      "channels": 2,
+      "complexity": 0,
+      "bitrate": 64000,
+      "results": {
+        "baseline": {
+          "packet_diagnostics": {
+            "packets": 4541,
+            "packet_bytes": 726560,
+            "dtx_packets": 0,
+            "plc_packets": 0,
+            "fec_packets": 0,
+            "bandwidth_packets": {
+              "fb": 4541
+            },
+            "mean_packet_bitrate_bps": 64000.00000000001
+          },
+          "mode_packets": {
+            "silk": 0,
+            "hybrid": 0,
+            "celt": 4541
+          },
+          "wire_channel_packets": {
+            "1": 0,
+            "2": 4541
+          },
+          "file_sha256": "a8fb8895a251aca107d45c66957c8b030d4407ae77e408ce1dfe4a8eaf108165",
+          "packet_stream_sha256": "f3d5643eba8f1abcff3d2fc8427387ec4c0ed6bc07f877fc37d6065c42628800",
+          "packet_bytes": 726560,
+          "packets": 4541,
+          "process_seconds": [
+            0.3251221499958774,
+            0.3208912469999632,
+            0.3381076259975089
+          ],
+          "median_process_seconds": 0.3251221499958774,
+          "native_pcm_match": true,
+          "waveform": {
+            "samples_interleaved": 8716438,
+            "rmse": 653.0601185118063,
+            "snr_db": 14.813719574697622,
+            "identical": false,
+            "correlation": 0.9835006536224566,
+            "rms": 3595.582573754089,
+            "peak": 32768,
+            "clipped_samples": 29,
+            "max_abs_error": 19926,
+            "mean_error": 19.674025559523283
+          }
+        },
+        "candidate": {
+          "packet_diagnostics": {
+            "packets": 4541,
+            "packet_bytes": 726560,
+            "dtx_packets": 0,
+            "plc_packets": 0,
+            "fec_packets": 0,
+            "bandwidth_packets": {
+              "fb": 4541
+            },
+            "mean_packet_bitrate_bps": 64000.00000000001
+          },
+          "mode_packets": {
+            "silk": 0,
+            "hybrid": 0,
+            "celt": 4541
+          },
+          "wire_channel_packets": {
+            "1": 0,
+            "2": 4541
+          },
+          "file_sha256": "8def79c2032139c6a2c93ecf41e1fea1a27f7ba059beeba84eda954bafe5b58a",
+          "packet_stream_sha256": "bb3e3960af90f8cd4908b4b7635261c4bb7f76bb0d47a0a975fdf9833d69325e",
+          "packet_bytes": 726560,
+          "packets": 4541,
+          "process_seconds": [
+            0.2725337240117369,
+            0.2595088329981081,
+            0.2569586080062436
+          ],
+          "median_process_seconds": 0.2595088329981081,
+          "native_pcm_match": true,
+          "waveform": {
+            "samples_interleaved": 8716438,
+            "rmse": 652.1572639409278,
+            "snr_db": 14.82573611158731,
+            "identical": false,
+            "correlation": 0.9835557770041845,
+            "rms": 3597.5962508533435,
+            "peak": 32768,
+            "clipped_samples": 28,
+            "max_abs_error": 22147,
+            "mean_error": 19.8079162612067
+          }
+        }
+      },
+      "candidate_vs_baseline_waveform": {
+        "samples_interleaved": 8716438,
+        "rmse": 352.9564552946233,
+        "snr_db": 20.160962754288583,
+        "identical": false,
+        "correlation": 0.9951847766335847,
+        "rms": 3597.5962508533435,
+        "peak": 32768,
+        "clipped_samples": 28,
+        "max_abs_error": 10809,
+        "mean_error": 0.13389070168341702
+      },
+      "payload_bytes_equal": true,
+      "candidate_to_baseline_process_ratio": 0.7981887207666372
+    },
+    {
+      "recording": "music_orig",
+      "recording_sha256": "ccc1fef039e7c77a0e3d3a8719cf5ec0a775dce5849113b7646a910d11a7b869",
+      "frames": 4358219,
+      "channels": 2,
+      "complexity": 5,
+      "bitrate": 32000,
+      "results": {
+        "baseline": {
+          "packet_diagnostics": {
+            "packets": 4541,
+            "packet_bytes": 363280,
+            "dtx_packets": 0,
+            "plc_packets": 0,
+            "fec_packets": 0,
+            "bandwidth_packets": {
+              "fb": 4541
+            },
+            "mean_packet_bitrate_bps": 32000.000000000004
+          },
+          "mode_packets": {
+            "silk": 0,
+            "hybrid": 0,
+            "celt": 4541
+          },
+          "wire_channel_packets": {
+            "1": 0,
+            "2": 4541
+          },
+          "file_sha256": "4fe5feaba079f072dfc51744021c14c9ff15b43bc2210fc628380c8934254823",
+          "packet_stream_sha256": "c70a539d23f1252f5a4e2fbe63427f146e4dba943d40581a6b4e24dfdcc0452a",
+          "packet_bytes": 363280,
+          "packets": 4541,
+          "process_seconds": [
+            0.3570291479991283,
+            0.35795956099173054,
+            0.3668234090000624
+          ],
+          "median_process_seconds": 0.35795956099173054,
+          "native_pcm_match": true,
+          "waveform": {
+            "samples_interleaved": 8716438,
+            "rmse": 973.4306685439607,
+            "snr_db": 11.346682333845381,
+            "identical": false,
+            "correlation": 0.9632416047746613,
+            "rms": 3585.4776010228343,
+            "peak": 32768,
+            "clipped_samples": 10,
+            "max_abs_error": 38184,
+            "mean_error": 24.96050370575687
+          }
+        },
+        "candidate": {
+          "packet_diagnostics": {
+            "packets": 4541,
+            "packet_bytes": 363280,
+            "dtx_packets": 0,
+            "plc_packets": 0,
+            "fec_packets": 0,
+            "bandwidth_packets": {
+              "fb": 4541
+            },
+            "mean_packet_bitrate_bps": 32000.000000000004
+          },
+          "mode_packets": {
+            "silk": 0,
+            "hybrid": 0,
+            "celt": 4541
+          },
+          "wire_channel_packets": {
+            "1": 0,
+            "2": 4541
+          },
+          "file_sha256": "bb1f7748d6797cc6663c3f1597723545b57a3ee34094703c9efb83c33f95a10b",
+          "packet_stream_sha256": "477ebf2716fe8aecf2c746fa88de40fb6abf6dbeefe3cecd9cfd4be34cf4863a",
+          "packet_bytes": 363280,
+          "packets": 4541,
+          "process_seconds": [
+            0.3872233300062362,
+            0.3626392440055497,
+            0.3636020770063624
+          ],
+          "median_process_seconds": 0.3636020770063624,
+          "native_pcm_match": true,
+          "waveform": {
+            "samples_interleaved": 8716438,
+            "rmse": 973.6366987753189,
+            "snr_db": 11.344844127434657,
+            "identical": false,
+            "correlation": 0.9632214584561545,
+            "rms": 3584.9971039565867,
+            "peak": 32768,
+            "clipped_samples": 10,
+            "max_abs_error": 38184,
+            "mean_error": 25.053431688494772
+          }
+        }
+      },
+      "candidate_vs_baseline_waveform": {
+        "samples_interleaved": 8716438,
+        "rmse": 51.1774894647264,
+        "snr_db": 36.90936072379916,
+        "identical": false,
+        "correlation": 0.9998981282300741,
+        "rms": 3584.9971039565867,
+        "peak": 32768,
+        "clipped_samples": 10,
+        "max_abs_error": 9207,
+        "mean_error": 0.0929279827379028
+      },
+      "payload_bytes_equal": true,
+      "candidate_to_baseline_process_ratio": 1.0157629984766972
+    },
+    {
+      "recording": "music_orig",
+      "recording_sha256": "ccc1fef039e7c77a0e3d3a8719cf5ec0a775dce5849113b7646a910d11a7b869",
+      "frames": 4358219,
+      "channels": 2,
+      "complexity": 5,
+      "bitrate": 64000,
+      "results": {
+        "baseline": {
+          "packet_diagnostics": {
+            "packets": 4541,
+            "packet_bytes": 726560,
+            "dtx_packets": 0,
+            "plc_packets": 0,
+            "fec_packets": 0,
+            "bandwidth_packets": {
+              "fb": 4541
+            },
+            "mean_packet_bitrate_bps": 64000.00000000001
+          },
+          "mode_packets": {
+            "silk": 0,
+            "hybrid": 0,
+            "celt": 4541
+          },
+          "wire_channel_packets": {
+            "1": 0,
+            "2": 4541
+          },
+          "file_sha256": "00c7c3ad4f5a09981aa8d942f648b18bc9b351f4d27586941fb45dbc438fe1a2",
+          "packet_stream_sha256": "51f0011d3fb2e83af2a56e56ffedcac2fdc43ac54fe9beb9c5fbc8c89b3b0ef4",
+          "packet_bytes": 726560,
+          "packets": 4541,
+          "process_seconds": [
+            0.42704775399761274,
+            0.4298530380037846,
+            0.43461567600024864
+          ],
+          "median_process_seconds": 0.4298530380037846,
+          "native_pcm_match": true,
+          "waveform": {
+            "samples_interleaved": 8716438,
+            "rmse": 649.1158867602546,
+            "snr_db": 14.866338063033712,
+            "identical": false,
+            "correlation": 0.9836989061802639,
+            "rms": 3595.485995489993,
+            "peak": 32768,
+            "clipped_samples": 21,
+            "max_abs_error": 22505,
+            "mean_error": 20.701729880944487
+          }
+        },
+        "candidate": {
+          "packet_diagnostics": {
+            "packets": 4541,
+            "packet_bytes": 726560,
+            "dtx_packets": 0,
+            "plc_packets": 0,
+            "fec_packets": 0,
+            "bandwidth_packets": {
+              "fb": 4541
+            },
+            "mean_packet_bitrate_bps": 64000.00000000001
+          },
+          "mode_packets": {
+            "silk": 0,
+            "hybrid": 0,
+            "celt": 4541
+          },
+          "wire_channel_packets": {
+            "1": 0,
+            "2": 4541
+          },
+          "file_sha256": "1f452d15b8afdfe62e71624bac4a83727b637cd2c1b5d27bed321cb35b17f6a6",
+          "packet_stream_sha256": "7cec17360748f60440ef3f8c1cc5cd851d4179cb7aa14a8709e12808c31010e3",
+          "packet_bytes": 726560,
+          "packets": 4541,
+          "process_seconds": [
+            0.42554039201058913,
+            0.44162041299568955,
+            0.4355484630068531
+          ],
+          "median_process_seconds": 0.4355484630068531,
+          "native_pcm_match": true,
+          "waveform": {
+            "samples_interleaved": 8716438,
+            "rmse": 649.1954928926896,
+            "snr_db": 14.865272910108851,
+            "identical": false,
+            "correlation": 0.9836951500720823,
+            "rms": 3595.538547176045,
+            "peak": 32768,
+            "clipped_samples": 21,
+            "max_abs_error": 22505,
+            "mean_error": 20.70892158012252
+          }
+        }
+      },
+      "candidate_vs_baseline_waveform": {
+        "samples_interleaved": 8716438,
+        "rmse": 30.54503795281951,
+        "snr_db": 41.4163386483315,
+        "identical": false,
+        "correlation": 0.9999639148507102,
+        "rms": 3595.538547176045,
+        "peak": 32768,
+        "clipped_samples": 21,
+        "max_abs_error": 4155,
+        "mean_error": 0.007191699178035799
+      },
+      "payload_bytes_equal": true,
+      "candidate_to_baseline_process_ratio": 1.0132497028042835
+    },
+    {
+      "recording": "music_orig",
+      "recording_sha256": "ccc1fef039e7c77a0e3d3a8719cf5ec0a775dce5849113b7646a910d11a7b869",
+      "frames": 4358219,
+      "channels": 2,
+      "complexity": 10,
+      "bitrate": 32000,
+      "results": {
+        "baseline": {
+          "packet_diagnostics": {
+            "packets": 4541,
+            "packet_bytes": 363280,
+            "dtx_packets": 0,
+            "plc_packets": 0,
+            "fec_packets": 0,
+            "bandwidth_packets": {
+              "fb": 4541
+            },
+            "mean_packet_bitrate_bps": 32000.000000000004
+          },
+          "mode_packets": {
+            "silk": 0,
+            "hybrid": 0,
+            "celt": 4541
+          },
+          "wire_channel_packets": {
+            "1": 0,
+            "2": 4541
+          },
+          "file_sha256": "013b5e2f79621f04456053927eda8513f695da907dec7bc3f55a53508baa79b0",
+          "packet_stream_sha256": "fcbf6d0539d73e97c3faff6e46555743f82ff49b2ebe1e31867b87045419f322",
+          "packet_bytes": 363280,
+          "packets": 4541,
+          "process_seconds": [
+            0.3927809559972957,
+            0.40803002199390903,
+            0.39971960098773707
+          ],
+          "median_process_seconds": 0.39971960098773707,
+          "native_pcm_match": true,
+          "waveform": {
+            "samples_interleaved": 8716438,
+            "rmse": 971.1665594668679,
+            "snr_db": 11.366908435348872,
+            "identical": false,
+            "correlation": 0.9635095388755238,
+            "rms": 3595.3290057346726,
+            "peak": 32768,
+            "clipped_samples": 16,
+            "max_abs_error": 41202,
+            "mean_error": 25.069418379388463
+          }
+        },
+        "candidate": {
+          "packet_diagnostics": {
+            "packets": 4541,
+            "packet_bytes": 363280,
+            "dtx_packets": 0,
+            "plc_packets": 0,
+            "fec_packets": 0,
+            "bandwidth_packets": {
+              "fb": 4541
+            },
+            "mean_packet_bitrate_bps": 32000.000000000004
+          },
+          "mode_packets": {
+            "silk": 0,
+            "hybrid": 0,
+            "celt": 4541
+          },
+          "wire_channel_packets": {
+            "1": 0,
+            "2": 4541
+          },
+          "file_sha256": "94e0cad8a2a91fb77aa0de666561658c997495b27e2e6728868391415350f102",
+          "packet_stream_sha256": "e8917cd0ed388ca451ae6b039b61116818541a449d755c1aaf05bbb346a35b18",
+          "packet_bytes": 363280,
+          "packets": 4541,
+          "process_seconds": [
+            0.4150209530052962,
+            0.4270055160013726,
+            0.40256979801051784
+          ],
+          "median_process_seconds": 0.4150209530052962,
+          "native_pcm_match": true,
+          "waveform": {
+            "samples_interleaved": 8716438,
+            "rmse": 971.5458263285745,
+            "snr_db": 11.363517022219376,
+            "identical": false,
+            "correlation": 0.9634853156142911,
+            "rms": 3595.747462713931,
+            "peak": 32768,
+            "clipped_samples": 16,
+            "max_abs_error": 41202,
+            "mean_error": 25.020995273528015
+          }
+        }
+      },
+      "candidate_vs_baseline_waveform": {
+        "samples_interleaved": 8716438,
+        "rmse": 53.631387970298974,
+        "snr_db": 36.52639203831847,
+        "identical": false,
+        "correlation": 0.9998887618349311,
+        "rms": 3595.747462713931,
+        "peak": 32768,
+        "clipped_samples": 16,
+        "max_abs_error": 8425,
+        "mean_error": -0.04842310586044437
+      },
+      "payload_bytes_equal": true,
+      "candidate_to_baseline_process_ratio": 1.038280214379651
+    },
+    {
+      "recording": "music_orig",
+      "recording_sha256": "ccc1fef039e7c77a0e3d3a8719cf5ec0a775dce5849113b7646a910d11a7b869",
+      "frames": 4358219,
+      "channels": 2,
+      "complexity": 10,
+      "bitrate": 64000,
+      "results": {
+        "baseline": {
+          "packet_diagnostics": {
+            "packets": 4541,
+            "packet_bytes": 726560,
+            "dtx_packets": 0,
+            "plc_packets": 0,
+            "fec_packets": 0,
+            "bandwidth_packets": {
+              "fb": 4541
+            },
+            "mean_packet_bitrate_bps": 64000.00000000001
+          },
+          "mode_packets": {
+            "silk": 0,
+            "hybrid": 0,
+            "celt": 4541
+          },
+          "wire_channel_packets": {
+            "1": 0,
+            "2": 4541
+          },
+          "file_sha256": "e0f3f975c0e92850c043609d87901bfd3c93ec04a5b7de14d3cfcc520882186d",
+          "packet_stream_sha256": "61e88b8ac6149748b560454fd14d406fa66ef59b86219a355ed5f216091cb1e5",
+          "packet_bytes": 726560,
+          "packets": 4541,
+          "process_seconds": [
+            0.5075875729962718,
+            0.5284299119957723,
+            0.5117992890009191
+          ],
+          "median_process_seconds": 0.5117992890009191,
+          "native_pcm_match": true,
+          "waveform": {
+            "samples_interleaved": 8716438,
+            "rmse": 632.4459173377996,
+            "snr_db": 15.092314962794953,
+            "identical": false,
+            "correlation": 0.9845312261216017,
+            "rms": 3596.798029475329,
+            "peak": 32768,
+            "clipped_samples": 34,
+            "max_abs_error": 22281,
+            "mean_error": 19.404815935133136
+          }
+        },
+        "candidate": {
+          "packet_diagnostics": {
+            "packets": 4541,
+            "packet_bytes": 726560,
+            "dtx_packets": 0,
+            "plc_packets": 0,
+            "fec_packets": 0,
+            "bandwidth_packets": {
+              "fb": 4541
+            },
+            "mean_packet_bitrate_bps": 64000.00000000001
+          },
+          "mode_packets": {
+            "silk": 0,
+            "hybrid": 0,
+            "celt": 4541
+          },
+          "wire_channel_packets": {
+            "1": 0,
+            "2": 4541
+          },
+          "file_sha256": "80216aef0236f5328a9e6967977ce1616b61bfc697e624325def829d4dd19a44",
+          "packet_stream_sha256": "a3252106f50be4e9b7e30770b2beb2ff8882afea6577f644ce1e0363ee41c57f",
+          "packet_bytes": 726560,
+          "packets": 4541,
+          "process_seconds": [
+            0.5133093470067251,
+            0.4995111479947809,
+            0.5189627630024916
+          ],
+          "median_process_seconds": 0.5133093470067251,
+          "native_pcm_match": true,
+          "waveform": {
+            "samples_interleaved": 8716438,
+            "rmse": 632.4540412952742,
+            "snr_db": 15.092203390654298,
+            "identical": false,
+            "correlation": 0.9845285803400369,
+            "rms": 3596.2938278386287,
+            "peak": 32768,
+            "clipped_samples": 34,
+            "max_abs_error": 22281,
+            "mean_error": 19.480890129660764
+          }
+        }
+      },
+      "candidate_vs_baseline_waveform": {
+        "samples_interleaved": 8716438,
+        "rmse": 35.41954373564426,
+        "snr_db": 40.13346178377564,
+        "identical": false,
+        "correlation": 0.9999515161949715,
+        "rms": 3596.2938278386287,
+        "peak": 32768,
+        "clipped_samples": 34,
+        "max_abs_error": 4750,
+        "mean_error": 0.076074194527627
+      },
+      "payload_bytes_equal": true,
+      "candidate_to_baseline_process_ratio": 1.0029504886744838
+    }
+  ],
+  "version": "0.1.94",
+  "baseline_commit": "348be2fea0b60824eb251ae7411e856ee20c3581",
+  "candidate_compiler": "rustc1.87.0 (17067e9ac), LLVM20.1.1, x86_64-unknown-linux-gnu",
+  "build_configuration": "cargo build --offline --locked --release; default release profile, no extra RUSTFLAGS",
+  "cpu": "AMD Ryzen AI 9 HX 370 w/ Radeon 890M",
+  "timing_limits": "Whole process wall timing; no CPU isolation. Fixed-corpus generation shared the machine during part of this diagnostic run. No core speed, latency, memory, perceptual or competitive conclusion."
+}

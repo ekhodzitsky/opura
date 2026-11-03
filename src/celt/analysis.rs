@@ -24,6 +24,7 @@ pub use dynalloc::{DynallocAnalysis, DynallocInput, DynallocOptions, analyze_dyn
 mod tf;
 pub use tf::{TfAnalysis, TfAnalysisOptions, analyze_tf};
 mod transient;
+pub(crate) use transient::{analyze_tone_only, patch_missed};
 mod transient_tables;
 pub use transient::{TransientAnalysis, analyze_transients};
 
