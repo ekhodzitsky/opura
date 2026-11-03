@@ -123,6 +123,34 @@ pub(crate) fn decode_partition_band(
     blocks: usize,
     gain: i32,
 ) -> Result<NormalizedBand, PvqError> {
+    let n = codebook.dimensions();
+    let mut result = NormalizedBand {
+        values: [0; 176],
+        length: n,
+        collapse: 0,
+    };
+    let mut next = entropy.clone();
+    result.collapse = decode_partition_band_into(
+        &mut next,
+        codebook,
+        spread,
+        blocks,
+        gain,
+        &mut result.values[..n],
+    )?;
+    *entropy = next;
+    Ok(result)
+}
+// The partition's unpublished output and enclosing entropy/state transaction
+// own rollback. This path may change entropy/output before returning an error.
+pub(in crate::celt) fn decode_partition_band_into(
+    entropy: &mut RangeDecoder<'_>,
+    codebook: PulseCodebook,
+    spread: Spread,
+    blocks: usize,
+    gain: i32,
+    output: &mut [i32],
+) -> Result<u16, PvqError> {
     if codebook.pulses() == 0 {
         return Err(PvqError::NoPulses);
     }
@@ -133,18 +161,22 @@ pub(crate) fn decode_partition_band(
     if gain < 0 {
         return Err(PvqError::InvalidGain);
     }
-    let mut next = entropy.clone();
-    let pulses = codebook.decode(&mut next)?;
-    let result = reconstruct(
+    if output.len() != n {
+        return Err(PvqError::InvalidInput);
+    }
+    let pulses = codebook.decode(entropy)?;
+    let collapse = reconstruct_into(
         pulses.values(),
         pulses.squared_norm(),
         codebook.pulses(),
         spread,
         blocks,
         gain,
+        output,
     )?;
-    *entropy = next;
-    Ok(result)
+    #[cfg(test)]
+    transaction_tests::failure()?;
+    Ok(collapse)
 }
 fn reconstruct(
     pulses: &[i16],
@@ -155,26 +187,49 @@ fn reconstruct(
     gain: i32,
 ) -> Result<NormalizedBand, PvqError> {
     let n = pulses.len();
-    let energy = energy as i32;
-    let k = (31 - energy.leading_zeros() as i32) >> 1;
-    let normalized = shift(energy, 2 * (k - 7) - 15);
-    let scale = mul_q31(math::rsqrt_normalized_q31(normalized)?, gain);
     let mut result = NormalizedBand {
         values: [0; 176],
         length: n,
         collapse: 0,
     };
-    for (target, &pulse) in result.values[..n].iter_mut().zip(pulses) {
+    result.collapse = reconstruct_into(
+        pulses,
+        energy,
+        pulse_count,
+        spread,
+        blocks,
+        gain,
+        &mut result.values[..n],
+    )?;
+    Ok(result)
+}
+// Callers provide exactly one output coordinate per validated pulse coordinate.
+fn reconstruct_into(
+    pulses: &[i16],
+    energy: u32,
+    pulse_count: usize,
+    spread: Spread,
+    blocks: usize,
+    gain: i32,
+    output: &mut [i32],
+) -> Result<u16, PvqError> {
+    let n = pulses.len();
+    let energy = energy as i32;
+    let k = (31 - energy.leading_zeros() as i32) >> 1;
+    let normalized = shift(energy, 2 * (k - 7) - 15);
+    let scale = mul_q31(math::rsqrt_normalized_q31(normalized)?, gain);
+    for (target, &pulse) in output.iter_mut().zip(pulses) {
         let product = ((i64::from(pulse) * i64::from(scale)) >> 15) as i32;
         *target = shift(product, k + 15 - 24);
     }
-    inverse_spread(&mut result.values[..n], blocks, pulse_count, spread)?;
+    inverse_spread(output, blocks, pulse_count, spread)?;
+    let mut collapse = 0;
     for (i, block) in pulses.chunks_exact(n / blocks).enumerate() {
         if block.iter().any(|&p| p != 0) {
-            result.collapse |= 1 << i;
+            collapse |= 1 << i;
         }
     }
-    Ok(result)
+    Ok(collapse)
 }
 fn inverse_spread(
     x: &mut [i32],
@@ -261,3 +316,7 @@ fn shift(x: i32, amount: i32) -> i32 {
         x.wrapping_shl((-amount) as u32)
     }
 }
+
+#[cfg(test)]
+#[path = "pvq_transaction_tests.rs"]
+mod transaction_tests;

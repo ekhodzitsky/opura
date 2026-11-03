@@ -406,15 +406,15 @@ impl Decoder<'_, '_> {
                 } else {
                     (8 + (q & 7)) << ((q >> 3) - 1)
                 };
-                let band = pvq::decode_partition_band(
+                let collapse = pvq::decode_partition_band_into(
                     self.entropy,
                     PulseCodebook::new(n, pulses)?,
                     self.spread,
                     blocks,
                     gain,
+                    x,
                 )?;
-                x.copy_from_slice(band.values());
-                Ok(u32::from(band.wide_collapse_mask()))
+                Ok(u32::from(collapse))
             } else {
                 fill_partition(x, fold, self.state, blocks, gain, fill)
             }

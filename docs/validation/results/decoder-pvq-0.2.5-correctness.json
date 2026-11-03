@@ -1,0 +1,174 @@
+{
+  "schema_version": 1,
+  "version": "0.2.5",
+  "base_revision": "330df5d8f5c29664a79895304df883fa5b4bafd5",
+  "worktree_modified": true,
+  "provenance": "Final codec source before correctness checkpoint commit; full retained paired timing pending, no final speed claim.",
+  "source_sha256": {
+    "src/celt/pvq.rs": "632a9e5b1b3f17d98b7156ac94370aa610a8aaf27cd9df3b14c8afecf4d606d6",
+    "src/celt/partition.rs": "fed14a4ffe6a53af50654ee76dd802215c55545ab2d33e59984da13939be493c",
+    "src/celt/pvq_transaction_tests.rs": "148c4a4a6d95cb27e7e1affffab3f4c36e9376bb3efc2a821f174270d0ca699e",
+    "src/celt/pulses.rs": "80b171782c145a4d33e173f28690d7cd11eae9572754184d808b07bc251b8b96",
+    "tests/celt_pvq.rs": "3aac575bf956b29fe28d08661025e892c635ea88f21d3a2b77aaf0e969c5dfe9",
+    "tests/celt-pvq-fixtures.txt": "7c565784652bce1855ef23c48de83c10705a86ac606995a9ceceb5920e8ebdb5",
+    "tests/celt_partition.rs": "b20afebdbd2b198528b5c99c15b6f1c0caa31470c3448a93b859702489fc3374",
+    "tests/celt-partition-fixtures.txt": "0a2e52d313de3031735b27f42a82d6091b291ec0cc1a2dac4f19d98611d1d0e1",
+    "tests/decoder_pcm.rs": "66bf302de7f2a5b587b9fcd338360b46437d0b49b16615f0fde41e826625b494",
+    "tests/decoder-pcm-fixtures.txt": "c14959e2f5e92a67760f7ca6ab2d4ce8a1dd5309d50a8ed19100029d8fabe1cf",
+    "Cargo.toml": "2933306d272128d611a7d38949f0829eedb0fb0ec424a32bcf7158b19e428144",
+    "Cargo.lock": "f34ec6ff04d300cae98504379e886396f6336a643295d23739dbc8eea54ac561"
+  },
+  "offline_gates": [
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 0.5554317810019711
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked"
+      ],
+      "exit_code": 0,
+      "seconds": 151.905215538005
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--release"
+      ],
+      "exit_code": 0,
+      "seconds": 32.793595077004284
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "seconds": 9.77064250499825
+    },
+    {
+      "command": [
+        "cargo",
+        "doc",
+        "--offline",
+        "--locked",
+        "--no-deps"
+      ],
+      "exit_code": 0,
+      "seconds": 0.8428333719930379
+    },
+    {
+      "command": [
+        "python3",
+        "tools/check_dependencies.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.04337825300171971
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools",
+        "-p",
+        "test_*.py"
+      ],
+      "exit_code": 0,
+      "seconds": 4.537184790999163
+    }
+  ],
+  "rustdoc_environment": {
+    "RUSTDOCFLAGS": "-D warnings"
+  },
+  "library_tests": 181,
+  "python_tests": 44,
+  "postwrite_fault_tests": 5,
+  "default_test_stack": true,
+  "mutations": [
+    {
+      "name": "public-pvq-entropy-stage-bypass",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--lib",
+        "bounded_output_wide_masks_and_real_postwrite_failure"
+      ],
+      "exit_code": 101,
+      "caught": true
+    },
+    {
+      "name": "public-partition-stage-bypass",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--lib",
+        "public_partition_and_band_restore_entropy_budget_and_resume"
+      ],
+      "exit_code": 101,
+      "caught": true
+    },
+    {
+      "name": "wrong-reconstruction-gain",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--test",
+        "celt_pvq"
+      ],
+      "exit_code": 101,
+      "caught": true
+    },
+    {
+      "name": "truncated-wide-collapse-mask",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--test",
+        "celt_partition"
+      ],
+      "exit_code": 101,
+      "caught": true
+    }
+  ],
+  "native_decoded_pvq_bands": 28464,
+  "native_refined_roots": 196608,
+  "native_integration_targets": 14,
+  "native_decoder_operations": 1680,
+  "official_conformance_cases": 120,
+  "pcm_unchanged_from": "0.2.4",
+  "performance_status": "pending full paired before/after comparison",
+  "limitations": [
+    "No native/other competitor, encoder speed/quality, peak-stack/heap/RSS or SOTA claim.",
+    "Exploratory seven-pair48kHz stereo pilot is not final release evidence."
+  ]
+}

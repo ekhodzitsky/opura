@@ -7,6 +7,21 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-11-03
+
+- Reconstruct positive-pulse CELT PVQ leaves directly into unpublished partition
+  output. Avoid the intermediate owned normalized-band result and active-value
+  copy; preserve public owned PVQ output, entropy/state transactions, Q24
+  arithmetic, inverse spreading and all 16 collapse-mask bits. No unsafe or
+  dependency; encoder controls and search policy remain unchanged.
+- Add five post-write fault tests proving actual private output/entropy mutation
+  and public PVQ, partition/band and complete CELT/Hybrid/Opus rollback/resume.
+  Four restored source mutations are rejected at runtime. All seven offline
+  gates pass (181 library/44 Python tests), with unchanged native PVQ/spectral
+  and complete-decoder fixtures. All 120 official conformance cases pass with
+  every 0.2.4 PCM hash unchanged. Retained paired timing is pending; this
+  candidate is not yet an accepted performance milestone.
+
 ## [0.2.4] - 2026-11-03
 
 - Remove repeated CELT synthesis backend staging inside already staged decoder
