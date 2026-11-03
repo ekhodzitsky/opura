@@ -1,0 +1,157 @@
+{
+  "schema_version": 1,
+  "version": "0.2.4",
+  "base_revision": "51671564ad3ea5c668b819af2be991848d6ae858",
+  "worktree_modified": true,
+  "provenance": "Final codec source before correctness checkpoint commit; retained paired timing pending, no final speed claim.",
+  "source_sha256": {
+    "src/celt/synthesis.rs": "c5ed484c9a52b82140cc6c90005b35ebb598898b73d8c12f93b12b49e1da4b98",
+    "src/celt/decoder.rs": "68371aa7d8ef76071013b7178c17b9a8378207e7d35db53a4ed18998b1688d34",
+    "src/celt/decoder/loss.rs": "1decd9470f0d45a3306a77e73b5b3a4a640d3060e58048b9dd3c5ecd05879fcf",
+    "src/celt/synthesis_transaction_tests.rs": "c7b62adabca271b07cfccf097104eab91f26398edd4cd67b544ed149f20246d3",
+    "tests/celt_synthesis.rs": "99d1b2851f2ada9ddad8db895dcd0c91d142da5df30f37f4cea7602e534d8e8f",
+    "tests/celt_loss.rs": "31aee25bf69ab602710b0c4a49ef92fe5a9810844ac417e3b77158db833b9a05",
+    "tests/decoder_pcm.rs": "66bf302de7f2a5b587b9fcd338360b46437d0b49b16615f0fde41e826625b494",
+    "tests/decoder-pcm-fixtures.txt": "c14959e2f5e92a67760f7ca6ab2d4ce8a1dd5309d50a8ed19100029d8fabe1cf",
+    "Cargo.toml": "b818d0fff398ae50873641d82d367eb6d4fe58088f22fa888154d57648f19daf",
+    "Cargo.lock": "5c3b12ec13fc4cfe60597d4dda5190dc282cd1af4ef6e9181c170efc32e8c384"
+  },
+  "offline_gates": [
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 0.5485942279919982
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked"
+      ],
+      "exit_code": 0,
+      "seconds": 157.47013104800135
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--release"
+      ],
+      "exit_code": 0,
+      "seconds": 34.89487132499926
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "seconds": 10.20248854199599
+    },
+    {
+      "command": [
+        "cargo",
+        "doc",
+        "--offline",
+        "--locked",
+        "--no-deps"
+      ],
+      "exit_code": 0,
+      "seconds": 0.8715823219972663
+    },
+    {
+      "command": [
+        "python3",
+        "tools/check_dependencies.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.05991920400992967
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools",
+        "-p",
+        "test_*.py"
+      ],
+      "exit_code": 0,
+      "seconds": 4.555734970999765
+    }
+  ],
+  "rustdoc_environment": {
+    "RUSTDOCFLAGS": "-D warnings"
+  },
+  "library_tests": 176,
+  "python_tests": 44,
+  "late_fault_tests": 4,
+  "default_test_stack": true,
+  "mutations": [
+    {
+      "name": "public-backend-commit-bypass",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--lib",
+        "public_backend_rolls_back_real_late_mutations_and_resumes"
+      ],
+      "exit_code": 101,
+      "caught": true
+    },
+    {
+      "name": "public-celt-commit-bypass",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--lib",
+        "celt_normal_noise_and_pitch_public_owners_roll_back_and_resume"
+      ],
+      "exit_code": 101,
+      "caught": true
+    },
+    {
+      "name": "pitch-future-overlap-omission",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--test",
+        "celt_loss"
+      ],
+      "exit_code": 101,
+      "caught": true
+    }
+  ],
+  "native_synthesis_cases": 480,
+  "native_decoder_operations": 1680,
+  "official_conformance_cases": 120,
+  "pcm_unchanged_from": "0.2.3",
+  "performance_status": "pending full paired comparison",
+  "limitations": [
+    "No native/competitor/encoder speed, quality, peak-stack/heap/RSS or SOTA claim.",
+    "Exploratory48kHz stereo pilot is not retained release evidence."
+  ]
+}

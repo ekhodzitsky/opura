@@ -432,11 +432,14 @@ impl CeltDecoder {
         let energy = *self.energy.values();
         let n = size.samples();
         let pcm = if channels == 2 {
-            self.backend
-                .synthesize(&[&spectra[0][..n], &spectra[1][..n]], &energy, &controls)?
+            self.backend.synthesize_staged(
+                &[&spectra[0][..n], &spectra[1][..n]],
+                &energy,
+                &controls,
+            )?
         } else {
             self.backend
-                .synthesize(&[&spectra[0][..n]], &energy[..1], &controls)?
+                .synthesize_staged(&[&spectra[0][..n]], &energy[..1], &controls)?
         };
         self.record_signal(size)?;
         self.loss.prefilter = false;
@@ -537,9 +540,9 @@ impl CeltDecoder {
             self.loss.history[c].copy_from_slice(&buffer[..2048]);
             self.loss.future[c].copy_from_slice(&buffer[2048..]);
         }
-        let pcm = self
-            .backend
-            .render_concealed(&self.loss.history, &self.loss.future, size)?;
+        let pcm =
+            self.backend
+                .render_concealed_staged(&self.loss.history, &self.loss.future, size)?;
         self.loss.prefilter = true;
         Ok(pcm)
     }

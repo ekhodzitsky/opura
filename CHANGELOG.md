@@ -7,6 +7,21 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-11-03
+
+- Remove repeated CELT synthesis backend staging inside already staged decoder
+  owners for normal frames, noise concealment and pitch concealment. Keep the
+  direct public synthesis transaction and complete decoder rollback contracts.
+  Restrict in-place rendering to private CELT callers; no unsafe or dependency.
+- Add late-failure tests after actual MDCT, postfilter, deemphasis and pitch
+  history mutations. Verify complete state rollback and resumed output for
+  public synthesis, CELT, Hybrid and unified prefixed FEC/mode transitions.
+  Three deliberate source mutations are rejected by the new rollback tests
+  and native loss fixtures. All seven offline gates pass (176 library/44 Python
+  tests); 480 native synthesis cases and the 1680-operation native decoder
+  corpus pass. All 120 official conformance PCM hashes match 0.2.3. Retained
+  paired timing is pending; this candidate is not yet a performance milestone.
+
 ## [0.2.3] - 2026-11-03
 
 - Extend optional public decoder benchmark adapters with bounded adaptive

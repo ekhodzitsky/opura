@@ -105,15 +105,15 @@ impl CeltSynthesis {
             self.mdct[c].set_overlap(values);
         }
     }
-    pub(crate) fn render_concealed(
+    // Called only while the enclosing decoder owns the transaction.
+    pub(in crate::celt) fn render_concealed_staged(
         &mut self,
         history: &[[i32; 2048]; 2],
         future: &[[i32; 120]; 2],
         size: FrameSize,
     ) -> Result<PcmFrame, SynthesisError> {
-        let mut next = self.clone();
         let n = size.samples();
-        let pcm = next.deemphasis.process(
+        let pcm = self.deemphasis.process(
             &history[0][2048 - n..],
             if self.channels == 2 {
                 Some(&history[1][2048 - n..])
@@ -125,12 +125,13 @@ impl CeltSynthesis {
         for c in 0..self.channels {
             let mut tail = [0i32; 1026];
             tail.copy_from_slice(&history[c][1022..]);
-            next.postfilter[c].set_history(&tail);
+            self.postfilter[c].set_history(&tail);
             let mut overlap = [0i32; 60];
             overlap.copy_from_slice(&future[c][..60]);
-            next.mdct[c].set_overlap(&overlap);
+            self.mdct[c].set_overlap(&overlap);
         }
-        *self = next;
+        #[cfg(test)]
+        transaction_tests::failure(4)?;
         Ok(pcm)
     }
 
@@ -197,6 +198,19 @@ impl CeltSynthesis {
         energies: &[[i32; 21]],
         controls: &SynthesisControls,
     ) -> Result<PcmFrame, SynthesisError> {
+        let mut next = self.clone();
+        let pcm = next.synthesize_staged(spectra, energies, controls)?;
+        *self = next;
+        Ok(pcm)
+    }
+    // Normal/noise layer calls operate on the enclosing decoder's unpublished
+    // staged state. Public synthesize retains its own complete rollback above.
+    pub(in crate::celt) fn synthesize_staged(
+        &mut self,
+        spectra: &[&[i32]],
+        energies: &[[i32; 21]],
+        controls: &SynthesisControls,
+    ) -> Result<PcmFrame, SynthesisError> {
         let encoded = spectra.len();
         let n = controls.size.samples();
         if !(1..=2).contains(&encoded) || energies.len() != encoded {
@@ -224,7 +238,6 @@ impl CeltSynthesis {
                 frequencies[0][i] = (frequencies[0][i] >> 1).wrapping_add(frequencies[1][i] >> 1);
             }
         }
-        let mut next = self.clone();
         let mut time = [[0i32; 960]; 2];
         let blocks = if controls.transient { n / 120 } else { 1 };
         let block_size = if controls.transient {
@@ -235,30 +248,39 @@ impl CeltSynthesis {
         let block_length = block_size.samples();
         for channel in 0..self.channels {
             for block in 0..blocks {
-                let frame = next.mdct[channel].synthesize(
+                let frame = self.mdct[channel].synthesize(
                     block_size,
                     &frequencies[channel][block..n],
                     blocks,
                 )?;
                 time[channel][block * block_length..(block + 1) * block_length]
                     .copy_from_slice(frame.samples());
+                #[cfg(test)]
+                transaction_tests::failure(1)?;
             }
             for value in &mut time[channel][..n] {
                 *value = (*value).clamp(-536870911, 536870911);
             }
         }
-        let left = next.postfilter[0].process(&time[0][..n], controls.postfilter)?;
+        let left = self.postfilter[0].process(&time[0][..n], controls.postfilter)?;
+        #[cfg(test)]
+        transaction_tests::failure(2)?;
         let right = if self.channels == 2 {
-            Some(next.postfilter[1].process(&time[1][..n], controls.postfilter)?)
+            Some(self.postfilter[1].process(&time[1][..n], controls.postfilter)?)
         } else {
             None
         };
-        let pcm = next.deemphasis.process(
+        let pcm = self.deemphasis.process(
             left.samples(),
             right.as_ref().map(|r| r.samples()),
             self.rate,
         )?;
-        *self = next;
+        #[cfg(test)]
+        transaction_tests::failure(3)?;
         Ok(pcm)
     }
 }
+
+#[cfg(test)]
+#[path = "synthesis_transaction_tests.rs"]
+mod transaction_tests;

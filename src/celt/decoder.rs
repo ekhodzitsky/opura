@@ -402,10 +402,10 @@ impl CeltDecoder {
             .ok_or(DecoderError::InvalidConfiguration)?;
         let pcm = if let Some(right) = spectrum.channel(1) {
             self.backend
-                .synthesize(&[left, right], &energies, &controls)?
+                .synthesize_staged(&[left, right], &energies, &controls)?
         } else {
             self.backend
-                .synthesize(&[left], &energies[..1], &controls)?
+                .synthesize_staged(&[left], &energies[..1], &controls)?
         };
         let values = self.energy.values_mut();
         if config.channels == 1 {
