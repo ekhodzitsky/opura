@@ -1,13 +1,15 @@
-//! Shared Opus encoder frontend primitives.
+//! Shared AUDIO Opus packet encoding and native scalar control primitives.
 //!
-//! Public primitives analyze input and select controls. Fixed packet engines
-//! also use common private PCM filtering and retained input history. The unified
-//! adaptive packet owner and cross-mode transition audio remain in progress.
+//! [`OpusEncoder`] owns common PCM, speech and CELT histories for automatic
+//! single-frame AUDIO encoding, including cross-mode prefills and redundancy.
+//! VOIP/restricted applications and multi-frame scheduling remain in progress.
 //! Fixed PCM encoders remain in [`crate::silk::encoder`],
 //! [`crate::celt::encoder`] and [`crate::hybrid::encoder`].
 pub mod control;
 pub(crate) mod pcm;
 pub mod stereo_width;
+mod stream;
+pub use stream::{EncodeOptions, EncodedPacket, EncoderError, OpusEncoder};
 
 use crate::celt::math::MathError;
 use std::fmt;

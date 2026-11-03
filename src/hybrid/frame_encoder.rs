@@ -15,8 +15,8 @@ pub(crate) struct LowBandFrame {
     length: usize,
     payload_bytes: usize,
     size: FrameSize,
-    high_band_rate: i32,
-    controls: HybridControls,
+    pub high_band_rate: i32,
+    pub controls: HybridControls,
 }
 impl LowBandFrame {
     pub fn no_redundancy(&mut self) -> Result<(), EncoderError> {
@@ -31,10 +31,29 @@ impl LowBandFrame {
     }
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct OuterControls {
+    pub previous_channels: usize,
+    pub to_mono: bool,
+    pub digital_silence: bool,
+    pub fec: bool,
+    pub payload_rate: u32,
+    pub maximum_bits: u32,
+    pub bitrate: Option<u32>,
+    pub include_fec: bool,
+}
+
+struct Preparation {
+    bitrate: Option<u32>,
+    include_fec: bool,
+    outer: Option<OuterControls>,
+}
+
 pub(crate) struct HybridFrameEncoder<'a> {
     pub rate: InputRate,
     pub bandwidth: Bandwidth,
     pub channels: usize,
+    pub api_channels: usize,
     pub pcm: &'a mut PcmState,
     pub speech: &'a mut SpeechState<2>,
     pub high_gain: &'a mut i16,
@@ -51,9 +70,57 @@ impl HybridFrameEncoder<'_> {
         bitrate: Option<u32>,
         include_fec: bool,
     ) -> Result<LowBandFrame, EncoderError> {
+        self.prepare_low_band_with(
+            duration,
+            input,
+            packet_bytes,
+            options,
+            Preparation {
+                bitrate,
+                include_fec,
+                outer: None,
+            },
+        )
+    }
+    pub(crate) fn prepare_filtered(
+        &mut self,
+        duration: FrameDuration,
+        input: &[i16],
+        packet_bytes: usize,
+        options: Options,
+        outer: OuterControls,
+    ) -> Result<LowBandFrame, EncoderError> {
+        self.prepare_low_band_with(
+            duration,
+            input,
+            packet_bytes,
+            options,
+            Preparation {
+                bitrate: outer.bitrate,
+                include_fec: outer.include_fec,
+                outer: Some(outer),
+            },
+        )
+    }
+    fn prepare_low_band_with(
+        &mut self,
+        duration: FrameDuration,
+        input: &[i16],
+        packet_bytes: usize,
+        options: Options,
+        preparation: Preparation,
+    ) -> Result<LowBandFrame, EncoderError> {
+        let Preparation {
+            bitrate,
+            include_fec,
+            outer,
+        } = preparation;
         let short = duration == FrameDuration::Ms10;
         let fps = if short { 100 } else { 50 };
-        if !(1..=2).contains(&self.channels)
+        if !(1..=2).contains(&self.api_channels)
+            || !(1..=self.api_channels).contains(&self.channels)
+            || (outer.is_none() && self.api_channels != self.channels)
+            || outer.is_some_and(|o| !(1..=self.api_channels).contains(&o.previous_channels))
             || !matches!(self.rate, InputRate::Khz24 | InputRate::Khz48)
             || !matches!(
                 self.bandwidth,
@@ -61,16 +128,18 @@ impl HybridFrameEncoder<'_> {
             )
             || (self.rate == InputRate::Khz24 && self.bandwidth == Bandwidth::Fullband)
             || self.celt.input_rate() != self.rate
-            || self.celt.channels() != self.channels
-            || self.celt.encoded_channels() != self.channels
-            || !self.pcm.has_geometry(output_rate(self.rate), self.channels)
+            || self.celt.channels() != self.api_channels
+            || (outer.is_none() && self.celt.encoded_channels() != self.channels)
+            || !self
+                .pcm
+                .has_geometry(output_rate(self.rate), self.api_channels)
             || !self
                 .speech
                 .has_rates(output_rate(self.rate), SilkRate::Khz16, self.channels)
         {
             return Err(EncoderError::InvalidConfiguration);
         }
-        if input.len() != self.rate.hz() as usize / fps as usize * self.channels {
+        if input.len() != self.rate.hz() as usize / fps as usize * self.api_channels {
             return Err(EncoderError::InvalidInput);
         }
         if !(3..=1276).contains(&packet_bytes)
@@ -85,31 +154,39 @@ impl HybridFrameEncoder<'_> {
         } else {
             FrameSize::Ms20
         };
-        let samples = input.len() / self.channels;
+        let samples = input.len() / self.api_channels;
         let internal = if short { 160 } else { 320 };
         let payload_bytes = packet_bytes - 1;
         let stream_rate = bitrate
             .unwrap_or(packet_bytes as u32 * 8 * fps as u32)
             .min(packet_bytes as u32 * 8 * fps as u32);
-        let payload_rate = (stream_rate / fps as u32 - 8) * fps as u32;
-        let digital_silence = input.iter().all(|&v| v == 0);
+        let payload_rate = outer.map_or((stream_rate / fps as u32 - 8) * fps as u32, |o| {
+            o.payload_rate
+        });
+        let digital_silence =
+            outer.map_or_else(|| input.iter().all(|&v| v == 0), |o| o.digital_silence);
         self.speech.dtx.begin(digital_silence);
         let packet_duration = if short {
             PacketDuration::Ms10
         } else {
             PacketDuration::Ms20
         };
-        let selected = protection::eligible(
-            self.speech.fec.enabled,
-            self.speech.fec.selected(),
-            self.bandwidth,
-            self.channels,
-            duration,
-            protection::FecRate {
-                bitrate: stream_rate,
-                variable: bitrate.is_some(),
+        let selected = outer.map_or_else(
+            || {
+                protection::eligible(
+                    self.speech.fec.enabled,
+                    self.speech.fec.selected(),
+                    self.bandwidth,
+                    self.channels,
+                    duration,
+                    protection::FecRate {
+                        bitrate: stream_rate,
+                        variable: bitrate.is_some(),
+                    },
+                    options,
+                )
             },
-            options,
+            |o| o.fec,
         );
         self.speech.fec.begin_with_policy(
             packet_duration,
@@ -118,15 +195,18 @@ impl HybridFrameEncoder<'_> {
             options.packet_loss_percent,
             Some(selected),
         );
-        let allocation = RateAllocation::new(RateControls {
-            duration,
-            bandwidth: self.bandwidth,
-            channels: self.channels,
-            bitrate: payload_rate,
-            payload_bytes,
-            variable_bitrate: bitrate.is_some(),
-            fec: selected,
-        })
+        let allocation = RateAllocation::with_maximum(
+            RateControls {
+                duration,
+                bandwidth: self.bandwidth,
+                channels: self.channels,
+                bitrate: payload_rate,
+                payload_bytes,
+                variable_bitrate: bitrate.is_some(),
+                fec: selected,
+            },
+            outer.map_or(payload_bytes as u32 * 8, |o| o.maximum_bits),
+        )
         .map_err(EncoderError::Rate)?;
         let vbr_rate = if bitrate.is_some() {
             Some(
@@ -139,17 +219,28 @@ impl HybridFrameEncoder<'_> {
             None
         };
         let mut filtered = [0i16; 1920];
-        self.pcm
-            .filter(input, &mut filtered[..input.len()])
-            .map_err(|_| EncoderError::InvalidInput)?;
-        let mut pcm = [[0i16; 320]; 2];
-        for (c, converted) in pcm.iter_mut().enumerate().take(self.channels) {
-            let mut planar = [0i16; 960];
-            for i in 0..samples {
-                planar[i] = filtered[i * self.channels + c];
-            }
-            self.speech.resampler[c]
-                .process(&planar[..samples], converted)
+        if outer.is_some() {
+            filtered[..input.len()].copy_from_slice(input);
+        } else {
+            self.pcm
+                .filter(input, &mut filtered[..input.len()])
+                .map_err(|_| EncoderError::InvalidInput)?;
+        }
+        let mut pcm = [[0i16; 960]; 2];
+        if self.api_channels == 2 {
+            self.speech
+                .resample_stereo_input(
+                    &filtered[..input.len()],
+                    &mut pcm,
+                    output_rate(self.rate),
+                    packet_duration,
+                    self.channels,
+                    outer.map_or(2, |o| o.previous_channels),
+                )
+                .map_err(EncoderError::Resampler)?;
+        } else {
+            self.speech.resampler[0]
+                .process(&filtered[..samples], &mut pcm[0])
                 .map_err(EncoderError::Resampler)?;
         }
         let mut writer = RangeEncoder::new(payload_bytes).map_err(EncoderError::Entropy)?;
@@ -175,9 +266,10 @@ impl HybridFrameEncoder<'_> {
                 5000.max(allocation.silk_bitrate() as i32),
             );
         let analysis_controls = AnalysisControls {
+            native_activity: outer.is_some(),
             target_rate: target,
             digital_silence,
-            to_mono: false,
+            to_mono: outer.is_some_and(|o| o.to_mono),
         };
         let speech_frame = if self.channels == 2 {
             self.speech
@@ -352,7 +444,7 @@ impl HybridFrameEncoder<'_> {
         fade(
             &mut high[..length],
             self.rate,
-            self.channels,
+            self.api_channels,
             *self.high_gain,
             gain,
             false,

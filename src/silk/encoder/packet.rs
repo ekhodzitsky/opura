@@ -18,6 +18,7 @@ use crate::{
 
 #[derive(Clone, Copy)]
 pub(crate) struct PacketControls {
+    pub policy: Option<PayloadPolicy>,
     pub duration: PacketDuration,
     pub packet_bytes: usize,
     pub options: MonoOptions,
@@ -25,6 +26,11 @@ pub(crate) struct PacketControls {
     pub include_fec: bool,
     pub channels: usize,
     pub to_mono: bool,
+}
+#[derive(Clone, Copy)]
+pub(crate) struct PayloadPolicy {
+    pub rate: i32,
+    pub fec: bool,
 }
 
 /// Prepared speech payload on a staged stream, before outer redundancy syntax.
@@ -173,6 +179,9 @@ where
         || !(3..=1276).contains(&controls.packet_bytes)
         || controls.options.complexity > 10
         || controls.options.packet_loss_percent > 100
+        || controls
+            .policy
+            .is_some_and(|p| !(1..=1024000).contains(&p.rate))
         || pcm[0].len() != length
         || (controls.channels == 2 && pcm[1].len() != length)
     {
@@ -190,7 +199,9 @@ where
     let frames = duration.frames();
     let frame_samples = ms * internal.khz() as usize / frames;
     let maximum = bandwidth.maximum;
-    let bitrate = (packet_bytes as i32 - 1) * 8 * 1000 / ms as i32;
+    let bitrate = controls
+        .policy
+        .map_or((packet_bytes as i32 - 1) * 8 * 1000 / ms as i32, |p| p.rate);
     let nominal_bits = bitrate * ms as i32 / 1000;
 
     let mut writer = RangeEncoder::new(1275)?;
@@ -202,7 +213,10 @@ where
         internal,
         bitrate,
         options.packet_loss_percent,
-        bandwidth.fec_override(),
+        controls
+            .policy
+            .map(|p| p.fec)
+            .or_else(|| bandwidth.fec_override()),
         wire_channels,
     )?;
     let channels = &mut speech.channels;
@@ -241,6 +255,7 @@ where
                 },
             ],
             AnalysisControls {
+                native_activity: controls.policy.is_some(),
                 target_rate: target,
                 digital_silence,
                 to_mono: controls.to_mono,

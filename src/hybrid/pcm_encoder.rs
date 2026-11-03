@@ -349,6 +349,7 @@ impl HybridEncoder {
             rate: self.rate,
             bandwidth: self.bandwidth,
             channels: self.channels,
+            api_channels: self.channels,
             pcm: &mut self.pcm,
             speech: &mut self.speech,
             high_gain: &mut self.high_gain,
@@ -404,7 +405,14 @@ fn output_rate(rate: InputRate) -> OutputRate {
 fn width_q15(width: i16) -> i16 {
     if width == 16384 { 32767 } else { width * 2 }
 }
-fn fade(pcm: &mut [i16], rate: InputRate, channels: usize, old: i16, new: i16, stereo: bool) {
+pub(crate) fn fade(
+    pcm: &mut [i16],
+    rate: InputRate,
+    channels: usize,
+    old: i16,
+    new: i16,
+    stereo: bool,
+) {
     if old == 32767 && new == 32767 {
         return;
     }

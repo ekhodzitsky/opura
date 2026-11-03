@@ -13,6 +13,17 @@ pub struct TransientAnalysis {
     metric: i32,
 }
 impl TransientAnalysis {
+    // Complexity zero still detects tones, but native skips temporal analysis.
+    pub(crate) fn without_temporal_analysis(self) -> Self {
+        Self {
+            transient: false,
+            weak: false,
+            estimate: 0,
+            channel: 0,
+            metric: 0,
+            ..self
+        }
+    }
     // Native TF gating reduces tone confidence when temporal masking is strong.
     pub(crate) fn tf_tonal(self) -> bool {
         self.adjusted_toneishness() >= TONE_GUARD

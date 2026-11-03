@@ -202,6 +202,8 @@ impl EncodedPacket {
 /// valid audio packet coding, not adaptive Opus mode/quality selection.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CeltEncoder {
+    #[cfg(test)]
+    pub(crate) call_trace: Vec<[u64; 5]>,
     rate: InputRate,
     channels: usize,
     encoded_channels: usize,
@@ -225,6 +227,15 @@ pub struct CeltEncoder {
     transient_streak: u8,
     vbr: VbrState,
     overlap_nonzero: bool,
+    native_controls: Option<NativeControls>,
+}
+// The common Opus owner supplies controls independently of CELT's start band.
+// Legacy fixed APIs retain their existing analysis switches and first-frame rule.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct NativeControls {
+    pub complexity: u8,
+    pub loss_percent: u8,
+    pub prediction: u8,
 }
 // Only the enclosing Hybrid packet transaction calls this frame engine.
 #[derive(Clone, Copy)]
@@ -236,12 +247,47 @@ pub(crate) struct HybridControls {
     pub vbr: Option<HybridVbr>,
 }
 impl CeltEncoder {
+    pub(crate) fn native_prediction(&self) -> u8 {
+        self.native_controls.map_or(2, |c| c.prediction)
+    }
+    #[cfg(test)]
+    pub(crate) fn input_fingerprint(&self, channel: usize) -> Option<u64> {
+        let overlap = self.prefilter.overlap(channel)?;
+        let mut hash = 14695981039346656037u64;
+        for value in std::iter::once(&i32::from(self.vbr.count))
+            .chain(std::iter::once(&self.preemphasis[channel].memory()))
+            .chain(overlap)
+        {
+            for byte in value.to_le_bytes() {
+                hash = (hash ^ u64::from(byte)).wrapping_mul(1099511628211);
+            }
+        }
+        Some(hash)
+    }
+    pub(crate) fn set_native_controls(
+        &mut self,
+        controls: NativeControls,
+    ) -> Result<(), EncoderError> {
+        if controls.complexity > 10 || controls.loss_percent > 100 || controls.prediction > 2 {
+            return Err(EncoderError::InvalidInput);
+        }
+        self.native_controls = Some(controls);
+        self.detect_transients = controls.complexity >= 1;
+        self.analyze_tf = controls.complexity >= 2;
+        self.analyze_dynamic = true;
+        self.analyze_spreading = controls.complexity >= 3;
+        self.analyze_allocation = true;
+        self.pitch_prefilter = controls.prediction > 1;
+        Ok(())
+    }
     /// Start a fresh one/two-channel stream at a standard PCM input rate.
     pub fn new(rate: InputRate, channels: usize) -> Result<Self, EncoderError> {
         if !(1..=2).contains(&channels) {
             return Err(EncoderError::InvalidChannels);
         }
         Ok(Self {
+            #[cfg(test)]
+            call_trace: Vec::new(),
             rate,
             channels,
             encoded_channels: channels,
@@ -265,6 +311,7 @@ impl CeltEncoder {
             transient_streak: 0,
             vbr: VbrState::default(),
             overlap_nonzero: false,
+            native_controls: None,
         })
     }
     /// Fixed PCM input rate.
@@ -439,6 +486,42 @@ impl CeltEncoder {
     ) -> Result<(), EncoderError> {
         self.encode_frame(size, pcm, writer, Some(controls), None)
     }
+    // The Opus owner normalizes the complete rate. Embedded CELT has no TOC
+    // signalling of its own, including during real dummy encodes.
+    pub(crate) fn encode_stream(
+        &mut self,
+        size: FrameSize,
+        pcm: &[i16],
+        payload_bytes: usize,
+        rate: Option<(u32, bool)>,
+    ) -> Result<EncodedPacket, EncoderError> {
+        if !(2..=1275).contains(&payload_bytes) {
+            return Err(EncoderError::InvalidBudget);
+        }
+        if pcm.len() != size.samples() / self.rate.factor() * self.channels {
+            return Err(EncoderError::InvalidInput);
+        }
+        if rate.is_some_and(|(bitrate, _)| !(500..=1500000).contains(&bitrate)) {
+            return Err(EncoderError::InvalidRate);
+        }
+        let rate = rate.map(|(bitrate, constrained)| VbrRate {
+            signalling: false,
+            bitrate: bitrate as i32,
+            constrained,
+            capacity: payload_bytes,
+        });
+        self.encode_inner(size, pcm, payload_bytes, rate, RangeEncoder::finish)
+    }
+    pub(crate) fn prefill_high_band(
+        &mut self,
+        pcm: &[i16],
+        controls: HybridControls,
+    ) -> Result<(), EncoderError> {
+        let mut writer = RangeEncoder::new(2)?;
+        self.encode_frame(FrameSize::Ms2_5, pcm, &mut writer, Some(controls), None)?;
+        writer.finish()?;
+        Ok(())
+    }
     fn tf_permitted(&self, diagnostics: analysis::TransientAnalysis, payload_bytes: usize) -> bool {
         self.analyze_tf && payload_bytes >= 15 * self.encoded_channels && !diagnostics.tf_tonal()
     }
@@ -512,6 +595,7 @@ impl CeltEncoder {
                 return Err(EncoderError::InvalidRate);
             }
             Some(VbrRate {
+                signalling: true,
                 bitrate: options
                     .bitrate
                     .min(750000 * self.channels as u32)
@@ -565,6 +649,22 @@ impl CeltEncoder {
         hybrid: Option<HybridControls>,
         vbr_rate: Option<VbrRate>,
     ) -> Result<(), EncoderError> {
+        #[cfg(test)]
+        if let Some(controls) = self.native_controls {
+            let hash = pcm
+                .iter()
+                .flat_map(|x| x.to_le_bytes())
+                .fold(14695981039346656037u64, |h, b| {
+                    (h ^ u64::from(b)).wrapping_mul(1099511628211)
+                });
+            self.call_trace.push([
+                size.samples() as u64,
+                if hybrid.is_some() { 17 } else { 0 },
+                u64::from(controls.prediction),
+                writer.capacity() as u64,
+                hash,
+            ]);
+        }
         let silence = vbr_rate.is_some() && !self.overlap_nonzero && pcm.iter().all(|&v| v == 0);
         let tail = 120 / self.rate.factor() * self.channels;
         self.overlap_nonzero = pcm[pcm.len() - tail..].iter().any(|&v| v != 0);
@@ -616,12 +716,17 @@ impl CeltEncoder {
             || self.pitch_prefilter
             || vbr_rate.is_some()
         {
-            Some(analysis::analyze_transients(
+            let analyzed = analysis::analyze_transients(
                 size,
                 &context[..self.channels * stride],
                 self.channels,
                 hybrid.is_some_and(|h| effective_bytes < 15 && !h.voiced),
-            )?)
+            )?;
+            Some(if self.native_controls.is_some_and(|c| c.complexity == 0) {
+                analyzed.without_temporal_analysis()
+            } else {
+                analyzed
+            })
         } else {
             None
         };
@@ -645,7 +750,8 @@ impl CeltEncoder {
                 toneishness: diagnostics.map_or(0, |d| d.adjusted_toneishness()),
                 tapset: [Tapset::Set0, Tapset::Set1, Tapset::Set2]
                     [usize::from(self.spreading.tapset())],
-                ..PrefilterOptions::default()
+                complexity: self.native_controls.map_or(10, |c| c.complexity),
+                loss_rate: self.native_controls.map_or(0, |c| c.loss_percent),
             },
         )?;
         context[..self.channels * stride].copy_from_slice(filtered.values());
@@ -687,7 +793,10 @@ impl CeltEncoder {
                 AnalysisError::InvalidDynallocParameters,
             ))?;
             let mut comparison = target;
-            if transient && self.analyze_dynamic {
+            if transient
+                && self.analyze_dynamic
+                && self.native_controls.is_none_or(|c| c.complexity >= 8)
+            {
                 let long = analysis::analyze_frame(
                     size,
                     &context[..self.channels * stride],
@@ -756,9 +865,17 @@ impl CeltEncoder {
                 size,
                 effective_end: end,
                 available_bytes: available,
-                force_intra: hybrid.is_none() && self.first,
-                two_pass: hybrid.is_none_or(|h| h.complexity >= 4),
-                loss_rate: hybrid.map_or(0, |h| h.loss_percent),
+                force_intra: self
+                    .native_controls
+                    .map_or(hybrid.is_none() && self.first, |c| c.prediction == 0),
+                two_pass: self
+                    .native_controls
+                    .map_or(hybrid.is_none_or(|h| h.complexity >= 4), |c| {
+                        c.complexity >= 4
+                    }),
+                loss_rate: self
+                    .native_controls
+                    .map_or(hybrid.map_or(0, |h| h.loss_percent), |c| c.loss_percent),
                 lfe: false,
             },
         )?;
@@ -884,6 +1001,7 @@ impl CeltEncoder {
             temporal,
             equivalent_rate: rate,
         };
+        let native_vbr = self.native_controls.is_some();
         let rate_state = &mut self.vbr;
         let allocation = allocation::encode_analyzed_resized(
             writer,
@@ -928,6 +1046,9 @@ impl CeltEncoder {
             |writer, boost| {
                 if let Some(vbr) = vbr {
                     vbr.resize(writer, vbr_budget, boost)?;
+                    if native_vbr {
+                        rate_state.count = (rate_state.count + 1).min(970);
+                    }
                 }
                 if let Some(rate) = vbr_rate {
                     let capacity = rate_state
@@ -963,7 +1084,7 @@ impl CeltEncoder {
             SpectrumEncoding {
                 seed: self.range,
                 disable_inversion: false,
-                theta_rdo: true,
+                theta_rdo: self.native_controls.is_none_or(|c| c.complexity >= 8),
             },
         )?;
         if allocation.anti_collapse_reserved() {

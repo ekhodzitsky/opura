@@ -7,6 +7,41 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.90] - 2026-11-03
+
+- Add `encoder::OpusEncoder`, a real shared AUDIO owner over one PCM/DC/delay,
+  speech/resampler/bandwidth and CELT history. Automatically select primary
+  mode, band and wire channels at8/12/16/24/48kHz for2.5/5/10/20ms frames.
+  Support nominal-rate CBR/VBR and CELT CVBR, packet caps, loss, DTX and FEC;
+  stage the whole stream and retry pending FEC once on a capacity failure.
+- Connect actual native SILK prefills, CELT2.5ms dummy encodes, incoming/outgoing
+  5ms transition tails, SILK bandwidth handshakes, gain/stereo fades, transition
+  syntax placement and final-range XOR. Preserve separate speech wire-channel
+  history through early SILK DTX. Hybrid accepts common filtered PCM without
+  repeating DC filtering and separates immutable API from actual wire channels.
+- Apply root-supplied nominal/FEC/entropy budgets and CELT prediction/complexity/
+  loss controls while retaining existing fixed public APIs and defaults. Match
+  native digital-silence activity for band switching, complexity-zero tone
+  filtering, and prediction retention through bandwidth transition tails.
+- The new owner currently accepts AUDIO and single frames only. VOIP/restricted
+  applications, long-packet scheduling, automatic WAV/Ogg CLI integration and
+  competitive quality/speed evidence remain work. Low-budget admission can
+  return an error. This is not a complete adaptive encoder or a SOTA claim.
+- Compare1,408 original cross-mode/short-switch speech and CELT input states,
+  3,072 original bandwidth histories and all corresponding actual CELT call
+  traces (1,136 calls, including160 real dummy encodes). Four isolated mutations
+  fail these tests; all five native fixture files regenerate identically.
+- Fresh unchanged-native decoding matches11,520 actual calls in120 streams,
+  with CBR/VBR/CVBR, mode/layout changes, DTX,960 PLC and960 FEC calls. Corpus
+  regeneration is byte-identical. All seven required offline gates pass,
+  including23 Python tests; Cargo remains dependency-free.
+- Preserve CELT wire/band/prediction and retained PCM on successful early SILK
+  DTX through layout changes; a new regression reproduces the prior failure at
+  frame33. All gates and native replay were repeated after correction. All24
+  fixed corpora match committed0.1.89 (1,384,320 records/5,088 streams); all four
+  Hybrid corpora were additionally regenerated from the final build and match.
+  See docs/validation/unified-audio-owner.md for scope and reproducible evidence.
+
 ## [0.1.89] - 2026-11-03
 
 - Separate private SILK payload preparation from entropy termination and packet

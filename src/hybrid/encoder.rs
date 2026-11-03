@@ -10,7 +10,10 @@ use std::fmt;
 #[path = "pcm_encoder.rs"]
 mod pcm;
 pub use pcm::{EncodedPacket, EncoderError, HybridEncoder, Options};
-pub(crate) use pcm::{PreparedFrame, frame::HybridFrameEncoder};
+pub(crate) use pcm::{
+    PreparedFrame, fade,
+    frame::{HybridFrameEncoder, OuterControls},
+};
 
 /// Invalid Hybrid rate allocation inputs.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -75,6 +78,9 @@ impl RateAllocation {
     /// CBR/VBR cap. The caller supplies a payload bitrate, not a TOC-inclusive
     /// requested stream bitrate. No stream state or entropy writer is modified.
     pub fn new(c: RateControls) -> Result<Self, RateError> {
+        Self::with_maximum(c, (c.payload_bytes as u32).saturating_mul(8))
+    }
+    pub(crate) fn with_maximum(c: RateControls, maximum: u32) -> Result<Self, RateError> {
         if !(1..=2).contains(&c.channels) {
             return Err(RateError::InvalidChannels);
         }
@@ -88,8 +94,10 @@ impl RateAllocation {
             FrameDuration::Ms10 => 100,
             FrameDuration::Ms20 => 50,
         };
-        let maximum = c.payload_bytes as u32 * 8;
-        if c.bitrate == 0 || c.bitrate > maximum * frames_per_second {
+        if maximum > c.payload_bytes as u32 * 8 || maximum == 0 {
+            return Err(RateError::InvalidBudget);
+        }
+        if c.bitrate == 0 || c.bitrate > c.payload_bytes as u32 * 8 * frames_per_second {
             return Err(RateError::InvalidBitrate);
         }
         let target_rate = silk_rate(c, c.bitrate);

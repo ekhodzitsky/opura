@@ -121,7 +121,11 @@ The unchanged original fixtures and rollback assertions pass in ordinary tests.
 These changes expose where native transition processing must occur. They do not
 add an automatic encoder, prefill, redundant tail or a new public API.
 
-## Remaining integration
+## Remaining integration at0.1.89
+
+Version0.1.90 connects a bounded single-frame AUDIO owner; see
+[unified AUDIO validation](unified-audio-owner.md). The following describes
+the boundary at the original borrowed-engine milestone.
 
 Borrowing makes the actual coding paths reusable by one PCM/speech/CELT owner;
 that adaptive owner has not been implemented here. Hybrid still has a fixed API

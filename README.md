@@ -13,7 +13,12 @@ selection. Stereo API input can request mono/stereo SILK wire layout while
 retaining its live mid/input histories.
 **The fixed-band Hybrid encoder accepts mono/stereo24/48kHz PCM for
 10/20ms SWB/FB packets through the library and WAV/Ogg CLI, with opt-in DTX/FEC
-and VBR.** General mode/channel adaptation remains in progress.
+and VBR.**
+**`encoder::OpusEncoder` now automatically encodes single-frame AUDIO through
+one PCM/SILK/CELT owner**, including wire-channel changes, bandwidth handshakes,
+real prefills and5ms cross-mode tails. It accepts2.5/5/10/20ms at all five input
+rates. VOIP/restricted applications, long packets and the automatic CLI remain
+in progress. See [unified AUDIO validation](docs/validation/unified-audio-owner.md).
 **The decoder passes all120 official RFC8251 vector/rate/channel cases.**
 The first complete-decoder benchmark is recorded: Opura trails the pinned scalar
 libopus reference in all ten configurations; complete adaptive encoding remains under development. The accepted direction is a complete decoder first, then an encoder,
@@ -70,14 +75,16 @@ The CELT library also supports stereo PCM emitting mono or stereo packets via
 and rate feedback across changes. `channels()` remains the fixed PCM input
 layout; `encoded_channels()` selects the wire layout. Reset retains selection.
 See [channel-layout validation](docs/validation/celt-channel-layout.md).
-Automatic mode/channel selection still requires the shared encoder owner.
+Automatic mode/channel selection is available through the bounded AUDIO
+`encoder::OpusEncoder` API described below.
 
 Fixed SILK mono/stereo and Hybrid packet engines reuse the same internal
 speech-state type, frame analysis and AUDIO input filtering/history code.
 The common input state retains 10ms of filtered PCM, including the native
 early-DTX update order, and supplies Hybrid's compensated CELT input.
-Each stream owns its histories; the complete adaptive PCM owner, VOIP high-pass
-processing and native cross-mode prefills/tails remain work. See
+Each fixed encoder remains an independent stream. The common AUDIO owner now
+connects these histories with native prefills/tails; VOIP and restricted
+application processing remain work. See
 [input-history validation](docs/validation/encoder-pcm-history.md).
 
 For SILK stereo API input, `StereoEncoder::set_encoded_channels(1)` requests
@@ -87,14 +94,15 @@ resumes stereo with the retained mid history and a newly initialized side;
 input stays interleaved stereo. `encoded_channels()` reports the last wire
 layout (initially two), and `encoded_channels_target()` reports the request.
 Reset retains the request. This library control preserves fixed defaults;
-general automatic mode/channel selection and Hybrid channel switching still
-require the unified owner. See [speech-layout validation](docs/validation/silk-channel-layout.md).
+automatic AUDIO mode/channel selection and Hybrid wire changes use the new
+`encoder::OpusEncoder` owner. See [speech-layout validation](docs/validation/silk-channel-layout.md).
 
 The fixed packet APIs now delegate to borrowed internal engines: one SILK
 payload implementation serves mono/stereo, and Hybrid preparation/finalization
 borrows the caller's PCM, speech, CELT and fade histories. Public owners retain
-whole-stream transactions and retries. The complete adaptive owner and native
-transition processing remain in progress. See
+whole-stream transactions and retries. The new AUDIO owner borrows these same
+engines for its connected native transitions. Full application/duration/CLI
+integration remains in progress. See
 [packet-engine validation](docs/validation/borrowed-packet-engines.md).
 
 CELT `set_bandwidth` selects NB/WB/SWB/FB up to the input-rate default without
@@ -202,9 +210,31 @@ General Opus mode/channel adaptation remain unfinished.
 
 Shared frontend primitives are available in `encoder::stereo_width` and
 `encoder::control`, with independently checked native scalar analysis and
-mode/channel/band/FEC decisions. They do not yet provide a unified adaptive PCM
-encoder. See the [frontend validation](docs/validation/encoder-frontend.md)
-for contracts, evidence and the remaining integration work.
+mode/channel/band/FEC decisions. `encoder::OpusEncoder` connects them to a single
+AUDIO packet owner for2.5/5/10/20ms input. The API accepts CBR/VBR/CELT CVBR,
+nominal rate, hard cap, mode/signal/band/channel hints, loss, DTX and FEC. Errors
+preserve all PCM, speech, CELT and selection histories. Native tiny-budget PLC,
+VOIP/restricted applications, long-packet scheduling and automatic file encoding
+remain work. Existing fixed library/CLI defaults are unchanged.
+
+```rust
+use opura::{celt::{FrameSize, input::InputRate}, encoder::{EncodeOptions, OpusEncoder}};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut encoder = OpusEncoder::new(InputRate::Khz48, 2)?;
+    let pcm = [0_i16; 1920]; //20ms interleaved stereo
+    let packet = encoder.encode(FrameSize::Ms20, &pcm, 320, EncodeOptions {
+        bitrate: 64000,
+        ..EncodeOptions::default()
+    })?;
+    let bytes = packet.as_bytes();
+    Ok(())
+}
+```
+
+See [unified AUDIO validation](docs/validation/unified-audio-owner.md) for the
+connected state/transition evidence and remaining bounds, and the
+[frontend validation](docs/validation/encoder-frontend.md) for scalar policy.
 
 `hybrid::encoder::HybridEncoder` emits fixed-band CBR Hybrid packets using a
 single shared range writer, WB SILK and CELT bands17..19(SWB)/21(FB).24kHz PCM

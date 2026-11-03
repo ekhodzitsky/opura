@@ -82,9 +82,11 @@ impl PcmState {
         }
         Ok(())
     }
-    #[cfg(test)]
     pub fn history(&self) -> &[i16] {
         &self.history[..self.rate.hz() as usize / 100 * self.channels]
+    }
+    pub fn history_mut(&mut self) -> &mut [i16] {
+        &mut self.history[..self.rate.hz() as usize / 100 * self.channels]
     }
 }
 

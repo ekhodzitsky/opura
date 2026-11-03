@@ -381,6 +381,7 @@ impl MonoEncoder {
             self.internal,
             pcm,
             super::packet::PacketControls {
+                policy: None,
                 duration,
                 packet_bytes,
                 options,

@@ -15,15 +15,16 @@ pub struct VbrOptions {
 
 #[derive(Clone, Copy, Debug)]
 pub(super) struct VbrRate {
+    pub signalling: bool,
     pub bitrate: i32,
     pub constrained: bool,
     pub capacity: usize,
 }
 impl VbrRate {
     pub fn q3(self, size: FrameSize) -> i32 {
-        // This API owns the TOC, like native CELT with signalling enabled.
-        // Reservoir accounting must cover payload bits only.
-        (self.bitrate / (400 >> size.lm()) - 8) * 8
+        // Standalone packets own the TOC; native embedded CELT has signalling
+        // disabled and consumes its supplied rate without subtracting a TOC.
+        (self.bitrate / (400 >> size.lm()) - if self.signalling { 8 } else { 0 }) * 8
     }
     pub fn equivalent(self, size: FrameSize, channels: usize) -> i32 {
         (self.capacity as i32 * 8 * (400 >> size.lm())).min(self.bitrate)
@@ -291,6 +292,7 @@ mod tests {
                 FrameSize::Ms20,
             ][lm as usize];
             let rate = VbrRate {
+                signalling: true,
                 bitrate,
                 constrained: constrained != 0,
                 capacity: capacity as usize,

@@ -36,6 +36,7 @@ pub(crate) struct SpeechState<const CHANNELS: usize> {
 
 #[derive(Clone, Copy)]
 pub(crate) struct AnalysisControls {
+    pub native_activity: bool,
     pub target_rate: i32,
     pub digital_silence: bool,
     pub to_mono: bool,
@@ -157,7 +158,7 @@ impl<const CHANNELS: usize> SpeechState<CHANNELS> {
         );
         #[cfg(test)]
         self.record_mid_input(&frame);
-        self.activity_policy(&mut frame, controls.digital_silence);
+        self.activity_policy(&mut frame, controls);
         Ok(frame)
     }
     #[cfg(test)]
@@ -170,14 +171,18 @@ impl<const CHANNELS: usize> SpeechState<CHANNELS> {
                 (self.mid_input_hash ^ u64::from(byte)).wrapping_mul(1099511628211);
         }
     }
-    fn activity_policy(&mut self, frame: &mut AnalyzedFrame, digital_silence: bool) {
+    fn activity_policy(&mut self, frame: &mut AnalyzedFrame, controls: AnalysisControls) {
         for (channel, activity) in frame.activities.iter_mut().enumerate() {
             if let Some(activity) = activity {
-                if (self.dtx.enabled || self.fec.enabled) && digital_silence {
+                if (controls.native_activity || self.dtx.enabled || self.fec.enabled)
+                    && controls.digital_silence
+                {
                     activity.probability_q8 = activity.probability_q8.min(12);
                 }
-                self.dtx
-                    .frame(channel, activity.probability_q8 >= 13 && !digital_silence);
+                self.dtx.frame(
+                    channel,
+                    activity.probability_q8 >= 13 && !controls.digital_silence,
+                );
             }
         }
     }
@@ -298,7 +303,7 @@ impl SpeechState<2> {
         }
         #[cfg(test)]
         self.record_mid_input(&frame);
-        self.activity_policy(&mut frame, controls.digital_silence);
+        self.activity_policy(&mut frame, controls);
         Ok(frame)
     }
 }

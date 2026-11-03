@@ -1,0 +1,82 @@
+{
+  "status": "pass",
+  "version": "0.1.90",
+  "reference_revision": "22244de5a79bd1d6d623c32e72bf1954b56235be",
+  "reference_configuration": "scalar fixed fast64 Q24, float analysis disabled",
+  "native_replay": true,
+  "corpus_bytes": 1706491,
+  "corpus_sha256": "d7e895958e699d484ca5daa6ec0c6cbabdfe0f02a4b5265639972cb48fed1794",
+  "corpus_repeat_identical": true,
+  "received_calls": {
+    "records": 11520,
+    "streams": 120,
+    "lost": 960,
+    "fec_requests": 960,
+    "single_byte_packets": 840
+  },
+  "encoded_packets": 11520,
+  "encoded_primary_modes": {
+    "silk": 3148,
+    "hybrid": 1372,
+    "celt": 7000
+  },
+  "encoded_wire_changes": 920,
+  "encoded_dtx": 880,
+  "explicit_plc_calls": 960,
+  "fec_calls": 960,
+  "native_input_scope": "complexity0 AUDIO; CBR/unconstrained VBR, mono/stereo API, mode/short switches and bandwidth prefills",
+  "native_input_fixtures": [
+    {
+      "path": "tests/opus-stream-input-fixtures.txt",
+      "rows": 1408,
+      "sha256": "87c70b8e2b1a7e28e0c65ec6fff4be82f635c09bd24fbb14a4e9a932caaf1f63"
+    },
+    {
+      "path": "tests/opus-stream-band-input-fixtures.txt",
+      "rows": 3072,
+      "sha256": "2cd8dd8a2859a65c28bd4706ec36a2b736309b3d886240ab1ab1b1edf9477e39"
+    },
+    {
+      "path": "tests/opus-stream-celt-input-fixtures.txt",
+      "rows": 1408,
+      "sha256": "587f23fcee93d73863a0c072ee476f4b73fd7c710485060458c2b61a76aab157"
+    },
+    {
+      "path": "tests/opus-stream-celt-calls-fixtures.txt",
+      "rows": 1408,
+      "sha256": "42444727637a5c96883aeb706450bc8d8769b4deb101291cc7ca402ffd6086f7"
+    },
+    {
+      "path": "tests/opus-stream-band-celt-calls-fixtures.txt",
+      "rows": 3072,
+      "sha256": "e7621e502fa9c4b0d1c0419fdaf8589c68558ab2537efb0ed762a9c79cbb5b26"
+    }
+  ],
+  "native_celt_call_trace": {
+    "total": 1136,
+    "dummy_2_5ms": 160,
+    "five_ms": 224,
+    "high_band": 240,
+    "prediction_zero": 272
+  },
+  "five_ms_trace_note": "includes redundant tails and primary5ms direct switches",
+  "celt_state_scope": "VBR count, preemphasis, filtered120-sample overlap; not complete VBR feedback or encoder byte identity",
+  "isolated_mutations_detected": [
+    "silk_prefill_ramp",
+    "omitted_celt_dummy",
+    "prediction_reset",
+    "missing_range_xor"
+  ],
+  "offline_gates": "all seven pass;23 Python tests",
+  "remaining": [
+    "VOIP/restricted applications",
+    "long packet orchestration",
+    "native insufficient-budget PLC",
+    "automatic WAV/Ogg CLI",
+    "full control/quality review",
+    "competitive end-to-end evaluation"
+  ],
+  "early_silk_dtx_wire_change_regression": "reproduced failure at frame33, corrected, final complete-state test passes",
+  "final_hybrid_fixed_recheck": "all four complete corpora match committed0.1.89 baseline after the early-DTX correction",
+  "final_native_replay": "fresh final rebuilt corpus matches unchanged native PCM/ranges; repeat byte-identical"
+}

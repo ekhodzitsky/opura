@@ -21,7 +21,7 @@ pub(crate) struct VbrBudget {
 }
 impl HybridVbr {
     pub fn analysis_bytes(self, size: FrameSize) -> usize {
-        self.rate as usize / if size == FrameSize::Ms10 { 100 } else { 50 } / 8
+        self.rate as usize / (400 >> size.lm()) / 8
     }
     pub fn bytes(self, b: VbrBudget) -> usize {
         let lm = b.size.lm();

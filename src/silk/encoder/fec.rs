@@ -113,7 +113,7 @@ impl<const CHANNELS: usize> FecState<CHANNELS> {
         self.sent = [false; CHANNELS];
         self.dropped = false;
     }
-    pub(super) fn clear_pending(&mut self) {
+    pub(crate) fn clear_pending(&mut self) {
         self.pending = std::array::from_fn(|_| std::array::from_fn(|_| None));
         self.stereo = [None; 3];
     }

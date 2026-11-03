@@ -46,11 +46,20 @@ impl DtxState {
         channels: usize,
         digital_silence: bool,
     ) -> Decision {
-        let decision = if self.packet[..channels].iter().all(|&flag| flag) {
-            // Native SILK returns before the outer DTX clock is updated.
+        if self.packet[..channels].iter().all(|&flag| flag) {
+            self.suppressed = true;
             Decision::Silk
-        } else if self.enabled && digital_silence {
-            self.quiet_ms_q1 += 2 * duration.milliseconds() as u16;
+        } else {
+            self.finish_outer(2 * duration.milliseconds() as u16, digital_silence)
+        }
+    }
+    pub fn reset_speech(&mut self) {
+        self.inactive = [0; 2];
+        self.packet = [false; 2];
+    }
+    pub fn finish_outer(&mut self, duration_q1: u16, digital_silence: bool) -> Decision {
+        let decision = if self.enabled && digital_silence {
+            self.quiet_ms_q1 += duration_q1;
             if self.quiet_ms_q1 > 400 && self.quiet_ms_q1 <= 1200 {
                 Decision::DigitalSilence
             } else {

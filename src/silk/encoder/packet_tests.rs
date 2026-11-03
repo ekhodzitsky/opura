@@ -16,6 +16,7 @@ fn prepared_speech_accepts_outer_symbols_before_final_range_is_captured() -> Res
         false,
     )?;
     let controls = PacketControls {
+        policy: None,
         duration: PacketDuration::Ms20,
         packet_bytes: 160,
         options,
@@ -97,6 +98,7 @@ fn capacity_two_mono_entry_retains_the_same_live_speech_history_as_stereo_entry(
                 }
             }
             let controls = PacketControls {
+                policy: None,
                 duration,
                 packet_bytes: bytes,
                 options,
@@ -148,6 +150,7 @@ fn invalid_borrowed_packet_geometry_is_rejected_before_history_changes() -> Resu
     let before = speech.clone();
     let before_band = band.clone();
     let controls = PacketControls {
+        policy: None,
         duration: PacketDuration::Ms20,
         packet_bytes: 160,
         options,
@@ -161,14 +164,17 @@ fn invalid_borrowed_packet_geometry_is_rejected_before_history_changes() -> Resu
     assert_eq!(band, before_band);
     for invalid in [
         PacketControls {
+            policy: None,
             channels: 2,
             ..controls
         },
         PacketControls {
+            policy: None,
             to_mono: true,
             ..controls
         },
         PacketControls {
+            policy: None,
             packet_bytes: 2,
             ..controls
         },
@@ -205,6 +211,7 @@ fn borrowed_mono_fec_uses_wire_rate_in_capacity_two_state() -> Result {
         SilkRate::Khz8,
         &[0; 160],
         PacketControls {
+            policy: None,
             duration: PacketDuration::Ms20,
             packet_bytes: 40,
             options,

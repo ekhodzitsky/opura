@@ -302,6 +302,41 @@ impl<const N: usize> Default for PacketBandwidth<N> {
     }
 }
 impl<const N: usize> PacketBandwidth<N> {
+    pub fn allowed(&self) -> bool {
+        self.allowed
+    }
+    pub fn ready(&self) -> bool {
+        self.ready
+    }
+    pub fn prepare_outer(
+        &mut self,
+        controls: BandwidthControls,
+        channels: usize,
+    ) -> Result<SilkRate, BandwidthError> {
+        if channels == 0 || channels > N {
+            return Err(BandwidthError::InvalidControls);
+        }
+        self.maximum = controls.max_bits;
+        self.ready = false;
+        let mut rate = controls.current.unwrap_or(controls.desired);
+        for (c, transition) in self.transitions.iter_mut().enumerate().take(channels) {
+            let selected = transition.select(BandwidthControls {
+                max_bits: self.maximum,
+                ..controls
+            })?;
+            if c == 0 {
+                rate = selected.rate();
+            }
+            self.ready |= selected.switch_ready();
+            self.maximum = selected.max_bits();
+        }
+        if controls.current.is_some_and(|old| old != rate) {
+            for transition in &mut self.transitions {
+                transition.reset_filter_delay();
+            }
+        }
+        Ok(rate)
+    }
     pub fn set_target(&mut self, target: Option<SilkRate>) {
         if target.is_none() && (self.target.is_some() || self.automatic) {
             // Returning to fixed operation stops any in-progress taper.
