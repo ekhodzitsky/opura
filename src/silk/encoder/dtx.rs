@@ -18,6 +18,9 @@ pub(crate) struct DtxState {
     pub suppressed: bool,
 }
 impl DtxState {
+    pub fn restart_side(&mut self) {
+        self.inactive[1] = 0;
+    }
     pub fn begin(&mut self, digital_silence: bool) {
         self.packet = [self.enabled && !digital_silence; 2];
     }

@@ -46,6 +46,31 @@ impl<const CHANNELS: usize> Default for FecState<CHANNELS> {
     }
 }
 impl<const CHANNELS: usize> FecState<CHANNELS> {
+    pub fn begin_for_channels(
+        &mut self,
+        duration: PacketDuration,
+        rate: SilkRate,
+        bitrate: i32,
+        loss: u8,
+        policy: Option<bool>,
+        channels: usize,
+    ) -> Result<(), FrameError> {
+        if channels == 0 || channels > CHANNELS {
+            return Err(FrameError::InvalidControls);
+        }
+        let selected = policy.unwrap_or_else(|| self.fixed_policy(rate, bitrate, loss, channels));
+        self.begin_with_policy(duration, rate, bitrate, loss, Some(selected));
+        Ok(())
+    }
+    fn fixed_policy(&self, rate: SilkRate, bitrate: i32, loss: u8, channels: usize) -> bool {
+        let threshold = match rate {
+            SilkRate::Khz8 => 12000,
+            SilkRate::Khz12 => 14000,
+            SilkRate::Khz16 => 16000,
+        } + if self.previous_enabled { -1000 } else { 1000 };
+        let threshold = (threshold * (125 - i32::from(loss.min(25))) * 655) >> 16;
+        bitrate / channels as i32 > threshold
+    }
     pub fn selected(&self) -> bool {
         self.previous_enabled
     }
@@ -74,16 +99,11 @@ impl<const CHANNELS: usize> FecState<CHANNELS> {
             self.clear_pending();
         }
         self.duration = Some(duration);
-        let threshold = match rate {
-            SilkRate::Khz8 => 12000,
-            SilkRate::Khz12 => 14000,
-            SilkRate::Khz16 => 16000,
-        } + if self.previous_enabled { -1000 } else { 1000 };
         // Native fixed-point threshold, evaluated at the requested fixed bandwidth.
         // An explicit bandwidth is never silently reduced just to enable FEC.
-        let threshold = (threshold * (125 - i32::from(loss.min(25))) * 655) >> 16;
-        self.generating =
-            self.enabled && loss > 0 && policy.unwrap_or(bitrate / CHANNELS as i32 > threshold);
+        self.generating = self.enabled
+            && loss > 0
+            && policy.unwrap_or_else(|| self.fixed_policy(rate, bitrate, loss, CHANNELS));
         self.gain_increase = if self.previous_enabled {
             (7 - ((i32::from(loss) * 13107) >> 16)).max(3) as u8
         } else {

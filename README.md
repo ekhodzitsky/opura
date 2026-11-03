@@ -9,7 +9,9 @@ with CBR, VBR and constrained VBR.
 The fixed-bandwidth SILK encoder accepts mono/stereo PCM and emits 10/20/40/60 ms
 NB/MB/WB Opus packets.** Both paths are available through the WAV/Ogg CLI.
 SILK supports opt-in DTX/FEC and explicit, gradual or automatic bandwidth
-selection. **The fixed-band Hybrid encoder accepts mono/stereo24/48kHz PCM for
+selection. Stereo API input can request mono/stereo SILK wire layout while
+retaining its live mid/input histories.
+**The fixed-band Hybrid encoder accepts mono/stereo24/48kHz PCM for
 10/20ms SWB/FB packets through the library and WAV/Ogg CLI, with opt-in DTX/FEC
 and VBR.** General mode/channel adaptation remains in progress.
 **The decoder passes all120 official RFC8251 vector/rate/channel cases.**
@@ -77,6 +79,16 @@ early-DTX update order, and supplies Hybrid's compensated CELT input.
 Each stream owns its histories; the complete adaptive PCM owner, VOIP high-pass
 processing and native cross-mode prefills/tails remain work. See
 [input-history validation](docs/validation/encoder-pcm-history.md).
+
+For SILK stereo API input, `StereoEncoder::set_encoded_channels(1)` requests
+native width collapse in one successful stereo packet before the next packet
+changes to mono. A fresh stream may start mono immediately. Requesting `2`
+resumes stereo with the retained mid history and a newly initialized side;
+input stays interleaved stereo. `encoded_channels()` reports the last wire
+layout (initially two), and `encoded_channels_target()` reports the request.
+Reset retains the request. This library control preserves fixed defaults;
+general automatic mode/channel selection and Hybrid channel switching still
+require the unified owner. See [speech-layout validation](docs/validation/silk-channel-layout.md).
 
 CELT `set_bandwidth` selects NB/WB/SWB/FB up to the input-rate default without
 resetting signal histories; `bandwidth()` reports the selection. Packet TOC and

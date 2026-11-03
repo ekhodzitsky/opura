@@ -159,6 +159,20 @@ impl StereoAnalysisState {
     pub(crate) fn smoothed_width(&self) -> i16 {
         self.smoothed_width
     }
+    // Native mono->stereo initialization retains the mid carry and side-silence
+    // clock, while replacing side/prediction/amplitude/width memories.
+    pub(crate) fn restart_stereo(&mut self) {
+        let mid = self.mid;
+        let silent_side = self.silent_side;
+        *self = Self::default();
+        self.mid = mid;
+        self.silent_side = silent_side;
+    }
+    pub(crate) fn buffer_mono(&mut self, input: &[i16], output: &mut [i16]) {
+        output[0] = self.mid[1];
+        output[1..input.len()].copy_from_slice(&input[..input.len() - 1]);
+        self.mid.copy_from_slice(&input[input.len() - 2..]);
+    }
     /// Convert planar internal-rate L/R PCM to native buffered mid/side. No
     /// external resampling is performed here. Invalid inputs preserve state.
     pub fn analyze(
@@ -381,6 +395,9 @@ fn quantize(prediction: &mut [i32; 2]) -> [[u8; 3]; 2] {
 }
 
 #[cfg(test)]
+#[path = "stereo_layout_tests.rs"]
+mod layout_tests;
+#[cfg(test)]
 #[path = "stereo_tests.rs"]
 mod tests;
 
@@ -400,7 +417,7 @@ use crate::silk::{
 pub enum StereoPacketError {
     /// Interleaved PCM length does not match two channels at the requested duration.
     InvalidInputLength,
-    /// Packet byte budget, complexity or loss percentage is invalid.
+    /// Packet byte budget, complexity, loss percentage or requested layout is invalid.
     InvalidOptions,
     /// Input resampling failed.
     Resampler(ResampleError),
@@ -473,7 +490,8 @@ impl From<EncoderError> for StereoPacketError {
         Self::Entropy(e)
     }
 }
-/// Complete stereo Opus packet, including TOC and optional packet-level padding.
+/// Complete SILK packet from stereo API input, with mono/stereo wire layout.
+/// Includes TOC and optional packet-level padding.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StereoPacket {
     packet: MonoPacket,
@@ -495,12 +513,16 @@ impl StereoPacket {
 }
 /// Raw interleaved stereo PCM to explicit-bandwidth SILK Opus packets. Supports
 /// adaptive M/S prediction/width, panned mid-only omission and side restarts.
-/// External rate/channel count remain fixed; internal bandwidth can be changed
-/// at packet boundaries. Supports DTX/FEC, gradual targets and automatic bandwidth.
+/// Input rate/layout remain fixed; encoded channels and internal bandwidth can
+/// change at packet boundaries. Supports DTX/FEC, gradual targets and automatic bandwidth.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StereoEncoder {
     input: OutputRate,
     internal: SilkRate,
+    encoded_channels: usize,
+    channel_target: usize,
+    started: bool,
+    to_mono: bool,
     pcm: crate::encoder::pcm::PcmState,
     speech: SpeechState<2>,
     bandwidth_control: PacketBandwidth<2>,
@@ -511,10 +533,37 @@ impl StereoEncoder {
         Self {
             input,
             internal,
+            encoded_channels: 2,
+            channel_target: 2,
+            started: false,
+            to_mono: false,
             pcm: crate::encoder::pcm::PcmState::stereo(input),
             speech: SpeechState::new(input, internal),
             bandwidth_control: PacketBandwidth::default(),
         }
+    }
+    /// Wire layout of the last successful packet; initially stereo.
+    pub fn encoded_channels(&self) -> usize {
+        self.encoded_channels
+    }
+    /// Requested wire layout. Input remains interleaved stereo throughout.
+    pub fn encoded_channels_target(&self) -> usize {
+        self.channel_target
+    }
+    /// Request mono or stereo without replacing mid/input histories.
+    ///
+    /// A live stereo-to-mono request first emits a stereo packet with native
+    /// width collapse, then mono on the next successful packet. A fresh stream
+    /// can start mono immediately. Returning to stereo resets side prediction
+    /// and clones the live mid resampler before either channel consumes PCM.
+    /// Incompatible pending FEC is cleared when wire shape changes. Errors do
+    /// not consume a transition; reset retains the request and starts fresh.
+    pub fn set_encoded_channels(&mut self, channels: usize) -> Result<(), StereoPacketError> {
+        if !(1..=2).contains(&channels) {
+            return Err(StereoPacketError::InvalidOptions);
+        }
+        self.channel_target = channels;
+        Ok(())
     }
     /// Nominal pre-skip on the48kHz clock, including stereo/input compensation.
     pub fn lookahead_48k(&self) -> u32 {
@@ -529,7 +578,8 @@ impl StereoEncoder {
         self.bandwidth_control.automatic
     }
     /// Select SILK bandwidth from the full packet byte budget, complexity, loss
-    /// and native AUDIO thresholds/hysteresis. Fixed channel layout is retained.
+    /// and native AUDIO thresholds/hysteresis. The separately requested wire
+    /// layout is retained.
     /// FEC may lower the target bandwidth. Disabled by default; enabling clears
     /// an external target, disabling stops the taper at the current rate. Reset
     /// retains this mode. All policy/transition state rolls back on packet errors.
@@ -589,19 +639,24 @@ impl StereoEncoder {
     }
     /// Whether the last successful packet carries prior-packet redundancy.
     pub fn has_fec(&self) -> bool {
-        self.speech.fec.sent.iter().any(|&v| v)
+        self.speech.fec.sent[..self.encoded_channels]
+            .iter()
+            .any(|&v| v)
     }
     /// Whether the last successfully encoded packet suppressed its payload.
     pub fn in_dtx(&self) -> bool {
         self.speech.dtx.suppressed
     }
-    /// Clear every stream history, retaining rates, bandwidth mode/target and DTX/FEC settings.
+    /// Clear every stream history, retaining rates, requested wire layout,
+    /// bandwidth mode/target and DTX/FEC settings.
     pub fn reset(&mut self) {
+        let channel_target = self.channel_target;
         let automatic = self.automatic_bandwidth();
         let target = self.bandwidth_control.target;
         let enabled = self.speech.dtx.enabled;
         let fec = self.speech.fec.enabled;
         *self = Self::new(self.input, self.internal);
+        self.channel_target = channel_target;
         self.set_dtx(enabled);
         self.set_inband_fec(fec);
         self.set_bandwidth_target(target);
@@ -632,8 +687,21 @@ impl StereoEncoder {
             return Err(StereoPacketError::InvalidOptions);
         }
         let mut next = self.clone();
-        let rate = next.bandwidth_control.prepare(
-            self.input,
+        let previous = if self.started {
+            self.encoded_channels
+        } else {
+            1
+        };
+        next.to_mono =
+            self.started && self.encoded_channels == 2 && self.channel_target == 1 && !self.to_mono;
+        next.encoded_channels = if next.to_mono { 2 } else { self.channel_target };
+        next.speech
+            .begin_channels(previous, next.encoded_channels, self.internal);
+        if previous == 1 && next.encoded_channels == 2 {
+            next.bandwidth_control.transitions[1].reset();
+        }
+        let rate = next.bandwidth_control.prepare_channels(
+            (self.input, next.encoded_channels),
             self.internal,
             duration,
             packet_bytes,
@@ -648,16 +716,14 @@ impl StereoEncoder {
             .filter(input, &mut filtered[..input.len()])
             .map_err(|_| StereoPacketError::InvalidInputLength)?;
         let mut pcm = [[0i16; 960]; 2];
-        for (channel, converted) in pcm.iter_mut().enumerate() {
-            let mut planar = [0i16; 2880];
-            for (sample, pair) in planar[..samples]
-                .iter_mut()
-                .zip(filtered[..input.len()].chunks_exact(2))
-            {
-                *sample = pair[channel];
-            }
-            next.speech.resampler[channel].process(&planar[..samples], converted)?;
-        }
+        next.speech.resample_stereo_input(
+            &filtered[..input.len()],
+            &mut pcm,
+            self.input,
+            duration,
+            next.encoded_channels,
+            previous,
+        )?;
         let backup = next.speech.fec.has_pending(duration).then(|| next.clone());
         let attempt =
             next.encode_packet(duration, &pcm, packet_bytes, options, digital_silence, true);
@@ -715,21 +781,24 @@ impl StereoEncoder {
         let nominal_bits = bitrate * ms as i32 / 1000;
 
         let mut writer = RangeEncoder::new(1275)?;
-        let header_bits = (frames as u32 + 1) * 2;
+        let wire_channels = self.encoded_channels;
+        let header_bits = (frames as u32 + 1) * wire_channels as u32;
         writer.encode_icdf(0, &[(256 - (256 >> header_bits)) as u8, 0], 8)?;
-        self.speech.fec.begin_with_policy(
+        self.speech.fec.begin_for_channels(
             duration,
             self.internal,
             bitrate,
             options.packet_loss_percent,
             self.bandwidth_control.fec_override(),
-        );
+            wire_channels,
+        )?;
         let channels = &mut self.speech.channels;
-        self.speech
-            .fec
-            .prefix(&mut writer, include_fec, |ch, writer, frame, coding| {
-                channels[ch].encode_redundant(writer, frame, coding)
-            })?;
+        self.speech.fec.prefix_for_channels(
+            &mut writer,
+            include_fec,
+            wire_channels,
+            |ch, writer, frame, coding| channels[ch].encode_redundant(writer, frame, coding),
+        )?;
         let per_frame = (nominal_bits - self.speech.fec.used_bits) / frames as i32;
         let mut flags = [[false; 3]; 2];
         for index in 0..frames {
@@ -748,16 +817,26 @@ impl StereoEncoder {
             target = target.clamp(bitrate.min(5000), bitrate.max(5000));
             let start = index * frame_samples;
             let end = start + frame_samples;
-            let stereo = self.speech.analyze_stereo(
-                self.internal,
-                duration.frame_duration(),
-                [&pcm[0][start..end], &pcm[1][start..end]],
-                AnalysisControls {
-                    target_rate: target,
-                    digital_silence,
-                    to_mono: false,
-                },
-            )?;
+            let controls = AnalysisControls {
+                target_rate: target,
+                digital_silence,
+                to_mono: self.to_mono,
+            };
+            let stereo = if wire_channels == 2 {
+                self.speech.analyze_stereo(
+                    self.internal,
+                    duration.frame_duration(),
+                    [&pcm[0][start..end], &pcm[1][start..end]],
+                    controls,
+                )?
+            } else {
+                self.speech.analyze_mono(
+                    self.internal,
+                    duration.frame_duration(),
+                    &pcm[0][start..end],
+                    controls,
+                )?
+            };
             let mid_activity = stereo.activities[0].ok_or(FrameError::InvalidControls)?;
             let side_activity = stereo.activities[1];
             flags[0][index] = stereo.active(0);
@@ -770,7 +849,7 @@ impl StereoEncoder {
                 (3, 1) => maximum * 3 / 4,
                 _ => maximum,
             };
-            for (channel, channel_flags) in flags.iter().enumerate() {
+            for (channel, channel_flags) in flags.iter().enumerate().take(wire_channels) {
                 if channel == 1 && stereo.mid_only() {
                     continue;
                 }
@@ -847,7 +926,11 @@ impl StereoEncoder {
             self.speech.finish_analysis(&stereo)?;
         }
         let mut header = 0;
-        for (channel, has_fec) in flags.into_iter().zip(self.speech.fec.sent) {
+        for (channel, has_fec) in flags
+            .into_iter()
+            .zip(self.speech.fec.sent)
+            .take(wire_channels)
+        {
             for &flag in &channel[..frames] {
                 header = (header << 1) | u32::from(flag);
             }
@@ -883,16 +966,20 @@ impl StereoEncoder {
                 PacketDuration::Ms40 => 2,
                 PacketDuration::Ms60 => 3,
             };
-        let decision = self.speech.dtx.finish(duration, 2, digital_silence);
+        let decision = self
+            .speech
+            .dtx
+            .finish(duration, wire_channels, digital_silence);
         if decision != Decision::Transmit || overflow {
             self.speech.fec.suppress();
         }
+        let toc = (config << 3) | if wire_channels == 2 { 4 } else { 0 };
         let result = StereoPacket {
             packet: if decision != Decision::Transmit {
-                packet((config << 3) | 4, &[], 1, 0)
+                packet(toc, &[], 1, 0)
             } else if overflow {
                 plc_packet(
-                    (config << 3) | 4,
+                    toc,
                     if options.variable_bitrate {
                         2
                     } else {
@@ -901,7 +988,7 @@ impl StereoEncoder {
                 )
             } else {
                 packet(
-                    (config << 3) | 4,
+                    toc,
                     payload,
                     if options.variable_bitrate {
                         payload.len() + 1
@@ -920,6 +1007,7 @@ impl StereoEncoder {
         self.speech.excess = (self.speech.excess + payload_bits - nominal_bits).clamp(0, 10000);
         self.bandwidth_control
             .finish(self.speech.activity, duration);
+        self.started = true;
         Ok((result, decision))
     }
 }

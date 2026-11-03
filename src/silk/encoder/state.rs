@@ -7,6 +7,7 @@ use super::{
     channel::{ChannelFrameEncoder, FrameError},
     dtx::DtxState,
     fec::{FecState, StereoPrefix},
+    mono::PacketDuration,
     stereo::{self, StereoAnalysisState, StereoControls, StereoEncodeError},
 };
 use crate::{
@@ -14,17 +15,18 @@ use crate::{
     silk::{
         gains::FrameDuration,
         pitch::SilkRate,
-        resampler::{EncoderResamplerState, OutputRate},
+        resampler::{EncoderResamplerState, OutputRate, ResampleError},
     },
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct SpeechState<const CHANNELS: usize> {
+    #[cfg(test)]
+    pub mid_input_hash: u64,
     pub resampler: [EncoderResamplerState; CHANNELS],
     pub vad: [VoiceActivityDetector; CHANNELS],
     pub channels: [ChannelFrameEncoder; CHANNELS],
     pub stereo: StereoAnalysisState,
-    pub previous: i16,
     pub previous_mid_only: bool,
     pub activity: u8,
     pub excess: i32,
@@ -82,11 +84,12 @@ impl From<FrameError> for StereoFrameError {
 impl<const CHANNELS: usize> SpeechState<CHANNELS> {
     pub fn new(input: OutputRate, rate: SilkRate) -> Self {
         Self {
+            #[cfg(test)]
+            mid_input_hash: 14695981039346656037,
             resampler: std::array::from_fn(|_| EncoderResamplerState::new(input, rate)),
             vad: std::array::from_fn(|_| VoiceActivityDetector::default()),
             channels: std::array::from_fn(|_| ChannelFrameEncoder::new(rate)),
             stereo: StereoAnalysisState::default(),
-            previous: 0,
             previous_mid_only: false,
             activity: 0,
             excess: 0,
@@ -136,18 +139,26 @@ impl<const CHANNELS: usize> SpeechState<CHANNELS> {
             rates: [controls.target_rate, 0],
             stereo: None,
         };
-        frame.pcm[0][..length].copy_from_slice(input);
-        // Segmenting a packet into frames must not add a delay per frame: this
-        // is one persistent sample, also used by the Hybrid mono path.
-        for sample in &mut frame.pcm[0][..length] {
-            std::mem::swap(sample, &mut self.previous);
-        }
+        // Native mono and stereo consume the same two-sample mid history.
+        self.stereo.buffer_mono(input, &mut frame.pcm[0][..length]);
         frame.activities[0] = Some(
             vad.analyze(rate, duration, &frame.pcm[0][..length])
                 .map_err(FrameError::from)?,
         );
+        #[cfg(test)]
+        self.record_mid_input(&frame);
         self.activity_policy(&mut frame, controls.digital_silence);
         Ok(frame)
+    }
+    #[cfg(test)]
+    fn record_mid_input(&mut self, frame: &AnalyzedFrame) {
+        for byte in frame.pcm[0][..frame.length]
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+        {
+            self.mid_input_hash =
+                (self.mid_input_hash ^ u64::from(byte)).wrapping_mul(1099511628211);
+        }
     }
     fn activity_policy(&mut self, frame: &mut AnalyzedFrame, digital_silence: bool) {
         for (channel, activity) in frame.activities.iter_mut().enumerate() {
@@ -168,6 +179,70 @@ impl<const CHANNELS: usize> SpeechState<CHANNELS> {
     }
 }
 impl SpeechState<2> {
+    pub fn begin_channels(&mut self, previous: usize, channels: usize, rate: SilkRate) {
+        if channels != previous {
+            self.fec.clear_pending();
+        }
+        if channels == 2 && previous == 1 {
+            self.channels[1] = ChannelFrameEncoder::new(rate);
+            self.vad[1] = VoiceActivityDetector::default();
+            self.dtx.restart_side();
+            self.stereo.restart_stereo();
+        }
+    }
+    // Called on staged state, after any rate migration and before frame coding.
+    pub fn resample_stereo_input(
+        &mut self,
+        input: &[i16],
+        output: &mut [[i16; 960]; 2],
+        rate: OutputRate,
+        duration: PacketDuration,
+        channels: usize,
+        previous: usize,
+    ) -> Result<(), ResampleError> {
+        let samples = rate.hz() as usize / 1000 * duration.milliseconds() as usize;
+        if input.len() != samples * 2
+            || !(1..=2).contains(&channels)
+            || !(1..=2).contains(&previous)
+        {
+            return Err(ResampleError::InvalidInputLength);
+        }
+        let mut planar = [[0i16; 2880]; 2];
+        for (i, pair) in input.chunks_exact(2).enumerate() {
+            if channels == 2 {
+                planar[0][i] = pair[0];
+                planar[1][i] = pair[1];
+            } else {
+                planar[0][i] = ((i32::from(pair[0]) + i32::from(pair[1]) + 1) >> 1) as i16;
+            }
+        }
+        if channels == 2 && previous == 1 {
+            // Clone before channel0 consumes any input, including long packets.
+            self.resampler[1] = self.resampler[0].clone();
+        }
+        // Native silk_Encode invokes each resampler once per internal frame.
+        // Even overwritten delay-buffer slots must retain that call geometry.
+        let frame_samples = samples / duration.frames();
+        let mut offset = 0;
+        for index in 0..duration.frames() {
+            let start = index * frame_samples;
+            let end = start + frame_samples;
+            let length =
+                self.resampler[0].process(&planar[0][start..end], &mut output[0][offset..])?;
+            if channels == 2 {
+                self.resampler[1].process(&planar[1][start..end], &mut output[1][offset..])?;
+            } else if previous == 2 && index == 0 {
+                // Only the first internal frame uses the departing side resampler.
+                self.resampler[1].process(&planar[0][start..end], &mut output[1])?;
+                for i in 0..length {
+                    output[0][i] =
+                        ((i32::from(output[0][i]) + i32::from(output[1][i])) >> 1) as i16;
+                }
+            }
+            offset += length;
+        }
+        Ok(())
+    }
     pub fn analyze_stereo(
         &mut self,
         rate: SilkRate,
@@ -211,6 +286,8 @@ impl SpeechState<2> {
                     .map_err(FrameError::from)?,
             );
         }
+        #[cfg(test)]
+        self.record_mid_input(&frame);
         self.activity_policy(&mut frame, controls.digital_silence);
         Ok(frame)
     }

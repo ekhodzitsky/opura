@@ -58,6 +58,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('source', type=Path)
     parser.add_argument('output', type=Path)
+    parser.add_argument('--channel-transitions', action='store_true')
     args = parser.parse_args()
     source = args.source.resolve()
     if subprocess.check_output(['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip() != REVISION:
@@ -73,7 +74,11 @@ def main():
              manifest('celt_sources.mk', 'CELT_SOURCES') + manifest('opus_sources.mk', 'OPUS_SOURCES'))
     with tempfile.TemporaryDirectory(prefix='opura-silk-stereo-encoder-') as temp:
         folder = Path(temp)
-        (folder/'probe.c').write_text(WRAPPER.replace('"REVISION"', '"'+REVISION+'"'))
+        wrapper = WRAPPER.replace('"REVISION"', '"'+REVISION+'"')
+        if args.channel_transitions:
+            wrapper = wrapper.replace('int bitrate=frame<4?',
+                'if(opus_encoder_ctl(encoder,OPUS_SET_FORCE_CHANNELS(frame>=14&&frame<19?1:2)))return 8;int bitrate=frame<4?')
+        (folder/'probe.c').write_text(wrapper)
         subprocess.run(['cc', '-O2', '-fwrapv', '-DVAR_ARRAYS', '-DOPUS_BUILD', '-DFIXED_POINT', '-DDISABLE_FLOAT_API',
                         *['-I'+str(source/p) for p in ['include','celt','silk','silk/fixed','src']],
                         str(folder/'probe.c'), *[str(source/f) for f in files], '-Wl,--wrap=silk_stereo_LR_to_MS', '-lm', '-o', str(folder/'probe')], check=True)

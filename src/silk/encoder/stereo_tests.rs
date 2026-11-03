@@ -99,13 +99,26 @@ fn values(s: &StereoAnalysisState) -> Vec<i64> {
 }
 #[test]
 fn original_public_stereo_transform_state_and_prefix_match() -> Result<()> {
+    verify_stereo_fixture(
+        include_str!("../../../tests/silk-encoder-stereo-fixtures.txt"),
+        144,
+        false,
+    )
+}
+#[test]
+fn original_channel_transition_stereo_analysis_and_prefix_match() -> Result<()> {
+    verify_stereo_fixture(
+        include_str!("../../../tests/silk-channel-analysis-fixtures.txt"),
+        120,
+        true,
+    )
+}
+fn verify_stereo_fixture(fixture: &str, expected_calls: usize, transition: bool) -> Result<()> {
     let mut calls = 0;
     let mut omitted = 0;
     let mut zero_width = 0;
-    for (line_number, line) in include_str!("../../../tests/silk-encoder-stereo-fixtures.txt")
-        .lines()
-        .enumerate()
-    {
+    let mut collapse = 0;
+    for (line_number, line) in fixture.lines().enumerate() {
         if line.starts_with('#') {
             continue;
         }
@@ -193,11 +206,13 @@ fn original_public_stereo_transform_state_and_prefix_match() -> Result<()> {
             .map(|i| u8::from_str_radix(&hex[i..i + 2], 16))
             .collect::<std::result::Result<_, _>>()?;
         assert_eq!(writer.finish()?, expected);
+        collapse += usize::from(v[4] != 0);
         calls += 1;
         omitted += usize::from(result.mid_only());
         zero_width += usize::from(before.width == 0);
     }
-    assert_eq!(calls, 144);
+    assert_eq!(calls, expected_calls);
+    assert_eq!(collapse, if transition { 6 } else { 0 });
     assert!(omitted > 6);
     assert!(zero_width > 12);
     Ok(())

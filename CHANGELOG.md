@@ -7,6 +7,35 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.87] - 2026-11-03
+
+- Add stateful mono/stereo wire-layout requests to the actual stereo-input SILK
+  packet encoder. `set_encoded_channels` preserves live mid/input histories;
+  `encoded_channels` and `encoded_channels_target` distinguish the last packet
+  from the request. A live mono request first collapses width in a stereo packet;
+  a fresh stream starts mono directly. Reset retains the request, and errors
+  preserve transition phase and all histories.
+- Share native mono/stereo mid buffering. On stereo return, initialize side
+  prediction/VAD/stereo fields while retaining mid/silence memories, and clone
+  the live mid resampler before consuming input. Downmix before resampling;
+  average both departing resampler outputs for the first mono internal frame.
+  Resample 40/60ms input by internal frames, including unused native delay slots.
+  Use actual wire channels for packet headers, FEC policy, DTX and LP scheduling;
+  clear incompatible pending FEC when wire shape changes.
+- Verify 4,608 original public Opus input/layout histories, including complete
+  mid-PCM fingerprints and both resampler states; 32 original partial stereo
+  initializers and 120 original stereo-analysis/prefix cases cover width collapse
+  and stereo return. Eight isolated mutations fail assertions. A fresh native
+  decoder replay matches 11,520 calls across 120 actual streams, with 1,620 wire
+  changes, PLC, FEC and silence/resume. Optional fixture/corpus regeneration is
+  byte-identical. The replay tool now supplies the requested PLC duration.
+- Keep default stereo bytes/APIs compatible. This connects actual speech layout
+  ownership; the complete adaptive SILK/CELT/Hybrid owner, cross-mode prefills/tails
+  and automatic library/CLI path remain work. See docs/validation/silk-channel-layout.md.
+- All 24 prior corpora match 0.1.86 byte-for-byte: 1,384,320 records across
+  5,088 streams, including 220,896 recovery requests and 768 zero-length PLC
+  records. All seven final offline gates pass, including 23 Python tests.
+
 ## [0.1.86] - 2026-11-03
 
 - Connect common AUDIO input filtering and retained PCM history to fixed mono

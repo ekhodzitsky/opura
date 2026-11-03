@@ -1774,3 +1774,11 @@ The shared encoder PCM input state follows AUDIO `dc_reject` and the outer
 notices above. The optional PCM oracle includes the unchanged original source
 and extracts its history update block in a temporary build; only sanitized
 numerical fixtures are tracked. It is never part of Cargo builds or ordinary tests.
+
+Stateful speech wire-layout requests follow the native stereo-to-mono hold in
+`src/opus_encoder.c` and channel initialization, shared mid buffering, input
+resampler cloning/averaging and incompatible LBRR clearing in `silk/enc_API.c`
+at the same pinned Opus revision, under the existing Opus/SILK notices above.
+Optional oracles observe unchanged public encoding and VAD input, extract the
+unchanged partial stereo initializer, and capture original stereo analysis.
+They remain external validation tools, never Cargo build/test dependencies.

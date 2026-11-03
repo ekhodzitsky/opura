@@ -42,11 +42,26 @@ fn original_fixed_bandwidth_thresholds_and_gain_policy_match() -> Result<()> {
             ..FecState::default()
         };
         stereo.begin(PacketDuration::Ms20, rate, 2 * v[3], v[2] as u8);
+        let mut mono_in_stereo_owner = FecState::<2> {
+            enabled: true,
+            previous_enabled: v[1] != 0,
+            ..FecState::default()
+        };
+        mono_in_stereo_owner.begin_for_channels(
+            PacketDuration::Ms20,
+            rate,
+            v[3],
+            v[2] as u8,
+            None,
+            1,
+        )?;
         assert_eq!(mono.generating, expected);
         assert_eq!(stereo.generating, expected);
+        assert_eq!(mono_in_stereo_owner.generating, expected);
         if expected {
             assert_eq!(i32::from(mono.gain_increase), v[6]);
             assert_eq!(i32::from(stereo.gain_increase), v[6]);
+            assert_eq!(i32::from(mono_in_stereo_owner.gain_increase), v[6]);
         }
         cases += 1;
     }

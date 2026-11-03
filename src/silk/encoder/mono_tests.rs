@@ -43,7 +43,7 @@ fn cold_band_selection_matches_constructor_and_live_change_keeps_stream_history(
     assert_eq!(e.bandwidth(), SilkRate::Khz8);
     assert_eq!(e.speech.vad[0], before.speech.vad[0]);
     assert_eq!(e.pcm, before.pcm);
-    assert_eq!(e.speech.previous, before.speech.previous);
+    assert_eq!(e.speech.stereo, before.speech.stereo);
     assert_eq!(e.speech.dtx, before.speech.dtx);
     assert_eq!(e.speech.excess, before.speech.excess);
     assert!(!e.speech.fec.has_pending(PacketDuration::Ms60));

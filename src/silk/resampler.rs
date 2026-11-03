@@ -138,6 +138,39 @@ pub struct EncoderResamplerState {
     core: ResamplerCore<48, 36, 516>,
 }
 impl EncoderResamplerState {
+    #[cfg(test)]
+    pub(crate) fn native_state_fingerprint(&self) -> u64 {
+        let s = &self.core;
+        let (method, order, fractions) = match s.method {
+            Method::Copy => (0, 0, 0),
+            Method::Up2 => (1, 0, 0),
+            Method::UpFir => (2, 0, 0),
+            Method::Down {
+                order, fractions, ..
+            } => (3, order as i32, fractions as i32),
+        };
+        s.iir
+            .iter()
+            .copied()
+            .chain(
+                s.fir16
+                    .iter()
+                    .map(|&v| if method == 2 { i32::from(v) } else { 0 }),
+            )
+            .chain(s.fir32.iter().map(|&v| if method == 3 { v } else { 0 }))
+            .chain(s.delay.iter().map(|&v| i32::from(v)))
+            .chain([
+                method,
+                s.ratio as i32,
+                s.input_delay as i32,
+                order,
+                fractions,
+            ])
+            .flat_map(i32::to_le_bytes)
+            .fold(14695981039346656037, |h, b| {
+                (h ^ u64::from(b)).wrapping_mul(1099511628211)
+            })
+    }
     pub(super) fn has_rates(&self, input: OutputRate, internal: SilkRate) -> bool {
         self.input == input && self.core.output == pcm_rate(internal)
     }

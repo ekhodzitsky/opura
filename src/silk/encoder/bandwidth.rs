@@ -335,12 +335,27 @@ impl<const N: usize> PacketBandwidth<N> {
         options: super::mono::MonoOptions,
         fec: bool,
     ) -> Result<SilkRate, BandwidthError> {
+        self.prepare_channels((input, N), current, duration, packet_bytes, options, fec)
+    }
+    pub fn prepare_channels(
+        &mut self,
+        geometry: (OutputRate, usize),
+        current: SilkRate,
+        duration: PacketDuration,
+        packet_bytes: usize,
+        options: super::mono::MonoOptions,
+        fec: bool,
+    ) -> Result<SilkRate, BandwidthError> {
+        let (input, channels) = geometry;
+        if channels == 0 || channels > N {
+            return Err(BandwidthError::InvalidControls);
+        }
         if self.automatic {
             let (target, limit) = self.auto_policy.select(AutomaticControls {
                 input,
                 duration,
                 packet_bytes: packet_bytes as u32,
-                channels: N as u8,
+                channels: channels as u8,
                 options,
                 fec,
                 allowed: self.allowed,
@@ -350,17 +365,34 @@ impl<const N: usize> PacketBandwidth<N> {
             self.automatic_target = target;
             self.limit = limit;
         }
-        self.begin(input, current, duration, (packet_bytes as u32 - 1) * 8)
+        self.begin_channels(
+            input,
+            current,
+            duration,
+            (packet_bytes as u32 - 1) * 8,
+            channels,
+        )
     }
     pub fn fec_override(&self) -> Option<bool> {
         self.automatic.then_some(self.auto_policy.fec)
     }
+    #[cfg(test)]
     pub fn begin(
         &mut self,
         input: OutputRate,
         current: SilkRate,
         duration: PacketDuration,
         maximum: u32,
+    ) -> Result<SilkRate, BandwidthError> {
+        self.begin_channels(input, current, duration, maximum, N)
+    }
+    fn begin_channels(
+        &mut self,
+        input: OutputRate,
+        current: SilkRate,
+        duration: PacketDuration,
+        maximum: u32,
+        channels: usize,
     ) -> Result<SilkRate, BandwidthError> {
         self.maximum = maximum;
         self.ready = false;
@@ -372,7 +404,7 @@ impl<const N: usize> PacketBandwidth<N> {
             return Ok(current);
         };
         let mut rate = current;
-        for (channel, transition) in self.transitions.iter_mut().enumerate() {
+        for (channel, transition) in self.transitions.iter_mut().enumerate().take(channels) {
             let decision = transition.select(BandwidthControls {
                 current: self.started.then_some(current),
                 input,
