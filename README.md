@@ -42,7 +42,8 @@ The library parses externally delimited Opus packets according to
 returning borrowed frame slices and TOC metadata without allocation. It checks
 frame lengths, counts, padding and the 120 ms packet-duration limit. Empty
 frames are accepted. Parsing does not validate compressed audio contents.
-RTP, multistream and self-delimiting framing are not supported by this packet API.
+RTP is outside the packet API. Self-delimited prefixes and mapped streams are
+available through the [multistream APIs](docs/validation/multistream.md).
 The audio command handles the supported Ogg container subset described above.
 
 ```rust

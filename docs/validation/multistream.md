@@ -142,7 +142,9 @@ The encoder/file-gain integration passes all seven offline gates with 163 librar
 and 34 Python tests. Four additional running-assertion mutations detect wrong
 rate offsets, last-occurrence input selection, partial state commits and CBR
 rounding. The sources are restored; targeted tests and fresh independent native
-validation pass again. Both full exports are byte-identical. The
+validation pass again. Both initial pre-release exports are byte-identical.
+A clean0.1.97 run passes again; its packet/PCM records remain identical after
+the package-version header. The
 [source-fingerprinted report](results/multistream-generic-encoder.json) records
 7405 actual operations, with 49 FEC-step LBRR streams and 3108 suppressed frames.
 The earlier seven-gate statement above records the decoder-only checkpoint.
