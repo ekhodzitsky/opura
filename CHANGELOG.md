@@ -20,6 +20,10 @@ and validation, without implying full Opus compatibility before PCM decoding.
   60 cases including all applications/rate modes, five rates, packet durations
   through120ms, loss/DTX and complete speech/music recordings. Retained results
   are recorded after measurement; benchmark availability is not a speed claim.
+- Retain the complete 60-case, 15-paired-round scalar encoder baseline with both
+  packet streams independently checked. The equal-case time ratio is 1.244
+  (95% interval [1.230, 1.259]); the speed-only target is
+  not met. Every case and raw sample is retained; no overall SOTA claim.
 - Require actual DTX/FEC workload coverage before retaining timings. The loss/
   DTX profiles use sustained quiet windows, query native DTX state and require
   observed suppressed frames/recovery backups; short quiet fragments that never

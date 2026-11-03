@@ -23,13 +23,14 @@ All five native applications and `--mode auto` WAV/Ogg encoding are available. S
 **The decoder passes all120 official RFC8251 vector/rate/channel cases.**
 The first complete-decoder benchmark is recorded: Opura trails the pinned scalar
 libopus reference in all ten configurations. The unified mono/stereo encoder
-is implemented; its comparative quality/speed evaluation remains open. The accepted direction is a complete decoder first, then an encoder,
+is implemented; its broader competitive and perceptual acceptance remains open. The accepted direction is a complete decoder first, then an encoder,
 prioritizing speed and reliability. See the
 [decoder-first decision](docs/decisions/0002-decoder-first.md) for evaluation
 requirements; SOTA performance is an ambition, not a current claim.
 An optional [in-process encoder benchmark](docs/benchmarks/encoder-0.1.96.md)
 compares matched public APIs and independently verifies both packet streams.
-Retained encoder measurements and broader competitive acceptance remain open.
+The retained 60-case baseline has an Opura/native time ratio of 1.244;
+broader competitive acceptance remains open.
 
 The library parses externally delimited Opus packets according to
 [RFC 6716 section 3](https://www.rfc-editor.org/rfc/rfc6716.html#section-3),

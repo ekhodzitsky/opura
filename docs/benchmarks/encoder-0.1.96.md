@@ -137,6 +137,106 @@ and100,000 frames. Exported `OPURAE01` records have a24-byte geometry/lookahead
 header, then14-byte length/range/PCM-FNV64 headers followed by packet bytes.
 These are optional benchmark formats, not transport or production codec APIs.
 
-Retained results will be added after the verified clean-source run. The full
-codec goal, multistream and representative perceptual/broader competitor
-comparisons remain open.
+## Retained results
+
+The complete 60-case run used 15 paired rounds on AMD Ryzen AI 9 HX 370 w/ Radeon 890M,
+Linux 7.0.0-38-generic (x86_64), pinned CPU 0.
+The equal-case geometric-mean Opura/native median-time ratio is **1.244**,
+with paired 95% percentile interval **[1.230, 1.259]**.
+The speed-only target is **not met**.
+56 cases have intervals wholly above 1.0; 0 wholly below 1.0.
+All cases, including losing ones, remain in the table and
+[raw report](results/encoder-0.1.96.json). No overall codec/quality win follows.
+
+Every output passes both decoders before timings count. Exported validation
+records are identical between encoders in 42/60 cases, and primary
+mode counts agree in 60/60. Other records retain differences in
+encoded bytes, decoded PCM fingerprints, physical bitrate, bandwidth/wire mix
+and recovery/suppression diagnostics. The intentional Q24 correction and
+public API ownership/transaction differences remain relevant to interpretation.
+
+For the 8s VOIP control inputs, native DTX state is observed and both outputs
+contain suppressed frames; FEC profiles contain real LBRR backups. The report
+also retains frame latency quantiles, per-process creation timings and scoped
+object/RSS figures. These do not measure steady-state heap allocations or
+representative perceptual quality.
+
+Median encode microseconds per packet; each ratio compares equal geometry
+within that row. Packet durations differ across rows. Confidence bounds are
+the paired 2.5th/97.5th percentile endpoints.
+
+| Case | Opura µs | Native µs | Ratio | 95% interval |
+|---|---:|---:|---:|---:|
+| frame-120 | 23.49 | 16.81 | 1.398 | [1.338, 1.716] |
+| frame-1920 | 245.22 | 193.08 | 1.270 | [1.120, 1.366] |
+| frame-240 | 47.40 | 33.55 | 1.413 | [1.290, 1.481] |
+| frame-2880 | 366.65 | 288.97 | 1.269 | [1.159, 1.366] |
+| frame-3840 | 496.85 | 379.64 | 1.309 | [1.223, 1.441] |
+| frame-480 | 76.21 | 52.14 | 1.462 | [1.391, 1.620] |
+| frame-4800 | 609.34 | 490.17 | 1.243 | [1.179, 1.303] |
+| frame-5760 | 722.90 | 574.38 | 1.259 | [1.201, 1.318] |
+| mixed-12000-1 | 61.01 | 45.25 | 1.348 | [1.143, 1.514] |
+| mixed-12000-2 | 99.81 | 76.20 | 1.310 | [1.271, 1.584] |
+| mixed-16000-1 | 60.95 | 47.83 | 1.274 | [1.085, 1.590] |
+| mixed-16000-2 | 100.94 | 79.54 | 1.269 | [1.180, 1.381] |
+| mixed-24000-1 | 66.93 | 54.29 | 1.233 | [1.117, 1.321] |
+| mixed-24000-2 | 115.58 | 87.41 | 1.322 | [1.233, 1.413] |
+| mixed-48000-1 | 83.00 | 60.12 | 1.381 | [1.263, 1.506] |
+| mixed-48000-2 | 133.60 | 97.13 | 1.375 | [1.156, 1.515] |
+| mixed-8000-1 | 66.80 | 42.55 | 1.570 | [1.434, 1.752] |
+| mixed-8000-2 | 96.19 | 68.44 | 1.406 | [1.280, 1.488] |
+| mixed-audio-cbr | 70.32 | 52.63 | 1.336 | [1.186, 1.497] |
+| mixed-audio-cvbr | 68.07 | 51.70 | 1.316 | [1.226, 1.407] |
+| mixed-audio-vbr | 70.78 | 55.43 | 1.277 | [1.050, 1.604] |
+| mixed-celt-cbr | 67.19 | 50.96 | 1.319 | [1.261, 1.454] |
+| mixed-celt-cvbr | 69.42 | 51.26 | 1.354 | [1.248, 1.478] |
+| mixed-celt-vbr | 71.60 | 52.24 | 1.371 | [1.241, 1.442] |
+| mixed-lowdelay-cbr | 63.68 | 50.68 | 1.256 | [1.227, 1.363] |
+| mixed-lowdelay-cvbr | 65.29 | 51.37 | 1.271 | [1.187, 1.418] |
+| mixed-lowdelay-vbr | 70.47 | 51.59 | 1.366 | [1.254, 1.444] |
+| mixed-silk-cbr | 475.62 | 417.54 | 1.139 | [1.032, 1.259] |
+| mixed-silk-cvbr | 185.41 | 165.07 | 1.123 | [1.015, 1.170] |
+| mixed-silk-vbr | 172.48 | 172.22 | 1.002 | [0.956, 1.076] |
+| mixed-voip-cbr | 222.70 | 203.34 | 1.095 | [1.008, 1.156] |
+| mixed-voip-cvbr | 207.33 | 194.92 | 1.064 | [1.013, 1.129] |
+| mixed-voip-vbr | 209.88 | 198.87 | 1.055 | [0.966, 1.141] |
+| music_orig-audio-cbr | 125.97 | 100.18 | 1.257 | [1.227, 1.409] |
+| music_orig-audio-cvbr | 143.21 | 102.96 | 1.391 | [1.212, 1.447] |
+| music_orig-audio-vbr | 126.46 | 100.84 | 1.254 | [1.192, 1.336] |
+| music_orig-lowdelay-cbr | 134.12 | 100.23 | 1.338 | [1.221, 1.536] |
+| music_orig-lowdelay-cvbr | 130.88 | 100.83 | 1.298 | [1.176, 1.415] |
+| music_orig-lowdelay-vbr | 134.93 | 102.54 | 1.316 | [1.214, 1.403] |
+| music_orig-silk-cbr | 841.06 | 741.66 | 1.134 | [1.089, 1.195] |
+| music_orig-silk-cvbr | 375.89 | 346.46 | 1.085 | [1.021, 1.121] |
+| music_orig-silk-vbr | 379.44 | 338.17 | 1.122 | [1.010, 1.151] |
+| music_orig-voip-cbr | 148.18 | 120.43 | 1.231 | [1.130, 1.313] |
+| music_orig-voip-cvbr | 127.50 | 102.07 | 1.249 | [1.202, 1.370] |
+| music_orig-voip-vbr | 151.00 | 109.16 | 1.383 | [1.138, 1.509] |
+| speech_orig-audio-cbr | 62.77 | 52.19 | 1.203 | [1.161, 1.265] |
+| speech_orig-audio-cvbr | 66.33 | 52.83 | 1.256 | [1.169, 1.306] |
+| speech_orig-audio-vbr | 68.13 | 57.50 | 1.185 | [1.105, 1.295] |
+| speech_orig-lowdelay-cbr | 67.89 | 51.21 | 1.326 | [1.255, 1.395] |
+| speech_orig-lowdelay-cvbr | 67.35 | 53.81 | 1.252 | [1.154, 1.367] |
+| speech_orig-lowdelay-vbr | 75.73 | 53.58 | 1.413 | [1.238, 1.496] |
+| speech_orig-silk-cbr | 490.75 | 439.37 | 1.117 | [1.024, 1.146] |
+| speech_orig-silk-cvbr | 193.94 | 174.49 | 1.111 | [1.028, 1.191] |
+| speech_orig-silk-vbr | 190.76 | 170.55 | 1.119 | [1.047, 1.149] |
+| speech_orig-voip-cbr | 226.82 | 211.51 | 1.072 | [1.003, 1.214] |
+| speech_orig-voip-cvbr | 221.57 | 190.46 | 1.163 | [1.064, 1.315] |
+| speech_orig-voip-vbr | 210.89 | 196.05 | 1.076 | [1.014, 1.190] |
+| voip-dtx0-loss20 | 225.21 | 217.00 | 1.038 | [0.965, 1.136] |
+| voip-dtx1-loss0 | 192.52 | 178.43 | 1.079 | [1.035, 1.161] |
+| voip-dtx1-loss20 | 238.08 | 223.84 | 1.064 | [0.979, 1.151] |
+
+Measurements were taken from the clean code revision recorded in the report,
+after task build/test jobs finished. Hardware and code/binary provenance are
+retained. The post-measurement source/report checker recomputes intervals and
+checks the exact schedule and output identity. Reproduction from the final
+milestone uses identical measured source files; the subsequent result/document
+commit does not alter those sources.
+
+The next performance work should profile the measured gaps and retain the
+correctness, quality and transaction contracts. This baseline does not justify
+weakening validation, changing codec output to make it cheaper, or claiming
+leadership over unmeasured implementations. Multistream and representative
+quality/broader competitor work remain open.
