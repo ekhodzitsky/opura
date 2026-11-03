@@ -27,6 +27,55 @@ pub(crate) struct PacketControls {
     pub to_mono: bool,
 }
 
+/// Prepared speech payload on a staged stream, before outer redundancy syntax.
+/// The owner commits all histories only after the complete packet succeeds.
+pub(crate) struct PreparedPacket {
+    pub writer: RangeEncoder,
+    pub decision: Decision,
+    pub toc: u8,
+    pub overflow: bool,
+    packet_bytes: usize,
+    variable: bool,
+}
+impl PreparedPacket {
+    pub fn finish(
+        mut self,
+        finish: impl for<'a> FnOnce(&'a mut RangeEncoder) -> Result<&'a [u8], EncoderError>,
+    ) -> Result<MonoPacket, EncoderError> {
+        let length = self.writer.tell().div_ceil(8) as usize;
+        if !self.overflow && length >= self.packet_bytes {
+            return Err(EncoderError::CapacityExhausted);
+        }
+        let range = if self.overflow {
+            0
+        } else {
+            self.writer.range()
+        };
+        let payload = if self.overflow {
+            &[0][..]
+        } else {
+            self.writer.shrink(length)?;
+            finish(&mut self.writer)?
+        };
+        Ok(if self.decision != Decision::Transmit {
+            packet(self.toc, &[], 1, 0)
+        } else if self.overflow {
+            plc_packet(self.toc, if self.variable { 2 } else { self.packet_bytes })
+        } else {
+            packet(
+                self.toc,
+                payload,
+                if self.variable {
+                    payload.len() + 1
+                } else {
+                    self.packet_bytes
+                },
+                range,
+            )
+        })
+    }
+}
+
 pub(crate) fn mono<const N: usize>(
     speech: &mut SpeechState<N>,
     bandwidth: &mut PacketBandwidth<N>,
@@ -34,10 +83,33 @@ pub(crate) fn mono<const N: usize>(
     pcm: &[i16],
     controls: PacketControls,
 ) -> Result<(MonoPacket, Decision), MonoError> {
+    let prepared = prepare_mono(speech, bandwidth, internal, pcm, controls)?;
+    let decision = prepared.decision;
+    Ok((prepared.finish(RangeEncoder::finish)?, decision))
+}
+pub(crate) fn stereo(
+    speech: &mut SpeechState<2>,
+    bandwidth: &mut PacketBandwidth<2>,
+    internal: SilkRate,
+    pcm: &[[i16; 960]; 2],
+    controls: PacketControls,
+) -> Result<(MonoPacket, Decision), StereoPacketError> {
+    let prepared = prepare_stereo(speech, bandwidth, internal, pcm, controls)?;
+    let decision = prepared.decision;
+    Ok((prepared.finish(RangeEncoder::finish)?, decision))
+}
+
+pub(crate) fn prepare_mono<const N: usize>(
+    speech: &mut SpeechState<N>,
+    bandwidth: &mut PacketBandwidth<N>,
+    internal: SilkRate,
+    pcm: &[i16],
+    controls: PacketControls,
+) -> Result<PreparedPacket, MonoError> {
     if controls.channels != 1 || controls.to_mono {
         return Err(FrameError::InvalidControls.into());
     }
-    encode(
+    prepare(
         speech,
         bandwidth,
         internal,
@@ -48,15 +120,15 @@ pub(crate) fn mono<const N: usize>(
     )
 }
 
-pub(crate) fn stereo(
+pub(crate) fn prepare_stereo(
     speech: &mut SpeechState<2>,
     bandwidth: &mut PacketBandwidth<2>,
     internal: SilkRate,
     pcm: &[[i16; 960]; 2],
     controls: PacketControls,
-) -> Result<(MonoPacket, Decision), StereoPacketError> {
+) -> Result<PreparedPacket, StereoPacketError> {
     let length = internal.khz() as usize * controls.duration.milliseconds() as usize;
-    encode(
+    prepare(
         speech,
         bandwidth,
         internal,
@@ -75,7 +147,7 @@ pub(crate) fn stereo(
     )
 }
 
-fn encode<const N: usize, E, A, P>(
+fn prepare<const N: usize, E, A, P>(
     speech: &mut SpeechState<N>,
     bandwidth: &mut PacketBandwidth<N>,
     internal: SilkRate,
@@ -83,7 +155,7 @@ fn encode<const N: usize, E, A, P>(
     controls: PacketControls,
     mut analyze: A,
     mut prefix: P,
-) -> Result<(MonoPacket, Decision), E>
+) -> Result<PreparedPacket, E>
 where
     E: From<FrameError> + From<BandwidthError> + From<EncoderError>,
     A: FnMut(
@@ -276,13 +348,6 @@ where
     if overflow && (!bandwidth.automatic || (include_fec && speech.fec.sent.iter().any(|&v| v))) {
         return Err(FrameError::BitBudgetExceeded.into());
     }
-    let range = if overflow { 0 } else { writer.range() };
-    let payload = if overflow {
-        &[0][..]
-    } else {
-        writer.shrink(encoded_length)?;
-        writer.finish()?
-    };
     let base = match internal {
         SilkRate::Khz8 => 0,
         SilkRate::Khz12 => 4,
@@ -300,29 +365,6 @@ where
         speech.fec.suppress();
     }
     let toc = (config << 3) | if wire_channels == 2 { 4 } else { 0 };
-    let result = if decision != Decision::Transmit {
-        packet(toc, &[], 1, 0)
-    } else if overflow {
-        plc_packet(
-            toc,
-            if options.variable_bitrate {
-                2
-            } else {
-                packet_bytes
-            },
-        )
-    } else {
-        packet(
-            toc,
-            payload,
-            if options.variable_bitrate {
-                payload.len() + 1
-            } else {
-                packet_bytes
-            },
-            range,
-        )
-    };
     let payload_bits = if decision == Decision::Silk {
         0
     } else {
@@ -330,7 +372,14 @@ where
     };
     speech.excess = (speech.excess + payload_bits - nominal_bits).clamp(0, 10000);
     bandwidth.finish(speech.activity, duration);
-    Ok((result, decision))
+    Ok(PreparedPacket {
+        writer,
+        decision,
+        toc,
+        overflow,
+        packet_bytes,
+        variable: options.variable_bitrate,
+    })
 }
 
 #[cfg(test)]

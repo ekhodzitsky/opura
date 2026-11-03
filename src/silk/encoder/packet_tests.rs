@@ -3,6 +3,46 @@ use crate::silk::resampler::OutputRate;
 type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[test]
+fn prepared_speech_accepts_outer_symbols_before_final_range_is_captured() -> Result {
+    let mut speech = SpeechState::<2>::new(OutputRate::Khz48, SilkRate::Khz16);
+    let mut band = PacketBandwidth::<2>::default();
+    let options = MonoOptions::default();
+    band.prepare_channels(
+        (OutputRate::Khz48, 1),
+        SilkRate::Khz16,
+        PacketDuration::Ms20,
+        160,
+        options,
+        false,
+    )?;
+    let controls = PacketControls {
+        duration: PacketDuration::Ms20,
+        packet_bytes: 160,
+        options,
+        digital_silence: false,
+        include_fec: false,
+        channels: 1,
+        to_mono: false,
+    };
+    let mut prepared = prepare_mono(&mut speech, &mut band, SilkRate::Khz16, &[0; 320], controls)?;
+    assert!(!prepared.overflow);
+    assert_eq!(prepared.decision, Decision::Transmit);
+    let old_range = prepared.writer.range();
+    // Native SILK transition direction is encoded after the speech frames.
+    prepared.writer.encode_bit_logp(true, 1)?;
+    let range = prepared.writer.range();
+    assert_ne!(old_range, range);
+    let packet = prepared.finish(|writer| {
+        assert_eq!(writer.range(), range);
+        writer.finish()
+    })?;
+    assert_eq!(packet.final_range(), range);
+    // This only verifies the open-writer boundary, not a complete transition:
+    // a redundant CELT payload and its final-range XOR belong to the owner.
+    Ok(())
+}
+
+#[test]
 fn capacity_two_mono_entry_retains_the_same_live_speech_history_as_stereo_entry() -> Result {
     let mut mono_frames = 0;
     let mut stereo_frames = 0;

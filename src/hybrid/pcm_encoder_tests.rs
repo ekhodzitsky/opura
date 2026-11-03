@@ -1,6 +1,48 @@
 use super::*;
 
 #[test]
+fn low_band_phase_leaves_celt_and_committed_input_untouched()
+-> Result<(), Box<dyn std::error::Error>> {
+    for channels in 1..=2 {
+        let mut phased = HybridEncoder::new(InputRate::Khz48, channels, Bandwidth::Fullband)?;
+        let mut regular = phased.clone();
+        for frame in 0..12 {
+            let duration = if frame % 2 == 0 {
+                FrameDuration::Ms10
+            } else {
+                FrameDuration::Ms20
+            };
+            let input = pcm(InputRate::Khz48, channels, duration, frame);
+            let before = phased.clone();
+            let options = Options::default();
+            let mut low = phased.frame_encoder().prepare_low_band(
+                duration,
+                &input,
+                160 * channels,
+                options,
+                None,
+                true,
+            )?;
+            // The outer owner must still be able to use old CELT and delayed
+            // input for incoming redundancy before completing the high band.
+            assert_eq!(phased.celt, before.celt);
+            assert_eq!(phased.pcm.history(), before.pcm.history());
+            assert_eq!(phased.high_gain, before.high_gain);
+            assert_eq!(phased.width, before.width);
+            assert_ne!(phased.speech, before.speech);
+            low.no_redundancy()?;
+            let prepared = phased.frame_encoder().complete_high_band(low)?;
+            let actual =
+                phased.finish_packet(duration, 160 * channels, prepared, RangeEncoder::finish)?;
+            let expected = regular.encode(duration, &input, 160 * channels, options)?;
+            assert_eq!(actual, expected);
+            assert_eq!(phased, regular);
+        }
+    }
+    Ok(())
+}
+
+#[test]
 fn borrowed_frame_rejects_invalid_geometry_before_mutating_histories()
 -> Result<(), Box<dyn std::error::Error>> {
     for case in 0..6 {

@@ -91,12 +91,43 @@ cargo run --offline --locked --release --example silk_layout_vectors -- target/b
 python3 tools/silk_mono_validation.py target/reference/opus target/borrowed-layout.bin
 ```
 
+## Open payload phases (0.1.89)
+
+Private SILK preparation now returns the live range writer, speech DTX decision,
+TOC and overflow outcome before termination. The fixed entry points immediately
+finish that prepared payload as before; outer integration can first append
+transition symbols. Packet final range is captured after those writes. A boundary
+test appends a direction symbol and checks that the resulting range, rather than
+its pre-symbol value, reaches the packet. This does not exercise a complete
+redundancy packet: CELT tail bytes and their final-range XOR are still absent.
+
+Hybrid preparation now has distinct low-band and high-band phases. After the
+low-band phase, prior CELT state, committed 10ms PCM history and gain/width fades
+are unchanged. The fixed path writes its no-redundancy syntax at this boundary,
+then completes CELT. A mono/stereo 10/20ms sequence checks both this ordering and
+complete packet/state equivalence with the ordinary entry. Existing native DTX
+fixtures retain early-SILK-return and outer-suppression coverage. Both phases
+require the same staged owner and configuration throughout the transaction;
+late failures require discarding the complete staged state.
+
+All seven required offline gates pass on 0.1.89, including 23 Python tests.
+The [complete fixed-mode comparison](results/open-payload-phases-0.1.89-fixed.json)
+matches an isolated archive of committed 0.1.88 byte-for-byte: all 24 corpora,
+1,384,320 records, 5,088 streams, 220,896 FEC requests and 768 zero-length PLC
+records. Every corpus hash and coverage count also matches the earlier report.
+This comparison does not rerun native decoding; it records `native_replay: false`.
+The unchanged original fixtures and rollback assertions pass in ordinary tests.
+
+These changes expose where native transition processing must occur. They do not
+add an automatic encoder, prefill, redundant tail or a new public API.
+
 ## Remaining integration
 
 Borrowing makes the actual coding paths reusable by one PCM/speech/CELT owner;
 that adaptive owner has not been implemented here. Hybrid still has a fixed API
 and wire layout and its preparation includes normal AUDIO input processing.
-The SILK entry currently finishes its packet. Native mode transitions require
+The fixed SILK entry finishes its packet; the private preparation entry now
+keeps its writer open. Native mode transitions require
 connecting root policy, application-specific preprocessing, explicit band/FEC
 control and acknowledgement, live-writer transition syntax, true SILK/CELT
 prefills, 5ms redundancy tails and long-packet placement/final-range XOR. Those

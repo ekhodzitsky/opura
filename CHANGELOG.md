@@ -7,6 +7,26 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.89] - 2026-11-03
+
+- Separate private SILK payload preparation from entropy termination and packet
+  formatting. Keep the range writer open for outer transition symbols, and
+  capture final range after those symbols. Fixed public owners keep their
+  existing whole-stream transactions, retry, DTX, overflow and padding behavior.
+- Separate Hybrid low-band preparation from high-band completion. The low-band
+  phase leaves prior CELT, committed input history and gain/width fades untouched,
+  allowing the future common owner to place transition syntax before CELT.
+  Fixed Hybrid still writes the no-redundancy flag between these phases.
+- Check live-writer continuation and phase/history boundaries across mono/stereo
+  and 10/20ms frames. Preserve existing native fixture and rollback assertions.
+  These private integration boundaries do not implement automatic encoding,
+  native cross-mode prefills or redundancy tails. Public APIs are unchanged.
+- All seven required offline gates pass, including 23 Python tests. All 24
+  fixed-mode corpora match an isolated committed 0.1.88 baseline byte-for-byte:
+  1,384,320 records across 5,088 streams, including 220,896 FEC requests and
+  768 zero-length PLC records. This matrix repeats exact prior native-validated
+  bytes; native replay was not rerun. Cargo remains dependency-free.
+
 ## [0.1.88] - 2026-11-03
 
 - Replace duplicated mono/stereo SILK packet coding with one borrowed generic

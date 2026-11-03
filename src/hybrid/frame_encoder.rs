@@ -8,6 +8,29 @@ use super::{
 };
 use crate::hybrid::encoder::PreparedFrame;
 
+pub(crate) struct LowBandFrame {
+    pub writer: RangeEncoder,
+    pub decision: Decision,
+    filtered: [i16; 1920],
+    length: usize,
+    payload_bytes: usize,
+    size: FrameSize,
+    high_band_rate: i32,
+    controls: HybridControls,
+}
+impl LowBandFrame {
+    pub fn no_redundancy(&mut self) -> Result<(), EncoderError> {
+        if self.decision != Decision::Silk
+            && self.writer.tell() + 37 <= self.payload_bytes as u32 * 8
+        {
+            self.writer
+                .encode_bit_logp(false, 12)
+                .map_err(EncoderError::Entropy)?;
+        }
+        Ok(())
+    }
+}
+
 pub(crate) struct HybridFrameEncoder<'a> {
     pub rate: InputRate,
     pub bandwidth: Bandwidth,
@@ -19,7 +42,7 @@ pub(crate) struct HybridFrameEncoder<'a> {
     pub celt: &'a mut CeltEncoder,
 }
 impl HybridFrameEncoder<'_> {
-    pub(crate) fn prepare(
+    pub(crate) fn prepare_low_band(
         &mut self,
         duration: FrameDuration,
         input: &[i16],
@@ -27,7 +50,7 @@ impl HybridFrameEncoder<'_> {
         options: Options,
         bitrate: Option<u32>,
         include_fec: bool,
-    ) -> Result<PreparedFrame, EncoderError> {
+    ) -> Result<LowBandFrame, EncoderError> {
         let short = duration == FrameDuration::Ms10;
         let fps = if short { 100 } else { 50 };
         if !(1..=2).contains(&self.channels)
@@ -260,31 +283,74 @@ impl HybridFrameEncoder<'_> {
         self.speech.excess = (self.speech.excess + silk_bits
             - allocation.silk_bitrate() as i32 / fps)
             .clamp(0, 10000);
-        // Native SILK DTX returns before the outer delay copy, HB fades and
-        // CELT call. Digital-silence DTX instead runs both layers to completion.
         if decision == Decision::Silk {
             self.speech.fec.suppress();
-            return Ok(PreparedFrame { writer, decision });
         }
-        if writer.tell() + 37 <= payload_bytes as u32 * 8 {
-            writer
-                .encode_bit_logp(false, 12)
-                .map_err(EncoderError::Entropy)?;
+        Ok(LowBandFrame {
+            writer,
+            decision,
+            filtered,
+            length: input.len(),
+            payload_bytes,
+            size,
+            high_band_rate: allocation.high_band_bitrate(),
+            controls: HybridControls {
+                bandwidth: self.bandwidth,
+                complexity: options.complexity,
+                voiced,
+                loss_percent: options.packet_loss_percent,
+                vbr: vbr_rate.map(|rate| HybridVbr {
+                    rate,
+                    offset: offset_q10,
+                }),
+            },
+        })
+    }
+    pub(crate) fn prepare(
+        &mut self,
+        duration: FrameDuration,
+        input: &[i16],
+        packet_bytes: usize,
+        options: Options,
+        bitrate: Option<u32>,
+        include_fec: bool,
+    ) -> Result<PreparedFrame, EncoderError> {
+        let mut low =
+            self.prepare_low_band(duration, input, packet_bytes, options, bitrate, include_fec)?;
+        low.no_redundancy()?;
+        self.complete_high_band(low)
+    }
+    pub(crate) fn complete_high_band(
+        &mut self,
+        low: LowBandFrame,
+    ) -> Result<PreparedFrame, EncoderError> {
+        let LowBandFrame {
+            mut writer,
+            decision,
+            filtered,
+            length,
+            size,
+            high_band_rate,
+            controls,
+            ..
+        } = low;
+        // Native SILK DTX skips input history completion, fades and CELT. Outer
+        // digital-silence suppression instead completes both layers normally.
+        if decision == Decision::Silk {
+            return Ok(PreparedFrame { writer, decision });
         }
         let mut high = [0i16; 1920];
         self.pcm
-            .aligned(&filtered[..input.len()], &mut high[..input.len()])
+            .aligned(&filtered[..length], &mut high[..length])
             .map_err(|_| EncoderError::InvalidInput)?;
         self.pcm
-            .commit(&filtered[..input.len()])
+            .commit(&filtered[..length])
             .map_err(|_| EncoderError::InvalidInput)?;
         // Preserve native fixed-point narrowing before the exponential and at
         // the Q15 result, including forced-mode extreme-rate behavior.
-        let gain = (32767
-            - (crate::celt::math::exp2((-allocation.high_band_bitrate()) as i16) >> 1))
-            as i16;
+        let gain = (32767 - (crate::celt::math::exp2((-high_band_rate) as i16) >> 1)) as i16;
         fade(
-            &mut high[..input.len()],
+            &mut high[..length],
             self.rate,
             self.channels,
             *self.high_gain,
@@ -295,7 +361,7 @@ impl HybridFrameEncoder<'_> {
         if self.channels == 2 {
             let width = self.speech.stereo.smoothed_width();
             fade(
-                &mut high[..input.len()],
+                &mut high[..length],
                 self.rate,
                 2,
                 width_q15(*self.width),
@@ -304,25 +370,11 @@ impl HybridFrameEncoder<'_> {
             );
             *self.width = width;
         }
-        self.celt.set_transient_detection(options.complexity >= 1);
+        self.celt.set_transient_detection(controls.complexity >= 1);
         self.celt.set_dynamic_allocation(true);
         self.celt.set_allocation_analysis(true);
         self.celt
-            .encode_high_band(
-                size,
-                &high[..input.len()],
-                &mut writer,
-                HybridControls {
-                    bandwidth: self.bandwidth,
-                    complexity: options.complexity,
-                    voiced,
-                    loss_percent: options.packet_loss_percent,
-                    vbr: vbr_rate.map(|rate| HybridVbr {
-                        rate,
-                        offset: offset_q10,
-                    }),
-                },
-            )
+            .encode_high_band(size, &high[..length], &mut writer, controls)
             .map_err(EncoderError::Celt)?;
         Ok(PreparedFrame { writer, decision })
     }
