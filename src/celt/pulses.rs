@@ -176,21 +176,86 @@ impl PulseCodebook {
             energy: 0,
         };
         let mut pulses = self.pulses;
-        for (coordinate, n) in (1..=self.dimensions).rev().enumerate() {
-            let boundary = u(n, pulses + 1);
-            let negative = index >= boundary;
-            if negative {
-                index -= boundary;
-            }
+        let mut n = self.dimensions;
+        let mut coordinate = 0;
+        // Separate row-oriented (many pulses) from column-oriented (many
+        // dimensions) traversal. A representable codebook has min(n,k+1)<15,
+        // so every row selected below exists. Zero suffixes are already clear.
+        while n > 2 && pulses > 0 {
             let before = pulses;
-            while u(n, pulses) > index {
+            let negative;
+            let mut base;
+            if pulses >= n {
+                let row = &U[n];
+                let boundary = row[pulses + 1];
+                negative = index >= boundary;
+                if negative {
+                    index -= boundary;
+                }
+                if row[n] > index {
+                    pulses = n - 1;
+                    base = U[pulses][n];
+                    while base > index {
+                        pulses -= 1;
+                        base = U[pulses][n];
+                    }
+                } else {
+                    base = row[pulses];
+                    while base > index {
+                        pulses -= 1;
+                        base = row[pulses];
+                    }
+                }
+            } else {
+                base = U[pulses][n];
+                let boundary = U[pulses + 1][n];
+                if base <= index && index < boundary {
+                    index -= base;
+                    coordinate += 1;
+                    n -= 1;
+                    continue;
+                }
+                negative = index >= boundary;
+                if negative {
+                    index -= boundary;
+                }
                 pulses -= 1;
+                base = U[pulses][n];
+                while base > index {
+                    pulses -= 1;
+                    base = U[pulses][n];
+                }
             }
-            index -= u(n, pulses);
+            index -= base;
             let magnitude = (before - pulses) as i16;
             let value = if negative { -magnitude } else { magnitude };
             result.values[coordinate] = value;
             result.energy += (i32::from(value) * i32::from(value)) as u32;
+            coordinate += 1;
+            n -= 1;
+        }
+        if pulses > 0 {
+            // U(2,k)=2k-1 for k>0: invert the final two coordinates directly.
+            let boundary = (2 * pulses + 1) as u32;
+            let negative = index >= boundary;
+            if negative {
+                index -= boundary;
+            }
+            let remaining = ((index + 1) >> 1) as usize;
+            if remaining > 0 {
+                index -= (2 * remaining - 1) as u32;
+            }
+            let magnitude = (pulses - remaining) as i16;
+            let first = if negative { -magnitude } else { magnitude };
+            let last = if index != 0 {
+                -(remaining as i16)
+            } else {
+                remaining as i16
+            };
+            result.values[coordinate] = first;
+            result.values[coordinate + 1] = last;
+            result.energy +=
+                (i32::from(first) * i32::from(first) + i32::from(last) * i32::from(last)) as u32;
         }
         Ok(result)
     }

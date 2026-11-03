@@ -202,3 +202,83 @@ fn invalid_codebooks_indices_and_entropy_reject_without_advancing()
     assert_eq!(entropy, control);
     Ok(())
 }
+
+#[test]
+fn specialized_unranking_preserves_every_geometry_and_boundary()
+-> Result<(), Box<dyn std::error::Error>> {
+    // Independent generic traversal retained only as a test oracle. Native
+    // fixture tests above establish its coordinate order and cardinalities.
+    let mut table = [[0u32; 177]; 15];
+    table[0][0] = 1;
+    for n in 1..15 {
+        for k in 1..177 {
+            table[n][k] = table[n - 1][k]
+                .saturating_add(table[n][k - 1])
+                .saturating_add(table[n - 1][k - 1]);
+        }
+    }
+    let u = |n: usize, k: usize| {
+        if n.min(k) >= 15 {
+            u32::MAX
+        } else {
+            table[n.min(k)][n.max(k)]
+        }
+    };
+    let mut seed = 0x624b6321u32;
+    let mut checked = 0;
+    for n in 2..=176 {
+        for k in 0..=128 {
+            let book = match PulseCodebook::new(n, k) {
+                Ok(book) => book,
+                Err(PulseError::CardinalityOverflow) => continue,
+                Err(error) => return Err(error.into()),
+            };
+            let count = book.cardinality();
+            let boundary = u(n, k + 1);
+            let mut indices = vec![0, count - 1];
+            for index in [
+                boundary.saturating_sub(1),
+                boundary,
+                boundary.saturating_add(1),
+            ] {
+                if index < count {
+                    indices.push(index);
+                }
+            }
+            if count <= 512 {
+                indices.extend(0..count);
+            } else {
+                for _ in 0..64 {
+                    seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+                    indices.push(seed % count);
+                }
+            }
+            for original in indices {
+                let (mut index, mut remaining) = (original, k);
+                let mut expected = vec![0; n];
+                for (coordinate, dimensions) in (1..=n).rev().enumerate() {
+                    let boundary = u(dimensions, remaining + 1);
+                    let negative = index >= boundary;
+                    if negative {
+                        index -= boundary;
+                    }
+                    let before = remaining;
+                    while u(dimensions, remaining) > index {
+                        remaining -= 1;
+                    }
+                    index -= u(dimensions, remaining);
+                    let magnitude = (before - remaining) as i16;
+                    expected[coordinate] = if negative { -magnitude } else { magnitude };
+                }
+                let actual = book.decode_index(original)?;
+                assert_eq!(actual.values(), expected, "n={n} k={k} index={original}");
+                assert_eq!(book.index_of(actual.values())?, original);
+                invariant(&actual, k);
+                checked += 1;
+            }
+            assert_eq!(book.decode_index(count), Err(PulseError::InvalidIndex));
+        }
+    }
+    assert!(checked > 100000);
+    Ok(())
+}

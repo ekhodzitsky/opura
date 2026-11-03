@@ -7,6 +7,19 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-03
+
+- Specialize CELT CWRS pulse-vector unranking with native row/column traversal,
+  zero-suffix skipping and exact final-coordinate formulas. Preserve public
+  codebook validation, vector order/energy, entropy and whole-decoder rollback.
+- Check every valid geometry against the prior generic traversal with boundary
+  and random indices, rank/energy invariants and unchanged native fixtures.
+  Add an optional paired public-decoder before/after tool requiring full
+  source-bound conformance and exact PCM/range fingerprints before timing.
+- Pass all seven offline gates (172 library/40 Python tests), two detected and
+  restored source mutations, and all120 RFC8251 cases with every0.2.0 PCM hash
+  unchanged. Final ordinary-release paired performance evidence is pending.
+
 ## [0.2.0] - 2026-11-03
 
 - Add canonical Vorbis surround encoding with persistent masks, native stream/
