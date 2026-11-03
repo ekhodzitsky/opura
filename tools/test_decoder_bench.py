@@ -5,7 +5,7 @@ import decoder_bench as bench
 
 
 def sample(rate=48000, elapsed=200_000_000):
-    counts=[7000,5000,8075]
+    counts=bench.MODE_PACKETS.copy()
     return {'packets':bench.PACKETS_PER_PASS,'passes':1,'samples_per_pass':bench.SAMPLES48_PER_PASS*rate//48000,
             'fingerprint':'0123456789abcdef','decoder_bytes':34000,'elapsed_ns':elapsed,
             'latency_ns':{'p50':5000,'p95':15000,'p99':20000,'max':30000},
@@ -20,8 +20,8 @@ def report(ratio=.8):
     for key in ['source_sha256','corpus_sha256','rust_binary_sha256','reference_binary_sha256','conformance_report_sha256']:
         result[key]='0'*64
     for rate,channels in bench.CASES:
-        result['cases'][f'{rate}/{channels}']={'correct':True,'passes':1,'calibration':{'opura':sample(rate),'libopus':sample(rate)},
-                                             'samples':{'opura':[sample(rate,int(200_000_000*ratio)) for _ in range(15)],'libopus':[sample(rate) for _ in range(15)]}}
+        result['cases'][f'{rate}/{channels}']={'correct':True,'passes':1,'calibration':{'opura':sample(rate,400_000_000),'libopus':sample(rate,400_000_000)},
+                                             'samples':{'opura':[sample(rate,int(400_000_000*ratio)) for _ in range(15)],'libopus':[sample(rate,400_000_000) for _ in range(15)]}}
     return result
 
 
@@ -34,7 +34,7 @@ class DecoderBenchTests(unittest.TestCase):
         self.assertTrue(any('aggregate' in e for e in errors))
         one=report()
         for row in one['cases']['8000/1']['samples']['opura']:
-            row['elapsed_ns']=400_000_000
+            row['elapsed_ns']=800_000_000
         self.assertTrue(any('8000/1' in e for e in bench.evaluate(one)))
 
     def test_provenance_profile_coverage_and_schedule_fail_closed(self):
@@ -81,6 +81,51 @@ class DecoderBenchTests(unittest.TestCase):
             with self.subTest(key=key),self.assertRaises(ValueError):bench.conformance_cases(damaged)
         damaged=deepcopy(result);damaged['results'][1]=damaged['results'][0]
         with self.assertRaises(ValueError):bench.conformance_cases(damaged)
+
+
+class AdaptiveDecoderBenchTests(unittest.TestCase):
+    def test_full_minimum_and_actual_counts_are_required(self):
+        valid = sample(elapsed=200000000); valid['init_ns'] = 1; valid['passes'] = 2
+        self.assertEqual(bench.check_timed(valid, bench.PACKETS_PER_PASS, 1, 200), valid)
+        for key, value in [('elapsed_ns', 199999999), ('passes', 0), ('passes', True),
+                           ('passes', 1001), ('init_ns', 0), ('init_ns', True)]:
+            damaged = deepcopy(valid); damaged[key] = value
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                bench.check_timed(damaged, bench.PACKETS_PER_PASS, 1, 200)
+        with self.assertRaises(ValueError): bench.check_timed(valid, bench.PACKETS_PER_PASS, 3, 200)
+
+    def test_old_quarter_minimum_loophole_is_rejected(self):
+        damaged = report(); damaged['cases']['8000/1']['samples']['opura'][0]['elapsed_ns'] = 100000000
+        self.assertTrue(any('timing window too short' in e for e in bench.evidence_errors(damaged)))
+
+    def test_schema2_mixed_actual_passes_and_changed_summary_reject(self):
+        valid = report(); valid.update(schema_version=2, status='complete', cflags=bench.CFLAGS_V2[:],
+                                       rust_profile=bench.RUST_PROFILE.copy(), rust_flags=bench.RUST_FLAGS,
+                                       rustc='rustc 1.87.0', cc='test C compiler',
+                                       fault_sensitivity={k: ('verified' if k.endswith(('minimum_extension','legacy_cli')) else 'rejected') for k in bench.PROBES})
+        for h in [valid['hardware_before'], valid['hardware_after']]:
+            h.update(cpu_model='test CPU', machine='x86_64', kernel='test kernel')
+        for case in valid['cases'].values():
+            for row in case['calibration'].values(): row['init_ns'] = 1
+            for rows in case['samples'].values():
+                for i, row in enumerate(rows):
+                    row['init_ns'] = 1
+                    row['passes'] = 1 + i % 2
+                    row['elapsed_ns'] *= row['passes']
+        valid['probe_samples'] = {}
+        for name in ['rust', 'native']:
+            row = sample(elapsed=2100000000); row.update(passes=3, init_ns=1)
+            valid['probe_samples'][name] = row
+            row = sample(); row['init_ns'] = 1
+            valid['probe_samples'][name + '_legacy'] = row
+        valid['summary'] = bench.summarize_v2(valid)
+        self.assertEqual(bench.evidence_errors(valid), [])
+        self.assertEqual(bench.evaluate(valid), [])
+        for key, value in [('status','in_progress'),('fault_sensitivity',{}),('rust_flags',''),('summary',{}),('probe_samples',{})]:
+            damaged = deepcopy(valid); damaged[key] = value
+            with self.subTest(key=key): self.assertTrue(bench.evidence_errors(damaged))
+        damaged = deepcopy(valid); damaged['cases']['48000/2']['samples']['opura'][0]['elapsed_ns'] = 199999999
+        self.assertTrue(bench.evidence_errors(damaged))
 
 
 if __name__=='__main__':unittest.main()

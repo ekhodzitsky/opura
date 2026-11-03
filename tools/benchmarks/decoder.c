@@ -13,6 +13,7 @@ typedef struct {uint64_t packets,samples,fingerprint;} Pass;
 static Stream streams[12];
 static int channels;
 static void fail(const char *message) {fprintf(stderr,"%s\n",message);exit(1);}
+static int number(const char *text) {unsigned value=0;if(!*text)fail("invalid integer");for(;*text;text++){unsigned d=(unsigned)(*text-'0');if(d>9||value>(2147483647u-d)/10)fail("invalid integer");value=value*10+d;}return (int)value;}
 static uint64_t now(void) {struct timespec t;if(clock_gettime(CLOCK_MONOTONIC,&t))fail("clock failed");return (uint64_t)t.tv_sec*1000000000+(uint64_t)t.tv_nsec;}
 static uint32_t be32(const unsigned char *b) {return (uint32_t)b[0]<<24|(uint32_t)b[1]<<16|(uint32_t)b[2]<<8|b[3];}
 static void fold(uint64_t *h,uint32_t value,int bytes) {for(int i=0;i<bytes;i++){*h^=(value>>(8*i))&255;*h*=UINT64_C(1099511628211);}}
@@ -60,15 +61,28 @@ static Pass replay(OpusDecoder *decoder,int check,uint64_t *latency) {
 }
 static int order_u64(const void *a,const void *b) {uint64_t x=*(const uint64_t*)a,y=*(const uint64_t*)b;return (x>y)-(x<y);}
 int main(int argc,char **argv) {
-    if(argc!=6)fail("usage: decoder VECTOR_DIR RATE CHANNELS PASSES WARMUP");
-    int rate=atoi(argv[2]);channels=atoi(argv[3]);int passes=atoi(argv[4]),warmup=atoi(argv[5]);
+    if(argc<6||argc>8)fail("usage: decoder VECTOR_DIR RATE CHANNELS PASSES WARMUP [MINIMUM_MS] [EXPECTED_FINGERPRINT]");
+    int rate=number(argv[2]);channels=number(argv[3]);int passes=number(argv[4]),warmup=number(argv[5]);
     if((rate!=8000&&rate!=12000&&rate!=16000&&rate!=24000&&rate!=48000)||(channels!=1&&channels!=2)||passes<1||passes>1000||warmup<1||warmup>100)fail("invalid arguments");
-    load(argv[1]);int error;OpusDecoder *decoder=opus_decoder_create(rate,channels,&error);if(!decoder||error)fail("decoder init failed");
+    uint64_t minimum_ms=argc>=7?(uint64_t)number(argv[6]):0;
+    if(minimum_ms>2000)fail("invalid minimum time");
+    uint64_t expected=0;
+    if(argc==8){
+        if(strlen(argv[7])!=16)fail("fingerprint requires16hex digits");
+        for(int j=0;j<16;j++){char c=argv[7][j];unsigned v=c>='0'&&c<='9'?(unsigned)(c-'0'):c>='a'&&c<='f'?(unsigned)(c-'a'+10):c>='A'&&c<='F'?(unsigned)(c-'A'+10):16;if(v>15)fail("invalid fingerprint");expected=(expected<<4)|v;}
+    }
+    load(argv[1]);int error;uint64_t init=now();OpusDecoder *decoder=opus_decoder_create(rate,channels,&error);uint64_t init_ns=now()-init;if(!decoder||error)fail("decoder init failed");
     Pass validation=replay(decoder,1,NULL),observed={0};
+    if(argc==8&&validation.fingerprint!=expected)fail("expected PCM/range fingerprint mismatch");
     for(int i=0;i<warmup;i++){observed=replay(decoder,0,NULL);__asm__ __volatile__("" : : "r"(&observed) : "memory");}
-    uint64_t begin=now();
-    for(int i=0;i<passes;i++){observed=replay(decoder,0,NULL);__asm__ __volatile__("" : : "r"(&observed) : "memory");}
-    uint64_t elapsed=now()-begin;
+    uint64_t elapsed=0;int completed=0;
+    while(completed<passes||elapsed<minimum_ms*1000000){
+        if(completed==1000)fail("minimum time exceeds1000pass bound");
+        uint64_t begin=now();observed=replay(decoder,0,NULL);
+        __asm__ __volatile__("" : : "r"(&observed) : "memory");
+        elapsed+=now()-begin;completed++;
+        if(observed.packets!=validation.packets||observed.samples!=validation.samples)fail("timed decode geometry changed");
+    }
     uint64_t *latency=malloc(validation.packets*sizeof(*latency));if(!latency)fail("latency allocation failed");
     replay(decoder,0,latency);
     uint64_t mode_times[3]={0},mode_counts[3]={0},index=0;
@@ -76,8 +90,10 @@ int main(int argc,char **argv) {
         unsigned char toc=streams[s].records[i].data[0];int mode=toc&0x80?2:(toc&0x60)==0x60?1:0;
         mode_times[mode]+=latency[index++];mode_counts[mode]++;
     }
+    Pass final_validation=replay(decoder,1,NULL);
+    if(final_validation.packets!=validation.packets||final_validation.samples!=validation.samples||final_validation.fingerprint!=validation.fingerprint)fail("output changed after timing");
     qsort(latency,validation.packets,sizeof(*latency),order_u64);
-    printf("{\"packets\":%"PRIu64",\"samples_per_pass\":%"PRIu64",\"fingerprint\":\"%016"PRIx64"\",\"decoder_bytes\":%d,\"passes\":%d,\"elapsed_ns\":%"PRIu64",\"latency_ns\":{\"p50\":%"PRIu64",\"p95\":%"PRIu64",\"p99\":%"PRIu64",\"max\":%"PRIu64"},\"mode_packets\":[%"PRIu64",%"PRIu64",%"PRIu64"],\"mode_latency_total_ns\":[%"PRIu64",%"PRIu64",%"PRIu64"]}\n",validation.packets,validation.samples,validation.fingerprint,opus_decoder_get_size(channels),passes,elapsed,latency[(validation.packets-1)*50/100],latency[(validation.packets-1)*95/100],latency[(validation.packets-1)*99/100],latency[validation.packets-1],mode_counts[0],mode_counts[1],mode_counts[2],mode_times[0],mode_times[1],mode_times[2]);
+    printf("{\"packets\":%"PRIu64",\"samples_per_pass\":%"PRIu64",\"fingerprint\":\"%016"PRIx64"\",\"decoder_bytes\":%d,\"passes\":%d,\"elapsed_ns\":%"PRIu64",\"init_ns\":%"PRIu64",\"latency_ns\":{\"p50\":%"PRIu64",\"p95\":%"PRIu64",\"p99\":%"PRIu64",\"max\":%"PRIu64"},\"mode_packets\":[%"PRIu64",%"PRIu64",%"PRIu64"],\"mode_latency_total_ns\":[%"PRIu64",%"PRIu64",%"PRIu64"]}\n",validation.packets,validation.samples,validation.fingerprint,opus_decoder_get_size(channels),completed,elapsed,init_ns,latency[(validation.packets-1)*50/100],latency[(validation.packets-1)*95/100],latency[(validation.packets-1)*99/100],latency[validation.packets-1],mode_counts[0],mode_counts[1],mode_counts[2],mode_times[0],mode_times[1],mode_times[2]);
     free(latency);opus_decoder_destroy(decoder);
     for(int s=0;s<12;s++){for(size_t i=0;i<streams[s].length;i++)free(streams[s].records[i].data);free(streams[s].records);}return 0;
 }

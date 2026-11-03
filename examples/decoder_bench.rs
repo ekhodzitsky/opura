@@ -1,5 +1,5 @@
 //! Optional in-process public decoder benchmark. File I/O is outside timing.
-//! Usage: decoder_bench VERIFIED_VECTOR_DIR RATE CHANNELS PASSES WARMUP
+//! Usage: decoder_bench VERIFIED_VECTOR_DIR RATE CHANNELS PASSES WARMUP [MINIMUM_MS] [EXPECTED_FINGERPRINT]
 use opura::{
     decoder::OpusDecoder,
     silk::{decoder::PcmChannels, resampler::OutputRate},
@@ -12,7 +12,7 @@ struct Record {
     data: Vec<u8>,
     range: u32,
 }
-#[derive(Default)]
+#[derive(Default, Eq, PartialEq)]
 struct Pass {
     packets: u64,
     samples: u64,
@@ -102,8 +102,8 @@ fn replay(
 }
 fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<_> = env::args_os().skip(1).collect();
-    if args.len() != 5 {
-        return Err("usage: decoder_bench VECTOR_DIR RATE CHANNELS PASSES WARMUP".into());
+    if !(5..=7).contains(&args.len()) {
+        return Err("usage: decoder_bench VECTOR_DIR RATE CHANNELS PASSES WARMUP [MINIMUM_MS] [EXPECTED_FINGERPRINT]".into());
     }
     let directory = PathBuf::from(&args[0]);
     let rate = match args[1].to_str() {
@@ -124,17 +124,51 @@ fn main() -> Result<(), Box<dyn Error>> {
     if !(1..=1000).contains(&passes) || !(1..=100).contains(&warmup) {
         return Err("passes/warmup out of bounds".into());
     }
+    let minimum_ms: u64 = args
+        .get(5)
+        .map(|v| v.to_str().ok_or("minimum time"))
+        .transpose()?
+        .map(str::parse)
+        .transpose()?
+        .map_or(0, |v| v);
+    if minimum_ms > 2000 {
+        return Err("minimum time must be0..2000ms".into());
+    }
+    let expected = args
+        .get(6)
+        .map(|v| {
+            let value = v.to_str().ok_or("fingerprint")?;
+            if value.len() != 16 {
+                return Err("fingerprint requires16hex digits".into());
+            }
+            Ok::<u64, Box<dyn Error>>(u64::from_str_radix(value, 16)?)
+        })
+        .transpose()?;
     let streams = load(&directory)?;
+    let init = Instant::now();
     let mut decoder = OpusDecoder::new(rate, channels)?;
+    let init_ns = init.elapsed().as_nanos();
     let validation = replay(&mut decoder, &streams, true, None)?;
+    if expected.is_some_and(|expected| expected != validation.fingerprint) {
+        return Err("expected PCM/range fingerprint mismatch".into());
+    }
     for _ in 0..warmup {
         black_box(replay(&mut decoder, &streams, false, None)?);
     }
-    let begin = Instant::now();
-    for _ in 0..passes {
-        black_box(replay(&mut decoder, &streams, false, None)?);
+    let mut completed = 0;
+    let mut elapsed = 0u128;
+    while completed < passes || elapsed < u128::from(minimum_ms) * 1_000_000 {
+        if completed == 1000 {
+            return Err("minimum time exceeds1000pass bound".into());
+        }
+        let begin = Instant::now();
+        let observed = black_box(replay(&mut decoder, &streams, false, None)?);
+        elapsed += begin.elapsed().as_nanos();
+        completed += 1;
+        if (observed.packets, observed.samples) != (validation.packets, validation.samples) {
+            return Err("timed decode geometry changed".into());
+        }
     }
-    let elapsed = begin.elapsed().as_nanos();
     let mut latency = Vec::with_capacity(validation.packets as usize);
     replay(&mut decoder, &streams, false, Some(&mut latency))?;
     let mut mode_times = [0u64; 3];
@@ -150,16 +184,21 @@ fn main() -> Result<(), Box<dyn Error>> {
         mode_times[mode] += elapsed;
         mode_counts[mode] += 1;
     }
+    let final_validation = replay(&mut decoder, &streams, true, None)?;
+    if final_validation != validation {
+        return Err("output changed after timing".into());
+    }
     latency.sort_unstable();
     let percentile = |p: usize| latency[(latency.len() - 1) * p / 100];
     println!(
-        "{{\"packets\":{},\"samples_per_pass\":{},\"fingerprint\":\"{:016x}\",\"decoder_bytes\":{},\"passes\":{},\"elapsed_ns\":{},\"latency_ns\":{{\"p50\":{},\"p95\":{},\"p99\":{},\"max\":{}}},\"mode_packets\":[{},{},{}],\"mode_latency_total_ns\":[{},{},{}]}}",
+        "{{\"packets\":{},\"samples_per_pass\":{},\"fingerprint\":\"{:016x}\",\"decoder_bytes\":{},\"passes\":{},\"elapsed_ns\":{},\"init_ns\":{},\"latency_ns\":{{\"p50\":{},\"p95\":{},\"p99\":{},\"max\":{}}},\"mode_packets\":[{},{},{}],\"mode_latency_total_ns\":[{},{},{}]}}",
         validation.packets,
         validation.samples,
         validation.fingerprint,
         size_of::<OpusDecoder>(),
-        passes,
+        completed,
         elapsed,
+        init_ns,
         percentile(50),
         percentile(95),
         percentile(99),

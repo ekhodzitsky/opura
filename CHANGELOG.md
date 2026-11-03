@@ -7,6 +7,25 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-11-03
+
+- Extend optional public decoder benchmark adapters with bounded adaptive
+  minimum-time loops, actual-pass accounting, separate initialization timing,
+  per-pass geometry checks and full output revalidation after timing. Preserve
+  old CLI forms; add optional minimum time and expected PCM/range fingerprint.
+- Repair the quarter-minimum evidence loophole: collection and checking require
+  the full declared sample duration. Retain historical schema1 interpretation;
+  its0.1.41samples already exceed200ms. Add schema2 profile/source/binary/PCM/
+  mode/probe checks and reproducible paired per-case/aggregate uncertainty.
+- Add live rejection probes for wrong ranges/PCM and1000-pass exhaustion,
+  extension and legacy-call verification. Publish partial status separately
+  from completed evidence and distinguish valid losing measurements from invalid
+  data. All seven offline gates pass (172 library/44 Python tests);120official
+  conformance PCM hashes remain unchanged. Newly compiled generic profiles
+  independently reproduce all120hashes and pass ten live adapter probes plus
+  stale-source rejection. Codec algorithms remain those of0.2.2; final native
+  comparison and speed target remain pending.
+
 ## [0.2.2] - 2026-11-03
 
 - Render unified normal, multi-frame, PLC and FEC output into bounded private
