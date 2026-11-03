@@ -7,6 +7,14 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Retain the rejected private inverse-MDCT destination experiment: all seven
+  gates pass (183 library/44 Python tests), with398native MDCT and480synthesis
+  cases, native complete-decoder/multistream fixtures, three detected/restored
+  mutations and120official PCM hashes unchanged from0.2.5. The complete300sample
+  comparison gives ratio1.0027,95% interval[0.9745,1.0345]; every individual
+  interval includes1. Preserve all raw samples and bindings. No production
+  adoption,0.2.6release/tag or native/SOTA claim follows.
+
 - Retain two correctness-validated decoder rollback experiments without adopting
   their implementation. Each complete paired comparison retains 300 samples
   across all ten output geometries. Full-snapshot and selective-snapshot

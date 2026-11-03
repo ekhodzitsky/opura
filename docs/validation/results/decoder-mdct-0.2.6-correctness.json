@@ -1,0 +1,176 @@
+{
+  "schema_version": 1,
+  "version": "0.2.6",
+  "base_revision": "a993c39",
+  "worktree_modified": true,
+  "provenance": "All correctness checks bind codec content committed atcd02054. The complete comparison is inconclusive and the implementation is not accepted or released.",
+  "source_sha256": {
+    "src/celt/mdct.rs": "16f5354b45aeb362b6563f26f19f1926921da90a6db0d9f905d8b41260b2ac6f",
+    "src/celt/synthesis.rs": "db8f3a7e2e98f6c794dcd70539650234e5c0a811a8bb02555b40a01f082899fa",
+    "src/celt/mdct_output_tests.rs": "1a0b60fff11e0f913935d8739aa156970c30f979f999d6f31cc1c293ddcbb782",
+    "tests/celt-mdct-fixtures.txt": "c7de5a33b9bdd2c5115432c8e82e318763c42bed6752ab4a453e6dcbae760808",
+    "tests/celt-synthesis-fixtures.txt": "e94b6090001c46d010b7f90d6375d4746a11f6ccc666c437c2482ecf233807e5",
+    "tests/decoder-pcm-fixtures.txt": "c14959e2f5e92a67760f7ca6ab2d4ce8a1dd5309d50a8ed19100029d8fabe1cf",
+    "Cargo.toml": "4bfcd68c47c65cb74dc9d236553bc8ebdba2cecece68621ff3bcf6c674bbba5a",
+    "Cargo.lock": "971bd4a92701ad6829df7ce53dcdef14087c2920a32ab97061f423541ca6ea54"
+  },
+  "offline_gates": [
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 0.5244530939962715
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked"
+      ],
+      "exit_code": 0,
+      "seconds": 145.36541895799746
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--release"
+      ],
+      "exit_code": 0,
+      "seconds": 34.84553314700315
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "seconds": 11.212196039006812
+    },
+    {
+      "command": [
+        "cargo",
+        "doc",
+        "--offline",
+        "--locked",
+        "--no-deps"
+      ],
+      "exit_code": 0,
+      "seconds": 0.852262611995684
+    },
+    {
+      "command": [
+        "python3",
+        "tools/check_dependencies.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.049700700998073444
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools",
+        "-p",
+        "test_*.py"
+      ],
+      "exit_code": 0,
+      "seconds": 5.247063703005551
+    }
+  ],
+  "rustdoc_environment": {
+    "RUSTDOCFLAGS": "-D warnings"
+  },
+  "library_tests": 183,
+  "python_tests": 44,
+  "native_mdct_cases": 398,
+  "native_synthesis_cases": 480,
+  "all_transaction_tests": 9,
+  "new_private_output_tests": 2,
+  "mutations": [
+    {
+      "name": "omit-destination-length-validation",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--lib",
+        "invalid_destinations_and_spectra_preserve_output_overlap_and_resume"
+      ],
+      "exit_code": 101,
+      "caught": true
+    },
+    {
+      "name": "omit-final-output-sample",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--lib",
+        "private_destinations_match_native_chained_samples_and_overlap"
+      ],
+      "exit_code": 101,
+      "caught": true
+    },
+    {
+      "name": "overwrite-first-transient-block",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--test",
+        "celt_synthesis"
+      ],
+      "exit_code": 101,
+      "caught": true
+    }
+  ],
+  "native_decoder_operations": 1680,
+  "native_multistream_regressions": "pass",
+  "official_conformance_cases": 120,
+  "pcm_unchanged_from": "0.2.5",
+  "performance_status": "complete, inconclusive; rejected for release",
+  "exploratory_pilot": {
+    "pairs": 7,
+    "geometry": "48000/2",
+    "ratio": 0.9676464190237481,
+    "accepted_as_release_evidence": false
+  },
+  "limitations": [
+    "No native/other-competitor, encoder quality/speed, peak-stack/heap/RSS or SOTA claim.",
+    "The1020-element workspace and FFT preparation remain; this is not fully in-place MDCT."
+  ],
+  "codec_revision": "cd02054",
+  "performance": {
+    "report": "../../benchmarks/results/decoder-mdct-0.2.6.json",
+    "samples": 300,
+    "paired_rounds": 15,
+    "geometries": 10,
+    "ci95": [
+      0.9744723359855997,
+      1.034515772297559
+    ],
+    "ratio": 1.002652491188194,
+    "accepted": false
+  }
+}

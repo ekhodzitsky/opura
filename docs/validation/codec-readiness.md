@@ -90,6 +90,11 @@ integrated contract in the table above.
   gives 0.9916, interval [0.9739,1.0075], each with 300 samples/all ten geometries.
   Neither demonstrates aggregate benefit. Their correctness-validated code is
   retained separately; production remains 0.2.5 and no 0.2.6 tag is created.
+  The later [private MDCT destination experiment](../benchmarks/decoder-mdct-0.2.6.md)
+  also remains unaccepted:300samples, ratio1.0027,95% interval[0.9745,1.0345],
+  with all ten individual intervals including1. All seven gates and120unchanged
+  official PCM hashes pass. Its code stays separate; stable production remains
+  0.2.5. No unchanged experiment is repeated in search of significance.
   Best-available native SIMD and the other direct implementations in the
   [comparison contract](../benchmarks/competitive-landscape.md) remain unmeasured.
 - Cross-platform/target coverage and malformed-input/resource measurements must
