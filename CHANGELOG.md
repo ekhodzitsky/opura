@@ -7,18 +7,36 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.96] - 2026-11-03
+
+- Add optional in-process unified-encoder and pristine scalar libopus benchmark
+  adapters with matched prepared PCM/controls, separate initialization and frame
+  latency, independent cross-decoder PCM/range checks and live corruption probes.
+  Native compilation remains external to Cargo; no dependencies or unsafe Rust
+  are added. Codec algorithms are unchanged from0.1.95.
+- Add calibrated randomized paired measurements, source/binary/corpus provenance,
+  explicit memory/API output scopes, actual packet diagnostics and fail-closed
+  report validation that recomputes confidence intervals. The full protocol has
+  60 cases including all applications/rate modes, five rates, packet durations
+  through120ms, loss/DTX and complete speech/music recordings. Retained results
+  are recorded after measurement; benchmark availability is not a speed claim.
+- Expose both endpoints of the existing paired percentile interval and correct
+  its description: the unchanged upper gate is the97.5th percentile, the upper
+  end of an equal-tail95% interval. Existing competitive thresholds are retained.
+
 - Audit native CELT prediction0/1/2, packet loss0..100, changing spectral bands
   and mono/stereo wire layout over6,144 actual calls. Every payload byte, PCM,
   final range and captured rate/intensity history matches the disclosed
   Q24-corrected encoder oracle. Periodic and impulse inputs supplement noise;
   sustained voiced schedules include active prefilter histories. Five isolated
-  mutations are detected. Production codec behavior/version remain0.1.95.
+  mutations are detected. The audited codec algorithms match0.1.95.
 - Extend ordinary Rust regressions and preserve the prior quality/rate/helper
   fixtures unchanged. Record current capabilities and outstanding multistream
   and comparative evaluation work in docs/validation/codec-readiness.md.
-- Repeat the complete official RFC8251 decoder matrix on the current source:
-  all120 cases and final ranges pass, with corruption probes rejected.
-  All seven offline gates pass, including162 library and23 Python tests.
+- Preserve the post0.1.95 complete official RFC8251 decoder audit: all120
+  cases/ranges and corruption probes pass. The unchanged decoder is covered by
+  current required regressions. All seven offline gates pass, including162
+  library and30 Python tests; benchmark/report tests account for the increase.
 
 ## [0.1.95] - 2026-11-03
 

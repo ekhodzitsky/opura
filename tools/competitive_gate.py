@@ -13,14 +13,20 @@ import struct
 from packet_bench import GROUPS, ROOT, corpus, sha, source_digest
 
 
-def upper_bound(a, b, rng):
+def paired_interval(a, b, rng):
+    """Equal-tail95% paired percentile interval; preserve the existing97.5% upper gate."""
     # Paired bootstrap: a and b at each index belong to the same round.
     ratios = []
     for _ in range(2000):
         indices = rng.choices(range(len(a)), k=len(a))
         ratios.append(statistics.median(a[i] for i in indices) /
                       statistics.median(b[i] for i in indices))
-    return sorted(ratios)[1949]
+    ordered = sorted(ratios)
+    return ordered[49], ordered[1949]
+
+
+def upper_bound(a, b, rng):
+    return paired_interval(a, b, rng)[1]
 
 
 def evaluate(report, scope='packet'):

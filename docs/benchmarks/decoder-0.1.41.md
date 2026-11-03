@@ -2,7 +2,7 @@
 
 The complete packet-to-PCM decoder is slower than the pinned scalar fixed-point
 libopus reference in every measured output configuration. The equal-weight
-aggregate ratio has a one-sided 95% bootstrap upper bound of **1.654**, above
+aggregate ratio has a 97.5th-percentile paired bootstrap upper bound of **1.654**, above
 the 0.900 target. Every case also exceeds the 1.050 regression ceiling.
 This is a baseline for improvement; decoder or whole-codec leadership is not established.
 
