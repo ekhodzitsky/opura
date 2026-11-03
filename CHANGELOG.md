@@ -7,6 +7,12 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.97] - 2026-11-03
+
+- Pass all seven offline gates with163 library/34 Python tests and the full
+  current-source120-case RFC8251 decoder matrix, including encoded final ranges
+  and rejection probes. Every zero-gain PCM hash remains identical to0.1.95.
+
 - Add persistent generic mapped encoding with native total/per-stream rate
   allocation, complete packet CBR/VBR/CVBR budgets,100ms framing reservations,
   mapped first-occurrence PCM selection and complete-owner rollback/resume.
@@ -30,8 +36,8 @@ and validation, without implying full Opus compatibility before PCM decoding.
 - Add native signed Q8 dB decoder gain, retained by reset and applied per frame
   including transition PLC. Optional unchanged-native evidence checks13,328
   framing outputs/consumed offsets and560 PCM/range/gain operations, including
-  actual SILK/Hybrid/CELT and LBRR coverage. Multistream encoding and file
-  integration remain in progress; no full multistream or SOTA claim.
+  actual SILK/Hybrid/CELT and LBRR coverage. Mapped file integration and
+  surround analysis remain in progress; no universal or SOTA claim.
 
 ## [0.1.96] - 2026-11-03
 

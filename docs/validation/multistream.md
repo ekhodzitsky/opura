@@ -139,10 +139,16 @@ the frame decoder after exact pre-skip/end trimming. These cover wiring and
 budget semantics; independent native fixtures cover gain arithmetic and PCM.
 
 The encoder/file-gain integration passes all seven offline gates with 163 library
-and 33 Python tests. Four additional running-assertion mutations detect wrong
+and 34 Python tests. Four additional running-assertion mutations detect wrong
 rate offsets, last-occurrence input selection, partial state commits and CBR
 rounding. The sources are restored; targeted tests and fresh independent native
 validation pass again. Both full exports are byte-identical. The
 [source-fingerprinted report](results/multistream-generic-encoder.json) records
 7405 actual operations, with 49 FEC-step LBRR streams and 3108 suppressed frames.
 The earlier seven-gate statement above records the decoder-only checkpoint.
+
+
+The0.1.97 full official RFC8251 matrix passes120/120 cases and encoded final
+ranges, with all120 zero-gain PCM hashes identical to0.1.95. The tracked
+[current conformance report](results/codec-readiness-0.1.97-conformance.json)
+binds the complete release source fingerprint.

@@ -34,7 +34,7 @@ Surround analysis and mapped file workflows remain unfinished.
 
 An optional [in-process encoder benchmark](docs/benchmarks/encoder-0.1.96.md)
 compares matched public APIs and independently verifies both packet streams.
-The retained 60-case baseline has an Opura/native time ratio of 1.244;
+The retained 0.1.96 mono/stereo baseline has an Opura/native time ratio of 1.244;
 broader competitive acceptance remains open.
 
 The library parses externally delimited Opus packets according to

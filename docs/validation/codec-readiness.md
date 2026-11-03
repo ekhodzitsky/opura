@@ -1,23 +1,27 @@
 # Current codec readiness and remaining work
 
 The classic signed16 mono/stereo PCM decoder and shared encoder are implemented
-for the advertised library and WAV/Ogg workflows. This is not a complete
-competitive acceptance result. Production behavior remains0.1.95; the following
-audit adds evidence and tests without changing the encoder/decoder algorithms.
+for the advertised library and WAV/Ogg workflows. The library also implements
+bounded generic multistream decoding/encoding and signed output gain. Mapped
+file layouts and native surround analysis remain unfinished. This is not a
+complete competitive acceptance result; earlier audits below retain their own
+versioned source scope.
 
 ## Integrated contract and evidence
 
 | Contract | Observed evidence |
 |---|---|
-| Decoder: SILK, CELT, Hybrid, five rates, mono/stereo | Fresh full RFC8251 matrix:120 vector/rate/layout cases and every encoded nonzero final range pass. Corrupted-range and zero-PCM probes are rejected. See the [current source-fingerprinted report](results/codec-readiness-0.1.95-conformance.json). |
+| Decoder: SILK, CELT, Hybrid, five rates, mono/stereo | Fresh0.1.97 full RFC8251 matrix:120 vector/rate/layout cases and every encoded nonzero final range pass. Corrupted-range and zero-PCM probes are rejected. See the [current source-fingerprinted report](results/codec-readiness-0.1.97-conformance.json). |
 | Encoder: one PCM/SILK/CELT owner, five applications, all five input rates | [Application validation](encoder-applications.md) checks original input, HP/delay, active resamplers, speech PCM and real CELT call traces. CLI regressions check exact duration and lookahead. |
 | Mode/wire/band continuity and packets2.5..120ms | [Long-packet validation](encoder-long-packets.md) checks real prefills, bandwidth handshake/acknowledgement, native component geometry and transition-tail placement. Shared-owner tests check transition ranges and transaction rollback. |
 | CBR/VBR/CVBR, DTX/FEC, loss and tiny budgets | [Budget validation](encoder-budgets.md) checks early PLC, completed speech overflow, physical admission, retained histories and resume. Independent short/long/pressure corpora each cover9,600 receiver calls including800 PLC and800 FEC. [0.1.95 replay evidence](results/celt-rate-history-0.1.95.json) records the final hashes and fresh native PCM/range replay. |
 | CELT complexity, transients, spreading and rate feedback | [Quality](celt-quality.md), [rate/intensity](celt-rate-history.md) and [prediction/loss/band](celt-controls.md) audits compare actual stateful encoding. The normal test suite now checks every payload byte, PCM and final range over21,836 actual CELT calls, plus768 paired spectral-helper decisions. |
+| Generic mapped library codec | [Multistream validation](multistream.md) checks13,328 native framing outputs,560 native decode/gain operations,3240 allocation boundaries and7405 independently native-decoded encoder operations. Maps include repeated/omitted/silent channels and1..8channel generic encoding. Complete-owner late-error/resume and source mutations are checked. Surround energy masks/LFE are not included. |
 | Invalid input and late errors | Shared-owner regressions compare the complete owner against its pre-call clone after failed short/long packets, invalid geometry/controls and impossible budgets. Successful insufficient-budget PLC follows its distinct documented state-retention contract. |
 | File timing and fixed paths | Full Cargo integration tests retain empty/partial, silence/resume, all applications/rates, whole CBR budgets and error-before-creation checks. The [0.1.95 recording report](results/celt-rate-history-0.1.95-recordings.json) checks12 paired full-recording CBR profiles,24 native PCM matches and exact durations. Prior complete fixed corpus identity is recorded in0.1.94; those corpora were not regenerated in this validation-only audit. |
-| Build constraints | The 0.1.95 control audit passed all seven offline gates with 162 library/23 Python tests; the 0.1.96 benchmark tooling also passes the gates, with 31 Python tests. No third-party Cargo dependency, unsafe policy exception or ordinary external codec requirement was added. |
+| Build constraints | The 0.1.95 control audit passed all seven offline gates with 162 library/23 Python tests; the 0.1.96 benchmark tooling also passes the gates, with 31 Python tests. The0.1.97 mapped-library milestone passes the seven gates with163 library/34 Python tests. No third-party Cargo dependency, unsafe policy exception or ordinary external codec requirement was added. |
 
+The0.1.97 official matrix also retains every0.1.95 PCM hash at zero gain.
 The encoder's private reference build corrects only Q24 spectral-patch local
 types, as disclosed in the linked audits. Its original checkout and reference
 decoder remain unchanged. Original common-owner input/control fixtures use the
@@ -30,10 +34,10 @@ integrated contract in the table above.
 
 ## Open work toward the full goal
 
-- Multistream channel mapping and self-delimiting subpacket framing are absent.
-  Current packet/PCM and Ogg paths handle one mono/stereo stream; they must not
-  be advertised as general multichannel support. The competitive contract names
-  multistream explicitly, so it remains an open capability target.
+- Mapped WAV/Ogg channel layouts and native surround energy-mask/LFE analysis
+  remain unfinished. Generic mapped packet/PCM APIs are implemented and checked,
+  but they do not provide multichannel file conversion or native surround
+  encoder equivalence. The current CLI still handles mono/stereo file layouts.
 - The Ogg CLI has a documented single-stream subset, and rejects multiplexed or
   chained streams. RTP is not implemented. These transport/container limits are
   separate from successful classic mono/stereo audio decoding.
@@ -41,7 +45,7 @@ integrated contract in the table above.
   Two full recordings and waveform SNR are diagnostics, not perceptual evidence.
   The next comparison needs several speakers/languages, music, transients,
   noise and silence with recorded licenses/hashes and explicit loss schedules.
-- The [in-process encoder baseline](../benchmarks/encoder-0.1.96.md) now covers
+- The historical0.1.96 [in-process mono/stereo encoder baseline](../benchmarks/encoder-0.1.96.md) now covers
   60 cases/15 paired rounds against pinned scalar native encoding, with separate
   initialization, call latency and scoped memory. Its aggregate time ratio is
   1.244; broader competitor/perceptual acceptance and performance improvement

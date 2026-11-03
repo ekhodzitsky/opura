@@ -112,7 +112,9 @@ steady-state allocation count; no memory winner is inferred from it.
 
 ## Reproduction
 
-Use a clean local checkout with the pinned Rust toolchain, a C compiler, GNU time,
+Use a separate clean checkout of annotated tag `v0.1.96` for this historical
+measurement. Later code is a different source baseline. Use the pinned Rust
+toolchain, a C compiler, GNU time,
 a clean pinned external reference, and the existing checksum-verified recordings.
 Neither native code nor third-party packages enter Cargo or ordinary tests.
 
