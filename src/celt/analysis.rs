@@ -27,13 +27,15 @@ mod transient;
 pub(crate) use transient::{analyze_tone_only, patch_missed};
 mod transient_tables;
 pub use transient::{TransientAnalysis, analyze_transients};
+mod surround;
+pub use surround::{SurroundAllocation, SurroundMask, SurroundState, analyze_surround_allocation};
 
 /// Invalid channel/context layout or underlying transform failure.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum AnalysisError {
-    /// Signal/spectrum must contain exactly one/two planar channels of the
-    /// documented length; coded channel count cannot exceed input channels.
+    /// Signal/spectrum has an unsupported channel count or buffer length for
+    /// the requested stage; coded channels cannot exceed input channels.
     InvalidGeometry,
     /// A forward transform failed; no partial result is returned.
     Transform(MdctError),

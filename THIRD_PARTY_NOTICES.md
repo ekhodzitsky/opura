@@ -1748,6 +1748,16 @@ Native sources remain optional external byte-oracle inputs. Incoming padding
 extensions are outside this API. Self-delimited parsing follows Appendix B and
 `src/opus.c` at the same pinned revision, copyright (c) 2011 Xiph.Org Foundation,
 Skype Limited; 2024 Arm Limited, written by Jean-Marc Valin and Koen Vos.
+Surround spectral analysis in `src/celt/analysis/surround.rs` follows
+`src/opus_multistream_encoder.c`, copyright (c) 2011 Xiph.Org Foundation,
+written by Jean-Marc Valin. Per-stream mask reduction follows the existing
+CELT encoder notices (CSIRO, Xiph.Org Foundation and Gregory Maxwell).
+The optional oracle retains pristine output hashes alongside explicitly
+corrected Q24 return/offset analysis, as documented in
+`docs/decisions/0003-surround-q24-precision.md`. Only sanitized numerical
+fixtures are tracked; foreign translation units are generated temporarily
+from an unchanged external checkout and never enter Cargo or ordinary tests.
+
 Channel mapping, stream ordering and range combination follow
 `src/opus_multistream.c`, `src/opus_multistream_decoder.c` and the generic layout
 checks in `src/opus_multistream_encoder.c`, copyright (c) 2011 Xiph.Org Foundation,

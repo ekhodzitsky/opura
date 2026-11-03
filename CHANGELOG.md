@@ -7,6 +7,23 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.99] - 2026-11-03
+
+- Add persistent3..8channel surround spectral analysis at all five PCM rates
+  and packet durations2.5..120ms, with native preemphasis/MDCT overlap, long
+  packet band-amplitude maxima, spatial masking and whole-state transactions.
+- Preserve Q24 log-sum return and channel-offset scale, with three explicit
+  temporary reference corrections.2160exact native mask/history records match;
+  pristine hashes and observed differences remain disclosed. The original
+  reference checkout/decoder are unchanged; this does not claim pristine
+  surround encoder byte identity or perceptual improvement.
+- Add native per-stream mask reduction into dynamic-allocation, trim and VBR
+  controls.2816unchanged native block outputs match; bounds/reset/tail/zero-mask
+  tests pass. Six isolated source mutations are detected and restored suites
+  pass. Actual common-owner/CELT mask and LFE integration remains unfinished;
+  generic mapped encoding keeps its prior path.
+- Pass all seven required offline gates with167 library/36 Python tests.
+
 ## [0.1.98] - 2026-11-03
 
 - Add1..8channel Ogg Opus file decoding for mapping families0/1/255 with exact

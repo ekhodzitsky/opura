@@ -31,7 +31,11 @@ The library's [multistream APIs](docs/validation/multistream.md) add bounded
 channel maps, self-delimited framing, persistent mapped PCM decoding with gain,
 and generic multistream encoding with whole-packet budgets and PLC/FEC/DTX.
 The [mapped file CLI](docs/validation/mapped-audio-files.md) supports1..8channels
-and mapping families0/1/255. Native surround energy-mask/LFE analysis remains open.
+and mapping families0/1/255. Native surround encoder mask/LFE integration remains open.
+[Surround analysis primitives](docs/validation/surround-analysis.md) provide
+persistent spectral masks and per-stream allocation controls, independently
+checked against explicit native arithmetic oracles; they are not yet wired into
+the common encoder.
 
 An optional [in-process encoder benchmark](docs/benchmarks/encoder-0.1.96.md)
 compares matched public APIs and independently verifies both packet streams.

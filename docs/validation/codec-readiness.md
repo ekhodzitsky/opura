@@ -3,7 +3,7 @@
 The classic signed16 mono/stereo PCM decoder and shared encoder are implemented
 for the advertised library and WAV/Ogg workflows. The library also implements
 bounded generic multistream decoding/encoding and signed output gain. The CLI
-supports1..8channel mapped WAVE/Ogg files; native surround analysis remains open. This is not a
+supports1..8channel mapped WAVE/Ogg files; native surround encoder integration remains open. This is not a
 complete competitive acceptance result; earlier audits below retain their own
 versioned source scope.
 
@@ -17,10 +17,11 @@ versioned source scope.
 | CBR/VBR/CVBR, DTX/FEC, loss and tiny budgets | [Budget validation](encoder-budgets.md) checks early PLC, completed speech overflow, physical admission, retained histories and resume. Independent short/long/pressure corpora each cover9,600 receiver calls including800 PLC and800 FEC. [0.1.95 replay evidence](results/celt-rate-history-0.1.95.json) records the final hashes and fresh native PCM/range replay. |
 | CELT complexity, transients, spreading and rate feedback | [Quality](celt-quality.md), [rate/intensity](celt-rate-history.md) and [prediction/loss/band](celt-controls.md) audits compare actual stateful encoding. The normal test suite now checks every payload byte, PCM and final range over21,836 actual CELT calls, plus768 paired spectral-helper decisions. |
 | Generic mapped library codec | [Multistream validation](multistream.md) checks13,328 native framing outputs,560 native decode/gain operations,3240 allocation boundaries and7405 independently native-decoded encoder operations. Maps include repeated/omitted/silent channels and1..8channel generic encoding. Complete-owner late-error/resume and source mutations are checked. Surround energy masks/LFE are not included. |
-| Mapped file channel order, gain and timing | [Mapped file validation](mapped-audio-files.md):60 native fixtures with independently observed FFmpeg WAVE permutations;240 empty/partial/tail CLI cases;2160 independently native-decoded files across rates, channels, durations and CBR/VBR/CVBR. Native surround analysis remains open. |
+| Mapped file channel order, gain and timing | [Mapped file validation](mapped-audio-files.md):60 native fixtures with independently observed FFmpeg WAVE permutations;240 empty/partial/tail CLI cases;2160 independently native-decoded files across rates, channels, durations and CBR/VBR/CVBR. Native surround encoder integration remains open. |
+| Surround analysis prerequisites | [Spectral and allocation masks](surround-analysis.md) match2160 explicitly corrected-Q24 mask/history records and2816unchanged native mask-reduction outputs, with six detected source mutations. Actual common-owner/CELT/LFE integration remains open. |
 | Invalid input and late errors | Shared-owner regressions compare the complete owner against its pre-call clone after failed short/long packets, invalid geometry/controls and impossible budgets. Successful insufficient-budget PLC follows its distinct documented state-retention contract. |
 | File timing and fixed paths | Full Cargo integration tests retain empty/partial, silence/resume, all applications/rates, whole CBR budgets and error-before-creation checks. The [0.1.95 recording report](results/celt-rate-history-0.1.95-recordings.json) checks12 paired full-recording CBR profiles,24 native PCM matches and exact durations. Prior complete fixed corpus identity is recorded in0.1.94; those corpora were not regenerated in this validation-only audit. |
-| Build constraints | The 0.1.95 control audit passed all seven offline gates with 162 library/23 Python tests; the 0.1.96 benchmark tooling also passes the gates, with 31 Python tests. The0.1.97 mapped-library milestone passes the seven gates with163 library/34 Python tests. The0.1.98 mapped-file milestone passes all seven with163 library/36 Python tests and five mapped CLI integration tests. No third-party Cargo dependency, unsafe policy exception or ordinary external codec requirement was added. |
+| Build constraints | The 0.1.95 control audit passed all seven offline gates with 162 library/23 Python tests; the 0.1.96 benchmark tooling also passes the gates, with 31 Python tests. The0.1.97 mapped-library milestone passes the seven gates with163 library/34 Python tests. The0.1.98 mapped-file milestone passes all seven with163 library/36 Python tests and five mapped CLI integration tests. The0.1.99 surround-analysis prerequisites pass all seven with167 library/36 Python tests. No third-party Cargo dependency, unsafe policy exception or ordinary external codec requirement was added. |
 
 The0.1.97 official matrix also retains every0.1.95 PCM hash at zero gain.
 The encoder's private reference build corrects only Q24 spectral-patch local
@@ -35,7 +36,10 @@ integrated contract in the table above.
 
 ## Open work toward the full goal
 
-- Native surround energy-mask/LFE analysis remains unfinished. Generic mapped
+- Native surround mask/LFE encoder integration remains unfinished. Persistent
+  [surround spectral and allocation analysis](surround-analysis.md) is implemented
+  and independently checked, including explicit Q24 precision corrections; actual
+  common-owner/CELT mask forwarding and LFE coding remain required. Generic mapped
   packet/PCM APIs and1..8channel mapped file conversion are implemented and checked;
   family1 metadata does not imply native surround encoder equivalence. See
   [mapped file validation](mapped-audio-files.md).
