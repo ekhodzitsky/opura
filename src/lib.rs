@@ -1,4 +1,4 @@
-//! Pure Rust standard Opus packet decoding with no dependencies or allocation.
+//! Pure Rust standard Opus decoding with zero third-party dependencies.
 //!
 //! [`decoder::OpusDecoder`] combines SILK/CELT/Hybrid PCM, loss/DTX, FEC and mode
 //! transitions. All120 official RFC8251 vector/rate/channel cases pass.
@@ -12,7 +12,9 @@
 //!
 //! Pass exactly one externally delimited packet with transport headers removed.
 //! [`Packet`] validates RFC6716 section3 framing separately from compressed audio.
-//! Containers, multistream and self-delimiting framing are not implemented.
+//! [`multistream`] adds channel mapping, self-delimited framing and persistent
+//! mapped PCM decoding. Multistream encoding and container integration remain
+//! unfinished. Single-stream packet parsing uses allocation-free frame views.
 //!
 //! ```
 //! let packet = opura::Packet::parse(&[0x98, 0x12, 0x34])?;
@@ -25,6 +27,7 @@ pub mod celt;
 pub mod decoder;
 pub mod encoder;
 pub mod hybrid;
+pub mod multistream;
 pub mod range;
 pub mod repacketizer;
 pub mod silk;
@@ -257,6 +260,77 @@ impl<'a> Packet<'a> {
         })
     }
 
+    /// Parse the self-delimited prefix used by every non-final multistream
+    /// subpacket (RFC6716 Appendix B), returning the consumed byte count.
+    ///
+    /// The extra size describes the last frame, or every frame for CBR. The
+    /// consumed prefix includes declared trailing padding; any following bytes
+    /// belong to the next stream and are not compressed frames of this packet.
+    /// Like [`Self::parse`], this borrows frames without allocating and validates
+    /// framing only. Use ordinary parsing for the final, externally delimited
+    /// stream. Zero-length compressed frames are valid.
+    pub fn parse_self_delimited(input: &'a [u8]) -> Result<(Self, usize), PacketError> {
+        let (&toc, mut payload) = input.split_first().ok_or(PacketError::EmptyPacket)?;
+        let code = toc & 3;
+        let (count, cbr) = if code == 3 {
+            let header = read_byte(&mut payload)?;
+            let count = usize::from(header & 63);
+            if count == 0 || count > 48 {
+                return Err(PacketError::InvalidFrameCount);
+            }
+            if u32::from(frame_samples(toc)) * count as u32 > 5760 {
+                return Err(PacketError::DurationTooLong);
+            }
+            if header & 64 != 0 {
+                loop {
+                    let byte = read_byte(&mut payload)?;
+                    let length = if byte == 255 { 254 } else { usize::from(byte) };
+                    let end = payload
+                        .len()
+                        .checked_sub(length)
+                        .ok_or(PacketError::TruncatedPacket)?;
+                    payload = &payload[..end];
+                    if byte != 255 {
+                        break;
+                    }
+                }
+            }
+            (count, header & 128 == 0)
+        } else {
+            (if code == 0 { 1 } else { 2 }, code == 1)
+        };
+        let mut lengths = [0u16; 48];
+        if !cbr {
+            for length in &mut lengths[..count - 1] {
+                *length = read_frame_length(&mut payload)?;
+            }
+        }
+        lengths[count - 1] = read_frame_length(&mut payload)?;
+        if cbr {
+            let length = lengths[count - 1];
+            lengths[..count].fill(length);
+        }
+        // At most48 frames of at most1275 bytes: the sum cannot overflow.
+        let total: usize = lengths[..count].iter().map(|&n| usize::from(n)).sum();
+        let frames = payload.get(..total).ok_or(PacketError::TruncatedPacket)?;
+        // payload has had padding removed from its end, so input.len() minus
+        // its length includes both framing headers and the declared padding.
+        let consumed = input.len() - payload.len() + total;
+        let frames = match count {
+            1 => Frames::One([frames]),
+            2 => Frames::Two(frame_views(frames, &lengths[..count])),
+            3..=8 => Frames::Few {
+                frames: frame_views(frames, &lengths[..count]),
+                count,
+            },
+            _ => Frames::Many {
+                frames: frame_views(frames, &lengths[..count]),
+                count,
+            },
+        };
+        Ok((Self { toc, frames }, consumed))
+    }
+
     /// Configuration number (0 through 31) from RFC 6716 Table 2.
     pub fn configuration(&self) -> u8 {
         self.toc >> 3
@@ -308,6 +382,15 @@ impl<'a> Packet<'a> {
             Frames::Many { frames, count } => &frames[..*count],
         }
     }
+}
+
+fn read_frame_length(input: &mut &[u8]) -> Result<u16, PacketError> {
+    let first = u16::from(read_byte(input)?);
+    Ok(if first < 252 {
+        first
+    } else {
+        first + 4 * u16::from(read_byte(input)?)
+    })
 }
 
 fn read_byte(input: &mut &[u8]) -> Result<u8, PacketError> {

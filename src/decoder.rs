@@ -139,6 +139,7 @@ pub struct OpusDecoder {
     clock: u16,
     range: u32,
     last_duration: u16,
+    gain_q8: i16,
 }
 impl OpusDecoder {
     /// Select any standard output rate and one/two output channels.
@@ -161,6 +162,7 @@ impl OpusDecoder {
             clock: 120,
             range: 0,
             last_duration: 0,
+            gain_q8: 0,
         })
     }
     /// Fixed PCM sampling rate.
@@ -170,6 +172,16 @@ impl OpusDecoder {
     /// Fixed PCM channel count.
     pub fn output_channels(&self) -> PcmChannels {
         self.silk.output_channels()
+    }
+    /// Signed Q8 dB output gain, initially zero. Reset retains this setting.
+    pub fn gain_q8(&self) -> i16 {
+        self.gain_q8
+    }
+    /// Set native signed Q8 dB output gain without changing decoder histories.
+    /// The full signed16 range is valid. Gain applies with native fixed-point
+    /// rounding/saturation after frame synthesis, including PLC and FEC.
+    pub fn set_gain_q8(&mut self, gain: i16) {
+        self.gain_q8 = gain;
     }
     /// Read-only CELT synthesis, energy and PLC diagnostics.
     pub fn celt(&self) -> &CeltDecoder {
@@ -216,11 +228,17 @@ impl OpusDecoder {
     /// Decode one complete externally delimited Opus packet, including DTX.
     pub fn decode(&mut self, data: &[u8]) -> Result<DecodedPcm, DecoderError> {
         let packet = Packet::parse(data).map_err(DecoderError::Framing)?;
+        self.decode_packet(&packet)
+    }
+    pub(crate) fn decode_packet(
+        &mut self,
+        packet: &Packet<'_>,
+    ) -> Result<DecodedPcm, DecoderError> {
         let mut next = self.clone();
-        next.configure_packet(&packet);
+        next.configure_packet(packet);
         let mut output = self.empty_output();
         for index in 0..packet.frames().len() {
-            let frame = next.packet_frame(&packet, index, false)?;
+            let frame = next.packet_frame(packet, index, false)?;
             output.append(frame.samples())?;
         }
         next.last_duration = packet.duration_samples();
@@ -243,6 +261,14 @@ impl OpusDecoder {
     pub fn decode_fec(&mut self, data: &[u8], duration: u16) -> Result<DecodedPcm, DecoderError> {
         validate_duration(duration)?;
         let packet = Packet::parse(data).map_err(DecoderError::Framing)?;
+        self.decode_fec_packet(&packet, duration)
+    }
+    pub(crate) fn decode_fec_packet(
+        &mut self,
+        packet: &Packet<'_>,
+        duration: u16,
+    ) -> Result<DecodedPcm, DecoderError> {
+        validate_duration(duration)?;
         let mut next = self.clone();
         if duration < packet.frame_samples()
             || packet.mode() == Mode::Celt
@@ -259,8 +285,8 @@ impl OpusDecoder {
             let loss = next.loss(usize::from(prefix))?;
             output.append(loss.samples())?;
         }
-        next.configure_packet(&packet);
-        let fec = next.packet_frame(&packet, 0, true)?;
+        next.configure_packet(packet);
+        let fec = next.packet_frame(packet, 0, true)?;
         output.append(fec.samples())?;
         next.last_duration = duration;
         output.range = next.range;
@@ -356,6 +382,7 @@ impl OpusDecoder {
                     accumulate(&mut frame.values[..frame.length], high.samples())?;
                 }
             }
+            self.apply_gain(&mut frame);
             output.append(frame.samples())?;
             self.previous = mode;
             self.redundancy = false;
@@ -571,7 +598,23 @@ impl OpusDecoder {
         self.previous = Some(mode);
         self.redundancy = redundant.is_some() && !celt_to_silk;
         output.range = self.range;
+        self.apply_gain(&mut output);
         Ok(output)
+    }
+    fn apply_gain(&self, output: &mut DecodedPcm) {
+        if self.gain_q8 == 0 {
+            return;
+        }
+        // Native QCONST16(6.48814081e-4,25), MULT16_16_P15 and
+        // celt_exp2 convert Q8 dB to Q16 amplitude. Apply this per decoded
+        // frame, including recursive transition PLC, rather than once to a
+        // completed packet; native transition fades can reuse gained PLC.
+        let exponent = ((21771 * i32::from(self.gain_q8) + 16384) >> 15) as i16;
+        let gain = i64::from(crate::celt::math::exp2(exponent));
+        for value in &mut output.values[..output.length] {
+            let scaled = (i64::from(*value) * gain + 32768) >> 16;
+            *value = scaled.clamp(-32767, 32767) as i16;
+        }
     }
 }
 fn validate_duration(duration: u16) -> Result<(), DecoderError> {

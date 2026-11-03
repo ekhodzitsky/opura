@@ -7,6 +7,18 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Add bounded classic multistream channel maps, borrowed self-delimited parsing
+  and canonical self-delimited/padded repacketizer output. Ordinary packet
+  parsing and writes retain their existing behavior.
+- Add persistent mapped signed16 decoding across standard rates with mono and
+  coupled streams, repeated/omitted/silent channels, normal/PLC/FEC/reset and
+  whole-owner error rollback. Common final range includes every stream by XOR.
+- Add native signed Q8 dB decoder gain, retained by reset and applied per frame
+  including transition PLC. Optional unchanged-native evidence checks13,328
+  framing outputs/consumed offsets and560 PCM/range/gain operations, including
+  actual SILK/Hybrid/CELT and LBRR coverage. Multistream encoding and file
+  integration remain in progress; no full multistream or SOTA claim.
+
 ## [0.1.96] - 2026-11-03
 
 - Add optional in-process unified-encoder and pristine scalar libopus benchmark

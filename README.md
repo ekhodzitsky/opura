@@ -27,6 +27,10 @@ is implemented; its comparative quality/speed evaluation remains open. The accep
 prioritizing speed and reliability. See the
 [decoder-first decision](docs/decisions/0002-decoder-first.md) for evaluation
 requirements; SOTA performance is an ambition, not a current claim.
+The library's [multistream decoder](docs/validation/multistream.md) adds bounded
+channel maps, self-delimited framing and persistent mapped PCM with PLC/FEC and
+signed Q8 gain. Multistream encoding and mapped file workflows remain unfinished.
+
 An optional [in-process encoder benchmark](docs/benchmarks/encoder-0.1.96.md)
 compares matched public APIs and independently verifies both packet streams.
 Retained encoder measurements and broader competitive acceptance remain open.

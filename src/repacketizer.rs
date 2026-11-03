@@ -1,8 +1,8 @@
 //! Borrowed RFC6716 packet assembly without allocation.
 //!
 //! Appending validates framing and compatibility, not compressed audio. Original
-//! transport padding is discarded; self-delimited framing, multistream and
-//! padding extensions are outside this API. Payload frames remain borrowed.
+//! transport padding is discarded. Explicit self-delimited writes support
+//! non-final multistream subpackets; extension padding is outside this API. Payload frames remain borrowed.
 //! Canonical packing follows Opus v1.6.1 `src/repacketizer.c`; see
 //! THIRD_PARTY_NOTICES.md. Copyright (c) 2011 Xiph.Org Foundation.
 use crate::{Packet, PacketError};
@@ -127,6 +127,20 @@ impl<'a> Repacketizer<'a> {
     ) -> Result<usize, RepacketizerError> {
         self.write_range(0..self.count, output, Some(length))
     }
+    /// Write all frames as a self-delimited non-final multistream subpacket.
+    /// The explicit last-frame size is included in the returned length.
+    pub fn write_self_delimited(&self, output: &mut [u8]) -> Result<usize, RepacketizerError> {
+        self.write_range_impl(0..self.count, output, None, true)
+    }
+    /// Write a self-delimited subpacket with exactly `length` bytes, including
+    /// its trailing transport padding. Failure leaves the destination unchanged.
+    pub fn write_self_delimited_padded(
+        &self,
+        output: &mut [u8],
+        length: usize,
+    ) -> Result<usize, RepacketizerError> {
+        self.write_range_impl(0..self.count, output, Some(length), true)
+    }
     /// Write a nonempty frame range with canonical framing, or exactly the
     /// requested padded length. The rest of the destination is untouched.
     pub fn write_range(
@@ -134,6 +148,15 @@ impl<'a> Repacketizer<'a> {
         range: Range<usize>,
         output: &mut [u8],
         padded_length: Option<usize>,
+    ) -> Result<usize, RepacketizerError> {
+        self.write_range_impl(range, output, padded_length, false)
+    }
+    fn write_range_impl(
+        &self,
+        range: Range<usize>,
+        output: &mut [u8],
+        padded_length: Option<usize>,
+        self_delimited: bool,
     ) -> Result<usize, RepacketizerError> {
         if self.is_empty() {
             return Err(RepacketizerError::NoFrames);
@@ -160,18 +183,28 @@ impl<'a> Repacketizer<'a> {
         } else {
             3
         };
-        let short_header = match short_code {
-            0 | 1 => 1,
-            2 => 1 + sizes,
-            _ => 2 + sizes,
+        let last_size = if self_delimited {
+            size_bytes(frames[count - 1].len())
+        } else {
+            0
         };
+        let short_header = last_size
+            + match short_code {
+                0 | 1 => 1,
+                2 => 1 + sizes,
+                _ => 2 + sizes,
+            };
         let canonical = short_header + payload;
         let code = if padded_length.is_some_and(|n| n > canonical) {
             3
         } else {
             short_code
         };
-        let header = if code == 3 { 2 + sizes } else { short_header };
+        let header = if code == 3 {
+            2 + sizes + last_size
+        } else {
+            short_header
+        };
         let minimum = header + payload;
         let length = padded_length.unwrap_or(minimum);
         if length < minimum || length > output.len() {
@@ -198,6 +231,9 @@ impl<'a> Repacketizer<'a> {
             for frame in &frames[..count - 1] {
                 cursor += write_size(frame.len(), &mut output[cursor..]);
             }
+        }
+        if self_delimited {
+            cursor += write_size(frames[count - 1].len(), &mut output[cursor..]);
         }
         for frame in frames {
             output[cursor..cursor + frame.len()].copy_from_slice(frame);

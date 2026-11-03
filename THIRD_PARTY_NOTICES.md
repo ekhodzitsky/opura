@@ -1745,7 +1745,15 @@ code0/1/2/3 frame-count/length packing, range selection and exact transport
 padding in Opus v1.6.1 `src/repacketizer.c`, copyright (c) 2011 Xiph.Org
 Foundation, written by Jean-Marc Valin, under the existing BSD license above.
 Native sources remain optional external byte-oracle inputs. Incoming padding
-extensions, self-delimited framing and multistream are outside this API.
+extensions are outside this API. Self-delimited parsing follows Appendix B and
+`src/opus.c` at the same pinned revision, copyright (c) 2011 Xiph.Org Foundation,
+Skype Limited; 2024 Arm Limited, written by Jean-Marc Valin and Koen Vos.
+Channel mapping, stream ordering and range combination follow
+`src/opus_multistream.c`, `src/opus_multistream_decoder.c` and the generic layout
+checks in `src/opus_multistream_encoder.c`, copyright (c) 2011 Xiph.Org Foundation,
+written by Jean-Marc Valin. Decoder signed Q8 gain uses the fixed-point
+`src/opus_decoder.c` frame ordering and existing CELT scalar math. The existing
+BSD notices above apply; no foreign code is linked or vendored.
 
 Shared scalar encoder frontend decisions and stereo-width analysis follow
 `compute_stereo_width`, `compute_equiv_rate`, `decide_fec`, the threshold tables
