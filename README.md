@@ -216,8 +216,9 @@ packet owner for2.5/5/10/20ms input and all five applications. The API accepts C
 nominal rate, hard cap, mode/signal/band/channel hints, loss, DTX and FEC. Errors
 preserve all PCM, speech, CELT and selection histories. `PacketSize` and
 `encode_packet` select one policy for complete packets through120ms, including
-native component scheduling. Native tiny-budget PLC and the remaining
-quality/control review remain work.
+native component scheduling. Native tiny-budget and completed-SILK-overflow
+PLC are connected, with `EncodedPacket::used_plc` reporting loss signalling.
+The remaining quality/control review and competitive evaluation remain work.
 All applications and automatic file packets through120ms are connected.
 Existing fixed library/CLI defaults are unchanged.
 
@@ -251,7 +252,12 @@ Automatic `--packet-ms` selects a complete native-scheduled packet through120ms,
 with one mode/layout decision and correct first/final transition placement.
 It must be a standard duration and a multiple of `--frame-ms`; alternatively
 set `--frame-ms` directly to40/60/80/100/120. Caps apply to the whole packet;
-the automatic default is1276 bytes per20ms window, at most7656.
+the automatic default is1276 bytes per20ms window, at most7656. Caps can be as
+small as1 byte; unusable audio budgets signal native PLC while preserving file
+length. A100ms packet requires at least2 bytes. Positive nominal rates are
+clamped to at least500bps total and at most750000bps per API channel before
+the physical cap.
+See [budget validation](docs/validation/encoder-budgets.md).
 See [long-packet validation](docs/validation/encoder-long-packets.md).
 
 See [unified AUDIO validation](docs/validation/unified-audio-owner.md) for the

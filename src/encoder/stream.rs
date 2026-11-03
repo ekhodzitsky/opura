@@ -1,5 +1,7 @@
 //! A single PCM, speech and transform owner. Native transition processing is
 //! performed on these live histories, never on independently primed mode banks.
+//! Budget/framing policy adapted from Opus1.6.1 opus_encoder.c.
+//! Copyright (c)2010-2011 Xiph.Org Foundation, Skype Limited; see THIRD_PARTY_NOTICES.md.
 use super::{FrontendError, control, pcm::PcmState, stereo_width::StereoWidthState};
 use crate::{
     Bandwidth, Mode,
@@ -188,7 +190,8 @@ impl From<StereoFrameError> for EncoderError {
 /// Nominal rate and scalar native selection controls for one packet.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct EncodeOptions {
-    /// TOC-inclusive target rate, at most1500000bps; physical capacity caps it.
+    /// Positive target rate up to1500000bps, clamped to at least500bps total
+    /// and at most750000bps per API channel before physical/CBR normalization.
     pub bitrate: u32,
     /// Scalar application, signal, mode, layout, bandwidth, loss and DTX policy.
     /// Must match the immutable application selected at construction.
@@ -212,6 +215,7 @@ pub struct EncodedPacket {
     range: u32,
     decision: control::Decision,
     tail_bytes: usize,
+    plc: bool,
 }
 impl EncodedPacket {
     /// Complete Opus packet, including TOC and any transition tail or padding.
@@ -221,6 +225,10 @@ impl EncodedPacket {
     /// Final component primary range XOR its redundant transform range.
     pub fn final_range(&self) -> u32 {
         self.range
+    }
+    /// At least one component deliberately signals native loss concealment.
+    pub fn used_plc(&self) -> bool {
+        self.plc
     }
     /// Actual primary mode, wire channels and bandwidth selected for this call.
     pub fn decision(&self) -> control::Decision {
@@ -248,6 +256,7 @@ pub struct OpusEncoder {
     width: i16,
     stereo_width: StereoWidthState,
     history: control::History,
+    selected: Option<control::Decision>,
     internal: SilkRate,
     speech_started: bool,
     speech_channels: usize,
@@ -284,6 +293,7 @@ impl OpusEncoder {
             width: 16384,
             stereo_width: StereoWidthState::default(),
             history,
+            selected: None,
             internal: SilkRate::Khz16,
             speech_started: false,
             speech_channels: 0,
@@ -312,7 +322,7 @@ impl OpusEncoder {
             312
         }
     }
-    /// Encode interleaved signed16 PCM. The TOC-inclusive cap is3..=1276 bytes.
+    /// Encode interleaved signed16 PCM. The TOC-inclusive cap is1..=1276 bytes.
     /// CBR rounds the nominal target to whole bytes and fills that packet size.
     /// Unsupported applications and every coding failure preserve all state.
     pub fn encode(
@@ -325,8 +335,9 @@ impl OpusEncoder {
         self.encode_packet(size.into(), input, packet_bytes, options)
     }
     /// Encode a complete2.5..120ms packet with one mode/layout selection.
-    /// Caps are3..1276 for short packets and3..7656 for longer packets.
-    /// Every error preserves all input, layer and policy histories.
+    /// Caps are1..1276 for short packets and1..7656 for longer packets.
+    /// A one-byte100ms packet cannot be represented. Insufficient useful audio
+    /// budgets emit native PLC; every error preserves all histories.
     pub fn encode_packet(
         &mut self,
         size: PacketSize,
@@ -341,7 +352,7 @@ impl OpusEncoder {
             return Err(EncoderError::Unsupported);
         }
         let maximum = if size.samples() > 960 { 7656 } else { 1276 };
-        if !(3..=maximum).contains(&packet_bytes) || !(1..=1500000).contains(&options.bitrate) {
+        if !(1..=maximum).contains(&packet_bytes) || !(1..=1500000).contains(&options.bitrate) {
             return Err(FrontendError::InvalidControl.into());
         }
         let mut next = self.clone();
@@ -372,7 +383,15 @@ impl OpusEncoder {
         #[cfg(test)]
         self.celt.call_trace.clear();
         let samples = size.samples();
-        let mut bitrate = options.bitrate.min((cap * 8 * 48000 / samples) as u32);
+        // The public native bitrate control clamps before physical admission.
+        let original_cap = cap;
+        if samples == 4800 && original_cap == 1 {
+            return Err(FrontendError::InsufficientBudget.into());
+        }
+        let mut bitrate = options
+            .bitrate
+            .clamp(500, 750000 * self.channels as u32)
+            .min((cap * 8 * 48000 / samples) as u32);
         let cap = if options.controls.variable {
             cap
         } else {
@@ -381,16 +400,19 @@ impl OpusEncoder {
             bytes.min(cap)
         };
         let silence = input.iter().all(|&v| v == 0);
-        let width = if self.channels == 2 {
+        let width = if self.channels == 2 && options.controls.channels != Some(1) {
             self.stereo_width
                 .analyze(self.rate, size.samples(), input)?
         } else {
             0
         };
-        self.history.allow_bandwidth_switch = self.bandwidth.allowed();
-        self.history.wideband_ready =
-            self.internal == SilkRate::Khz16 && self.bandwidth.transitions[0].direction() == 0;
-        let mut decision = control::select(
+        let history = control::History {
+            allow_bandwidth_switch: self.bandwidth.allowed(),
+            wideband_ready: self.internal == SilkRate::Khz16
+                && self.bandwidth.transitions[0].direction() == 0,
+            ..self.history
+        };
+        let mut decision = match control::select(
             control::Frame {
                 rate: self.rate,
                 channels: self.channels,
@@ -401,8 +423,16 @@ impl OpusEncoder {
                 stereo_width_q15: width,
             },
             options.controls,
-            self.history,
-        )?;
+            history,
+        ) {
+            Ok(decision) => decision,
+            Err(FrontendError::InsufficientBudget) => {
+                return self.admission_plc(samples, original_cap, cap, options.controls.variable);
+            }
+            Err(error) => return Err(error.into()),
+        };
+        self.history = history;
+        self.selected = Some(decision);
         let unit = if decision.mode == Mode::Silk {
             match samples {
                 3840 => 1920,
@@ -489,6 +519,102 @@ impl OpusEncoder {
                 ..decision
             },
             tail_bytes,
+            plc: packets.iter().any(|p| p.plc),
+        })
+    }
+    fn admission_plc(
+        &self,
+        samples: usize,
+        original_cap: usize,
+        cap: usize,
+        variable: bool,
+    ) -> Result<EncodedPacket, EncoderError> {
+        let mut decision = self.selected.unwrap_or(control::Decision {
+            mode: Mode::Hybrid,
+            channels: self.channels,
+            bandwidth: Bandwidth::Fullband,
+            auto_bandwidth: None,
+            fec: false,
+            to_mono: false,
+            redundancy: false,
+            celt_to_silk: false,
+            to_celt: false,
+            prefill_silk: false,
+            equivalent_rate: 0,
+            voice_q7: 0,
+            silk_dtx: false,
+        });
+        let mut fps = 48000 / samples;
+        let mut code = 0;
+        let mut count = 0;
+        if fps > 100 {
+            decision.mode = Mode::Celt;
+        }
+        if fps == 25 && decision.mode != Mode::Silk {
+            fps = 50;
+            code = 1;
+        }
+        if fps <= 16 {
+            if original_cap == 1 || (decision.mode == Mode::Silk && fps != 10) {
+                decision.mode = Mode::Silk;
+                code = usize::from(fps <= 12);
+                fps = if fps == 12 { 25 } else { 16 };
+            } else {
+                count = 50 / fps;
+                fps = 50;
+                code = 3;
+            }
+        }
+        decision.bandwidth = match (decision.mode, decision.bandwidth) {
+            (Mode::Silk, Bandwidth::SuperWideband | Bandwidth::Fullband) => Bandwidth::Wideband,
+            (Mode::Celt, Bandwidth::Mediumband) => Bandwidth::Narrowband,
+            (Mode::Hybrid, Bandwidth::Narrowband | Bandwidth::Mediumband | Bandwidth::Wideband) => {
+                Bandwidth::SuperWideband
+            }
+            (_, band) => band,
+        };
+        let mut period = 0;
+        while fps < 400 {
+            fps *= 2;
+            period += 1;
+        }
+        let band: u8 = match decision.bandwidth {
+            Bandwidth::Narrowband => 0,
+            Bandwidth::Mediumband => 1,
+            Bandwidth::Wideband => 2,
+            Bandwidth::SuperWideband => 3,
+            Bandwidth::Fullband => 4,
+        };
+        let byte = match decision.mode {
+            Mode::Silk => (band << 5) | ((period - 2) << 3),
+            Mode::Celt => 0x80 | (band.saturating_sub(1) << 5) | (period << 3),
+            Mode::Hybrid => 0x60 | ((band - 3) << 4) | ((period - 2) << 3),
+        };
+        let mut bytes = vec![byte | if decision.channels == 2 { 4 } else { 0 } | code as u8];
+        if code == 3 {
+            bytes.push(count as u8);
+        }
+        if !variable && bytes.len() < cap {
+            let mut padded = vec![0; cap];
+            let mut rp = Repacketizer::new();
+            rp.add_packet(&bytes)?;
+            rp.write_padded(&mut padded, cap)?;
+            bytes = padded;
+        }
+        if bytes.len() > original_cap {
+            return Err(FrontendError::InsufficientBudget.into());
+        }
+        decision.redundancy = false;
+        decision.celt_to_silk = false;
+        decision.to_celt = false;
+        decision.prefill_silk = false;
+        decision.to_mono = false;
+        Ok(EncodedPacket {
+            bytes,
+            range: 0,
+            decision,
+            tail_bytes: 0,
+            plc: true,
         })
     }
     fn encode_component(
@@ -574,6 +700,7 @@ impl OpusEncoder {
         let mut writer;
         let mut dtx = DtxDecision::Transmit;
         let mut hybrid = None;
+        let mut completed_overflow = false;
         self.celt.set_native_controls(NativeControls {
             complexity: options.controls.complexity,
             loss_percent: options.controls.loss_percent,
@@ -582,7 +709,27 @@ impl OpusEncoder {
         self.speech.dtx.enabled = options.controls.dtx;
         self.speech.fec.enabled = decision.fec;
         if decision.mode != Mode::Celt {
-            let desired = silk_rate(decision.bandwidth);
+            let maximum_rate = if decision.mode == Mode::Silk {
+                let mut effective = rate_for(cap as u32 * 8, samples);
+                if fps > 50 {
+                    effective = effective * 2 / 3;
+                }
+                if effective < 7000 {
+                    SilkRate::Khz8
+                } else if effective < 8000 {
+                    SilkRate::Khz12
+                } else {
+                    SilkRate::Khz16
+                }
+            } else {
+                SilkRate::Khz16
+            };
+            let requested = silk_rate(decision.bandwidth);
+            let desired = match (maximum_rate, requested) {
+                (SilkRate::Khz8, _) => SilkRate::Khz8,
+                (SilkRate::Khz12, SilkRate::Khz16) => SilkRate::Khz12,
+                (_, rate) => rate,
+            };
             if reset_silk {
                 self.speech.reset(output_rate(self.rate), desired);
                 self.bandwidth = PacketBandwidth::default();
@@ -603,7 +750,7 @@ impl OpusEncoder {
                     } else {
                         SilkRate::Khz8
                     },
-                    maximum: SilkRate::Khz16,
+                    maximum: maximum_rate,
                     desired,
                     allow_switch: self.bandwidth.allowed(),
                     can_switch: self.can_switch,
@@ -721,6 +868,7 @@ impl OpusEncoder {
                         to_mono: decision.to_mono,
                     },
                 )?;
+                completed_overflow = prepared.overflow;
                 writer = prepared.writer;
                 dtx = prepared.decision;
                 decision.bandwidth = silk_band(internal);
@@ -741,6 +889,7 @@ impl OpusEncoder {
                     range: 0,
                     decision,
                     tail_bytes: 0,
+                    plc: false,
                 });
             }
             if self.can_switch {
@@ -944,6 +1093,14 @@ impl OpusEncoder {
         } else {
             range ^ redundant_range
         };
+        let range = if completed_overflow && dtx == DtxDecision::Transmit {
+            bytes.clear();
+            bytes.extend_from_slice(&[toc(decision, samples), 0]);
+            bytes.extend_from_slice(&redundant);
+            0
+        } else {
+            range
+        };
         if bytes.len() > cap {
             return Err(EntropyError::CapacityExhausted.into());
         }
@@ -959,6 +1116,7 @@ impl OpusEncoder {
             range,
             decision,
             tail_bytes: tail,
+            plc: completed_overflow && dtx == DtxDecision::Transmit,
         })
     }
     fn convert_speech(
@@ -1197,6 +1355,8 @@ fn budget_error(error: &EncoderError) -> bool {
             || error.downcast_ref::<FrameError>() == Some(&FrameError::BitBudgetExceeded)
             || error.downcast_ref::<crate::celt::encoder::EncoderError>()
                 == Some(&crate::celt::encoder::EncoderError::BudgetExhausted)
+            || error.downcast_ref::<crate::celt::allocation::AllocationError>()
+                == Some(&crate::celt::allocation::AllocationError::BitBudgetExceeded)
         {
             return true;
         }

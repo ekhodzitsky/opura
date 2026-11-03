@@ -1,5 +1,8 @@
 # Native long-packet scheduling
 
+This records the0.1.92 boundary. Version0.1.93 adds native budget/overflow PLC;
+see [budget validation](encoder-budgets.md).
+
 Version 0.1.92 adds `encoder::PacketSize` and `OpusEncoder::encode_packet` for
 complete 2.5/5/10/20/40/60/80/100/120ms packets. The existing `encode(FrameSize,...)`
 API delegates through the same owner. All five applications remain supported;

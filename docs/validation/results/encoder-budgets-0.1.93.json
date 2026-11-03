@@ -1,0 +1,95 @@
+{
+  "status": "pass",
+  "version": "0.1.93",
+  "reference_revision": "22244de5a79bd1d6d623c32e72bf1954b56235be",
+  "reference_configuration": "scalar fixed fast64 Q24, float analysis disabled",
+  "native_replay": true,
+  "corpus_bytes": 395185,
+  "corpus_sha256": "9346c1b54d94e45df021a1f938f283f1ffa9a3152dfd76a72f72c1f376fff9bd",
+  "corpus_repeat_identical": true,
+  "received_calls": {
+    "records": 9600,
+    "streams": 100,
+    "lost": 800,
+    "fec_requests": 800,
+    "single_byte_packets": 4167
+  },
+  "encoded_packets": 9600,
+  "encoded_packet_modes": {
+    "silk": 3602,
+    "hybrid": 1558,
+    "celt": 4440
+  },
+  "encoded_wire_changes": 350,
+  "encoded_all_empty_frames": 7845,
+  "encoded_packets_with_plc": 7955,
+  "explicit_plc_calls": 800,
+  "fec_requests": 800,
+  "packet_corpus_complexities": [
+    0,
+    6,
+    10
+  ],
+  "native_fixture_scope": "complexity0, all applications/rates/API layouts, admitted and early PLC through120ms; scalar CBR/unconstrained VBR",
+  "native_fixtures": [
+    {
+      "path": "tests/opus-budget-fixtures.txt",
+      "rows": 7200,
+      "sha256": "ef963d9c0b48bcecc18ddd2e01763c017afbbf0b3d935e3249fc4ae1b80aeef9"
+    },
+    {
+      "path": "tests/opus-budget-calls-fixtures.txt",
+      "rows": 7200,
+      "sha256": "af9c27138ba58a0b9a32619a54a9674404288c2e5f4f12f7fc0420ba7311f179"
+    }
+  ],
+  "fixture_regeneration_identical": true,
+  "native_original_calls": {
+    "total": 7200,
+    "early_plc": 5630,
+    "normal_admission": 1470,
+    "completed_silk_overflow": 126,
+    "unrepresentable_100ms_one_byte_errors": 100
+  },
+  "normal_admission_note": "includes the126 completed-overflow calls",
+  "native_error_scope": "original negative calls restored transactionally by observation wrapper; positive reference behavior unmodified",
+  "native_celt_calls": {
+    "total": 2136,
+    "five_ms": 260,
+    "high_band": 176,
+    "two_point_five_ms": 284,
+    "duration_note": "includes primary frames and transition prefills/tails"
+  },
+  "user_rate_floor_bps": 500,
+  "user_rate_ceiling_bps_per_api_channel": 750000,
+  "isolated_mutations_detected": [
+    "early_audio_advance",
+    "wrong_initial_plc_mode",
+    "missing_completed_plc_replacement",
+    "missing_user_rate_clamp",
+    "forced_mono_width_update"
+  ],
+  "cli_tiny_budget_cases": 85,
+  "cli_tiny_scope": "48kHz stereo, all5 applications,20..120ms, CBR/VBR",
+  "native_replay_count_guard": "oversized FEC count rejected before native decoding; valid final replay repeated",
+  "normal_corpora": [
+    {
+      "name": "short",
+      "sha256": "8f5e9f429ca5dd1df9cb55032bd53ba8050cdfa896d673b4aec99f8627f1865d",
+      "baseline_sha256": "8f5e9f429ca5dd1df9cb55032bd53ba8050cdfa896d673b4aec99f8627f1865d",
+      "identical": true
+    },
+    {
+      "name": "long",
+      "sha256": "89c3379b6677cca5bd3f548f4b4875fefd727967ea77230f0a017930b51b02c4",
+      "baseline_sha256": "89c3379b6677cca5bd3f548f4b4875fefd727967ea77230f0a017930b51b02c4",
+      "identical": true
+    }
+  ],
+  "offline_gates": "all seven pass;158 library tests,23 Python tests; Python gate repeated after replay-count guard",
+  "remaining": [
+    "remaining native quality/complexity/control review",
+    "representative matched-rate/latency real-audio quality/speed evaluation"
+  ],
+  "fixed_corpora_report": "encoder-budgets-0.1.93-fixed.json"
+}

@@ -42,16 +42,12 @@ pub fn encode(input: &Path, output: &Path, rate_control: FileRate, options: Opti
     let cap = rate_control
         .maximum
         .unwrap_or(1276 * size.samples().div_ceil(960));
-    if !(3..=maximum).contains(&cap) {
+    if !(1..=maximum).contains(&cap) || (size == PacketSize::Ms100 && cap == 1) {
         return Err(invalid("invalid automatic packet cap").into());
     }
     let bitrate = rate_control.bitrate.unwrap_or(64000);
-    let fps = 48000 / size.samples() as u32;
-    if !(24 * fps..=1500000).contains(&bitrate)
-        || (!rate_control.vbr
-            && (u64::from(bitrate) * size.samples() as u64 / 48000 + 4) / 8 > cap as u64)
-    {
-        return Err(invalid("invalid bitrate/frame/cap combination for automatic encoding").into());
+    if !(1..=1500000).contains(&bitrate) {
+        return Err(invalid("automatic bitrate must be1..1500000").into());
     }
     let start = Instant::now();
     let mut source = wav::Reader::new(BufReader::new(File::open(input)?))?;

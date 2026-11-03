@@ -209,12 +209,16 @@ impl HybridFrameEncoder<'_> {
         )
         .map_err(EncoderError::Rate)?;
         let vbr_rate = if bitrate.is_some() {
-            Some(
-                stream_rate
-                    .checked_sub(allocation.silk_bitrate())
-                    .filter(|&rate| rate > 500)
-                    .ok_or(EncoderError::InvalidOptions)?,
-            )
+            let rate = stream_rate
+                .checked_sub(allocation.silk_bitrate())
+                .filter(|&rate| rate > 500);
+            // The outer native encoder first sets CELT to BITRATE_MAX. A
+            // rejected <=500bps high-band setter leaves that physical-budget
+            // mode in place, even while outer/SILK processing remains VBR.
+            if outer.is_none() && rate.is_none() {
+                return Err(EncoderError::InvalidOptions);
+            }
+            rate
         } else {
             None
         };

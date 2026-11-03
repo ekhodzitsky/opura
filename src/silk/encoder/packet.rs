@@ -296,7 +296,7 @@ where
                 PitchCoding::Conditional
             };
             let fec_controls = speech.fec.controls(channel, index);
-            let hard = if bandwidth.automatic {
+            let hard = if bandwidth.automatic || controls.policy.is_some() {
                 writer.capacity() as u32 * 8
             } else if fec_controls.is_some() || speech.fec.sent.iter().any(|&v| v) {
                 if channel == 0 && analyzed.rates[1] > 0 {
@@ -360,7 +360,10 @@ where
     let overflow = encoded_length >= packet_bytes;
     // Native outer Opus converts a completed SILK overshoot into PLC. Give
     // queued FEC one prefix-free retry first, preserving primary audio.
-    if overflow && (!bandwidth.automatic || (include_fec && speech.fec.sent.iter().any(|&v| v))) {
+    if overflow
+        && ((controls.policy.is_none() && !bandwidth.automatic)
+            || (include_fec && speech.fec.sent.iter().any(|&v| v)))
+    {
         return Err(FrameError::BitBudgetExceeded.into());
     }
     let base = match internal {

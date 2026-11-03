@@ -3,6 +3,230 @@ use crate::{Packet, decoder::OpusDecoder, silk::decoder::PcmChannels};
 type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[test]
+fn original_budget_packets_histories_and_resume_match() -> Result {
+    let mut encoder = OpusEncoder::new(InputRate::Khz8, 1)?;
+    let mut decoder = OpusDecoder::new(OutputRate::Khz48, PcmChannels::Stereo)?;
+    let mut calls = include_str!("../../tests/opus-budget-calls-fixtures.txt")
+        .lines()
+        .filter(|l| !l.starts_with('#'));
+    let mut counts = [0; 3];
+    let mut overflow = 0;
+    for line in include_str!("../../tests/opus-budget-fixtures.txt")
+        .lines()
+        .filter(|l| !l.starts_with('#'))
+    {
+        let fields: Vec<_> = line.split_whitespace().collect();
+        assert_eq!(fields.len(), 33);
+        let v = fields[..32]
+            .iter()
+            .map(|s| s.parse::<i128>().map(|v| v as u64))
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let rate = match v[0] {
+            8000 => InputRate::Khz8,
+            12000 => InputRate::Khz12,
+            16000 => InputRate::Khz16,
+            24000 => InputRate::Khz24,
+            _ => InputRate::Khz48,
+        };
+        let channels = v[1] as usize;
+        let app = match v[2] {
+            2049 => control::Application::Audio,
+            2048 => control::Application::Voip,
+            2051 => control::Application::RestrictedLowDelay,
+            2052 => control::Application::RestrictedSilk,
+            _ => control::Application::RestrictedCelt,
+        };
+        if v[4] == 0 {
+            encoder = OpusEncoder::with_application(rate, channels, app)?;
+            decoder.reset();
+        }
+        let size = PacketSize::try_from(v[5] as usize)?;
+        let mode = match v[6] {
+            1000 => Mode::Silk,
+            1001 => Mode::Hybrid,
+            _ => Mode::Celt,
+        };
+        let mut seed = v[11] as u32;
+        let input: Vec<_> = (0..size.samples() / rate.factor() * channels)
+            .map(|_| {
+                seed ^= seed << 13;
+                seed ^= seed >> 17;
+                seed ^= seed << 5;
+                if v[12] == 0 {
+                    0
+                } else {
+                    ((seed & 65535) as i32 - 32768) as i16
+                }
+            })
+            .collect();
+        let before = encoder.clone();
+        let result = encoder.encode_packet(
+            size,
+            &input,
+            v[10] as usize,
+            EncodeOptions {
+                bitrate: v[9] as u32,
+                controls: control::Controls {
+                    application: app,
+                    mode: Some(mode),
+                    channels: Some(v[7] as usize),
+                    bandwidth: Some(if v[8] == 1103 {
+                        Bandwidth::Wideband
+                    } else {
+                        Bandwidth::Fullband
+                    }),
+                    variable: v[3] != 0,
+                    complexity: 0,
+                    ..control::Controls::default()
+                },
+                ..EncodeOptions::default()
+            },
+        );
+        let expected = calls
+            .next()
+            .ok_or("missing calls")?
+            .split_whitespace()
+            .map(str::parse::<u64>)
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        if (v[13] as i64) < 0 {
+            assert!(result.is_err(), "native error: {line}");
+            assert_eq!(encoder, before);
+            counts[2] += 1;
+            continue;
+        }
+        let packet = result.map_err(|e| format!("{e}: {line}"))?;
+        if v[14] != 0 {
+            assert!(packet.used_plc(), "early PLC: {line}");
+            let hex: String = packet
+                .as_bytes()
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect();
+            assert_eq!(hex, fields[32], "PLC packet: {line}");
+            assert_eq!(packet.final_range(), v[15] as u32);
+            let mut before = before;
+            before.stereo_width = encoder.stereo_width.clone();
+            before.celt.call_trace.clear();
+            assert_eq!(encoder, before, "early PLC changed audio: {line}");
+            counts[0] += 1;
+        } else {
+            counts[1] += 1;
+        }
+        if v[14] == 0 && v[15] == 0 {
+            assert!(packet.used_plc(), "completed overflow: {line}");
+            overflow += 1;
+        }
+        if packet.used_plc() && v[14] == 0 {
+            let hex: String = packet
+                .as_bytes()
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect();
+            assert_eq!(hex, fields[32], "completed PLC bytes: {line}");
+            assert_eq!(
+                packet.final_range(),
+                v[15] as u32,
+                "completed PLC range: {line}"
+            );
+        }
+        assert_eq!(
+            encoder.stereo_width.snapshot(),
+            [
+                v[27] as i32,
+                v[28] as i32,
+                v[29] as i32,
+                v[30] as i32,
+                v[31] as i32
+            ],
+            "raw stereo width: {line}"
+        );
+        let live = encoder.selected;
+        let mode_number = |m| match m {
+            Mode::Silk => 1000,
+            Mode::Hybrid => 1001,
+            Mode::Celt => 1002,
+        };
+        assert_eq!(
+            live.map_or(1001, |d| mode_number(d.mode)),
+            v[16],
+            "mode: {line}"
+        );
+        let band_number = |b| match b {
+            Bandwidth::Narrowband => 1101,
+            Bandwidth::Mediumband => 1102,
+            Bandwidth::Wideband => 1103,
+            Bandwidth::SuperWideband => 1104,
+            Bandwidth::Fullband => 1105,
+        };
+        assert_eq!(
+            live.map_or(1105, |d| band_number(d.bandwidth)),
+            v[17],
+            "band: {line}"
+        );
+        assert_eq!(
+            live.map_or(channels, |d| d.channels),
+            v[18] as usize,
+            "wire: {line}"
+        );
+        assert_eq!(
+            encoder.history.previous_mode.map_or(0, mode_number),
+            v[19],
+            "previous mode: {line}"
+        );
+        assert_eq!(encoder.hp_smooth, v[20] as i32, "HP2: {line}");
+        if v[21] != 0 {
+            assert_eq!(
+                encoder.speech.channels[0].cutoff.smooth, v[21] as i32,
+                "HP1: {line}"
+            );
+        }
+        for c in 0..2 {
+            if v[24 + c] != 0 {
+                assert_eq!(
+                    encoder.speech.resampler[c].native_state_fingerprint(),
+                    v[24 + c],
+                    "resampler{c}: {line}"
+                );
+            }
+        }
+        assert_eq!(encoder.speech.mid_input_hash, v[26], "mid PCM: {line}");
+        let retained = !matches!(
+            app,
+            control::Application::RestrictedSilk | control::Application::RestrictedCelt
+        );
+        let delay = if retained { encoder.pcm.history() } else { &[] };
+        let hash = delay
+            .iter()
+            .flat_map(|x| x.to_le_bytes())
+            .fold(14695981039346656037u64, |h, b| {
+                (h ^ u64::from(b)).wrapping_mul(1099511628211)
+            });
+        assert_eq!(hash, v[23], "delay: {line}");
+        assert_eq!(expected.len(), 1 + expected[0] as usize * 5);
+        let trace = expected[1..]
+            .chunks_exact(5)
+            .map(<[u64; 5]>::try_from)
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        assert_eq!(encoder.celt.call_trace, trace, "CELT calls: {line}");
+        let decoded = decoder.decode(packet.as_bytes())?;
+        assert_eq!(
+            decoded.samples().len(),
+            size.samples() * 2,
+            "duration: {line}"
+        );
+        assert_eq!(
+            decoded.final_range(),
+            packet.final_range(),
+            "decode range: {line}"
+        );
+    }
+    assert_eq!(counts, [5630, 1470, 100]);
+    assert_eq!(overflow, 126);
+    assert!(calls.next().is_none());
+    Ok(())
+}
+
+#[test]
 fn long_packet_errors_preserve_the_complete_live_owner() -> Result {
     let mut encoder = OpusEncoder::new(InputRate::Khz48, 2)?;
     let options = EncodeOptions {
@@ -27,7 +251,7 @@ fn long_packet_errors_preserve_the_complete_live_owner() -> Result {
         let input: Vec<_> = (0..size.samples() * 2)
             .map(|i| (i as i16).wrapping_mul(811))
             .collect();
-        for cap in [3, 31, 64, 257, 7656] {
+        for cap in [0, 3, 31, 64, 257, 7656, 7657] {
             let before = encoder.clone();
             match encoder.encode_packet(size, &input, cap, options) {
                 Ok(packet) => {
@@ -38,7 +262,8 @@ fn long_packet_errors_preserve_the_complete_live_owner() -> Result {
                     );
                     successes += 1;
                 }
-                Err(_) => {
+                Err(error) => {
+                    assert!(cap == 0 || cap == 7657, "legal pressure failed: {error}");
                     assert_eq!(encoder, before);
                     errors += 1;
                 }
@@ -663,7 +888,7 @@ fn short_frame_silence_uses_half_millisecond_dtx_clock() -> Result {
 }
 
 #[test]
-fn invalid_and_budget_failures_preserve_common_owner() -> Result {
+fn invalid_inputs_and_small_budget_packets_preserve_transaction_contract() -> Result {
     let mut encoder = OpusEncoder::new(InputRate::Khz48, 2)?;
     encoder.encode(
         FrameSize::Ms20,
@@ -672,7 +897,7 @@ fn invalid_and_budget_failures_preserve_common_owner() -> Result {
         EncodeOptions::default(),
     )?;
     let before = encoder.clone();
-    for cap in 0..3 {
+    for cap in [0, 1277] {
         assert!(
             encoder
                 .encode(FrameSize::Ms20, &[0; 1920], cap, EncodeOptions::default())
@@ -688,23 +913,20 @@ fn invalid_and_budget_failures_preserve_common_owner() -> Result {
         },
         ..EncodeOptions::default()
     };
-    let mut failed = 0;
+    let mut plc = 0;
     for cap in 3..30 {
         let mut trial = before.clone();
-        if trial
-            .encode(
-                FrameSize::Ms20,
-                &pcm(InputRate::Khz48, 2, FrameSize::Ms20, 1),
-                cap,
-                options,
-            )
-            .is_err()
-        {
-            assert_eq!(trial, before);
-            failed += 1;
-        }
+        let packet = trial.encode(
+            FrameSize::Ms20,
+            &pcm(InputRate::Khz48, 2, FrameSize::Ms20, 1),
+            cap,
+            options,
+        )?;
+        assert!(packet.as_bytes().len() <= cap);
+        assert_eq!(Packet::parse(packet.as_bytes())?.duration_samples(), 960);
+        plc += usize::from(packet.used_plc());
     }
-    assert!(failed > 0);
+    assert!(plc > 0);
     Ok(())
 }
 

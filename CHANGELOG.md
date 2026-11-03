@@ -7,6 +7,43 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.93] - 2026-11-03
+
+- Support native early PLC for1/2-byte caps and nominal rates below useful
+  admission. Construct the correct retained-mode/band/wire empty-frame packet
+  through120ms and whole CBR padding, without advancing PCM/layer/policy
+  histories. Retain actual selected mode separately from logical outgoing-tail
+  history. Reject the unrepresentable100ms/one-byte combination atomically.
+- Complete outer SILK encoding beyond a soft budget and replace a completed
+  overshoot with a native PLC payload containing one zero byte, retaining states.
+  Preserve one pending-FEC prefix-free retry, including allocation failures.
+  Add `EncodedPacket::used_plc` for either early or component loss signalling.
+  Other coding failures remain transactional errors.
+- Clamp positive user rates to at least500bps and at most750000bps per API
+  channel before physical/CBR admission. Apply effective SILK internal-rate ceilings for small
+  budgets, retain CELT BITRATE_MAX when a forced Hybrid high-band setter is
+  rejected, and skip raw stereo-width analysis on forced mono as native does.
+  Fixed public owners retain their existing contracts.
+- Connect automatic file caps down to1 byte and low nominal rates, including
+  CBR caps, with exact granules and pre-skip. Reject100ms/one-byte files before
+  output creation. Keep legacy fixed-mode option admission unchanged.
+- Match5,630 original early PLC packets and126 completed-overflow packets,
+  plus live state/input/call traces across7,200 original calls. Preserve all
+  five raw width histories and100 explicit impossible-cap errors. Both native
+  fixtures reproduce identically; five isolated mutations are detected.
+- Fresh unchanged-native decoding matches9,600 pressure calls/100 streams,
+  with800 explicit PLC/800 FEC calls and7,955 encoded packets signalling PLC;
+  corpus regeneration is identical. Prior complete short and long automatic
+  corpora remain byte-identical. All seven required offline gates pass,
+  including158 library and23 Python tests.85 tiny CBR/VBR CLI cases pass.
+- Bound recorded PCM counts before optional native replay, reject an oversized
+  FEC-count regression and repeat final valid native replay after the guard.
+- All24 complete fixed SILK/Hybrid corpora match committed0.1.92 SHA256,
+  sizes and record statistics:1,384,320 records/5,088 streams. See
+  docs/validation/encoder-budgets.md and its versioned evidence reports.
+- Remaining quality/complexity/control review and competitive real-audio
+  evaluation remain open; budget compatibility is not a SOTA claim.
+
 ## [0.1.92] - 2026-11-03
 
 - Add compatible `encoder::PacketSize` and `OpusEncoder::encode_packet` for

@@ -191,6 +191,62 @@ fn automatic_long_packets_preserve_duration_and_whole_cbr_budget() -> Result<()>
     Ok(())
 }
 #[test]
+fn automatic_tiny_budgets_emit_valid_plc_and_keep_file_timing() -> Result<()> {
+    let temp = Temporary::new()?;
+    let input = temp.0.join("budget.wav");
+    fs::write(&input, wave(48000, 2, 9601))?;
+    let mut cases = 0;
+    for app in [
+        "audio",
+        "voip",
+        "lowdelay",
+        "restricted-silk",
+        "restricted-celt",
+    ] {
+        for ms in [20, 40, 60, 80, 100, 120] {
+            for cap in [1, 2, 3] {
+                let encoded = temp.0.join(format!("budget-{cases}.opus"));
+                let output = temp.0.join(format!("budget-{cases}.wav"));
+                let mut cmd = cli();
+                cmd.arg("encode").arg(&input).arg(&encoded).args([
+                    "--mode",
+                    "auto",
+                    "--application",
+                    app,
+                    "--frame-ms",
+                    &ms.to_string(),
+                    "--bitrate",
+                    "100",
+                    "--max-packet-bytes",
+                    &cap.to_string(),
+                    "--complexity",
+                    "0",
+                ]);
+                if ms == 100 && cap == 1 {
+                    assert!(!cmd.output()?.status.success());
+                    assert!(!encoded.exists());
+                    continue;
+                }
+                if cases % 2 == 0 {
+                    cmd.arg("--vbr");
+                }
+                success(&mut cmd)?;
+                success(cli().arg("decode").arg(&encoded).arg(&output))?;
+                output_pcm(&fs::read(output)?, 2, 9601)?;
+                for bytes in audio_packets(&fs::read(encoded)?)? {
+                    let packet = opura::Packet::parse(&bytes)?;
+                    assert!(bytes.len() <= cap);
+                    assert_eq!(usize::from(packet.duration_samples()), ms * 48);
+                    assert!(packet.frames().iter().all(|f| f.is_empty()));
+                }
+                cases += 1;
+            }
+        }
+    }
+    assert_eq!(cases, 85);
+    Ok(())
+}
+#[test]
 fn automatic_controls_and_invalid_packets_are_explicit() -> Result<()> {
     let temp = Temporary::new()?;
     let input = temp.0.join("source.wav");
