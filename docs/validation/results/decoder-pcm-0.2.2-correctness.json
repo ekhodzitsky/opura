@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "version": "0.2.2",
+  "base_revision": "9c370ed76007349b2c0e60bf50b89abb68b4087b",
+  "worktree_modified": true,
+  "provenance": "Final source before correctness checkpoint commit. Full paired before/after timing still pending; no final speed claim.",
+  "source_sha256": {
+    "src/decoder.rs": "5a94fdc5116f0ffffa74b6502cd9a437f0b02e109df31f01c8b8f2adf0d73f7a",
+    "tests/decoder_pcm.rs": "66bf302de7f2a5b587b9fcd338360b46437d0b49b16615f0fde41e826625b494",
+    "tests/decoder-pcm-fixtures.txt": "c14959e2f5e92a67760f7ca6ab2d4ce8a1dd5309d50a8ed19100029d8fabe1cf",
+    "tools/decoder_pcm_fixtures.py": "9d14a6ce92adf700a02b1712f0ad23d2f946de2fa9da1646d3d8554255164627",
+    "tools/multistream_decoder_fixtures.py": "541f199d01298853d6706492d38194e2d88278b86a17c67104d2b56b829faab2",
+    "tools/audio_baseline.py": "a1db84b3c6c3fa378398feadcb1f30067884f5db6ff433e995db7b428c779b78",
+    "Cargo.toml": "f842c846b782eb5ac6c97a00267bdf5a237f5991444bba0869d7b71f5404f427",
+    "Cargo.lock": "c5952bea07b49c181cf573f81fb3d9b26cf7f8aa03c441ea9cae2089acebdad2"
+  },
+  "offline_gates": [
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 0.8560183860099642
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked"
+      ],
+      "exit_code": 0,
+      "seconds": 158.504583721995
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--release"
+      ],
+      "exit_code": 0,
+      "seconds": 45.07569472400064
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "seconds": 10.540617698003189
+    },
+    {
+      "command": [
+        "cargo",
+        "doc",
+        "--offline",
+        "--locked",
+        "--no-deps"
+      ],
+      "exit_code": 0,
+      "seconds": 1.38451859500492
+    },
+    {
+      "command": [
+        "python3",
+        "tools/check_dependencies.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.06368899700464681
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools",
+        "-p",
+        "test_*.py"
+      ],
+      "exit_code": 0,
+      "seconds": 4.899190030002501
+    }
+  ],
+  "rustdoc_environment": {
+    "RUSTDOCFLAGS": "-D warnings"
+  },
+  "library_tests": 172,
+  "python_tests": 41,
+  "native_oracle": {
+    "revision": "22244de5a79bd1d6d623c32e72bf1954b56235be",
+    "pristine": true,
+    "operations": 1680,
+    "cases": 70,
+    "normal": 1330,
+    "plc": 210,
+    "fec": 140,
+    "long_normal": 420,
+    "resets": 70,
+    "mode_packets": [
+      8,
+      10,
+      6
+    ],
+    "fec_backups": 4,
+    "passes_on_baseline": "0.2.1",
+    "passes_on_candidate": "0.2.2"
+  },
+  "mutations": [
+    {
+      "mutation": "frame-offset",
+      "exit_code": 101,
+      "detected": true
+    },
+    {
+      "mutation": "plc-gain-scope",
+      "exit_code": 101,
+      "detected": true
+    },
+    {
+      "mutation": "transition-scratch",
+      "exit_code": 101,
+      "detected": true
+    },
+    {
+      "mutation": "early-owner-commit",
+      "exit_code": 101,
+      "detected": true
+    }
+  ],
+  "official_conformance_cases": 120,
+  "pcm_unchanged_from": "0.2.1",
+  "performance_status": "pending final15round10geometry ordinary-release comparison",
+  "limitations": [
+    "No peak-stack/heap/competitor/encoder-speed/SOTA claim.",
+    "Pilot is not retained final performance evidence."
+  ]
+}

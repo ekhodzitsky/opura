@@ -7,6 +7,22 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-11-03
+
+- Render unified normal, multi-frame, PLC and FEC output into bounded private
+  frame-local views of the staged packet result. Remove intermediate120ms PCM
+  containers/copies; retain the public owning output and complete-owner rollback.
+  Keep a bounded5ms transition scratch and per-frame gain/fade lifetimes,
+  including long packets and FEC with a PLC prefix. No unsafe or dependency.
+- Retain1680pristine native PCM/range operations across five rates, mono/stereo,
+  seven signed gains,40/60/120ms packets, PLC, prefixed FEC, reverse mode changes
+  and gain-preserving reset. Both0.2.1 and the candidate pass the same corpus.
+  Four source mutations of frame offsets, PLC gain scope, transition scratch
+  and premature owner commit are detected; restored regressions pass.
+- Pass all seven offline gates (172 library/41 Python tests) and all120 RFC8251
+  cases with every0.2.1 PCM hash unchanged. Retain source-bound correctness
+  reports. Final public paired performance evidence remains pending.
+
 ## [0.2.1] - 2026-11-03
 
 - Specialize CELT CWRS pulse-vector unranking with native row/column traversal,
