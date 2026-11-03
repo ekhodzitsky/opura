@@ -7,6 +7,11 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Record source/binary-bound decoder stack diagnostics after 0.2.5. Reject
+  unreliable gprofng timer data, including historical cost percentages; retain
+  validated GDB snapshot counts and an exact reproducibility driver. No codec
+  behavior or accepted uninstrumented speed result changes.
+
 ## [0.2.5] - 2026-11-03
 
 - Reconstruct positive-pulse CELT PVQ leaves directly into unpublished partition

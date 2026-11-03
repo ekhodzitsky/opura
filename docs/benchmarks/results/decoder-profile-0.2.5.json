@@ -1,0 +1,347 @@
+{
+  "schema_version": 1,
+  "track": "diagnostic_decoder_stack_samples",
+  "opura_version": "0.2.5",
+  "codec_revision": "c9d3ef1",
+  "status": "validated diagnostic snapshots; not CPU-share or speed evidence",
+  "method": "External GDB async MI wall-clock jittered PC/physical-stack sampling",
+  "cpu": 0,
+  "interval_seconds": [
+    0.012,
+    0.028
+  ],
+  "seed": 62587,
+  "passes": 50,
+  "rate": 48000,
+  "channels": 2,
+  "rust_source_sha256": "aecf46c17838fb4852eb89e7f59c4d9708c86abadad4ff744169308bfe875fed",
+  "binary_sha256": {
+    "rust": "0c0d40e26c10595f6dc869efe5c4ab360ea86457b19421e4cf3e274876ab77c8",
+    "native": "ae114188213f56cb853bcc66f45f2a7a32a93f32838fa2116a59693d1b7cfce5"
+  },
+  "native_revision": "22244de5a79bd1d6d623c32e72bf1954b56235be",
+  "native_profile": "scalar-dispatch fixed-point fast64; compiler auto-vectorization allowed",
+  "gdb_version": "GNU gdb (Ubuntu 17.1-2ubuntu1) 17.1",
+  "driver_sha256": "4a2c388d3c979450983ca75e1b953918e74119bc635332ec0773ebc3ef86b3ef",
+  "platform": {
+    "machine": "x86_64",
+    "kernel": "7.0.0-38-generic"
+  },
+  "summary": {
+    "rust": {
+      "snapshots": 1666,
+      "decoder_ancestry_snapshots": 1638,
+      "top_pc_functions": [
+        [
+          "__memcpy_avx512_unaligned_erms",
+          275
+        ],
+        [
+          "opura::celt::mdct::MdctState::synthesize",
+          141
+        ],
+        [
+          "opura::celt::fft::FftPlan::transform",
+          135
+        ],
+        [
+          "opura::celt::partition::Decoder::theta",
+          94
+        ],
+        [
+          "opura::celt::pulses::PulseCodebook::decode_index",
+          85
+        ],
+        [
+          "opura::silk::synthesis::SynthesisState::apply",
+          69
+        ],
+        [
+          "opura::celt::output::DeemphasisState::process",
+          67
+        ],
+        [
+          "__memset_avx512_unaligned_erms",
+          66
+        ],
+        [
+          "opura::celt::pvq::rotate",
+          62
+        ],
+        [
+          "opura::celt::postfilter::filter",
+          50
+        ],
+        [
+          "opura::range::RangeDecoder::decode_cdf",
+          43
+        ],
+        [
+          "opura::silk::resampler::ResamplerCore<_,_,_>::filter",
+          41
+        ],
+        [
+          "opura::silk::excitation::decode_excitation",
+          37
+        ],
+        [
+          "opura::silk::excitation::shell",
+          34
+        ],
+        [
+          "opura::celt::allocation::decode_allocation",
+          33
+        ],
+        [
+          "opura::range::RangeDecoder::decode_icdf",
+          31
+        ],
+        [
+          "opura::silk::resampler::upsample2",
+          31
+        ],
+        [
+          "opura::celt::partition::Decoder::partition",
+          30
+        ],
+        [
+          "opura::celt::pvq::reconstruct_into",
+          29
+        ],
+        [
+          "opura::range::RangeDecoder::decode_uint",
+          29
+        ]
+      ],
+      "memcpy_snapshots_all": 298,
+      "memcpy_immediate_callers": [
+        [
+          "<opura::decoder::OpusDecoder as core::clone::Clone>::clone",
+          58
+        ],
+        [
+          "opura::celt::pvq::decode_partition_band_into",
+          44
+        ],
+        [
+          "opura::celt::synthesis::CeltSynthesis::synthesize_staged",
+          36
+        ],
+        [
+          "decoder_bench::replay",
+          23
+        ],
+        [
+          "opura::decoder::OpusDecoder::decode_packet",
+          21
+        ],
+        [
+          "opura::celt::decoder::CeltDecoder::decode_layer",
+          19
+        ],
+        [
+          "opura::celt::pulses::PulseCodebook::decode_index",
+          14
+        ],
+        [
+          "opura::decoder::OpusDecoder::packet_frame",
+          12
+        ],
+        [
+          "opura::celt::mdct::MdctState::synthesize",
+          10
+        ],
+        [
+          "opura::celt::partition::band::<impl opura::celt::partition::Decoder>::band",
+          9
+        ],
+        [
+          "opura::celt::decoder::loss::<impl opura::celt::decoder::CeltDecoder>::record_normal",
+          9
+        ],
+        [
+          "opura::celt::partition::spectrum::decode_spectrum",
+          7
+        ],
+        [
+          "opura::celt::partition::band::BandTransform::prepare",
+          7
+        ],
+        [
+          "<core::iter::adapters::cloned::Cloned<I> as core::iter::traits::unchecked_iterator::UncheckedIterator>::next_unchecked",
+          5
+        ],
+        [
+          "opura::celt::postfilter::PostfilterState::process",
+          4
+        ],
+        [
+          "opura::celt::output::denormalize",
+          3
+        ],
+        [
+          "opura::silk::synthesis::SynthesisState::apply",
+          3
+        ],
+        [
+          "opura::silk::channel::ChannelState::decode",
+          3
+        ],
+        [
+          "opura::silk::decoder::SilkDecoder::frame",
+          2
+        ],
+        [
+          "opura::silk::decoder::SilkDecoder::decode_layer",
+          2
+        ]
+      ],
+      "target_exit": 0,
+      "fingerprint": "1d15af7e1c0f5b9c"
+    },
+    "native": {
+      "snapshots": 1196,
+      "decoder_ancestry_snapshots": 1191,
+      "top_pc_functions": [
+        [
+          "opus_fft_impl",
+          126
+        ],
+        [
+          "celt_decode_with_ec_dred",
+          109
+        ],
+        [
+          "clt_mdct_backward_c",
+          94
+        ],
+        [
+          "decode_pulses",
+          86
+        ],
+        [
+          "silk_resampler_private_IIR_FIR",
+          74
+        ],
+        [
+          "silk_decode_core",
+          61
+        ],
+        [
+          "quant_partition",
+          56
+        ],
+        [
+          "comb_filter",
+          52
+        ],
+        [
+          "ec_dec_icdf",
+          47
+        ],
+        [
+          "quant_band",
+          43
+        ],
+        [
+          "silk_resampler_private_up2_HQ",
+          36
+        ],
+        [
+          "celt_rsqrt_norm32",
+          33
+        ],
+        [
+          "compute_theta",
+          32
+        ],
+        [
+          "ec_dec_uint",
+          31
+        ],
+        [
+          "clt_compute_allocation",
+          28
+        ],
+        [
+          "quant_band_stereo",
+          18
+        ],
+        [
+          "denormalise_bands",
+          17
+        ],
+        [
+          "normalise_residual.constprop",
+          17
+        ],
+        [
+          "exp_rotation1.constprop",
+          14
+        ],
+        [
+          "exp_rotation1",
+          14
+        ]
+      ],
+      "memcpy_snapshots_all": 12,
+      "memcpy_immediate_callers": [
+        [
+          "celt_decode_with_ec_dred",
+          8
+        ],
+        [
+          "quant_band",
+          2
+        ],
+        [
+          "silk_decode_frame",
+          1
+        ],
+        [
+          "silk_resampler_private_IIR_FIR",
+          1
+        ]
+      ],
+      "target_exit": 0,
+      "fingerprint": "1d15af7e1c0f5b9c"
+    }
+  },
+  "program_validation": {
+    "rust": {
+      "packets": 20075,
+      "samples_per_pass": 15390480,
+      "fingerprint": "1d15af7e1c0f5b9c",
+      "decoder_bytes": 34520,
+      "passes": 50,
+      "mode_packets": [
+        4526,
+        4491,
+        11058
+      ]
+    },
+    "native": {
+      "packets": 20075,
+      "samples_per_pass": 15390480,
+      "fingerprint": "1d15af7e1c0f5b9c",
+      "decoder_bytes": 27124,
+      "passes": 50,
+      "mode_packets": [
+        4526,
+        4491,
+        11058
+      ]
+    }
+  },
+  "failed_method": {
+    "tool": "gprofng",
+    "reason": "Explicit1ms trials have noPCdata and clock-initialization errors. hi controls and historical0.2.3profile warn timer997us->0; observed100ms timer signals do not justify reported997us weighting.",
+    "perf_probe": "task-clock unavailable/denied with perf_event_paranoid4"
+  },
+  "limitations": [
+    "Jittered wall-clock stop/query sampling, not CPU cycle/time fractions or unbiased cost estimates.",
+    "Debugger scheduling/stop overhead, physical-stack/unwind/inlining limits, one output geometry only.",
+    "No native speed update or cumulative ratio from historical separate measurements.",
+    "Raw MI/mappings/experiments remain local; only sanitized identity and counts are retained."
+  ]
+}
