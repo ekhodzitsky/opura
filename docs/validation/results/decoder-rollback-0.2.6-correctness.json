@@ -1,0 +1,212 @@
+{
+  "schema_version": 1,
+  "version": "0.2.6",
+  "variant": "selective normal steady-CELT snapshot with full fallback",
+  "base_revision": "c8a006e",
+  "worktree_modified": true,
+  "provenance": "All correctness checks bind the codec content committed at461081e. The completed source-bound comparison is valid but does not establish aggregate benefit; implementation is not accepted or released.",
+  "source_sha256": {
+    "src/decoder.rs": "293d596801ee8edec882eb2fce9728eb68b0bd036037b5d845347170adb3f7df",
+    "src/decoder_transaction_tests.rs": "ca77061e8afff09997d2e8b590fb4efb1b9c6ba67717667d5f96d0f851118321",
+    "tests/opus_decoder.rs": "6075a1a5b537df961a7ac8882e922b023b7be07c0fc44f1e5c97260803bf55a9",
+    "tests/decoder_pcm.rs": "66bf302de7f2a5b587b9fcd338360b46437d0b49b16615f0fde41e826625b494",
+    "tests/decoder-pcm-fixtures.txt": "c14959e2f5e92a67760f7ca6ab2d4ce8a1dd5309d50a8ed19100029d8fabe1cf",
+    "tests/multistream_native.rs": "87ed8022d09c4f9046d8b77ece1efadef47295a3f8fed9899d18f434fd3d4368",
+    "Cargo.toml": "4bfcd68c47c65cb74dc9d236553bc8ebdba2cecece68621ff3bcf6c674bbba5a",
+    "Cargo.lock": "971bd4a92701ad6829df7ce53dcdef14087c2920a32ab97061f423541ca6ea54"
+  },
+  "offline_gates": [
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 0.678711556000053
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked"
+      ],
+      "exit_code": 0,
+      "seconds": 141.24094032299763
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--release"
+      ],
+      "exit_code": 0,
+      "seconds": 36.62901063800382
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "seconds": 9.62546686299902
+    },
+    {
+      "command": [
+        "cargo",
+        "doc",
+        "--offline",
+        "--locked",
+        "--no-deps"
+      ],
+      "exit_code": 0,
+      "seconds": 0.8751317139976891
+    },
+    {
+      "command": [
+        "python3",
+        "tools/check_dependencies.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.05401276799966581
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools",
+        "-p",
+        "test_*.py"
+      ],
+      "exit_code": 0,
+      "seconds": 4.573947500000941
+    }
+  ],
+  "rustdoc_environment": {
+    "RUSTDOCFLAGS": "-D warnings"
+  },
+  "library_tests": 185,
+  "python_tests": 44,
+  "new_postrender_error_unwind_tests": 4,
+  "all_transaction_tests": 13,
+  "default_test_stack": true,
+  "mutations": [
+    {
+      "name": "omit-restoration",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--lib",
+        "decoder::transaction_tests"
+      ],
+      "exit_code": 101,
+      "caught": true
+    },
+    {
+      "name": "premature-disarm",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--lib",
+        "opus_owner_restores_gain_and_transition_state_after_written_leaves"
+      ],
+      "exit_code": 101,
+      "caught": true
+    },
+    {
+      "name": "never-disarm",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--test",
+        "decoder_pcm"
+      ],
+      "exit_code": 101,
+      "caught": true
+    },
+    {
+      "name": "omit-previous-mode-condition",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--lib",
+        "normal_transition_and_long_packet_restore_on_error_and_unwind"
+      ],
+      "exit_code": 101,
+      "caught": true
+    },
+    {
+      "name": "omit-range-restoration",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--lib",
+        "steady_celt_and_implicit_loss_preserve_silk_and_restore_all_state"
+      ],
+      "exit_code": 101,
+      "caught": true
+    }
+  ],
+  "native_decoder_operations": 1680,
+  "native_multistream_regressions": "pass",
+  "official_conformance_cases": 120,
+  "pcm_unchanged_from": "0.2.5",
+  "performance_status": "complete, inconclusive; not accepted or released",
+  "prior_full_snapshot_experiment": {
+    "revision": "ed8e6f0",
+    "aggregate_ratio": 0.9880253095899866,
+    "ci95": [
+      0.9772281425253905,
+      1.0040661494605039
+    ],
+    "accepted": false,
+    "report": "../../benchmarks/results/decoder-rollback-full-0.2.6.json"
+  },
+  "exploratory_selective_pilot": {
+    "ratio": 0.9642513184705035,
+    "pairs": 7,
+    "geometry": "48000/2",
+    "accepted_as_release_evidence": false
+  },
+  "limitations": [
+    "No malformed-error/explicitPLC-FEC throughput claim; failure restores all state the operation can mutate.",
+    "No native/other competitor, encoder quality/speed, peak-stack/heap/RSS or SOTA claim."
+  ],
+  "codec_revision": "461081e",
+  "performance": {
+    "report": "../../benchmarks/results/decoder-rollback-0.2.6.json",
+    "samples": 300,
+    "paired_rounds": 15,
+    "geometries": 10,
+    "ci95": [
+      0.9739394907668586,
+      1.0074619410894488
+    ],
+    "ratio": 0.991585234808872,
+    "accepted": false
+  }
+}

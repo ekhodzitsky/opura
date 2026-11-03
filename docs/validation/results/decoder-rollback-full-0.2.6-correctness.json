@@ -1,0 +1,179 @@
+{
+  "schema_version": 1,
+  "version": "0.2.6",
+  "base_revision": "c8a006ea0a759795e20a3bd9668dd18ec393edd5",
+  "worktree_modified": true,
+  "provenance": "Final borrowed-snapshot codec source before correctness checkpoint commit; full paired timing pending, no final speed claim.",
+  "source_sha256": {
+    "src/decoder.rs": "72e2c4694ee1dc5c67b3885ffdb10b30fac8792bea921f49ff5931662e1db05f",
+    "src/decoder_transaction_tests.rs": "673ecc61918f7fe91b481cc5d6704da9a525bbf9990964cf43f17d4383a2f951",
+    "tests/opus_decoder.rs": "6075a1a5b537df961a7ac8882e922b023b7be07c0fc44f1e5c97260803bf55a9",
+    "tests/decoder_pcm.rs": "66bf302de7f2a5b587b9fcd338360b46437d0b49b16615f0fde41e826625b494",
+    "tests/decoder-pcm-fixtures.txt": "c14959e2f5e92a67760f7ca6ab2d4ce8a1dd5309d50a8ed19100029d8fabe1cf",
+    "tests/multistream_native.rs": "87ed8022d09c4f9046d8b77ece1efadef47295a3f8fed9899d18f434fd3d4368",
+    "Cargo.toml": "4bfcd68c47c65cb74dc9d236553bc8ebdba2cecece68621ff3bcf6c674bbba5a",
+    "Cargo.lock": "971bd4a92701ad6829df7ce53dcdef14087c2920a32ab97061f423541ca6ea54"
+  },
+  "offline_gates": [
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 0.5287028270104202
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked"
+      ],
+      "exit_code": 0,
+      "seconds": 152.48570656700758
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--release"
+      ],
+      "exit_code": 0,
+      "seconds": 34.711305612989236
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "seconds": 9.747657724990859
+    },
+    {
+      "command": [
+        "cargo",
+        "doc",
+        "--offline",
+        "--locked",
+        "--no-deps"
+      ],
+      "exit_code": 0,
+      "seconds": 0.8266054709965829
+    },
+    {
+      "command": [
+        "python3",
+        "tools/check_dependencies.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.05352524000045378
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools",
+        "-p",
+        "test_*.py"
+      ],
+      "exit_code": 0,
+      "seconds": 4.578639719999046
+    }
+  ],
+  "rustdoc_environment": {
+    "RUSTDOCFLAGS": "-D warnings"
+  },
+  "library_tests": 184,
+  "python_tests": 44,
+  "new_postrender_error_unwind_tests": 3,
+  "all_transaction_tests": 12,
+  "default_test_stack": true,
+  "mutations": [
+    {
+      "name": "omit-error-unwind-restoration",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--lib",
+        "decoder::transaction_tests"
+      ],
+      "exit_code": 101,
+      "caught": true
+    },
+    {
+      "name": "disarm-before-real-render-errors",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--lib",
+        "opus_owner_restores_gain_and_transition_state_after_written_leaves"
+      ],
+      "exit_code": 101,
+      "caught": true
+    },
+    {
+      "name": "never-disarm-success",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--test",
+        "decoder_pcm"
+      ],
+      "exit_code": 101,
+      "caught": true
+    }
+  ],
+  "native_decoder_operations": 1680,
+  "native_multistream_regressions": "pass",
+  "official_conformance_cases": 120,
+  "pcm_unchanged_from": "0.2.5",
+  "performance_status": "complete: full-snapshot experiment inconclusive, not accepted or tagged",
+  "prototype_history": [
+    {
+      "variant": "owning Option snapshot",
+      "pilot_ratio": 1.0118764360254444,
+      "accepted": false,
+      "scope": "exploratory7pairs48kstereo only; raw/source/binary kept locally"
+    },
+    {
+      "variant": "borrowed local snapshot",
+      "pilot_ratio": 0.9748582463615987,
+      "accepted_as_release_evidence": false,
+      "scope": "exploratory7pairs48kstereo only; full comparison still required"
+    }
+  ],
+  "limitations": [
+    "No malformed-error/explicitPLC-FEC throughput claim; errors now restore the complete snapshot.",
+    "No native/other competitor, encoder quality/speed, peak-stack/heap/RSS or SOTA claim."
+  ],
+  "performance_report": "../../benchmarks/results/decoder-rollback-full-0.2.6.json",
+  "measured_candidate_revision": "ed8e6f0",
+  "measurement_source_sha256": "8eff02a214cb2e259dd19cea35b586f4454e1a876db1e7794f8e040b660dab72",
+  "measurement_driver_sha256": "b2cd7753c5fc8bf4a29cd4c008ac00f70ebaeaada6a3a0b66f8fa74faa31e299",
+  "aggregate_time_ratio": 0.9880253095899866,
+  "aggregate_ci95": [
+    0.9772281425253905,
+    1.0040661494605039
+  ]
+}

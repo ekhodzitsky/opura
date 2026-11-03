@@ -85,6 +85,11 @@ integrated contract in the table above.
   every per-case upper bound is below 1.05. Native/other-competitor, quality,
   resource and portability acceptance remain open; separate historical ratios
   are not combined into a cumulative or native comparison.
+  Two later rollback experiments were not adopted: the [full snapshot](../benchmarks/decoder-rollback-full-0.2.6.md)
+  gives ratio 0.9880, interval [0.9772,1.0041], and the [selective snapshot](../benchmarks/decoder-rollback-0.2.6.md)
+  gives 0.9916, interval [0.9739,1.0075], each with 300 samples/all ten geometries.
+  Neither demonstrates aggregate benefit. Their correctness-validated code is
+  retained separately; production remains 0.2.5 and no 0.2.6 tag is created.
   Best-available native SIMD and the other direct implementations in the
   [comparison contract](../benchmarks/competitive-landscape.md) remain unmeasured.
 - Cross-platform/target coverage and malformed-input/resource measurements must

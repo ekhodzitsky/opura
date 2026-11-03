@@ -7,6 +7,15 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Retain two correctness-validated decoder rollback experiments without adopting
+  their implementation. Each complete paired comparison retains 300 samples
+  across all ten output geometries. Full-snapshot and selective-snapshot
+  aggregate time ratios versus 0.2.5 are 0.9880 (95% interval [0.9772,1.0041])
+  and 0.9916 ([0.9739,1.0075]); neither establishes aggregate benefit. Preserve
+  all slower/uncertain cases, source/binary bindings and failure tests. The
+  experiments remain on a separate branch; production stays 0.2.5, with no
+  0.2.6 release/tag or competitive-performance claim.
+
 - Record source/binary-bound decoder stack diagnostics after 0.2.5. Reject
   unreliable gprofng timer data, including historical cost percentages; retain
   validated GDB snapshot counts and an exact reproducibility driver. No codec
