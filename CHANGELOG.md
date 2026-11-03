@@ -7,6 +7,19 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Audit native CELT prediction0/1/2, packet loss0..100, changing spectral bands
+  and mono/stereo wire layout over6,144 actual calls. Every payload byte, PCM,
+  final range and captured rate/intensity history matches the disclosed
+  Q24-corrected encoder oracle. Periodic and impulse inputs supplement noise;
+  sustained voiced schedules include active prefilter histories. Five isolated
+  mutations are detected. Production codec behavior/version remain0.1.95.
+- Extend ordinary Rust regressions and preserve the prior quality/rate/helper
+  fixtures unchanged. Record current capabilities and outstanding multistream
+  and comparative evaluation work in docs/validation/codec-readiness.md.
+- Repeat the complete official RFC8251 decoder matrix on the current source:
+  all120 cases and final ranges pass, with corruption probes rejected.
+  All seven offline gates pass, including162 library and23 Python tests.
+
 ## [0.1.95] - 2026-11-03
 
 - Retain the actual CELT allocation intensity boundary for the next native

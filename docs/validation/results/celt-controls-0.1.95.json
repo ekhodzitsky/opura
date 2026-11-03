@@ -1,0 +1,185 @@
+{
+  "status": "pass",
+  "opura_version": "0.1.95",
+  "production_implementation_commit": "d7fe1bf71dac0e71edd79b5a667e99da6adee490",
+  "production_codec_changes": false,
+  "reference_revision": "22244de5a79bd1d6d623c32e72bf1954b56235be",
+  "reference_configuration": "scalar fixed fast64 Q24, floating analysis disabled",
+  "encoder_reference_correction": "Private copy changes only opus_val16 x1, x2 to celt_glog x1, x2 in patch_transient_decision, as disclosed in0.1.94. Original checkout and all reference decoding remain unchanged.",
+  "control_history_calls": 6144,
+  "control_history_streams": 32,
+  "control_history_byte_identical_packets": 6144,
+  "control_history_pcm_and_range_matches": 6144,
+  "predictions": [
+    0,
+    1,
+    2
+  ],
+  "packet_loss_percent": [
+    0,
+    1,
+    5,
+    10,
+    20,
+    50,
+    100
+  ],
+  "input_rates": [
+    8000,
+    12000,
+    16000,
+    24000,
+    48000
+  ],
+  "api_channels": [
+    1,
+    2
+  ],
+  "complexities": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+  ],
+  "signals": [
+    "amplitude-varying random noise",
+    "periodic200Hz waveform plus noise",
+    "100Hz impulse train"
+  ],
+  "sustained_voiced_streams": 2,
+  "nonzero_prefilter_gain_frames": 67,
+  "prior_quality_calls": 10560,
+  "prior_rate_history_calls": 5132,
+  "all_actual_celt_calls_byte_identical": 21836,
+  "paired_helper_cases": 768,
+  "fixture_sha256": {
+    "celt-quality-corrected-q24-fixtures.txt": "3c59d383b0cf9b3f485e1ffe7f3fbdaab668cf10bbbf104ea2aba4f9279b733d",
+    "celt-patch-corrected-q24-fixtures.txt": "01cff983ebc52727a5e49354ef0614adec7150f13bf32a632a4a1a1f2e520b18",
+    "celt-rate-history-corrected-q24-fixtures.txt": "2ff20de3456f097400929b260161d9394bc95d6ed1fd3e71a28689bc952ac840",
+    "celt-control-history-corrected-q24-fixtures.txt": "70c4838d6b50d5a4c32f56d7c1bf2bd2a0ac53792c6aae96c97bc0e8b73b98ac"
+  },
+  "fixtures_regenerate_identically": true,
+  "mutations": [
+    {
+      "mutation": "ignore_prediction_intra",
+      "detected": true
+    },
+    {
+      "mutation": "always_enable_pitch",
+      "detected": true
+    },
+    {
+      "mutation": "ignore_prefilter_loss",
+      "detected": true
+    },
+    {
+      "mutation": "ignore_coarse_loss",
+      "detected": true
+    },
+    {
+      "mutation": "retain_inactive_energy",
+      "detected": true
+    }
+  ],
+  "required_offline_checks": [
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--release"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "doc",
+        "--offline",
+        "--locked",
+        "--no-deps"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python3",
+        "tools/check_dependencies.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools",
+        "-p",
+        "test_*.py"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "rustdoc_environment": "RUSTDOCFLAGS=-D warnings",
+  "library_tests": 162,
+  "python_tests": 23,
+  "decoder_conformance_complete": true,
+  "decoder_conformance_cases": 120,
+  "decoder_conformance_source_sha256": "c3156974db5348b406d89f513069de3dc19bf6a4649e9e98a1d2aa22e3ef07e4",
+  "decoder_conformance_fault_sensitivity": {
+    "corrupt_range_rejected": true,
+    "corrupted_packet_index": 0,
+    "zero_pcm_rejected_by_both_references": true
+  },
+  "owner_corpus_replay_repeated": false,
+  "recording_replay_repeated": false,
+  "unchanged_runtime_previous_evidence": "Production codec is unchanged from0.1.95; prior shared-owner and recording replay is in celt-rate-history-0.1.95.json and its recording report. This audit does not claim those replays were repeated.",
+  "limitations": [
+    "No complete pristine native encoder parity claim.",
+    "No representative perceptual or competitive performance claim.",
+    "Multistream/self-delimiting framing and benchmark/integration gaps remain open; see codec-readiness.md.",
+    "The complete codec goal is not achieved by this audit."
+  ]
+}

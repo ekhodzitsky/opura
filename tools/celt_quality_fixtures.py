@@ -37,6 +37,12 @@ void quality_feedback(CELTEncoder *s,int *out) {
 }
 void quality_wire(CELTEncoder *s,int channels){celt_encoder_ctl(s,CELT_SET_CHANNELS(channels));}
 void quality_complexity(CELTEncoder *s,int complexity){celt_encoder_ctl(s,OPUS_SET_COMPLEXITY(complexity));}
+int quality_controls(CELTEncoder *s,int end,int prediction,int loss) {
+ int ret=celt_encoder_ctl(s,CELT_SET_END_BAND(end));if(ret)return ret;
+ ret=celt_encoder_ctl(s,CELT_SET_PREDICTION(prediction));if(ret)return ret;
+ return celt_encoder_ctl(s,OPUS_SET_PACKET_LOSS_PERC(loss));
+}
+
 
 int quality_patch(int C,int start,int end,const int *current,const int *previous) {
  return patch_transient_decision((celt_glog*)current,(celt_glog*)previous,21,start,end,C);
@@ -71,6 +77,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('source',type=Path);parser.add_argument('output',type=Path)
     parser.add_argument('--patch-output',type=Path,required=True)
+    parser.add_argument('--control-output',type=Path,help='optional actual prediction/loss/band/wire control history corpus')
     parser.add_argument('--rate-output',type=Path,help='optional actual CBR/VBR/CVBR switch and feedback corpus')
     parser.add_argument('--correct-q24',action='store_true',help='private source copy: retain spectral-patch x1/x2 as celt_glog instead of int16')
     args=parser.parse_args();source=args.source.resolve()
@@ -156,37 +163,73 @@ def main():
         args.output.write_text('\n'.join(rows)+'\n');print('Captured',len(rows)-2,'native CELT calls;',patched,'patched;',len(patch)-2,'helper cases')
         if args.rate_output:
             capture_rate_history(lib,args.rate_output,args.correct_q24)
+        if args.control_output:
+            capture_rate_history(lib,args.control_output,args.correct_q24,controlled=True)
 
-def capture_rate_history(lib, output, corrected):
+def capture_rate_history(lib, output, corrected, controlled=False):
     lib.quality_rate.argtypes = [c.c_void_p, c.c_int, c.c_int]
     lib.quality_feedback.argtypes = [c.c_void_p, c.POINTER(c.c_int)]
     lib.quality_complexity.argtypes = [c.c_void_p, c.c_int]
     lib.quality_wire.argtypes = [c.c_void_p, c.c_int]
     rows = ['# ' + ('Corrected Q24' if corrected else 'Pristine') + ' actual CELT rate histories ' + REVISION, '# FS API STREAM INDEX LM COMPLEX CAP MODE BITRATE SEED SCALE WIRE TEMPORAL TRANSIENT SPREAD AVG HF TAP SPEC_AVG RESERVOIR DRIFT OFFSET COUNT INTENSITY RANGE PCM_FNV PACKET_HEX']
-    configurations = [(rate, channels, stream, 192) for rate in [8000, 12000, 16000, 24000, 48000] for channels in [1, 2] for stream in range(2)]
-    configurations.append((48000, 1, 2, 1100))
-    configurations.append((48000, 2, 3, 192))
+    if controlled:
+        lib.quality_controls.argtypes = [c.c_void_p, c.c_int, c.c_int, c.c_int]
+        lib.quality_controls.restype = c.c_int
+        rows[0] = rows[0].replace('rate histories', 'prediction/loss/band histories')
+        rows[1] = rows[1].replace('WIRE TEMPORAL', 'WIRE END PRED LOSS PATTERN TEMPORAL')
+    configurations = [(rate, channels, stream, 192) for rate in [8000, 12000, 16000, 24000, 48000] for channels in [1, 2] for stream in range(3 if controlled else 2)]
+    if controlled:
+        configurations.extend([(48000, 1, 3, 192), (48000, 2, 3, 192)])
+    if not controlled:
+        configurations.append((48000, 1, 2, 1100))
+        configurations.append((48000, 2, 3, 192))
     for rate, channels, stream, frames in configurations:
         state = lib.quality_new(rate, channels, 0)
         if not state:
             raise ValueError('Native init failed')
         try:
             for index in range(frames):
+                extra = []
+                if controlled:
+                    ends = [end for end in [13, 17, 19, 21] if end <= (13 if rate == 8000 else 17 if rate <= 16000 else 19 if rate == 24000 else 21)]
+                    end = ends[(index // 9 + stream) % len(ends)]
+                    prediction = (index // 7 + stream) % 3
+                    loss = [0, 1, 5, 10, 20, 50, 100][(index // 5 + stream) % 7]
+                    if stream == 3:
+                        end = ends[index // 48 % len(ends)]
+                        prediction = 2 if index % 48 < 32 else 1 if index % 48 < 40 else 0
+                    extra = [end, prediction, loss, 1 if stream == 3 else stream]
+                    if lib.quality_controls(state, end, prediction, loss):
+                        raise ValueError('Native control setter failed')
                 wire = 1 if stream == 3 and index // 8 % 3 == 1 else channels
-                lm = index // 8 % 4 if stream != 2 else 0
-                complexity = index // 16 % 11 if stream != 2 else 0
+                if controlled:
+                    wire = 1 if channels == 2 and index // 8 % 3 == 1 else channels
+                lm = index // 8 % 4 if stream != 2 or controlled else 0
+                complexity = index // 16 % 11 if stream != 2 or controlled else 0
                 cap = ([24, 160, 1275][index // 12 % 3] if stream == 0 else [2, 3, 8, 16, 32, 64, 160, 1275][index % 8]) if stream != 2 else 32
-                mode = index // 6 % 3 if stream != 2 else 2
+                mode = index // 6 % 3 if stream != 2 or controlled else 2
                 bitrate = min([16000, 24000, 32000, 64000, 128000, 510000][index // 3 % 6], 750000 * channels, cap * 8 * (400 >> lm))
                 seed = 1918989413 + index * 982451653 + rate * stream & 4294967295
                 scale = 0 if index % 48 in range(24, 36) else [128, 512, 2048, 8192, 30000, 32, 24000, 32767][index % 8]
+                if controlled and stream == 3:
+                    wire = 1 if channels == 2 and index // 48 % 3 == 1 else channels
+                    lm, complexity, cap, mode, bitrate = 3, 10, 160, index // 32 % 3, 64000
+                    scale = 0 if 96 <= index < 108 else 24000
                 rng = seed
                 values = []
                 for i in range((120 << lm) * rate // 48000 * channels):
                     rng ^= rng << 13 & 4294967295
                     rng ^= rng >> 17
                     rng ^= rng << 5 & 4294967295
-                    values.append(((rng & 65535) - 32768) * scale // 32768)
+                    x = (rng & 65535) - 32768
+                    if controlled and stream in [1, 3]:
+                        period = rate // 200
+                        phase = (index * ((120 << lm) * rate // 48000) + i // channels + (i % channels) * (period // 4)) % period
+                        x = (16384 if phase < period // 2 else -16384) + (x >> 4)
+                    elif controlled and stream == 2:
+                        phase = index * ((120 << lm) * rate // 48000) + i // channels
+                        x = 32767 if phase % (rate // 100) == 0 else 0
+                    values.append(x * scale // 32768)
                 lib.quality_wire(state, wire)
                 lib.quality_complexity(state, complexity)
                 lib.quality_rate(state, mode, bitrate)
@@ -200,10 +243,10 @@ def capture_rate_history(lib, output, corrected):
                 rng_out = c.c_uint32()
                 pcm_out = c.c_uint64()
                 length = lib.quality_packet(packet, c.byref(rng_out), c.byref(pcm_out))
-                rows.append(' '.join(map(str, [rate, channels, stream, index, lm, complexity, cap, mode, bitrate, seed, scale, wire, *out, *feedback, rng_out.value, pcm_out.value, bytes(packet[:length]).hex()])))
+                rows.append(' '.join(map(str, [rate, channels, stream, index, lm, complexity, cap, mode, bitrate, seed, scale, wire, *extra, *out, *feedback, rng_out.value, pcm_out.value, bytes(packet[:length]).hex()])))
         finally:
             lib.quality_free(state)
     output.write_text('\n'.join(rows) + '\n')
-    print('Captured', len(rows) - 2, 'actual CELT rate-history calls')
+    print('Captured', len(rows) - 2, 'actual CELT control-history calls' if controlled else 'actual CELT rate-history calls')
 
 if __name__=='__main__':main()

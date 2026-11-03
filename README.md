@@ -22,7 +22,8 @@ All five native applications and `--mode auto` WAV/Ogg encoding are available. S
 [application/CLI validation](docs/validation/encoder-applications.md).
 **The decoder passes all120 official RFC8251 vector/rate/channel cases.**
 The first complete-decoder benchmark is recorded: Opura trails the pinned scalar
-libopus reference in all ten configurations; complete adaptive encoding remains under development. The accepted direction is a complete decoder first, then an encoder,
+libopus reference in all ten configurations. The unified mono/stereo encoder
+is implemented; its comparative quality/speed evaluation remains open. The accepted direction is a complete decoder first, then an encoder,
 prioritizing speed and reliability. See the
 [decoder-first decision](docs/decisions/0002-decoder-first.md) for evaluation
 requirements; SOTA performance is an ambition, not a current claim.
@@ -228,7 +229,10 @@ The shared CELT owner retains the realized allocation intensity boundary for
 subsequent hysteresis, including mono resets. [Rate-history validation](docs/validation/celt-rate-history.md)
 covers5,132 actual native CBR/VBR/CVBR calls with byte-identical packets,
 PCM/ranges and live feedback histories, using the disclosed Q24 correction.
-The remaining quality/control review and competitive evaluation remain work.
+[Prediction/loss/band validation](docs/validation/celt-controls.md) additionally
+matches6,144 native control-history packets, including active pitch filtering.
+See [current readiness and open work](docs/validation/codec-readiness.md) for
+the integrated scope, documented exclusions and comparative evidence still needed.
 All applications and automatic file packets through120ms are connected.
 Existing fixed library/CLI defaults are unchanged.
 
@@ -301,7 +305,9 @@ floors; DTX/FEC and error/reset contracts still apply. See
 [Hybrid VBR validation](docs/validation/hybrid-vbr.md).
 Version0.1.80 corrects its high-band dynamic-analysis policy; see the
 [policy correction evidence](docs/validation/hybrid-vbr-dynalloc.md).
-Cross-mode switching and general mode/channel selection remain unfinished. See [Hybrid PCM validation](docs/validation/hybrid-pcm-packets.md).
+Use `encoder::OpusEncoder` for cross-mode switching and general mode/channel
+selection; `HybridEncoder` retains its fixed-mode contract. See
+[Hybrid PCM validation](docs/validation/hybrid-pcm-packets.md).
 
 ```sh
 cargo run --release --offline --locked -- encode input.wav output.opus --mode hybrid --bandwidth fb --bitrate 64000
@@ -339,6 +345,11 @@ library. Package publication is disabled during this initial stage.
 
 ## Reference checks
 
+The detailed component sections below retain development-stage notes. Statements
+about later stages being future work describe those earlier component milestones;
+current integrated capabilities are summarized above and in the
+[readiness record](docs/validation/codec-readiness.md).
+
 Tests cover all TOC configurations, frame codes 0–3, zero-length frames,
 one/two-byte lengths, CBR/VBR, padding, duration limits and malformed packets.
 They also exercise every one- and two-byte input, deterministic longer inputs,
@@ -362,8 +373,8 @@ identical bytes, and commas concatenate hex chunks. The generator reports the
 reference version. Review differences before replacing fixtures.
 
 See the [pure Rust decision](docs/decisions/0001-pure-rust-zero-dependencies.md)
-for project constraints. Complete audio-layer decoding remains future work; no audio compatibility or performance
-claims are made by the current primitives.
+for project constraints. These packet fixtures validate framing only;
+complete audio decoding and official conformance have separate validation.
 
 ## Range decoding
 
