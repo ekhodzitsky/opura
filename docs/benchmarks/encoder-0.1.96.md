@@ -14,7 +14,7 @@ The full profile has60 declared cases, all at complexity10:
 - Ten2s AUDIO/VBR cases: five input rates times mono/stereo,20ms and64kbps.
 - Eight2s AUDIO/CVBR stereo cases at48kHz/64kbps with2.5/5/10/40/60/80/100/120ms
   packets.20ms is already covered above.
-- Three2s VOIP/VBR cases with DTX,20% loss/FEC, or both, at48kHz mono/32kbps.
+- Three8s VOIP/VBR cases with DTX,20% loss/FEC, or both, at48kHz mono/32kbps.
 - Twenty-four complete recording cases: checksum-pinned10.8s mono speech and
   90.7962s stereo music, AUDIO/VOIP/low-delay/restricted SILK times all three
   rate modes,20ms,32kbps speech and64kbps music.
@@ -33,6 +33,12 @@ Both implementations process exactly the same prepared input blocks. Actual
 packet modes, bandwidths, wire layouts, LBRR, empty and one-byte frame counts,
 physical bitrate and record identity remain visible. A one-byte compressed
 frame is a size observation and is not assumed to prove DTX.
+The three loss/DTX cases use two seconds of active input, three seconds of
+silence, two seconds active and one second silent. The quiet spans outlast
+native VAD hangover. Before timing, requested DTX must reach native
+`OPUS_GET_IN_DTX` state and suppressed empty/one-byte frames in both outputs;
+requested FEC must produce observable LBRR backups in both outputs. Size markers
+alone are not used to claim DTX. Native DTX state queries are untimed.
 
 ## Reference and compilation
 

@@ -122,6 +122,10 @@ def check_sample(sample, case, passes, expected=None):
         raise ValueError('Restricted application emitted a different mode')
     if sample['elapsed_ns']/passes < sample['latency_ns']['p50']*case['frames']/20:
         raise ValueError('Implausibly short timed pass')
+    if 'native_in_dtx_frames' in sample and (type(sample['native_in_dtx_frames']) is not int or not 0<=sample['native_in_dtx_frames']<=case['frames']):
+        raise ValueError('Invalid native DTX state count')
+    if expected and sample.get('native_in_dtx_frames')!=expected.get('native_in_dtx_frames'):
+        raise ValueError('Native DTX state changed')
     if expected and any(sample[k] != expected[k] for k in SAMPLE_KEYS):
         raise ValueError('Measured output changed from cross-verified preflight')
     return sample
@@ -179,6 +183,12 @@ def synthetic(rate, channels, seconds=2):
     return values
 
 
+def silence_transition(rate, channels):
+    # Long quiet spans must outlast the native VAD/DTX hangover.
+    active=synthetic(rate,channels,seconds=2)
+    return active+array('h',[0])*(rate*channels*3)+active+array('h',[0])*(rate*channels)
+
+
 RECORDINGS = {'speech_orig': (1, 518400), 'music_orig': (2, 4358219)}
 
 
@@ -204,6 +214,12 @@ def specifications(profile):
     return result
 
 
+def input_frames(name, settings, source):
+    if source:
+        return RECORDINGS[source][1]
+    return settings['rate']*(8 if name.startswith('voip-dtx') else 2)
+
+
 def cases(profile, corpus):
     recordings = {}
     result = []
@@ -219,7 +235,8 @@ def cases(profile, corpus):
                 recordings[source] = pcm
             result.append((name, settings, recordings[source], CORPUS[source]))
         else:
-            result.append((name, settings, synthetic(settings['rate'],settings['channels']), None))
+            pcm=silence_transition(settings['rate'],settings['channels']) if name.startswith('voip-dtx') else synthetic(settings['rate'],settings['channels'])
+            result.append((name, settings, pcm, None))
     return result
 
 
@@ -385,7 +402,7 @@ def validate_report(report, require_full=False):
         c=cases[name]
         if not isinstance(c,dict) or any(type(c.get(k)) is not type(v) or c[k]!=v for k,v in settings.items()):
             raise ValueError('Declared settings mismatch: '+name)
-        original=RECORDINGS[source][1] if source else settings['rate']*2
+        original=input_frames(name,settings,source)
         frames=(original+settings['lookahead']+settings['n']-1)//settings['n']
         if (c.get('original_frames')!=original or c.get('frames')!=frames or c.get('cross_decoder_verified') is not True
                 or c.get('source_recording_sha256')!=(CORPUS[source] if source else None)
@@ -398,6 +415,8 @@ def validate_report(report, require_full=False):
             if not isinstance(c['validation_record_sha256'][impl],str) or not re.fullmatch('[0-9a-f]{64}',c['validation_record_sha256'][impl]):
                 raise ValueError('Missing validation record hash')
             expected=check_sample(c['preflight'][impl],c,1)
+            if impl=='libopus' and (type(expected.get('native_in_dtx_frames')) is not int or (c['dtx'] and expected['native_in_dtx_frames']==0)):
+                raise ValueError('Native preflight did not exercise requested DTX state')
             passes=c['calibration'][impl]
             if type(passes) is not int or passes!=min(1000,max(1,math.ceil(report['minimum_ms']*1250000/expected['elapsed_ns']))):
                 raise ValueError('Invalid calibration')
@@ -423,6 +442,10 @@ def validate_report(report, require_full=False):
                     raise ValueError('Invalid recovery/empty diagnostic counts')
             if d['empty_frames']<d['packets_with_empty_frame']:
                 raise ValueError('Empty-frame counts disagree')
+            if c['dtx'] and d['one_byte_frames']+d['empty_frames']==0:
+                raise ValueError('DTX workload did not reach observable suppressed frames')
+            if c['fec'] and d['lbrr_packets']==0:
+                raise ValueError('FEC workload did not produce a recovery backup')
     order=report.get('order');seen=set()
     if not isinstance(order,list) or len(order)!=rounds*len(cases):
         raise ValueError('Missing paired randomized schedule')
@@ -528,6 +551,8 @@ def main():
                 other='libopus' if impl=='opura' else 'opura'
                 verify(binaries[other],path,folder/(impl+'.bin'),case['frames'])
             case['packet_diagnostics']={impl:verify(binaries['libopus'],path,folder/(impl+'.bin'),case['frames']) for impl in binaries}
+            if case['dtx'] and (case['preflight']['libopus']['native_in_dtx_frames']==0 or any(d['one_byte_frames']+d['empty_frames']==0 for d in case['packet_diagnostics'].values())):raise ValueError('DTX preflight lacks actual native DTX state/suppressed frames')
+            if case['fec'] and any(d['lbrr_packets']==0 for d in case['packet_diagnostics'].values()):raise ValueError('FEC preflight lacks recovery backups')
             case['cross_decoder_verified']=True
             case['validation_record_sha256']={impl:sha(folder/(impl+'.bin')) for impl in binaries}
             if not report.get('fault_sensitivity'):

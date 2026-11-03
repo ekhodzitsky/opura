@@ -20,6 +20,10 @@ and validation, without implying full Opus compatibility before PCM decoding.
   60 cases including all applications/rate modes, five rates, packet durations
   through120ms, loss/DTX and complete speech/music recordings. Retained results
   are recorded after measurement; benchmark availability is not a speed claim.
+- Require actual DTX/FEC workload coverage before retaining timings. The loss/
+  DTX profiles use sustained quiet windows, query native DTX state and require
+  observed suppressed frames/recovery backups; short quiet fragments that never
+  reach DTX cannot count as a DTX benchmark.
 - Expose both endpoints of the existing paired percentile interval and correct
   its description: the unchanged upper gate is the97.5th percentile, the upper
   end of an equal-tail95% interval. Existing competitive thresholds are retained.

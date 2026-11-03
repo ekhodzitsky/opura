@@ -12,7 +12,7 @@
 #error "Expected scalar fixed fast64 reference without floating analysis"
 #endif
 static struct { unsigned char header[32]; int rate,channels,n,frames,cap,application,complexity,mode,bitrate,loss,fec,dtx,skip; opus_int16 *pcm; } input;
-typedef struct {uint64_t packets,bytes,fingerprint,modes[3];} Stats;
+typedef struct {uint64_t packets,bytes,fingerprint,modes[3],in_dtx;} Stats;
 static void fail(const char *message){fprintf(stderr,"%s\n",message);exit(1);}
 static uint64_t now(void){struct timespec t;if(clock_gettime(CLOCK_MONOTONIC,&t))fail("clock failed");return (uint64_t)t.tv_sec*1000000000+(uint64_t)t.tv_nsec;}
 static uint32_t u16(const unsigned char *p){return p[0]|(uint32_t)p[1]<<8;}
@@ -42,7 +42,7 @@ static void configure(OpusEncoder *encoder){
 }
 static void record_header(unsigned char *h){memcpy(h,"OPURAE01",8);memcpy(h+8,input.header+8,8);put(h+16,input.frames,4);put(h+20,input.skip,4);}
 static Stats replay(OpusEncoder *encoder,int check,FILE *record,uint64_t *latency){
- Stats stats={0,0,UINT64_C(14695981039346656037),{0,0,0}};unsigned char packet[7656];opus_int16 pcm[11520];int error=0;
+ Stats stats={0,0,UINT64_C(14695981039346656037),{0,0,0},0};unsigned char packet[7656];opus_int16 pcm[11520];int error=0;
  OpusDecoder *decoder=check?opus_decoder_create(input.rate,input.channels,&error):NULL;if(check&&(!decoder||error))fail("decoder init failed");
  for(int i=0;i<input.frames;i++){
   uint64_t begin=latency?now():0;
@@ -52,6 +52,7 @@ static Stats replay(OpusEncoder *encoder,int check,FILE *record,uint64_t *latenc
   if(latency)latency[i]=now()-begin;
   if(check){
    opus_uint32 range,decoded_range;if(opus_encoder_ctl(encoder,OPUS_GET_FINAL_RANGE(&range)))fail("encoder range failed");
+   opus_int32 in_dtx=0;if(opus_encoder_ctl(encoder,OPUS_GET_IN_DTX(&in_dtx)))fail("DTX state query failed");stats.in_dtx+=in_dtx!=0;
    int samples=opus_decode(decoder,packet,length,pcm,input.n,0);
    if(samples!=input.n||opus_decoder_ctl(decoder,OPUS_GET_FINAL_RANGE(&decoded_range))||range!=decoded_range)fail("encoder/decoder range or duration mismatch");
    unsigned char h[14];put(h,length,2);put(h+2,range,4);put(h+6,pcm_hash(pcm,samples*input.channels),8);
@@ -93,8 +94,8 @@ int main(int argc,char **argv){
  uint64_t elapsed=0;
  for(int i=0;i<passes;i++){if(opus_encoder_ctl(encoder,OPUS_RESET_STATE))fail("reset failed");begin=now();Stats s=replay(encoder,0,NULL,NULL);elapsed+=now()-begin;if(s.packets!=validation.packets||s.bytes!=validation.bytes)fail("timed pass changed packet/byte counts");}
  uint64_t *latency=malloc((size_t)input.frames*sizeof(*latency));if(!latency)fail("latency allocation failed");if(opus_encoder_ctl(encoder,OPUS_RESET_STATE))fail("reset failed");replay(encoder,0,NULL,latency);
- if(opus_encoder_ctl(encoder,OPUS_RESET_STATE))fail("reset failed");Stats after=replay(encoder,1,NULL,NULL);if(after.packets!=validation.packets||after.bytes!=validation.bytes||after.fingerprint!=validation.fingerprint||memcmp(after.modes,validation.modes,sizeof(after.modes)))fail("post-timing validation changed output");
+ if(opus_encoder_ctl(encoder,OPUS_RESET_STATE))fail("reset failed");Stats after=replay(encoder,1,NULL,NULL);if(after.packets!=validation.packets||after.bytes!=validation.bytes||after.fingerprint!=validation.fingerprint||after.in_dtx!=validation.in_dtx||memcmp(after.modes,validation.modes,sizeof(after.modes)))fail("post-timing validation changed output");
  qsort(latency,input.frames,sizeof(*latency),order);
- printf("{\"packets\":%"PRIu64",\"samples_per_pass\":%"PRIu64",\"packet_bytes\":%"PRIu64",\"fingerprint\":\"%016"PRIx64"\",\"encoder_object_bytes\":%d,\"lookahead\":%d,\"passes\":%d,\"elapsed_ns\":%"PRIu64",\"init_ns\":%"PRIu64",\"latency_ns\":{\"p50\":%"PRIu64",\"p95\":%"PRIu64",\"p99\":%"PRIu64",\"max\":%"PRIu64"},\"mode_packets\":[%"PRIu64",%"PRIu64",%"PRIu64"]}\n",validation.packets,(uint64_t)input.frames*input.n,validation.bytes,validation.fingerprint,opus_encoder_get_size(input.channels),input.skip,passes,elapsed,init,latency[(input.frames-1)*50/100],latency[(input.frames-1)*95/100],latency[(input.frames-1)*99/100],latency[input.frames-1],validation.modes[0],validation.modes[1],validation.modes[2]);
+ printf("{\"packets\":%"PRIu64",\"samples_per_pass\":%"PRIu64",\"packet_bytes\":%"PRIu64",\"fingerprint\":\"%016"PRIx64"\",\"encoder_object_bytes\":%d,\"lookahead\":%d,\"passes\":%d,\"elapsed_ns\":%"PRIu64",\"init_ns\":%"PRIu64",\"latency_ns\":{\"p50\":%"PRIu64",\"p95\":%"PRIu64",\"p99\":%"PRIu64",\"max\":%"PRIu64"},\"mode_packets\":[%"PRIu64",%"PRIu64",%"PRIu64"],\"native_in_dtx_frames\":%"PRIu64"}\n",validation.packets,(uint64_t)input.frames*input.n,validation.bytes,validation.fingerprint,opus_encoder_get_size(input.channels),input.skip,passes,elapsed,init,latency[(input.frames-1)*50/100],latency[(input.frames-1)*95/100],latency[(input.frames-1)*99/100],latency[input.frames-1],validation.modes[0],validation.modes[1],validation.modes[2],validation.in_dtx);
  free(latency);opus_encoder_destroy(encoder);free(input.pcm);return 0;
 }

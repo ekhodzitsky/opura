@@ -57,7 +57,7 @@ def report_fixture(profile='smoke', rounds=3):
                 cases={},order=[])
     for name,settings,source in bench.specifications(profile):
         c=dict(settings)
-        original=bench.RECORDINGS[source][1] if source else settings['rate']*2
+        original=bench.input_frames(name,settings,source)
         frames=(original+c['lookahead']+c['n']-1)//c['n']
         c.update(original_frames=original,frames=frames,source_recording_sha256=bench.CORPUS[source] if source else None,
                  corpus_sha256='5'*64,cross_decoder_verified=True,preflight={},samples={},calibration={},
@@ -65,11 +65,12 @@ def report_fixture(profile='smoke', rounds=3):
         for impl in ['opura','libopus']:
             v=sample(c);v['elapsed_ns']=300_000_000 if impl=='opura' else 150_000_000
             v['process_maxrss_kib']=4096
+            if impl=='libopus':v['native_in_dtx_frames']=int(c['dtx']>0)
             if settings['application'] in [2,4]:v['mode_packets']=[0,0,frames]
             c['preflight'][impl]=deepcopy(v);c['samples'][impl]=[deepcopy(v) for _ in range(rounds)]
             c['calibration'][impl]=min(1000,max(1,math.ceil(20*1250000/v['elapsed_ns'])))
             c['packet_diagnostics'][impl]=dict(verified_packets=frames,bandwidth_packets=[0,0,0,0,frames],
-                                             wire_channel_packets=[frames,0],lbrr_packets=0,empty_frames=0,packets_with_empty_frame=0,one_byte_frames=0)
+                                             wire_channel_packets=[frames,0],lbrr_packets=int(c['fec']>0),empty_frames=0,packets_with_empty_frame=0,one_byte_frames=int(c['dtx']>0))
         c['summary']=dict(opura_to_libopus_ratio=2,ratio95_lower=2,ratio95_upper=2)
         result['cases'][name]=c
         for i in range(rounds):result['order'].append(dict(round=i,case=name,implementations=['opura','libopus']))
@@ -128,6 +129,15 @@ class CompleteEncoderReport(unittest.TestCase):
         bench.summarize(valid)
         bench.validate_report(valid,require_full=True)
         self.assertFalse(valid['scalar_speed_only_target_met'])
+        empty=deepcopy(valid)
+        for d in empty['cases']['voip-dtx1-loss0']['packet_diagnostics'].values():
+            d.update(one_byte_frames=0,empty_frames=5,packets_with_empty_frame=5)
+        bench.validate_report(empty)  # Generalized DTX uses empty compressed frames.
+
+        for name,key in [('voip-dtx1-loss0','one_byte_frames'),('voip-dtx0-loss20','lbrr_packets')]:
+            damaged=deepcopy(valid);damaged['cases'][name]['packet_diagnostics']['opura'][key]=0
+            with self.subTest(name=name),self.assertRaises(ValueError):bench.validate_report(damaged)
+
         # JSON reports sort keys; confidence draws must not depend on insertion order.
         varied=report_fixture('full',15)
         for case_index,case in enumerate(varied['cases'].values()):
@@ -136,6 +146,9 @@ class CompleteEncoderReport(unittest.TestCase):
         bench.summarize(varied)
         import json
         bench.validate_report(json.loads(json.dumps(varied,sort_keys=True)),require_full=True)
+        damaged=deepcopy(valid);case=damaged['cases']['voip-dtx1-loss0']
+        for row in [case['preflight']['libopus'],*case['samples']['libopus']]:row['native_in_dtx_frames']=0
+        with self.assertRaises(ValueError):bench.validate_report(damaged)
         damaged=deepcopy(valid);damaged['cases']['mixed-audio-cbr']['summary']['ratio95_upper']=0.01
         with self.assertRaises(ValueError):bench.validate_report(damaged,require_full=True)
         damaged=deepcopy(valid);damaged['aggregate_ratio95_upper']=0.01
