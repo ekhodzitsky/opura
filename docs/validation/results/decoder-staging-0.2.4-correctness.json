@@ -3,7 +3,7 @@
   "version": "0.2.4",
   "base_revision": "51671564ad3ea5c668b819af2be991848d6ae858",
   "worktree_modified": true,
-  "provenance": "Final codec source before correctness checkpoint commit; retained paired timing pending, no final speed claim.",
+  "provenance": "Final codec source before correctness checkpoint commit; later retained paired timing uses identical codec/Cargo/adapter source.",
   "source_sha256": {
     "src/celt/synthesis.rs": "c5ed484c9a52b82140cc6c90005b35ebb598898b73d8c12f93b12b49e1da4b98",
     "src/celt/decoder.rs": "68371aa7d8ef76071013b7178c17b9a8378207e7d35db53a4ed18998b1688d34",
@@ -149,9 +149,25 @@
   "native_decoder_operations": 1680,
   "official_conformance_cases": 120,
   "pcm_unchanged_from": "0.2.3",
-  "performance_status": "pending full paired comparison",
+  "performance_status": "complete:300samples/15paired rounds/all10geometries; modest aggregate improvement, nine individual cases uncertain",
   "limitations": [
     "No native/competitor/encoder speed, quality, peak-stack/heap/RSS or SOTA claim.",
     "Exploratory48kHz stereo pilot is not retained release evidence."
+  ],
+  "performance_report": "../../benchmarks/results/decoder-staging-0.2.4.json",
+  "measured_candidate_revision": "bbdc532",
+  "measurement_source_sha256": "659658909b48234bc9c30a57737cc4ea93d66362da3475ad2a23f05e338a6d01",
+  "measurement_driver_sha256": "b2cd7753c5fc8bf4a29cd4c008ac00f70ebaeaada6a3a0b66f8fa74faa31e299",
+  "aggregate_time_ratio": 0.9797742884558741,
+  "aggregate_ci95": [
+    0.9547764896166814,
+    0.9980514132570282
+  ],
+  "individual_intervals_including_one": 9,
+  "individual_upper_bounds_exceeding_1_05": [
+    "16000/1",
+    "24000/1",
+    "24000/2",
+    "48000/1"
   ]
 }

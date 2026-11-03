@@ -69,6 +69,14 @@ integrated contract in the table above.
   gap, requiring current profiling rather than a quality or speed leadership
   claim. The [0.1.41 baseline](../benchmarks/decoder-0.1.41.md) remains historical;
   no direct before/after improvement is inferred from these different runs.
+  The [0.2.4 CELT backend staging change](../benchmarks/decoder-staging-0.2.4.md)
+  reduces the aggregate version-to-version codec time by 2.0% versus 0.2.3
+  (ratio 0.9798, 95% interval [0.9548,0.9981], 300 samples/all ten geometries).
+  All 120 official PCM hashes remain unchanged and the seven offline gates
+  pass (176 library/44 Python tests). Only the 48kHz stereo interval excludes 1;
+  nine individual cases are uncertain and four upper bounds exceed 1.05. This
+  modest improvement does not refresh the native comparison or establish a
+  cumulative gain from the separate earlier measurements.
   Best-available native SIMD and the other direct implementations in the
   [comparison contract](../benchmarks/competitive-landscape.md) remain unmeasured.
 - Cross-platform/target coverage and malformed-input/resource measurements must

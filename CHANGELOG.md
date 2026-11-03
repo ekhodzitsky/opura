@@ -19,8 +19,11 @@ and validation, without implying full Opus compatibility before PCM decoding.
   Three deliberate source mutations are rejected by the new rollback tests
   and native loss fixtures. All seven offline gates pass (176 library/44 Python
   tests); 480 native synthesis cases and the 1680-operation native decoder
-  corpus pass. All 120 official conformance PCM hashes match 0.2.3. Retained
-  paired timing is pending; this candidate is not yet a performance milestone.
+  corpus pass. All 120 official conformance PCM hashes match 0.2.3. Retain 300
+  paired samples across all ten output geometries: aggregate time ratio 0.9798
+  versus 0.2.3, 95% interval [0.9548,0.9981], about 2.0% less codec time. Only
+  the 48kHz stereo interval excludes 1; nine individual cases remain uncertain
+  and four upper bounds exceed 1.05. No native/SOTA or peak-memory claim.
 
 ## [0.2.3] - 2026-11-03
 

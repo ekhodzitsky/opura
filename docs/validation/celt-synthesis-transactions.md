@@ -40,7 +40,8 @@ The complete CELT owner is tested for normal frames, periodic pitch loss and
 prolonged noise loss. Hybrid normal/noise calls are tested independently. The
 unified Opus test exercises signed output gain, a 120ms FEC request containing
 a 100ms PLC prefix, and a Hybrid-to-CELT transition. In the prefixed FEC test,
-failure skips the five PLC frames and fires during the recovered frame. Every
+failure skips the five PLC frames and fires during the CELT noise concealment
+portion of the FEC frame: Hybrid FEC does not recover a coded CELT high band. Every
 injection asserts it was reached, then compares full owner state and resumed
 PCM/diagnostics. Hooks and their thread-local controls compile only in tests.
 
@@ -65,5 +66,7 @@ covers five rates, mono/stereo, seven gains, long packets, PLC, prefixed FEC,
 transitions and reset and passes, as do all 480 native synthesis cases and
 history comparisons. The [source-bound correctness record](results/decoder-staging-0.2.4-correctness.json)
 and [official conformance report](results/decoder-staging-0.2.4-conformance.json)
-retain the final codec validation. Retained paired timing is pending; the
-exploratory 48kHz stereo pilot is not a release result.
+retain the final codec validation. The [complete paired measurement](../benchmarks/decoder-staging-0.2.4.md)
+finds a modest 2.0% aggregate time reduction versus 0.2.3, with nine individual
+case intervals including 1 and four upper bounds exceeding 1.05. The exploratory
+pilot is superseded; this is not native, memory or SOTA superiority evidence.
