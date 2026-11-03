@@ -16,6 +16,8 @@ pub(crate) struct LowBandFrame {
     payload_bytes: usize,
     size: FrameSize,
     pub high_band_rate: i32,
+    #[cfg(test)]
+    pub silk_rate: u32,
     pub controls: HybridControls,
 }
 impl LowBandFrame {
@@ -50,6 +52,7 @@ struct Preparation {
 }
 
 pub(crate) struct HybridFrameEncoder<'a> {
+    pub surround: crate::encoder::SurroundContext,
     pub rate: InputRate,
     pub bandwidth: Bandwidth,
     pub channels: usize,
@@ -195,7 +198,7 @@ impl HybridFrameEncoder<'_> {
             options.packet_loss_percent,
             Some(selected),
         );
-        let allocation = RateAllocation::with_maximum(
+        let mut allocation = RateAllocation::with_maximum(
             RateControls {
                 duration,
                 bandwidth: self.bandwidth,
@@ -208,6 +211,12 @@ impl HybridFrameEncoder<'_> {
             outer.map_or(payload_bytes as u32 * 8, |o| o.maximum_bits),
         )
         .map_err(EncoderError::Rate)?;
+        allocation.apply_surround(
+            self.surround,
+            self.api_channels,
+            self.bandwidth,
+            bitrate.is_some(),
+        );
         let vbr_rate = if bitrate.is_some() {
             let rate = stream_rate
                 .checked_sub(allocation.silk_bitrate())
@@ -390,6 +399,8 @@ impl HybridFrameEncoder<'_> {
             payload_bytes,
             size,
             high_band_rate: allocation.high_band_bitrate(),
+            #[cfg(test)]
+            silk_rate: allocation.silk_bitrate(),
             controls: HybridControls {
                 bandwidth: self.bandwidth,
                 complexity: options.complexity,

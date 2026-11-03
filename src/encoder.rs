@@ -9,7 +9,9 @@ pub mod control;
 pub(crate) mod pcm;
 pub mod stereo_width;
 mod stream;
+mod surround;
 pub use stream::{EncodeOptions, EncodedPacket, EncoderError, OpusEncoder, PacketSize};
+pub(crate) use surround::SurroundContext;
 
 use crate::celt::math::MathError;
 use std::fmt;

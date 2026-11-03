@@ -200,6 +200,7 @@ impl From<MathError> for AnalysisError {
 /// Fixed-storage native band amplitudes, normalized vectors and Q24 log energies.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BandAnalysis {
+    lfe: bool,
     normalized: [i32; 1920],
     amplitudes: [[i32; 21]; 2],
     logarithms: [[i32; 21]; 2],
@@ -209,6 +210,9 @@ pub struct BandAnalysis {
     end: usize,
 }
 impl BandAnalysis {
+    pub(crate) fn is_lfe(&self) -> bool {
+        self.lfe
+    }
     /// Analyzed transform duration.
     pub fn size(&self) -> FrameSize {
         self.size
@@ -276,6 +280,19 @@ pub fn analyze_bands(
     effective_end: usize,
     end: usize,
 ) -> Result<BandAnalysis, AnalysisError> {
+    analyze_bands_lfe(size, spectrum, channels, effective_end, end, false)
+}
+pub(crate) fn analyze_bands_lfe(
+    size: FrameSize,
+    spectrum: &[i32],
+    channels: usize,
+    effective_end: usize,
+    end: usize,
+    lfe: bool,
+) -> Result<BandAnalysis, AnalysisError> {
+    if lfe && channels != 1 {
+        return Err(AnalysisError::InvalidGeometry);
+    }
     let n = size.samples();
     if !matches!(channels, 1 | 2) || spectrum.len() != channels * n {
         return Err(AnalysisError::InvalidGeometry);
@@ -285,6 +302,7 @@ pub fn analyze_bands(
     }
     let lm = size.lm();
     let mut result = BandAnalysis {
+        lfe,
         normalized: [0; 1920],
         amplitudes: [[0; 21]; 2],
         logarithms: [[0; 21]; 2],
@@ -324,6 +342,13 @@ pub fn analyze_bands(
                         .ok_or(AnalysisError::ArithmeticOverflow)?;
                 }
                 maximum.max(rounded_shift(math::sqrt_extended(sum >> 1)?, shift))
+            };
+            let amplitude = if lfe && band >= 2 {
+                amplitude
+                    .min(((3 * i64::from(result.amplitudes[0][0])) >> 15) as i32)
+                    .max(1)
+            } else {
+                amplitude
             };
             result.amplitudes[channel][band] = amplitude;
             let energy = if amplitude < 10 {

@@ -107,6 +107,7 @@ fn original_budget_packets_histories_and_resume_match() -> Result {
             let mut before = before;
             before.stereo_width = encoder.stereo_width.clone();
             before.celt.call_trace.clear();
+            before.celt.surround_calls.clear();
             assert_eq!(encoder, before, "early PLC changed audio: {line}");
             counts[0] += 1;
         } else {
@@ -941,6 +942,7 @@ fn silk_early_dtx_preserves_celt_controls_and_committed_input_through_wire_chang
         let before_channels = encoder.history.previous_channels;
         let mut before_celt = encoder.celt.clone();
         before_celt.call_trace.clear();
+        before_celt.surround_calls.clear();
         let packet = encoder.encode(
             FrameSize::Ms20,
             &[1; 1920],
@@ -961,6 +963,7 @@ fn silk_early_dtx_preserves_celt_controls_and_committed_input_through_wire_chang
             // Nonzero raw PCM rules out the outer digital-silence return.
             let mut after_celt = encoder.celt.clone();
             after_celt.call_trace.clear();
+            after_celt.surround_calls.clear();
             assert_eq!(after_celt, before_celt, "frame{frame}");
             assert_eq!(encoder.pcm.history(), before_history, "frame{frame}");
             assert_eq!(encoder.history.previous_mode, before_mode);

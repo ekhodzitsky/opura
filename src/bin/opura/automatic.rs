@@ -132,8 +132,8 @@ pub fn encode(input: &Path, output: &Path, rate_control: FileRate, options: Opti
     Ok(())
 }
 
-/// WAVE-order input uses a permuted coded-channel map; the OpusHead retains
-/// Vorbis order. Generic coding does not imply native surround analysis.
+/// Positioned PCM is reordered per packet from WAVE to the native Vorbis
+/// surround layout. Unpositioned PCM retains generic mapping.
 fn encode_mapped(
     mut source: wav::Reader<BufReader<File>>,
     output: &Path,
@@ -163,8 +163,35 @@ fn encode_mapped(
     if !(1..=191250000).contains(&bitrate) {
         return Err(invalid("mapped bitrate must be1..191250000").into());
     }
-    let mut encoder =
-        MultistreamEncoder::with_application(rate, layout.wave().clone(), options.application)?;
+    let surround = source.positioned && source.channels > 2;
+    if surround && options.channels == Some(1) {
+        return Err(invalid(
+            "positioned surround requires stereo coupled streams; channels1 is unsupported",
+        )
+        .into());
+    }
+    let mut encoder = if surround {
+        MultistreamEncoder::with_surround_application(rate, source.channels, options.application)?
+    } else {
+        MultistreamEncoder::with_application(rate, layout.wave().clone(), options.application)?
+    };
+    let input_order: Vec<usize> = if surround {
+        layout
+            .opus()
+            .mapping()
+            .iter()
+            .map(|coded| {
+                layout
+                    .wave()
+                    .mapping()
+                    .iter()
+                    .position(|entry| entry == coded)
+                    .ok_or_else(|| invalid("incomplete positioned WAVE map"))
+            })
+            .collect::<std::io::Result<_>>()?
+    } else {
+        Vec::new()
+    };
     let skip = encoder.lookahead_48k();
     let end = source
         .frames
@@ -189,6 +216,11 @@ fn encode_mapped(
         ..Controls::default()
     };
     let mut pcm = vec![0; size.samples() / rate.factor() * source.channels];
+    let mut vorbis = if surround {
+        vec![0; pcm.len()]
+    } else {
+        Vec::new()
+    };
     let mut writer = ogg::Writer::with_layout(
         BufWriter::new(create(output)?),
         &layout,
@@ -200,9 +232,19 @@ fn encode_mapped(
     for i in 0..frames {
         pcm.fill(0);
         source.read_samples(&mut pcm)?;
+        if surround {
+            for (source, destination) in pcm
+                .chunks_exact(source.channels)
+                .zip(vorbis.chunks_exact_mut(source.channels))
+            {
+                for (channel, &input) in input_order.iter().enumerate() {
+                    destination[channel] = source[input];
+                }
+            }
+        }
         let packet = encoder.encode_packet(
             size,
-            &pcm,
+            if surround { &vorbis } else { &pcm },
             cap,
             MultistreamEncodeOptions {
                 bitrate,
@@ -223,7 +265,7 @@ fn encode_mapped(
         bytes += packet.as_bytes().len();
     }
     eprintln!(
-        "encoded generic mapped {:?} {} samples/channel at{}Hz,{}channels, family{};{frames} packets,{bytes} packet bytes;{:.3}s",
+        "encoded mapped {:?} {} samples/channel at{}Hz,{}channels, family{};{frames} packets,{bytes} packet bytes;{:.3}s",
         options.application,
         source.frames,
         source.rate,

@@ -113,6 +113,17 @@ impl RateAllocation {
             silk_max_bits,
         })
     }
+    pub(crate) fn apply_surround(
+        &mut self,
+        context: crate::encoder::SurroundContext,
+        channels: usize,
+        bandwidth: Bandwidth,
+        variable: bool,
+    ) {
+        let original = self.silk_rate;
+        self.silk_rate = context.silk_rate(original, bandwidth, channels, variable);
+        self.high_band_rate += original as i32 - self.silk_rate as i32;
+    }
     /// SILK target bits/s for all encoded channels.
     pub fn silk_bitrate(self) -> u32 {
         self.silk_rate

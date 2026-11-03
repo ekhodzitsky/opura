@@ -31,11 +31,11 @@ The library's [multistream APIs](docs/validation/multistream.md) add bounded
 channel maps, self-delimited framing, persistent mapped PCM decoding with gain,
 and generic multistream encoding with whole-packet budgets and PLC/FEC/DTX.
 The [mapped file CLI](docs/validation/mapped-audio-files.md) supports1..8channels
-and mapping families0/1/255. Native surround encoder mask/LFE integration remains open.
-[Surround analysis primitives](docs/validation/surround-analysis.md) provide
-persistent spectral masks and per-stream allocation controls, independently
-checked against explicit native arithmetic oracles; they are not yet wired into
-the common encoder.
+and mapping families0/1/255. Canonical
+[surround encoding](docs/validation/surround-encoder.md) now integrates persistent
+masks, native stream rates/policies and LFE processing through the actual common
+and CELT owners. Generic mapped APIs remain available. Q24 precision corrections
+are explicit; no pristine full-encoder byte identity or SOTA claim follows.
 
 An optional [in-process encoder benchmark](docs/benchmarks/encoder-0.1.96.md)
 compares matched public APIs and independently verifies both packet streams.
@@ -77,8 +77,10 @@ target/release/opura decode output.opus decoded.wav
 
 Encoding accepts little-endian RIFF/WAVE PCM16 at8/12/16/24/48kHz.
 AUTO supports1..8channels: canonical WAVE extensible speaker masks select
-positioned family1 layouts; unpositioned PCM selects family255. Mapped encoding
-uses generic stream allocation, without native surround energy-mask/LFE analysis.
+positioned family1 layouts and native surround/LFE coding; unpositioned PCM selects
+generic family255 coding. Version0.2 preserves stereo in coupled surround streams
+and rejects `--channels 1` for positioned multichannel input. Mono/stereo keeps
+its existing channel override; generic custom library maps retain their controls.
 Fixed modes require positioned mono/stereo input. The default CELT path enables
 all six adaptive CELT analyses. Frame durations
 are 2.5, 5, 10 or 20 ms; defaults are 20 ms and 64,000 bits/s. Bitrate includes

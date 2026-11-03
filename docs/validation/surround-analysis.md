@@ -25,11 +25,11 @@ bands are ignored; selected values outside[-32,32] reject. Explicit zero masks
 produce a positive native VBR offset and must not be confused with absent masks.
 LFE and Hybrid bypass this reduction in the enclosing encoder.
 
-These are analysis prerequisites. The generic multistream encoder and mapped
-file encoder continue to use their existing coding path. Native surround rate
-allocation, actual energy-mask forwarding and LFE behavior throughout CELT still
-require integration and validation; no quality, performance or complete-surround
-claim follows from these APIs.
+These analysis APIs alone emit no audio. Version0.2's canonical
+[surround owner](surround-encoder.md) consumes them through native rate allocation,
+common-owner masking and actual CELT/LFE processing. Generic constructors retain
+their prior coding contract. Analysis primitive agreement alone establishes no
+perceptual quality or performance claim.
 
 ## Independent fixed-point evidence
 
@@ -81,8 +81,7 @@ observed counts and mutation results. Pre-commit worktree provenance is explicit
 file hashes are checked again after committing the milestone. Historical0.1.98
 file interoperability evidence remains scoped to its own unchanged packet path.
 
-Next integration must include native surround rates and per-stream policy,
-common-owner SILK VBR rate masking, Hybrid high-band gain, stereo-width fade,
-actual CELT dynalloc/trim/VBR and full LFE processing. Source inspection confirms
-these common-owner effects are reachable on mono surround streams. Setter tests
-or generic mapped interoperability alone will not establish completion.
+The later [surround encoder validation](surround-encoder.md) checks native rates,
+common-owner SILK VBR/Hybrid gain/width behavior, actual CELT masks/LFE processing
+and per-packet/native-receiver behavior. The0.1.99 report above remains an analysis
+prerequisite record, not an encoder-quality or speed result.

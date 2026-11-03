@@ -52,6 +52,8 @@ pub(super) struct VbrTarget {
     pub max_depth: i32,
     pub temporal: i32,
     pub equivalent_rate: i32,
+    pub lfe: bool,
+    pub surround: Option<i32>,
 }
 #[derive(Clone, Copy)]
 pub(super) struct VbrFrame {
@@ -87,13 +89,17 @@ impl VbrTarget {
         }
         target += self.intended_boost - (19 << lm);
         target += q15(i32::from(self.tf_estimate) - 721, target) * 2;
+        if let Some(masking) = self.surround.filter(|_| !self.lfe) {
+            let adjusted = target + (((masking >> 14) * (bins << 3)) >> 10);
+            target = (target / 4).max(adjusted);
+        }
         let bins = i32::from(BANDS[19]) << lm;
         let depth = (q15(self.channels as i32 * bins * 8, self.max_depth) >> 9).max(target >> 2);
         target = target.min(depth);
-        if constrained {
+        if constrained && (self.surround.is_none() || self.lfe) {
             target = base + q15(21955, target - base);
         }
-        if self.tf_estimate < 3277 {
+        if self.surround.is_none() && self.tf_estimate < 3277 {
             let amount = (3329 * (96000 - self.equivalent_rate).clamp(0, 32000)) >> 15;
             let factor = ((self.temporal >> 14) * amount) >> 10;
             target += q15(factor, target);
@@ -308,6 +314,8 @@ mod tests {
                 max_depth: depth,
                 temporal,
                 equivalent_rate: equivalent,
+                lfe: false,
+                surround: None,
             };
             assert_eq!(
                 rate.equivalent(size, channels as usize),

@@ -346,6 +346,7 @@ impl HybridEncoder {
     }
     fn frame_encoder(&mut self) -> super::HybridFrameEncoder<'_> {
         super::HybridFrameEncoder {
+            surround: crate::encoder::SurroundContext::default(),
             rate: self.rate,
             bandwidth: self.bandwidth,
             channels: self.channels,

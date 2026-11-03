@@ -1758,6 +1758,15 @@ corrected Q24 return/offset analysis, as documented in
 fixtures are tracked; foreign translation units are generated temporarily
 from an unchanged external checkout and never enter Cargo or ordinary tests.
 
+Canonical surround construction/rates in `src/multistream/encoder.rs` and mask/LFE
+wiring in the common/CELT owners follow the same original multistream encoder,
+`src/opus_encoder.c` and `celt/celt_encoder.c` under their existing notices.
+`src/encoder/surround.rs` retains the common-owner arithmetic and attribution.
+Optional actual call/packet fixtures use external original source with only the
+previously disclosed Q24 spectral-patch local-variable correction. The reference
+checkout and decoder remain unchanged. No foreign source or codec is a Cargo
+build/test dependency.
+
 Channel mapping, stream ordering and range combination follow
 `src/opus_multistream.c`, `src/opus_multistream_decoder.c` and the generic layout
 checks in `src/opus_multistream_encoder.c`, copyright (c) 2011 Xiph.Org Foundation,

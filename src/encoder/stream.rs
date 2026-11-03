@@ -244,6 +244,8 @@ impl EncodedPacket {
 /// transition failures atomic. Long packets select policy once for all components.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OpusEncoder {
+    #[cfg(test)]
+    surround_silk_rate: u32,
     rate: InputRate,
     channels: usize,
     application: control::Application,
@@ -252,6 +254,7 @@ pub struct OpusEncoder {
     speech: SpeechState<2>,
     bandwidth: PacketBandwidth<2>,
     celt: CeltEncoder,
+    surround: super::SurroundContext,
     high_gain: i16,
     width: i16,
     stereo_width: StereoWidthState,
@@ -277,6 +280,8 @@ impl OpusEncoder {
         let history = control::History::new(channels)?;
         let input = output_rate(rate);
         Ok(Self {
+            #[cfg(test)]
+            surround_silk_rate: 25000,
             rate,
             channels,
             application,
@@ -289,6 +294,7 @@ impl OpusEncoder {
             speech: SpeechState::new(input, SilkRate::Khz16),
             bandwidth: PacketBandwidth::default(),
             celt: CeltEncoder::new(rate, channels)?,
+            surround: super::SurroundContext::default(),
             high_gain: 32767,
             width: 16384,
             stereo_width: StereoWidthState::default(),
@@ -303,8 +309,17 @@ impl OpusEncoder {
     }
     /// Clear all audio and selection histories, retaining immutable API geometry.
     pub fn reset(&mut self) -> Result<(), EncoderError> {
+        let surround = super::SurroundContext {
+            mask: None,
+            ..self.surround
+        };
         *self = Self::with_application(self.rate, self.channels, self.application)?;
+        self.set_surround_context(surround);
         Ok(())
+    }
+    pub(crate) fn set_surround_context(&mut self, context: super::SurroundContext) {
+        self.surround = context;
+        self.celt.set_surround_context(context);
     }
     /// Immutable application; per-frame controls must agree with this value.
     pub fn application(&self) -> control::Application {
@@ -362,6 +377,7 @@ impl OpusEncoder {
     }
     fn frame_encoder(&mut self, decision: control::Decision) -> HybridFrameEncoder<'_> {
         HybridFrameEncoder {
+            surround: self.surround,
             rate: self.rate,
             channels: decision.channels,
             api_channels: self.channels,
@@ -381,7 +397,18 @@ impl OpusEncoder {
         options: EncodeOptions,
     ) -> Result<EncodedPacket, EncoderError> {
         #[cfg(test)]
-        self.celt.call_trace.clear();
+        {
+            self.celt.call_trace.clear();
+            self.celt.surround_calls.clear();
+        }
+        let mut options = options;
+        let surround = self.surround;
+        if surround.lfe {
+            if self.application != control::Application::RestrictedSilk {
+                options.controls.mode = Some(Mode::Celt);
+            }
+            options.controls.bandwidth = Some(Bandwidth::Narrowband);
+        }
         let samples = size.samples();
         // The public native bitrate control clamps before physical admission.
         let original_cap = cap;
@@ -792,7 +819,16 @@ impl OpusEncoder {
                 } else {
                     rate_for(bits_target, samples)
                 };
-                self.prefill_speech(decision, rate, silence)?;
+                self.prefill_speech(
+                    decision,
+                    self.surround.silk_rate(
+                        rate,
+                        decision.bandwidth,
+                        self.channels,
+                        options.controls.variable,
+                    ),
+                    silence,
+                )?;
             }
             self.bandwidth_prefill = false;
             self.speech.dtx.begin(silence);
@@ -818,10 +854,17 @@ impl OpusEncoder {
                     },
                 )?;
                 self.speech_channels = decision.channels;
+                #[cfg(test)]
+                {
+                    self.surround_silk_rate = low.silk_rate;
+                }
                 dtx = low.decision;
                 hybrid = Some(low.controls);
-                let gain =
-                    (32767 - (crate::celt::math::exp2((-low.high_band_rate) as i16) >> 1)) as i16;
+                let gain = if self.surround.masked() {
+                    32767
+                } else {
+                    (32767 - (crate::celt::math::exp2((-low.high_band_rate) as i16) >> 1)) as i16
+                };
                 // Fades are applied after unmodified input has been retained below.
                 writer = low.writer;
                 self.bandwidth.finish(self.speech.activity, packet_duration);
@@ -845,6 +888,16 @@ impl OpusEncoder {
                     self.speech_channels.max(1),
                     &mut pcm,
                 )?;
+                let target_rate = self.surround.silk_rate(
+                    rate_for(bits_target, samples),
+                    decision.bandwidth,
+                    self.channels,
+                    options.controls.variable,
+                );
+                #[cfg(test)]
+                {
+                    self.surround_silk_rate = target_rate;
+                }
                 let prepared = packet::prepare_stereo(
                     &mut self.speech,
                     &mut self.bandwidth,
@@ -854,7 +907,7 @@ impl OpusEncoder {
                         duration: packet_duration,
                         packet_bytes: cap,
                         policy: Some(PayloadPolicy {
-                            rate: (rate_for(bits_target, samples)) as i32,
+                            rate: target_rate as i32,
                             fec: decision.fec,
                         }),
                         options: MonoOptions {
@@ -937,7 +990,7 @@ impl OpusEncoder {
             );
             self.high_gain = 32767;
         }
-        if self.channels == 2 {
+        if self.channels == 2 && !self.surround.masked() {
             let width = if decision.mode == Mode::Hybrid && decision.channels == 2 {
                 if decision.to_mono {
                     0
@@ -1368,3 +1421,7 @@ fn budget_error(error: &EncoderError) -> bool {
 #[cfg(test)]
 #[path = "stream_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "surround_tests.rs"]
+mod surround_tests;

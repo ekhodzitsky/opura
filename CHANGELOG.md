@@ -7,6 +7,35 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-03
+
+- Add canonical Vorbis surround encoding with persistent masks, native stream/
+  LFE rates and complete owner rollback. Wire actual common SILK VBR targets,
+  Hybrid gain/rate split and stereo-width policy plus CELT dynamic allocation,
+  trim, VBR and LFE energy/pitch/TF/spreading/band controls. Preserve distinct
+  common/CELT mask lifetimes across reset, prefills, tails and long packets.
+- Route positioned multichannel AUTO files through surround/LFE coding with
+  bounded WAVE/Vorbis PCM reorder. Preserve generic mappings/family255 and the
+  positioned mono/stereo path. **CLI migration:** positioned multichannel
+  `--channels 1` now rejects before creating output because native surround
+  requires coupled stereo; this incompatible control contract increments the
+  pre-1.0 minor version. Generic library callers retain custom wire controls.
+- Preserve the public spectrum norm guard. Internal LFE spectrum encoding accepts
+  only analyzer-owned, matching mono/frame/band results after native energy
+  suppression; no unsafe code or general validation relaxation is introduced.
+- Retain1920actual native CELT byte/PCM/state cases,6480short/long common-owner
+  target/gain/width/mode/band/call traces,3240LFE allocation boundaries and1290
+  pristine wire-policy cases. Independent native decoding checks204surround
+  cases/6760operations/96drops with real FEC/DTX, plus2160CLI files. Fourteen
+  isolated mutations detect broken policies, masks, reset, mapping and rollback;
+  restored suites pass. Q24 corrections remain explicit, without perceptual,
+  performance or pristine full-surround encoder byte-identity claims.
+
+- Pass all seven offline gates (172 library and37 Python tests), plus the full
+  120-case RFC8251 matrix. Preserve every official PCM hash from0.1.97 and
+  every generic229-case/7405-operation export record after the version header.
+  Retain final source-fingerprinted surround, generic, file and decoder reports.
+
 ## [0.1.99] - 2026-11-03
 
 - Add persistent3..8channel surround spectral analysis at all five PCM rates

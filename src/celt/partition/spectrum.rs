@@ -8,6 +8,7 @@ use crate::{
     },
     range::RangeDecoder,
 };
+pub(in crate::celt) use encoder::encode_lfe_spectrum;
 pub use encoder::{SpectrumEncoding, SpectrumInput, encode_spectrum};
 
 /// Complete fixed-storage normalized Q24 spectra before anti-collapse/scaling.

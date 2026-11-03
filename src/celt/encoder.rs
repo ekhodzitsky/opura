@@ -49,6 +49,9 @@ mod quality_tests;
 #[path = "rate_history_tests.rs"]
 mod rate_history_tests;
 #[cfg(test)]
+#[path = "surround_encoder_tests.rs"]
+mod surround_encoder_tests;
+#[cfg(test)]
 #[path = "vbr_tests.rs"]
 mod vbr_tests;
 
@@ -210,6 +213,8 @@ impl EncodedPacket {
 pub struct CeltEncoder {
     #[cfg(test)]
     pub(crate) call_trace: Vec<[u64; 5]>,
+    #[cfg(test)]
+    pub(crate) surround_calls: Vec<[u64; 2]>,
     rate: InputRate,
     channels: usize,
     encoded_channels: usize,
@@ -234,6 +239,7 @@ pub struct CeltEncoder {
     vbr: VbrState,
     overlap_nonzero: bool,
     native_controls: Option<NativeControls>,
+    surround: crate::encoder::SurroundContext,
 }
 // The common Opus owner supplies controls independently of CELT's start band.
 // Legacy fixed APIs retain their existing analysis switches and first-frame rule.
@@ -253,6 +259,9 @@ pub(crate) struct HybridControls {
     pub vbr: Option<HybridVbr>,
 }
 impl CeltEncoder {
+    pub(crate) fn set_surround_context(&mut self, context: crate::encoder::SurroundContext) {
+        self.surround = context;
+    }
     pub(crate) fn native_prediction(&self) -> u8 {
         self.native_controls.map_or(2, |c| c.prediction)
     }
@@ -294,6 +303,8 @@ impl CeltEncoder {
         Ok(Self {
             #[cfg(test)]
             call_trace: Vec::new(),
+            #[cfg(test)]
+            surround_calls: Vec::new(),
             rate,
             channels,
             encoded_channels: channels,
@@ -318,6 +329,7 @@ impl CeltEncoder {
             vbr: VbrState::default(),
             overlap_nonzero: false,
             native_controls: None,
+            surround: crate::encoder::SurroundContext::default(),
         })
     }
     /// Fixed PCM input rate.
@@ -436,6 +448,7 @@ impl CeltEncoder {
     }
     /// Clear histories and diagnostics, retaining geometry and analysis settings.
     pub fn reset(&mut self) {
+        self.surround.mask = None;
         self.preemphasis = [PreemphasisState::default(), PreemphasisState::default()];
         self.overlap = [[0; 120]; 2];
         self.energy.reset();
@@ -490,7 +503,7 @@ impl CeltEncoder {
         writer: &mut RangeEncoder,
         controls: HybridControls,
     ) -> Result<(), EncoderError> {
-        self.encode_frame(size, pcm, writer, Some(controls), None)
+        self.encode_frame(size, pcm, writer, Some(controls), None, writer.capacity())
     }
     // The Opus owner normalizes the complete rate. Embedded CELT has no TOC
     // signalling of its own, including during real dummy encodes.
@@ -524,12 +537,15 @@ impl CeltEncoder {
         controls: HybridControls,
     ) -> Result<(), EncoderError> {
         let mut writer = RangeEncoder::new(2)?;
-        self.encode_frame(FrameSize::Ms2_5, pcm, &mut writer, Some(controls), None)?;
+        self.encode_frame(FrameSize::Ms2_5, pcm, &mut writer, Some(controls), None, 2)?;
         writer.finish()?;
         Ok(())
     }
     fn tf_permitted(&self, diagnostics: analysis::TransientAnalysis, payload_bytes: usize) -> bool {
-        self.analyze_tf && payload_bytes >= 15 * self.encoded_channels && !diagnostics.tf_tonal()
+        !self.surround.lfe
+            && self.analyze_tf
+            && payload_bytes >= 15 * self.encoded_channels
+            && !diagnostics.tf_tonal()
     }
     // Operates on the packet's staged stream; the outer transaction owns errors.
     fn encode_spreading(
@@ -544,7 +560,17 @@ impl CeltEncoder {
         let budget = payload_bytes as u32 * 8;
         let size = bands.size();
         let end = bands.end();
-        let requested_spread = if self.native_controls.is_some_and(|c| c.complexity == 0) {
+        let requested_spread = if self.surround.lfe {
+            if writer.tell() + 4 <= budget {
+                self.spreading = analysis::SpreadingState::from_history(
+                    self.spreading.tonal_average(),
+                    self.spreading.hf_average(),
+                    0,
+                    Spread::Normal,
+                )?;
+            }
+            Spread::Normal
+        } else if self.native_controls.is_some_and(|c| c.complexity == 0) {
             Spread::None
         } else if self.analyze_spreading
             && !transient
@@ -631,7 +657,7 @@ impl CeltEncoder {
         if let Some(rate) = rate {
             writer.shrink(self.vbr.capacity(size, rate, payload_bytes))?;
         }
-        self.encode_frame(size, pcm, &mut writer, None, rate)?;
+        self.encode_frame(size, pcm, &mut writer, None, rate, payload_bytes)?;
         let range = writer.range();
         let payload = finish(&mut writer)?;
         let config = bandwidth_parameters(self.bandwidth)?.1;
@@ -656,6 +682,7 @@ impl CeltEncoder {
         writer: &mut RangeEncoder,
         hybrid: Option<HybridControls>,
         vbr_rate: Option<VbrRate>,
+        _entry_capacity: usize,
     ) -> Result<(), EncoderError> {
         #[cfg(test)]
         if let Some(controls) = self.native_controls {
@@ -665,11 +692,22 @@ impl CeltEncoder {
                 .fold(14695981039346656037u64, |h, b| {
                     (h ^ u64::from(b)).wrapping_mul(1099511628211)
                 });
+            let mask_hash = self.surround.mask.map_or(0, |masks| {
+                masks[..self.channels]
+                    .iter()
+                    .flatten()
+                    .flat_map(|x| x.to_le_bytes())
+                    .fold(14695981039346656037u64, |h, b| {
+                        (h ^ u64::from(b)).wrapping_mul(1099511628211)
+                    })
+            });
+            self.surround_calls
+                .push([u64::from(self.surround.lfe), mask_hash]);
             self.call_trace.push([
                 size.samples() as u64,
                 if hybrid.is_some() { 17 } else { 0 },
                 u64::from(controls.prediction),
-                writer.capacity() as u64,
+                _entry_capacity as u64,
                 hash,
             ]);
         }
@@ -730,20 +768,22 @@ impl CeltEncoder {
             || self.pitch_prefilter
             || vbr_rate.is_some()
         {
-            Some(if self.native_controls.is_some_and(|c| c.complexity == 0) {
-                analysis::analyze_tone_only(
-                    size,
-                    &context[..self.channels * stride],
-                    self.channels,
-                )?
-            } else {
-                analysis::analyze_transients(
-                    size,
-                    &context[..self.channels * stride],
-                    self.channels,
-                    hybrid.is_some_and(|h| effective_bytes < 15 && !h.voiced),
-                )?
-            })
+            Some(
+                if self.surround.lfe || self.native_controls.is_some_and(|c| c.complexity == 0) {
+                    analysis::analyze_tone_only(
+                        size,
+                        &context[..self.channels * stride],
+                        self.channels,
+                    )?
+                } else {
+                    analysis::analyze_transients(
+                        size,
+                        &context[..self.channels * stride],
+                        self.channels,
+                        hybrid.is_some_and(|h| effective_bytes < 15 && !h.voiced),
+                    )?
+                },
+            )
         } else {
             None
         };
@@ -759,7 +799,8 @@ impl CeltEncoder {
                 enabled: hybrid.is_none()
                     && self.pitch_prefilter
                     && !silence
-                    && payload_bytes > 12 * self.encoded_channels
+                    && ((self.surround.lfe && payload_bytes > 3)
+                        || payload_bytes > 12 * self.encoded_channels)
                     && 16 < budget,
                 available_bytes: payload_bytes as u16,
                 tf_estimate: diagnostics.map_or(0, |d| d.tf_estimate()),
@@ -776,7 +817,8 @@ impl CeltEncoder {
             encode_comb(writer, filtered.parameters())?;
         }
         let transient_allowed = size != FrameSize::Ms2_5 && writer.tell() + 3 <= budget;
-        let mut transient = self.detect_transients
+        let mut transient = !self.surround.lfe
+            && self.detect_transients
             && transient_allowed
             && diagnostics.is_some_and(|d| d.transient());
         let end = bandwidth_parameters(hybrid.map_or(self.bandwidth, |h| h.bandwidth))?.0;
@@ -789,8 +831,14 @@ impl CeltEncoder {
             self.rate,
             transient,
         )?;
-        let mut bands =
-            analysis::analyze_bands(size, spectrum.values(), self.encoded_channels, end, end)?;
+        let mut bands = analysis::analyze_bands_lfe(
+            size,
+            spectrum.values(),
+            self.encoded_channels,
+            end,
+            end,
+            self.surround.lfe,
+        )?;
         // Native updates temporal VBR from the original MDCT, before the
         // last-chance spectral patch switches to short windows.
         let mut temporal_logs = [[0; 21]; 2];
@@ -800,16 +848,34 @@ impl CeltEncoder {
         {
             *logs = *bands.log_energies(c).ok_or(EncoderError::InvalidChannels)?;
         }
-        let temporal = self.vbr.temporal(
-            &temporal_logs,
-            self.encoded_channels,
-            start,
-            end,
-            size,
-            transient,
-        );
+        let temporal = if self.surround.lfe {
+            0
+        } else {
+            self.vbr.temporal(
+                &temporal_logs,
+                self.encoded_channels,
+                start,
+                end,
+                size,
+                transient,
+            )
+        };
+        let surround = if hybrid.is_none() && !self.surround.lfe {
+            self.surround
+                .mask
+                .map(|m| {
+                    analysis::analyze_surround_allocation(
+                        &m[..self.encoded_channels],
+                        self.previous_coded,
+                    )
+                })
+                .transpose()?
+        } else {
+            None
+        };
         let mut patched_comparison = None;
         if transient_allowed
+            && !self.surround.lfe
             && !transient
             && hybrid.is_none()
             && self.native_controls.is_some_and(|c| c.complexity >= 5)
@@ -898,6 +964,8 @@ impl CeltEncoder {
                 },
                 analysis::DynallocOptions {
                     payload_bytes: effective_bytes as u16,
+                    lfe: self.surround.lfe,
+                    surround: surround.as_ref().map_or([0; 21], |m| *m.dynamic()),
                     transient,
                     tone_frequency: d.tone_frequency(),
                     toneishness: if hybrid.is_some_and(|h| h.complexity == 0) {
@@ -948,7 +1016,7 @@ impl CeltEncoder {
                 loss_rate: self
                     .native_controls
                     .map_or(hybrid.map_or(0, |h| h.loss_percent), |c| c.loss_percent),
-                lfe: false,
+                lfe: self.surround.lfe,
             },
         )?;
         let mut decisions = [false; 21];
@@ -1072,27 +1140,36 @@ impl CeltEncoder {
             max_depth: perceptual.as_ref().map_or(0, |p| p.max_depth()),
             temporal,
             equivalent_rate: rate,
+            lfe: self.surround.lfe,
+            surround: self
+                .surround
+                .mask
+                .map(|_| surround.as_ref().map_or(0, |m| m.masking())),
         };
         let native_vbr = self.native_controls.is_some();
         let rate_state = &mut self.vbr;
+        let mut boosts = perceptual
+            .as_ref()
+            .filter(|_| self.analyze_dynamic)
+            .map_or([0; 21], |d| *d.boosts());
+        if self.surround.lfe {
+            boosts[0] = (effective_bytes / 3).min(8) as u8;
+        }
         let allocation = allocation::encode_analyzed_resized(
             writer,
             size,
             layout,
             transient,
             AllocationEncoding {
-                boosts: perceptual
-                    .as_ref()
-                    .filter(|_| self.analyze_dynamic)
-                    .map_or([0; 21], |d| *d.boosts()),
+                boosts,
                 trim: 5,
                 intensity,
                 dual_stereo,
                 previous_coded_bands: self.previous_coded,
-                signal_bandwidth: end - 1,
+                signal_bandwidth: if self.surround.lfe { 1 } else { end - 1 },
             },
             || {
-                if !self.analyze_allocation || hybrid.is_some() {
+                if !self.analyze_allocation || hybrid.is_some() || self.surround.lfe {
                     return Ok(5);
                 }
                 self.trim
@@ -1106,7 +1183,7 @@ impl CeltEncoder {
                             intensity,
                             equivalent_rate: rate,
                             tf_estimate,
-                            surround_trim: 0,
+                            surround_trim: surround.as_ref().map_or(0, |m| m.trim()),
                         },
                     )
                     .map(|d| {
@@ -1148,22 +1225,26 @@ impl CeltEncoder {
         }
         let budget = writer.capacity() as u32 * 8;
         self.energy.fine(writer, layout, allocation.fine_bits())?;
-        partition::encode_spectrum(
-            writer,
-            &allocation,
-            &tf,
-            spread,
-            SpectrumInput {
-                left: bands.normalized(0).ok_or(EncoderError::InvalidChannels)?,
-                right: bands.normalized(1),
-                amplitudes,
-            },
-            SpectrumEncoding {
-                seed: self.range,
-                disable_inversion: false,
-                theta_rdo: self.native_controls.is_none_or(|c| c.complexity >= 8),
-            },
-        )?;
+        if self.surround.lfe {
+            partition::encode_lfe_spectrum(writer, &allocation, &tf, spread, &bands, self.range)?;
+        } else {
+            partition::encode_spectrum(
+                writer,
+                &allocation,
+                &tf,
+                spread,
+                SpectrumInput {
+                    left: bands.normalized(0).ok_or(EncoderError::InvalidChannels)?,
+                    right: bands.normalized(1),
+                    amplitudes,
+                },
+                SpectrumEncoding {
+                    seed: self.range,
+                    disable_inversion: false,
+                    theta_rdo: self.native_controls.is_none_or(|c| c.complexity >= 8),
+                },
+            )?;
+        }
         if allocation.anti_collapse_reserved() {
             writer.encode_bits(u32::from(self.transient_streak < 2), 1)?;
         }

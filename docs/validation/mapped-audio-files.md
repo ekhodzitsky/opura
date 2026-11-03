@@ -35,13 +35,16 @@ nonzero masks reject before output creation. Positioned mono/stereo output
 keeps the original44-byte PCM header; other output uses68-byte WAVE extensible
 headers and an explicit speaker mask, including zero for family255.
 
-Encoding uses the existing generic mapped encoder, native generic stream rate
-allocation and a whole-packet cap. It does **not** implement native surround
-energy masking or LFE-specific analysis. Family1 layout metadata does not imply
-surround encoder quality equivalence. The default target is64000bps per coded
+Positioned multichannel encoding now uses the canonical native surround owner,
+including spectral masks, stream allocation and LFE processing. The file path
+reorders WAVE PCM into Vorbis order in one bounded packet buffer; decoding still
+permutes the output map. Unpositioned family255 retains generic allocation.
+See [surround validation and0.2 migration](surround-encoder.md). These features do
+not imply perceptual quality leadership. The default target is64000bps per coded
 stream; `--bitrate` sets the total target. `--channels` is forwarded to each
-constituent stream; requesting two channels fails before creating a file if any
-constituent is mono. Fixed CELT/SILK/Hybrid file modes require positioned
+constituent stream in generic coding; requesting two channels fails before
+creating a file if any constituent is mono. Positioned multichannel surround
+preserves coupled stereo, so version0.2 also rejects `--channels 1` there. Fixed CELT/SILK/Hybrid file modes require positioned
 mono/stereo input; mapped/unpositioned files use `--mode auto`.
 
 All packets retain the48kHz granule clock. The application selects common
@@ -115,5 +118,7 @@ is checked again against the committed milestone.
 
 The library milestone0.1.97's full RFC8251 report remains historical evidence for
 that exact source. This file integration does not change synthesis algorithms.
-The full codec goal, native surround analysis, representative quality comparisons
-and competitive performance acceptance remain open.
+The full codec goal, representative quality comparisons and competitive
+performance/portability acceptance remain open. The historical0.1.98 file report
+above predates actual surround integration; current surround evidence is linked
+in the0.2 validation record.

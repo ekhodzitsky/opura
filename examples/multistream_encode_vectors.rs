@@ -121,13 +121,23 @@ fn record(
 fn main() -> Result<()> {
     let mut args = env::args_os().skip(1);
     let path = args.next().ok_or("output path required")?;
+    let surround = match args.next() {
+        None => false,
+        Some(arg) if arg == "--surround" => true,
+        _ => return Err("expected optional --surround".into()),
+    };
     if args.next().is_some() {
-        return Err("one output path required".into());
+        return Err("unexpected export argument".into());
     }
     let mut out = BufWriter::new(OpenOptions::new().write(true).create_new(true).open(path)?);
     writeln!(
         out,
-        "# OPURA-MULTISTREAM-ENCODE01 {}",
+        "# {} {}",
+        if surround {
+            "OPURA-SURROUND-ENCODE01"
+        } else {
+            "OPURA-MULTISTREAM-ENCODE01"
+        },
         env!("CARGO_PKG_VERSION")
     )?;
     let applications = [
@@ -159,13 +169,20 @@ fn main() -> Result<()> {
         InputRate::Khz24,
         InputRate::Khz48,
     ] {
-        for layout_index in 1..=9 {
+        for layout_index in 1..=if surround { 8 } else { 9 } {
             let layout = mapping(layout_index)?;
             for (app, application) in applications.iter().copied().enumerate() {
                 head(&mut out, hz, &layout, app)?;
                 cases += 1;
-                let mut encoder =
-                    MultistreamEncoder::with_application(hz, layout.clone(), application)?;
+                let mut encoder = if surround {
+                    MultistreamEncoder::with_surround_application(
+                        hz,
+                        layout.channels(),
+                        application,
+                    )?
+                } else {
+                    MultistreamEncoder::with_application(hz, layout.clone(), application)?
+                };
                 let mut decoder = MultistreamDecoder::new(rate(hz), layout.clone())?;
                 let mut step = 0;
                 for size in sizes {
@@ -220,11 +237,19 @@ fn main() -> Result<()> {
         for fec in [false, true] {
             head(&mut out, InputRate::Khz48, &layout, 1)?;
             cases += 1;
-            let mut encoder = MultistreamEncoder::with_application(
-                InputRate::Khz48,
-                layout.clone(),
-                Application::Voip,
-            )?;
+            let mut encoder = if surround {
+                MultistreamEncoder::with_surround_application(
+                    InputRate::Khz48,
+                    layout.channels(),
+                    Application::Voip,
+                )?
+            } else {
+                MultistreamEncoder::with_application(
+                    InputRate::Khz48,
+                    layout.clone(),
+                    Application::Voip,
+                )?
+            };
             let mut decoder = MultistreamDecoder::new(OutputRate::Khz48, layout.clone())?;
             let options = MultistreamEncodeOptions {
                 bitrate: 32000 * layout.coded_channels() as u32,

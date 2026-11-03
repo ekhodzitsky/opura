@@ -43,6 +43,57 @@ pub fn encode_spectrum(
     input: SpectrumInput<'_>,
     options: SpectrumEncoding,
 ) -> Result<Spectrum, PartitionError> {
+    encode_spectrum_inner(entropy, allocation, tf, spread, input, options, false)
+}
+// Native LFE suppresses band amplitudes above band1 before normalizing. Those
+// derived coordinates need not have unit norm. Accept only the analyzer-owned
+// LFE result here; the public normalized-vector contract stays unchanged.
+pub(in crate::celt) fn encode_lfe_spectrum(
+    entropy: &mut RangeEncoder,
+    allocation: &Allocation,
+    tf: &TfResolution,
+    spread: Spread,
+    bands: &crate::celt::analysis::BandAnalysis,
+    seed: u32,
+) -> Result<Spectrum, PartitionError> {
+    if !bands.is_lfe()
+        || bands.channels() != 1
+        || bands.size() != allocation.size()
+        || bands.end() != allocation.layout().bands().end
+        || allocation.layout().channels() != 1
+    {
+        return Err(PartitionError::InvalidInput);
+    }
+    encode_spectrum_inner(
+        entropy,
+        allocation,
+        tf,
+        spread,
+        SpectrumInput {
+            left: bands.normalized(0).ok_or(PartitionError::InvalidInput)?,
+            right: None,
+            amplitudes: [
+                *bands.amplitudes(0).ok_or(PartitionError::InvalidInput)?,
+                [0; 21],
+            ],
+        },
+        SpectrumEncoding {
+            seed,
+            disable_inversion: false,
+            theta_rdo: false,
+        },
+        true,
+    )
+}
+fn encode_spectrum_inner(
+    entropy: &mut RangeEncoder,
+    allocation: &Allocation,
+    tf: &TfResolution,
+    spread: Spread,
+    input: SpectrumInput<'_>,
+    options: SpectrumEncoding,
+    lfe: bool,
+) -> Result<Spectrum, PartitionError> {
     validate_spectrum(
         entropy.capacity() as u32 * 8,
         entropy.tell(),
@@ -63,7 +114,12 @@ pub fn encode_spectrum(
     for band in layout.bands() {
         for (c, values) in std::iter::once(input.left).chain(input.right).enumerate() {
             let mut energy = 0i64;
-            for &x in &values[usize::from(BANDS[band]) << lm..usize::from(BANDS[band + 1]) << lm] {
+            let measured = if lfe && band >= 2 {
+                &[][..]
+            } else {
+                &values[usize::from(BANDS[band]) << lm..usize::from(BANDS[band + 1]) << lm]
+            };
+            for &x in measured {
                 energy = energy
                     .checked_add(i64::from(x) * i64::from(x))
                     .ok_or(PartitionError::InvalidInput)?;
@@ -261,6 +317,77 @@ pub(super) fn failure_after_band(band: usize) -> Result<(), PartitionError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn public_norm_guard_rejects_analyzer_owned_lfe_coordinates()
+    -> Result<(), Box<dyn std::error::Error>> {
+        use crate::celt::{
+            allocation::{AllocationEncoding, encode_allocation},
+            analysis,
+            control::encode_tf,
+            input::{InputRate, PreemphasisState},
+        };
+        let size = FrameSize::Ms20;
+        let mut pcm = [0; 960];
+        pcm[480] = 30000;
+        let mut context = [0; 1080];
+        PreemphasisState::default().process(
+            size,
+            InputRate::Khz48,
+            &pcm,
+            1,
+            0,
+            &mut context[120..],
+        )?;
+        let spectrum = analysis::analyze_frame(size, &context, 1, 1, InputRate::Khz48, false)?;
+        let bands = analysis::analyze_bands_lfe(size, spectrum.values(), 1, 13, 13, true)?;
+        let mut writer = RangeEncoder::new(128)?;
+        let tf = encode_tf(&mut writer, size, 0..13, false, &[false; 21], false)?;
+        let allocation = encode_allocation(
+            &mut writer,
+            size,
+            BandLayout::new(1, 0, 13)?,
+            false,
+            AllocationEncoding {
+                boosts: [0; 21],
+                trim: 5,
+                intensity: 13,
+                dual_stereo: false,
+                previous_coded_bands: 0,
+                signal_bandwidth: 1,
+            },
+        )?;
+        let before = writer.clone();
+        let input = SpectrumInput {
+            left: bands.normalized(0).ok_or("missing spectrum")?,
+            right: None,
+            amplitudes: [*bands.amplitudes(0).ok_or("missing amplitudes")?, [0; 21]],
+        };
+        assert_eq!(
+            encode_spectrum(
+                &mut writer,
+                &allocation,
+                &tf,
+                Spread::Normal,
+                input,
+                SpectrumEncoding {
+                    seed: 0,
+                    disable_inversion: false,
+                    theta_rdo: false,
+                }
+            ),
+            Err(PartitionError::InvalidInput)
+        );
+        assert_eq!(writer, before);
+        // The internal path requires the analyzer-owned LFE marker and mono
+        // geometry; callers cannot opt arbitrary public vectors out of checks.
+        let ordinary = analysis::analyze_bands(size, spectrum.values(), 1, 13, 13)?;
+        assert_eq!(
+            encode_lfe_spectrum(&mut writer, &allocation, &tf, Spread::Normal, &ordinary, 0),
+            Err(PartitionError::InvalidInput)
+        );
+        assert_eq!(writer, before);
+        Ok(())
+    }
     struct FailureGuard;
     impl Drop for FailureGuard {
         fn drop(&mut self) {

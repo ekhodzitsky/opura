@@ -18,6 +18,7 @@ pub use encoder::encode_partition;
 mod band;
 mod spectrum;
 pub use band::{Band, BandControls, BandEncoding, StereoControls, decode_band, encode_band};
+pub(in crate::celt) use spectrum::encode_lfe_spectrum;
 pub use spectrum::{
     AntiCollapseError, Spectrum, SpectrumEncoding, SpectrumInput, decode_spectrum, encode_spectrum,
 };

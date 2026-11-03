@@ -59,6 +59,8 @@ pub enum MultistreamError {
     InvalidBudget,
     /// Common controls or nominal total bitrate are invalid.
     InvalidControl,
+    /// Persistent surround analysis failed; the complete owner is unchanged.
+    Analysis(crate::celt::analysis::AnalysisError),
     /// A constituent stream could not encode; the complete owner is unchanged.
     Encode {
         /// Zero-based constituent stream index.
@@ -84,6 +86,7 @@ impl fmt::Display for MultistreamError {
             Self::InvalidInput => f.write_str("invalid multistream input PCM geometry"),
             Self::InvalidBudget => f.write_str("invalid multistream whole-packet capacity"),
             Self::InvalidControl => f.write_str("invalid multistream encoding controls"),
+            Self::Analysis(error) => write!(f, "Opus surround analysis: {error}"),
             Self::Encode { stream, error } => write!(f, "Opus stream {stream}: {error}"),
         }
     }
@@ -91,6 +94,7 @@ impl fmt::Display for MultistreamError {
 impl std::error::Error for MultistreamError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
+            Self::Analysis(error) => Some(error),
             Self::Framing { error, .. } => Some(error),
             Self::Decode { error, .. } => Some(error),
             Self::Encode { error, .. } => Some(error),

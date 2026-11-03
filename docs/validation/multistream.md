@@ -1,11 +1,12 @@
-# Classic multistream framing and decoder validation
+# Classic multistream codec validation
 
 The library provides `multistream::ChannelMapping`, `MultistreamPacket`,
 `MultistreamDecoder`, `MultistreamPcm` and persistent generic encoding through
 `MultistreamEncoder`/`MultistreamEncodeOptions`. The CLI also supports
 [mapped WAV/Ogg files](mapped-audio-files.md) with1..8channels and families0/1/255.
-Surround energy-mask/LFE analysis remains unfinished. There is no new speed or
-quality claim.
+Canonical [surround encoding](surround-encoder.md) adds native mask/LFE processing
+through `MultistreamEncoder::with_surround_application`. Generic constructors
+retain their existing mapping contract. There is no new speed or quality claim.
 
 ## Contracts
 
@@ -154,3 +155,17 @@ The0.1.97 full official RFC8251 matrix passes120/120 cases and encoded final
 ranges, with all120 zero-gain PCM hashes identical to0.1.95. The tracked
 [current conformance report](results/codec-readiness-0.1.97-conformance.json)
 binds the complete release source fingerprint.
+
+
+## Canonical surround owner
+
+Version0.2 adds a distinct canonical Vorbis-order constructor while preserving
+arbitrary generic mappings. The actual owner consumes the validated spectral
+masks, applies native LFE/non-LFE allocation and per-stream policy, and includes
+common SILK/Hybrid/gain/width plus CELT mask/LFE processing in one transaction.
+See the [complete contract and independent evidence](surround-encoder.md), including
+actual short/long call lifetimes, protected wire policies and native receiver checks.
+The positioned multichannel CLI now uses this owner; explicit `--channels 1`
+rejects rather than overriding required coupled stereo. This CLI change is why
+the milestone increments the pre-1.0 minor version. The older library-only gate
+and source-fingerprint statements above retain their own versioned scope.

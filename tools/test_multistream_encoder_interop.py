@@ -21,6 +21,22 @@ class MultistreamExportIntegrity(unittest.TestCase):
         for geometry,frames in protocols:
             if geometry[3]==3:self.assertTrue(all(row[1]>=480 for row in frames))
 
+    def test_surround_protocol_keeps_canonical_layouts_and_distinct_header(self):
+        protocols=interop.case_protocols(True)
+        self.assertEqual(len(protocols),204)
+        self.assertEqual(sum(len(frames) for _,frames in protocols),6760)
+        self.assertTrue(all(len(g[4])<=8 and len(g[4])==g[1]+g[2] for g,_ in protocols))
+        self.assertEqual(Counter(row[0] for _,frames in protocols for row in frames),{'normal':6664,'plc':48,'fec':48})
+        library=SimpleNamespace(opus_multistream_decoder_destroy=lambda _:None)
+        with tempfile.TemporaryDirectory() as temp:
+            path=Path(temp)/'vectors'
+            path.write_text('# OPURA-MULTISTREAM-ENCODE01 test\n')
+            with self.assertRaisesRegex(ValueError,'Wrong export'):interop.verify(library,path,'test',True)
+            path.write_text('# OPURA-SURROUND-ENCODE01 test\ncase 8000 2 1 0 0,2,1\n')
+            with patch.object(interop,'create') as create:
+                with self.assertRaisesRegex(ValueError,'geometry/order'):interop.verify(library,path,'test',True)
+                create.assert_not_called()
+
     def reject(self,text,message):
         library=SimpleNamespace(opus_multistream_decoder_destroy=lambda _:None)
         with tempfile.TemporaryDirectory() as temp:

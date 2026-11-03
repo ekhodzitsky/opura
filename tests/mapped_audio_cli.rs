@@ -250,6 +250,19 @@ fn mapped_preflight_rejects_invalid_masks_controls_budgets_without_output() -> R
     let output = temp.0.join("output.opus");
     for positioned in [true, false] {
         fs::write(&input, wave(48000, 6, 961, positioned))?;
+        if positioned {
+            assert!(
+                !cli()
+                    .arg("encode")
+                    .arg(&input)
+                    .arg(&output)
+                    .args(["--mode", "auto", "--channels", "1"])
+                    .output()?
+                    .status
+                    .success()
+            );
+            assert!(!output.exists());
+        }
         for args in [
             vec!["--mode", "celt"],
             vec!["--mode", "silk"],
@@ -360,11 +373,19 @@ fn mapped_encoder_uses_wave_input_order_and_whole_packet_controls() -> Result<()
                 (channels, 0, (0..channels as u8).collect())
             };
             let map = ChannelMapping::new(streams, coupled, &mapping)?;
-            let mut owner = MultistreamEncoder::with_application(
-                InputRate::Khz48,
-                map,
-                Application::RestrictedCelt,
-            )?;
+            let mut owner = if positioned {
+                MultistreamEncoder::with_surround_application(
+                    InputRate::Khz48,
+                    channels,
+                    Application::RestrictedCelt,
+                )?
+            } else {
+                MultistreamEncoder::with_application(
+                    InputRate::Khz48,
+                    map,
+                    Application::RestrictedCelt,
+                )?
+            };
             let mut expected = Vec::new();
             let original: Vec<i16> = source[68..]
                 .chunks_exact(2)
@@ -375,6 +396,14 @@ fn mapped_encoder_uses_wave_input_order_and_whole_packet_controls() -> Result<()
                 let offset = index * pcm.len();
                 let n = pcm.len().min(original.len().saturating_sub(offset));
                 pcm[..n].copy_from_slice(&original[offset..offset + n]);
+                if positioned {
+                    for frame in pcm.chunks_exact_mut(channels) {
+                        let wave = frame.to_vec();
+                        for (channel, &opus) in orders[channels - 1].iter().enumerate() {
+                            frame[opus] = wave[channel];
+                        }
+                    }
+                }
                 expected.push(
                     owner
                         .encode_packet(

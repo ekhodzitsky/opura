@@ -84,8 +84,14 @@ def packets(data):
     return result, granule
 
 
+def frequency(channel, channels, positioned):
+    # WAVE speaker slot3 is LFE in canonical6/7/8channel layouts. Exercise
+    # channel identity with actual bass, inside the native LFE passband.
+    return 73 if positioned and channels >= 6 and channel == 3 else 37 + 83 * channel
+
+
 def wave(rate, channels, positioned, frames):
-    values = [int(1800 * math.sin(2 * math.pi * (37 + 83 * channel) * frame / rate))
+    values = [int(1800 * math.sin(2 * math.pi * frequency(channel, channels, positioned) * frame / rate))
               for frame in range(frames) for channel in range(channels)]
     pcm = struct.pack('<' + 'h' * len(values), *values)
     fmt = struct.pack('<HHIIHHHHI', 0xfffe, channels, rate, rate * channels * 2,
@@ -194,7 +200,7 @@ def verify(lib, cli, directory):
                             energy = sum(a * a for a in signal)
                             scores = []
                             for candidate in range(channels):
-                                target = [math.sin(2 * math.pi * (37 + 83 * candidate) * f / rate) for f in range(frames)]
+                                target = [math.sin(2 * math.pi * frequency(candidate, channels, positioned) * f / rate) for f in range(frames)]
                                 norm = math.sqrt(energy * sum(b * b for b in target))
                                 scores.append(sum(a * b for a, b in zip(signal, target)) / norm if norm else 0)
                             if scores[channel] < .8 or any(scores[channel] - value < .1 for j, value in enumerate(scores) if j != channel):

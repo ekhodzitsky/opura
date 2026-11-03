@@ -25,11 +25,11 @@ LAYOUTS=[(1,0,[0]),(1,1,[0,1]),(2,1,[0,2,1]),(2,2,[0,1,2,3]),
          (5,3,[0,6,1,2,3,4,5,7]),(2,1,[2,0,1,255,0])]
 
 
-def case_protocols():
+def case_protocols(surround=False):
     """Predeclared matrix, independent of the Rust export's counts/metadata."""
     result=[]
     for rate in RATES:
-        for streams,coupled,mapping in LAYOUTS:
+        for streams,coupled,mapping in (LAYOUTS[:8] if surround else LAYOUTS):
             for application in range(5):
                 frames=[]
                 for duration in DURATIONS:
@@ -100,13 +100,14 @@ def validate_case(case,expected_frames):
     if case['fec_requested'] and (case['operations']['fec']==0 or case['fec_step_lbrr_streams']==0):raise ValueError('FEC case has no actual recovery backup')
 
 
-def verify(lib,path,version):
+def verify(lib,path,version,surround=False):
     if path.stat().st_size>64*1024*1024:raise ValueError('Export exceeds64MiB')
     cases=[];owner=None;case=None;rows=0;faults={};footer=None
-    protocols=case_protocols();expected_frames=[]
+    protocols=case_protocols(surround);expected_frames=[]
     try:
         with path.open() as source:
-            if source.readline().rstrip()!=f'# OPURA-MULTISTREAM-ENCODE01 {version}':raise ValueError('Wrong export header/version')
+            header='OPURA-SURROUND-ENCODE01' if surround else 'OPURA-MULTISTREAM-ENCODE01'
+            if source.readline().rstrip()!=f'# {header} {version}':raise ValueError('Wrong export header/version')
             for line in source:
                 if line.startswith('# cases='):
                     if footer is not None:raise ValueError('Duplicate export footer')
@@ -154,7 +155,8 @@ def verify(lib,path,version):
                     case['operations'][kind]+=1;case['rows']+=1;rows+=1
                 else:raise ValueError('Unexpected export row')
         if case is not None:validate_case(case,expected_frames)
-        if footer!='# cases=229 rows=7405 encoded=7405 dropped=96' or len(cases)!=229 or rows!=7405 or faults!={'wrong_range':'rejected','wrong_pcm':'rejected'}:raise ValueError('Missing complete matrix/footer/rejection probes')
+        expected_cases,expected_rows=(204,6760) if surround else (229,7405)
+        if footer!=f'# cases={expected_cases} rows={expected_rows} encoded={expected_rows} dropped=96' or len(cases)!=expected_cases or rows!=expected_rows or faults!={'wrong_range':'rejected','wrong_pcm':'rejected'}:raise ValueError('Missing complete matrix/footer/rejection probes')
         return cases,faults
     finally:
         if owner is not None:lib.opus_multistream_decoder_destroy(owner)
@@ -164,12 +166,13 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('source',type=Path)
     parser.add_argument('output',type=Path)
+    parser.add_argument('--surround',action='store_true',help='validate canonical surround/LFE owner rather than generic mappings')
     args=parser.parse_args();args.output.mkdir(parents=True,exist_ok=False)
     before=sources();version=tomllib.loads((ROOT/'Cargo.toml').read_text())['package']['version']
     subprocess.run(['cargo','build','--offline','--locked','--release','--example','multistream_encode_vectors'],cwd=ROOT,check=True)
     binary=ROOT/'target/release/examples/multistream_encode_vectors'
     exported=args.output.resolve()/'vectors.txt'
-    subprocess.run([str(binary),str(exported)],cwd=ROOT,check=True,timeout=600)
+    subprocess.run([str(binary),str(exported),*(['--surround'] if args.surround else [])],cwd=ROOT,check=True,timeout=600)
     with tempfile.TemporaryDirectory(prefix='opura-multistream-interop-') as temp:
         library=compile_reference(args.source.resolve(),Path(temp))
         library.opus_multistream_decoder_create.argtypes=[c.c_int,c.c_int,c.c_int,c.c_int,c.c_void_p,c.c_void_p];library.opus_multistream_decoder_create.restype=c.c_void_p
@@ -178,12 +181,12 @@ def main():
         library.opus_multistream_decoder_ctl.argtypes=[c.c_void_p,c.c_int];library.opus_multistream_decoder_ctl.restype=c.c_int
         library.opus_packet_parse_impl.argtypes=[c.c_void_p,c.c_int,c.c_int,c.c_void_p,c.c_void_p,c.c_void_p,c.c_void_p,c.c_void_p,c.c_void_p,c.c_void_p];library.opus_packet_parse_impl.restype=c.c_int
         library.opus_packet_has_lbrr.argtypes=[c.c_void_p,c.c_int];library.opus_packet_has_lbrr.restype=c.c_int
-        cases,faults=verify(library,exported,version)
+        cases,faults=verify(library,exported,version,args.surround)
         native_hash=sha(Path(temp)/'reference.so')
     if sources()!=before:raise ValueError('Source changed during validation')
-    report=dict(schema_version=1,status='pass',opura_version=version,source_sha256=before,base_revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),worktree_modified=bool(subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True).strip()),reference_revision=REVISION,reference_checkout_modified=False,cflags=CFLAGS,created_utc=datetime.now(timezone.utc).isoformat(),rustc=subprocess.check_output(['rustc','--version','--verbose'],cwd=ROOT,text=True).strip(),cc=subprocess.check_output(['cc','--version'],text=True).splitlines()[0],binary_sha256=sha(binary),native_library_sha256=native_hash,export_sha256=sha(exported),cases=cases,fault_sensitivity=faults,limitations=['Synthetic compatibility evidence, not representative perceptual quality.','No native encoder byte/quality equality claim; intentional Q24 encoder correction remains.','Generic mapping, not surround energy-mask/LFE equivalence.','No performance or SOTA claim.'])
+    report=dict(schema_version=1,status='pass',opura_version=version,source_sha256=before,base_revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),worktree_modified=bool(subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True).strip()),reference_revision=REVISION,reference_checkout_modified=False,cflags=CFLAGS,created_utc=datetime.now(timezone.utc).isoformat(),rustc=subprocess.check_output(['rustc','--version','--verbose'],cwd=ROOT,text=True).strip(),cc=subprocess.check_output(['cc','--version'],text=True).splitlines()[0],binary_sha256=sha(binary),native_library_sha256=native_hash,export_sha256=sha(exported),cases=cases,fault_sensitivity=faults,limitations=['Synthetic compatibility evidence, not representative perceptual quality.','No native encoder byte/quality equality claim; intentional Q24 encoder correction remains.','Canonical surround/LFE with explicit Q24 analysis correction.' if args.surround else 'Generic mapping, not surround energy-mask/LFE equivalence.','No performance or SOTA claim.'])
     (args.output/'report.json').write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
-    print('Verified229 mapped cases/7405 native PCM/range operations; no performance/quality claim.')
+    print(f'Verified{len(cases)} mapped cases/{sum(case["rows"] for case in cases)} native PCM/range operations; no performance/quality claim.')
 
 
 if __name__=='__main__':main()
