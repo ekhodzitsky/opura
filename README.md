@@ -90,6 +90,13 @@ Reset retains the request. This library control preserves fixed defaults;
 general automatic mode/channel selection and Hybrid channel switching still
 require the unified owner. See [speech-layout validation](docs/validation/silk-channel-layout.md).
 
+The fixed packet APIs now delegate to borrowed internal engines: one SILK
+payload implementation serves mono/stereo, and Hybrid preparation/finalization
+borrows the caller's PCM, speech, CELT and fade histories. Public owners retain
+whole-stream transactions and retries. The complete adaptive owner and native
+transition processing remain in progress. See
+[packet-engine validation](docs/validation/borrowed-packet-engines.md).
+
 CELT `set_bandwidth` selects NB/WB/SWB/FB up to the input-rate default without
 resetting signal histories; `bandwidth()` reports the selection. Packet TOC and
 spectral coding change together, and completed packets clear inactive energy

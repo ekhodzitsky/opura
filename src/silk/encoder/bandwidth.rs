@@ -269,7 +269,7 @@ fn interpolate<const N: usize>(table: &[[i32; N]; 5], index: usize, fraction: i3
 // Shared packet scheduling for the raw mono/stereo SILK frontends. The outer
 // Opus mode/rate policy supplies a desired rate; this layer owns native timing.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(super) struct PacketBandwidth<const N: usize> {
+pub(crate) struct PacketBandwidth<const N: usize> {
     pub target: Option<SilkRate>,
     pub automatic: bool,
     auto_policy: AutomaticBandwidth,

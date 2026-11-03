@@ -13,6 +13,7 @@ pub(crate) mod fec;
 mod math;
 pub mod mono;
 pub mod nsq;
+pub(crate) mod packet;
 mod pulses;
 pub(crate) mod state;
 pub mod stereo;

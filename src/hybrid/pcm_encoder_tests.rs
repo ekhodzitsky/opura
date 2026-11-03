@@ -1,4 +1,50 @@
 use super::*;
+
+#[test]
+fn borrowed_frame_rejects_invalid_geometry_before_mutating_histories()
+-> Result<(), Box<dyn std::error::Error>> {
+    for case in 0..6 {
+        let mut encoder = HybridEncoder::new(InputRate::Khz48, 2, Bandwidth::Fullband)?;
+        let before = encoder.clone();
+        let result = {
+            let mut frame = encoder.frame_encoder();
+            match case {
+                0 => frame.channels = usize::MAX,
+                1 => frame.rate = InputRate::Khz8,
+                2 => frame.bandwidth = Bandwidth::Wideband,
+                _ => {}
+            }
+            frame.prepare(
+                FrameDuration::Ms20,
+                if case == 3 { &[0; 1919] } else { &[0; 1920] },
+                if case == 4 { 2 } else { 160 },
+                Options::default(),
+                if case == 5 { Some(0) } else { None },
+                true,
+            )
+        };
+        assert!(result.is_err(), "case{case}");
+        assert_eq!(encoder, before, "case{case}");
+    }
+    let mut encoder = HybridEncoder::new(InputRate::Khz48, 2, Bandwidth::Fullband)?;
+    encoder.celt.set_encoded_channels(1)?;
+    let before = encoder.clone();
+    assert_eq!(
+        encoder
+            .encode_inner(
+                FrameDuration::Ms20,
+                &[0; 1920],
+                160,
+                Options::default(),
+                None,
+                true
+            )
+            .err(),
+        Some(EncoderError::InvalidConfiguration)
+    );
+    assert_eq!(encoder, before);
+    Ok(())
+}
 use crate::{Mode, Packet, decoder::OpusDecoder, silk::decoder::PcmChannels};
 
 #[test]

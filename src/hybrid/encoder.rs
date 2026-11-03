@@ -10,6 +10,7 @@ use std::fmt;
 #[path = "pcm_encoder.rs"]
 mod pcm;
 pub use pcm::{EncodedPacket, EncoderError, HybridEncoder, Options};
+pub(crate) use pcm::{PreparedFrame, frame::HybridFrameEncoder};
 
 /// Invalid Hybrid rate allocation inputs.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

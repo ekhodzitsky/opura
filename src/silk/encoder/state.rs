@@ -82,6 +82,16 @@ impl From<FrameError> for StereoFrameError {
 }
 
 impl<const CHANNELS: usize> SpeechState<CHANNELS> {
+    pub fn has_rates(&self, input: OutputRate, internal: SilkRate, channels: usize) -> bool {
+        channels > 0
+            && channels <= CHANNELS
+            && self.channels[..channels]
+                .iter()
+                .all(|s| s.internal_rate() == internal)
+            && self.resampler[..channels]
+                .iter()
+                .all(|s| s.has_rates(input, internal))
+    }
     pub fn new(input: OutputRate, rate: SilkRate) -> Self {
         Self {
             #[cfg(test)]

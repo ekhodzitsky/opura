@@ -1,17 +1,17 @@
 //! Mono PCM-to-Opus packets with explicit SILK bandwidth and explicit byte budgets.
 use super::{
     bandwidth::{BandwidthError, PacketBandwidth},
-    channel::{FrameControls, FrameError},
+    channel::FrameError,
     dtx::Decision,
     fec,
-    state::{AnalysisControls, SpeechState},
+    state::SpeechState,
 };
 use crate::{
     encoder::pcm::PcmState,
-    range::{EncoderError, RangeEncoder},
+    range::EncoderError,
     silk::{
         gains::FrameDuration,
-        pitch::{PitchCoding, SilkRate},
+        pitch::SilkRate,
         resampler::{OutputRate, ResampleError},
     },
 };
@@ -375,178 +375,21 @@ impl MonoEncoder {
         digital_silence: bool,
         include_fec: bool,
     ) -> Result<(MonoPacket, Decision), MonoError> {
-        let ms = duration.milliseconds() as usize;
-        let converted = pcm.len();
-        let frames = duration.frames();
-        let frame_samples = converted / frames;
-        let maximum = self.bandwidth_control.maximum;
-        let bitrate = (packet_bytes as i32 - 1) * 8 * 1000 / ms as i32;
-        let nominal_bits = bitrate * ms as i32 / 1000;
-
-        let mut writer = RangeEncoder::new(1275)?;
-        let header_bits = frames as u32 + 1;
-        writer.encode_icdf(0, &[(256 - (256 >> header_bits)) as u8, 0], 8)?;
-        self.speech.fec.begin_with_policy(
-            duration,
+        super::packet::mono(
+            &mut self.speech,
+            &mut self.bandwidth_control,
             self.internal,
-            bitrate,
-            options.packet_loss_percent,
-            self.bandwidth_control.fec_override(),
-        );
-        let channel = &mut self.speech.channels[0];
-        self.speech
-            .fec
-            .prefix(&mut writer, include_fec, |_, writer, frame, coding| {
-                channel.encode_redundant(writer, frame, coding)
-            })?;
-        let per_frame = (nominal_bits - self.speech.fec.used_bits) / frames as i32;
-        let mut flags = 0;
-        let mut last_activity = 0;
-        for (index, frame) in pcm[..converted].chunks_exact(frame_samples).enumerate() {
-            let mut target = per_frame
-                * if duration == PacketDuration::Ms10 {
-                    100
-                } else {
-                    50
-                }
-                - self.speech.excess * 2;
-            if index > 0 {
-                target -=
-                    (writer.tell() as i32 - self.speech.fec.used_bits - per_frame * index as i32)
-                        * 2;
-            }
-            target = target.clamp(bitrate.min(5000), bitrate.max(5000));
-            let snr = target_snr(self.internal, duration.frame_duration(), target);
-            let analyzed = self.speech.analyze_mono(
-                self.internal,
-                duration.frame_duration(),
-                frame,
-                AnalysisControls {
-                    target_rate: target,
-                    digital_silence,
-                    to_mono: false,
-                },
-            )?;
-            let activity = analyzed.activities[0].ok_or(FrameError::InvalidControls)?;
-            last_activity = activity.probability_q8;
-            let mut tapered = [0i16; 320];
-            tapered[..frame.len()].copy_from_slice(&analyzed.pcm[0][..analyzed.length]);
-            self.bandwidth_control.transitions[0].filter(
-                self.internal,
-                duration.frame_duration(),
-                &mut tapered[..frame.len()],
-            )?;
-            let active = activity.probability_q8 >= 13;
-            let limit = match (frames, index) {
-                (2, 0) => maximum * 3 / 5,
-                (3, 0) => maximum * 2 / 5,
-                (3, 1) => maximum * 3 / 4,
-                _ => maximum,
-            };
-            let fec_controls = self.speech.fec.controls(0, index);
-            let hard = if self.automatic_bandwidth() {
-                writer.capacity() as u32 * 8
-            } else if fec_controls.is_some() || self.speech.fec.sent[0] {
-                maximum
-            } else {
-                limit
-            };
-            let encoded = self.speech.channels[0].encode_with_redundancy(
-                &mut writer,
-                &tapered[..frame.len()],
-                FrameControls {
-                    duration: duration.frame_duration(),
-                    complexity: options.complexity,
-                    snr_db_q7: snr,
-                    activity,
-                    active,
-                    constant_bitrate: !options.variable_bitrate,
-                    fill_budget: !options.variable_bitrate && index + 1 == frames,
-                    coding: if index == 0 {
-                        PitchCoding::Independent
-                    } else {
-                        PitchCoding::Conditional
-                    },
-                    max_bits: limit,
-                    packet_loss_percent: options.packet_loss_percent,
-                    frames_per_packet: frames as u8,
-                    redundancy: self.speech.fec.sent[0],
-                },
-                hard,
-                fec_controls,
-            )?;
-            self.speech.fec.record(0, index, encoded.redundancy());
-            self.speech.finish_analysis(&analyzed)?;
-            flags = (flags << 1) | u32::from(active);
-        }
-        writer.patch_initial_bits(
-            (flags << 1) | u32::from(self.speech.fec.sent[0]),
-            header_bits,
-        )?;
-        let encoded_length = writer.tell().div_ceil(8) as usize;
-        let overflow = encoded_length >= packet_bytes;
-        // Native outer Opus converts a completed SILK overshoot into PLC. Give
-        // queued FEC one prefix-free retry first, preserving primary audio.
-        if overflow
-            && (!self.automatic_bandwidth()
-                || (include_fec && self.speech.fec.sent.iter().any(|&v| v)))
-        {
-            return Err(FrameError::BitBudgetExceeded.into());
-        }
-        let range = if overflow { 0 } else { writer.range() };
-        let payload = if overflow {
-            &[0][..]
-        } else {
-            writer.shrink(encoded_length)?;
-            writer.finish()?
-        };
-        let base = match self.internal {
-            SilkRate::Khz8 => 0,
-            SilkRate::Khz12 => 4,
-            SilkRate::Khz16 => 8,
-        };
-        let config = base
-            + match duration {
-                PacketDuration::Ms10 => 0,
-                PacketDuration::Ms20 => 1,
-                PacketDuration::Ms40 => 2,
-                PacketDuration::Ms60 => 3,
-            };
-        let decision = self.speech.dtx.finish(duration, 1, digital_silence);
-        if decision != Decision::Transmit || overflow {
-            self.speech.fec.suppress();
-        }
-        let result = if decision != Decision::Transmit {
-            packet(config << 3, &[], 1, 0)
-        } else if overflow {
-            plc_packet(
-                config << 3,
-                if options.variable_bitrate {
-                    2
-                } else {
-                    packet_bytes
-                },
-            )
-        } else {
-            packet(
-                config << 3,
-                payload,
-                if options.variable_bitrate {
-                    payload.len() + 1
-                } else {
-                    packet_bytes
-                },
-                range,
-            )
-        };
-        let payload_bits = if decision == Decision::Silk {
-            0
-        } else {
-            encoded_length as i32 * 8
-        };
-        self.speech.excess = (self.speech.excess + payload_bits - nominal_bits).clamp(0, 10000);
-        self.bandwidth_control.finish(last_activity, duration);
-        Ok((result, decision))
+            pcm,
+            super::packet::PacketControls {
+                duration,
+                packet_bytes,
+                options,
+                digital_silence,
+                include_fec,
+                channels: 1,
+                to_mono: false,
+            },
+        )
     }
 }
 pub(crate) fn target_snr(rate: SilkRate, duration: FrameDuration, mut bitrate: i32) -> u16 {

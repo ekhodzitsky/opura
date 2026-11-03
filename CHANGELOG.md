@@ -7,6 +7,30 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.88] - 2026-11-03
+
+- Replace duplicated mono/stereo SILK packet coding with one borrowed generic
+  payload engine. Reuse the caller's speech and bandwidth histories, actual
+  wire-channel FEC policy, entropy ordering, LP placement, budget/retry behavior,
+  DTX decisions and final packet formatting. Statically dispatched analysis and
+  prefix callbacks retain the existing public mono/stereo error types and APIs.
+- Expose private Hybrid preparation/finalization over borrowed PCM, speech,
+  CELT and fade histories. Keep whole-stream staging, FEC retries, reset and
+  commit in existing public owners. Validate borrowed Hybrid geometry and active
+  layer configurations before mutation; preserve the unfinished entropy writer.
+- Verify 128 paired packet/whole-history results through capacity-two mono and
+  stereo entry points, including DTX/FEC and wire changes. A low-rate capacity-two
+  mono case catches an isolated mutation using capacity instead of wire count
+  for FEC eligibility. Existing native fixtures and failure assertions remain
+  unchanged. Fresh native replay matches the unchanged 11,520-call layout corpus.
+- These are actual fixed-path entry points for the shared-owner integration.
+  The complete adaptive owner, application processing, native prefills/tails and
+  automatic library/CLI path remain work. See docs/validation/borrowed-packet-engines.md.
+- All 24 complete fixed-mode corpora match the isolated committed 0.1.87
+  baseline byte-for-byte: 1,384,320 records across 5,088 streams, including
+  220,896 FEC requests and 768 zero-length PLC records. All seven required
+  offline gates pass, including 23 Python tests; Cargo remains dependency-free.
+
 ## [0.1.87] - 2026-11-03
 
 - Add stateful mono/stereo wire-layout requests to the actual stereo-input SILK

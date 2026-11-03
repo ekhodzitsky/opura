@@ -23,12 +23,14 @@ use crate::{
     },
 };
 use std::fmt;
+#[path = "frame_encoder.rs"]
+pub(crate) mod frame;
 #[path = "fec.rs"]
 mod protection;
 
-struct PreparedFrame {
-    writer: RangeEncoder,
-    decision: Decision,
+pub(crate) struct PreparedFrame {
+    pub writer: RangeEncoder,
+    pub decision: Decision,
 }
 
 /// Hybrid input, analysis, entropy or finalization failure. Errors preserve the
@@ -342,6 +344,18 @@ impl HybridEncoder {
         *self = next;
         Ok(result)
     }
+    fn frame_encoder(&mut self) -> super::HybridFrameEncoder<'_> {
+        super::HybridFrameEncoder {
+            rate: self.rate,
+            bandwidth: self.bandwidth,
+            channels: self.channels,
+            pcm: &mut self.pcm,
+            speech: &mut self.speech,
+            high_gain: &mut self.high_gain,
+            width: &mut self.width,
+            celt: &mut self.celt,
+        }
+    }
     fn encode_inner(
         &mut self,
         duration: FrameDuration,
@@ -351,274 +365,8 @@ impl HybridEncoder {
         bitrate: Option<u32>,
         include_fec: bool,
     ) -> Result<PreparedFrame, EncoderError> {
-        let short = duration == FrameDuration::Ms10;
-        let fps = if short { 100 } else { 50 };
-        let size = if short {
-            FrameSize::Ms10
-        } else {
-            FrameSize::Ms20
-        };
-        let samples = input.len() / self.channels;
-        let internal = if short { 160 } else { 320 };
-        let payload_bytes = packet_bytes - 1;
-        let stream_rate = bitrate
-            .unwrap_or(packet_bytes as u32 * 8 * fps as u32)
-            .min(packet_bytes as u32 * 8 * fps as u32);
-        let payload_rate = (stream_rate / fps as u32 - 8) * fps as u32;
-        let digital_silence = input.iter().all(|&v| v == 0);
-        self.speech.dtx.begin(digital_silence);
-        let packet_duration = if short {
-            PacketDuration::Ms10
-        } else {
-            PacketDuration::Ms20
-        };
-        let selected = protection::eligible(
-            self.speech.fec.enabled,
-            self.speech.fec.selected(),
-            self.bandwidth,
-            self.channels,
-            duration,
-            protection::FecRate {
-                bitrate: stream_rate,
-                variable: bitrate.is_some(),
-            },
-            options,
-        );
-        self.speech.fec.begin_with_policy(
-            packet_duration,
-            SilkRate::Khz16,
-            payload_rate as i32,
-            options.packet_loss_percent,
-            Some(selected),
-        );
-        let allocation = RateAllocation::new(RateControls {
-            duration,
-            bandwidth: self.bandwidth,
-            channels: self.channels,
-            bitrate: payload_rate,
-            payload_bytes,
-            variable_bitrate: bitrate.is_some(),
-            fec: selected,
-        })
-        .map_err(EncoderError::Rate)?;
-        let vbr_rate = if bitrate.is_some() {
-            Some(
-                stream_rate
-                    .checked_sub(allocation.silk_bitrate())
-                    .filter(|&rate| rate > 500)
-                    .ok_or(EncoderError::InvalidOptions)?,
-            )
-        } else {
-            None
-        };
-        let mut filtered = [0i16; 1920];
-        self.pcm
-            .filter(input, &mut filtered[..input.len()])
-            .map_err(|_| EncoderError::InvalidInput)?;
-        let mut pcm = [[0i16; 320]; 2];
-        for (c, converted) in pcm.iter_mut().enumerate().take(self.channels) {
-            let mut planar = [0i16; 960];
-            for i in 0..samples {
-                planar[i] = filtered[i * self.channels + c];
-            }
-            self.speech.resampler[c]
-                .process(&planar[..samples], converted)
-                .map_err(EncoderError::Resampler)?;
-        }
-        let mut writer = RangeEncoder::new(payload_bytes).map_err(EncoderError::Entropy)?;
-        let header_bits = 2 * self.channels as u32;
-        writer
-            .encode_icdf(0, &[(256 - (256 >> header_bits)) as u8, 0], 8)
-            .map_err(EncoderError::Entropy)?;
-        let silk = &mut self.speech.channels;
-        self.speech
-            .fec
-            .prefix_for_channels(
-                &mut writer,
-                include_fec,
-                self.channels,
-                |c, writer, frame, coding| silk[c].encode_redundant(writer, frame, coding),
-            )
-            .map_err(EncoderError::Silk)?;
-        let target = (allocation.silk_bitrate() as i32
-            - self.speech.fec.used_bits * fps
-            - self.speech.excess * 2)
-            .clamp(
-                5000.min(allocation.silk_bitrate() as i32),
-                5000.max(allocation.silk_bitrate() as i32),
-            );
-        let analysis_controls = AnalysisControls {
-            target_rate: target,
-            digital_silence,
-            to_mono: false,
-        };
-        let speech_frame = if self.channels == 2 {
-            self.speech
-                .analyze_stereo(
-                    SilkRate::Khz16,
-                    duration,
-                    [&pcm[0][..internal], &pcm[1][..internal]],
-                    analysis_controls,
-                )
-                .map_err(EncoderError::from)?
-        } else {
-            self.speech
-                .analyze_mono(
-                    SilkRate::Khz16,
-                    duration,
-                    &pcm[0][..internal],
-                    analysis_controls,
-                )
-                .map_err(EncoderError::Silk)?
-        };
-        let rates = speech_frame.rates;
-        let activities = speech_frame.activities;
-        self.speech.fec.stereo[0] = speech_frame.stereo;
-        speech_frame
-            .encode_prefix(&mut writer)
-            .map_err(EncoderError::Stereo)?;
-        let mut flags = 0;
-        let mut voiced = false;
-        let mut offset_q10 = 100;
-        for c in 0..self.channels {
-            let active = activities[c].is_some_and(|a| a.probability_q8 >= 13);
-            flags = (flags << 2) | (u32::from(active) << 1) | u32::from(self.speech.fec.sent[c]);
-            let Some(activity) = activities[c] else {
-                continue;
-            };
-            let maximum = allocation.silk_max_bits();
-            let cap = if c == 0 && self.channels == 2 && rates[1] > 0 {
-                maximum - maximum / 2
-            } else {
-                maximum
-            };
-            let redundancy = self.speech.fec.controls(c, 0);
-            let hard = if redundancy.is_some() || self.has_fec() {
-                if c == 0 && self.channels == 2 && rates[1] > 0 {
-                    maximum.saturating_sub(maximum.saturating_sub(writer.tell()) / 2)
-                } else {
-                    maximum
-                }
-            } else {
-                cap
-            };
-            let encoded = self.speech.channels[c]
-                .encode_with_redundancy(
-                    &mut writer,
-                    &speech_frame.pcm[c][..internal],
-                    FrameControls {
-                        duration,
-                        complexity: options.complexity,
-                        snr_db_q7: target_snr(SilkRate::Khz16, duration, rates[c]),
-                        activity,
-                        active,
-                        constant_bitrate: false,
-                        fill_budget: false,
-                        coding: PitchCoding::Independent,
-                        max_bits: cap,
-                        packet_loss_percent: options.packet_loss_percent,
-                        frames_per_packet: 1,
-                        redundancy: self.speech.fec.sent[c],
-                    },
-                    hard,
-                    redundancy,
-                )
-                .map_err(EncoderError::Silk)?;
-            self.speech.fec.record(c, 0, encoded.redundancy());
-            if c == 0 {
-                voiced = encoded.indices().signal == SignalType::Voiced;
-                offset_q10 = [[100, 240], [32, 100]][usize::from(voiced)]
-                    [usize::from(encoded.indices().offset)];
-            }
-        }
-        self.speech
-            .finish_analysis(&speech_frame)
-            .map_err(EncoderError::Silk)?;
-        writer
-            .patch_initial_bits(flags, header_bits)
-            .map_err(EncoderError::Entropy)?;
-        let decision = self.speech.dtx.finish(
-            if short {
-                PacketDuration::Ms10
-            } else {
-                PacketDuration::Ms20
-            },
-            self.channels,
-            digital_silence,
-        );
-        let silk_bits = if decision == Decision::Silk {
-            0
-        } else {
-            writer.tell().div_ceil(8) as i32 * 8
-        };
-        self.speech.excess = (self.speech.excess + silk_bits
-            - allocation.silk_bitrate() as i32 / fps)
-            .clamp(0, 10000);
-        // Native SILK DTX returns before the outer delay copy, HB fades and
-        // CELT call. Digital-silence DTX instead runs both layers to completion.
-        if decision == Decision::Silk {
-            self.speech.fec.suppress();
-            return Ok(PreparedFrame { writer, decision });
-        }
-        if writer.tell() + 37 <= payload_bytes as u32 * 8 {
-            writer
-                .encode_bit_logp(false, 12)
-                .map_err(EncoderError::Entropy)?;
-        }
-        let mut high = [0i16; 1920];
-        self.pcm
-            .aligned(&filtered[..input.len()], &mut high[..input.len()])
-            .map_err(|_| EncoderError::InvalidInput)?;
-        self.pcm
-            .commit(&filtered[..input.len()])
-            .map_err(|_| EncoderError::InvalidInput)?;
-        // Preserve native fixed-point narrowing before the exponential and at
-        // the Q15 result, including forced-mode extreme-rate behavior.
-        let gain = (32767
-            - (crate::celt::math::exp2((-allocation.high_band_bitrate()) as i16) >> 1))
-            as i16;
-        fade(
-            &mut high[..input.len()],
-            self.rate,
-            self.channels,
-            self.high_gain,
-            gain,
-            false,
-        );
-        self.high_gain = gain;
-        if self.channels == 2 {
-            let width = self.speech.stereo.smoothed_width();
-            fade(
-                &mut high[..input.len()],
-                self.rate,
-                2,
-                width_q15(self.width),
-                width_q15(width),
-                true,
-            );
-            self.width = width;
-        }
-        self.celt.set_transient_detection(options.complexity >= 1);
-        self.celt.set_dynamic_allocation(true);
-        self.celt.set_allocation_analysis(true);
-        self.celt
-            .encode_high_band(
-                size,
-                &high[..input.len()],
-                &mut writer,
-                HybridControls {
-                    bandwidth: self.bandwidth,
-                    complexity: options.complexity,
-                    voiced,
-                    loss_percent: options.packet_loss_percent,
-                    vbr: vbr_rate.map(|rate| HybridVbr {
-                        rate,
-                        offset: offset_q10,
-                    }),
-                },
-            )
-            .map_err(EncoderError::Celt)?;
-        Ok(PreparedFrame { writer, decision })
+        self.frame_encoder()
+            .prepare(duration, input, packet_bytes, options, bitrate, include_fec)
     }
     fn finish_packet(
         &mut self,
@@ -627,52 +375,8 @@ impl HybridEncoder {
         prepared: PreparedFrame,
         finish: impl for<'a> FnOnce(&'a mut RangeEncoder) -> Result<&'a [u8], EntropyError>,
     ) -> Result<EncodedPacket, EncoderError> {
-        let PreparedFrame {
-            mut writer,
-            decision,
-        } = prepared;
-        if decision == Decision::Silk {
-            return Ok(self.suppressed_packet(duration));
-        }
-        let range = writer.range();
-        let payload = finish(&mut writer).map_err(EncoderError::Entropy)?;
-        if decision == Decision::DigitalSilence {
-            self.speech.fec.suppress();
-            return Ok(self.suppressed_packet(duration));
-        }
-        let short = duration == FrameDuration::Ms10;
-        let config = if self.bandwidth == Bandwidth::SuperWideband {
-            12
-        } else {
-            14
-        } + u8::from(!short);
-        if payload.len() + 1 > packet_bytes {
-            return Err(EncoderError::Entropy(EntropyError::CapacityExhausted));
-        }
-        let mut packet = EncodedPacket {
-            bytes: [0; 1276],
-            length: payload.len() + 1,
-            range,
-            duration,
-        };
-        packet.bytes[0] = (config << 3) | if self.channels == 2 { 4 } else { 0 };
-        packet.bytes[1..packet.length].copy_from_slice(payload);
-        Ok(packet)
-    }
-    fn suppressed_packet(&self, duration: FrameDuration) -> EncodedPacket {
-        let config = if self.bandwidth == Bandwidth::SuperWideband {
-            12
-        } else {
-            14
-        } + u8::from(duration == FrameDuration::Ms20);
-        let mut packet = EncodedPacket {
-            bytes: [0; 1276],
-            length: 1,
-            range: 0,
-            duration,
-        };
-        packet.bytes[0] = (config << 3) | if self.channels == 2 { 4 } else { 0 };
-        packet
+        self.frame_encoder()
+            .finish(duration, packet_bytes, prepared, finish)
     }
 }
 fn retryable_budget(error: &EncoderError) -> bool {

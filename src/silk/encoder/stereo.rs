@@ -5,7 +5,7 @@ use super::{
     dtx::Decision,
     fec,
     math::{divide_q, energy},
-    state::{AnalysisControls, SpeechState, StereoFrameError},
+    state::{SpeechState, StereoFrameError},
 };
 use crate::{
     range::{EncoderError, RangeEncoder},
@@ -404,13 +404,10 @@ mod tests;
 /// Shared complexity, byte-policy and loss controls for stereo encoding.
 pub use super::mono::MonoOptions as StereoOptions;
 use super::{
-    channel::{FrameControls, FrameError},
-    mono::{MonoPacket, PacketDuration, packet, plc_packet, target_snr},
+    channel::FrameError,
+    mono::{MonoPacket, PacketDuration},
 };
-use crate::silk::{
-    pitch::PitchCoding,
-    resampler::{OutputRate, ResampleError},
-};
+use crate::silk::resampler::{OutputRate, ResampleError};
 /// Invalid stereo packet input/controls or a failed input/channel stage.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
@@ -773,241 +770,22 @@ impl StereoEncoder {
         digital_silence: bool,
         include_fec: bool,
     ) -> Result<(StereoPacket, Decision), StereoPacketError> {
-        let ms = duration.milliseconds() as usize;
-        let frames = duration.frames();
-        let frame_samples = ms * self.internal.khz() as usize / frames;
-        let maximum = self.bandwidth_control.maximum;
-        let bitrate = (packet_bytes as i32 - 1) * 8 * 1000 / ms as i32;
-        let nominal_bits = bitrate * ms as i32 / 1000;
-
-        let mut writer = RangeEncoder::new(1275)?;
-        let wire_channels = self.encoded_channels;
-        let header_bits = (frames as u32 + 1) * wire_channels as u32;
-        writer.encode_icdf(0, &[(256 - (256 >> header_bits)) as u8, 0], 8)?;
-        self.speech.fec.begin_for_channels(
-            duration,
+        let (packet, decision) = super::packet::stereo(
+            &mut self.speech,
+            &mut self.bandwidth_control,
             self.internal,
-            bitrate,
-            options.packet_loss_percent,
-            self.bandwidth_control.fec_override(),
-            wire_channels,
-        )?;
-        let channels = &mut self.speech.channels;
-        self.speech.fec.prefix_for_channels(
-            &mut writer,
-            include_fec,
-            wire_channels,
-            |ch, writer, frame, coding| channels[ch].encode_redundant(writer, frame, coding),
-        )?;
-        let per_frame = (nominal_bits - self.speech.fec.used_bits) / frames as i32;
-        let mut flags = [[false; 3]; 2];
-        for index in 0..frames {
-            let mut target = per_frame
-                * if duration == PacketDuration::Ms10 {
-                    100
-                } else {
-                    50
-                }
-                - self.speech.excess * 2;
-            if index > 0 {
-                target -=
-                    (writer.tell() as i32 - self.speech.fec.used_bits - per_frame * index as i32)
-                        * 2;
-            }
-            target = target.clamp(bitrate.min(5000), bitrate.max(5000));
-            let start = index * frame_samples;
-            let end = start + frame_samples;
-            let controls = AnalysisControls {
-                target_rate: target,
+            pcm,
+            super::packet::PacketControls {
+                duration,
+                packet_bytes,
+                options,
                 digital_silence,
+                include_fec,
+                channels: self.encoded_channels,
                 to_mono: self.to_mono,
-            };
-            let stereo = if wire_channels == 2 {
-                self.speech.analyze_stereo(
-                    self.internal,
-                    duration.frame_duration(),
-                    [&pcm[0][start..end], &pcm[1][start..end]],
-                    controls,
-                )?
-            } else {
-                self.speech.analyze_mono(
-                    self.internal,
-                    duration.frame_duration(),
-                    &pcm[0][start..end],
-                    controls,
-                )?
-            };
-            let mid_activity = stereo.activities[0].ok_or(FrameError::InvalidControls)?;
-            let side_activity = stereo.activities[1];
-            flags[0][index] = stereo.active(0);
-            flags[1][index] = stereo.active(1);
-            self.speech.fec.stereo[index] = stereo.stereo;
-            stereo.encode_prefix(&mut writer)?;
-            let limit = match (frames, index) {
-                (2, 0) => maximum * 3 / 5,
-                (3, 0) => maximum * 2 / 5,
-                (3, 1) => maximum * 3 / 4,
-                _ => maximum,
-            };
-            for (channel, channel_flags) in flags.iter().enumerate().take(wire_channels) {
-                if channel == 1 && stereo.mid_only() {
-                    continue;
-                }
-                let activity = if channel == 0 {
-                    mid_activity
-                } else {
-                    side_activity.ok_or(StereoPacketError::InvalidOptions)?
-                };
-                let mut cap = limit;
-                let mut fill = !options.variable_bitrate && index + 1 == frames;
-                if channel == 0 && stereo.rates[1] > 0 {
-                    fill = false;
-                    cap = cap.saturating_sub(maximum / (frames as u32 * 2));
-                }
-                let coding = if index == 0 {
-                    PitchCoding::Independent
-                } else if channel == 1 && self.speech.previous_mid_only {
-                    PitchCoding::IndependentWithoutScaling
-                } else {
-                    PitchCoding::Conditional
-                };
-                let fec_controls = self.speech.fec.controls(channel, index);
-                let hard = if self.automatic_bandwidth() {
-                    writer.capacity() as u32 * 8
-                } else if fec_controls.is_some() || self.speech.fec.sent.iter().any(|&v| v) {
-                    if channel == 0 && stereo.rates[1] > 0 {
-                        maximum.saturating_sub(
-                            maximum.saturating_sub(writer.tell()) / (frames as u32 * 2),
-                        )
-                    } else {
-                        maximum
-                    }
-                } else {
-                    cap
-                };
-                let frame = if channel == 0 {
-                    &stereo.pcm[0][..stereo.length]
-                } else {
-                    &stereo.pcm[1][..stereo.length]
-                };
-                let mut tapered = [0i16; 320];
-                tapered[..frame.len()].copy_from_slice(frame);
-                self.bandwidth_control.transitions[channel].filter(
-                    self.internal,
-                    duration.frame_duration(),
-                    &mut tapered[..frame.len()],
-                )?;
-                let encoded = self.speech.channels[channel].encode_with_redundancy(
-                    &mut writer,
-                    &tapered[..frame.len()],
-                    FrameControls {
-                        duration: duration.frame_duration(),
-                        complexity: options.complexity,
-                        snr_db_q7: target_snr(
-                            self.internal,
-                            duration.frame_duration(),
-                            stereo.rates[channel],
-                        ),
-                        activity,
-                        active: channel_flags[index],
-                        constant_bitrate: !options.variable_bitrate,
-                        fill_budget: fill,
-                        coding,
-                        max_bits: cap,
-                        packet_loss_percent: options.packet_loss_percent,
-                        frames_per_packet: frames as u8,
-                        redundancy: self.speech.fec.sent[channel],
-                    },
-                    hard,
-                    fec_controls,
-                )?;
-                self.speech.fec.record(channel, index, encoded.redundancy());
-            }
-            self.speech.finish_analysis(&stereo)?;
-        }
-        let mut header = 0;
-        for (channel, has_fec) in flags
-            .into_iter()
-            .zip(self.speech.fec.sent)
-            .take(wire_channels)
-        {
-            for &flag in &channel[..frames] {
-                header = (header << 1) | u32::from(flag);
-            }
-            header = (header << 1) | u32::from(has_fec);
-        }
-        writer.patch_initial_bits(header, header_bits)?;
-        let encoded_length = writer.tell().div_ceil(8) as usize;
-        let overflow = encoded_length >= packet_bytes;
-        // Native outer Opus converts a completed SILK overshoot into PLC. Give
-        // queued FEC one prefix-free retry first, preserving primary audio.
-        if overflow
-            && (!self.automatic_bandwidth()
-                || (include_fec && self.speech.fec.sent.iter().any(|&v| v)))
-        {
-            return Err(FrameError::BitBudgetExceeded.into());
-        }
-        let range = if overflow { 0 } else { writer.range() };
-        let payload = if overflow {
-            &[0][..]
-        } else {
-            writer.shrink(encoded_length)?;
-            writer.finish()?
-        };
-        let base = match self.internal {
-            SilkRate::Khz8 => 0,
-            SilkRate::Khz12 => 4,
-            SilkRate::Khz16 => 8,
-        };
-        let config = base
-            + match duration {
-                PacketDuration::Ms10 => 0,
-                PacketDuration::Ms20 => 1,
-                PacketDuration::Ms40 => 2,
-                PacketDuration::Ms60 => 3,
-            };
-        let decision = self
-            .speech
-            .dtx
-            .finish(duration, wire_channels, digital_silence);
-        if decision != Decision::Transmit || overflow {
-            self.speech.fec.suppress();
-        }
-        let toc = (config << 3) | if wire_channels == 2 { 4 } else { 0 };
-        let result = StereoPacket {
-            packet: if decision != Decision::Transmit {
-                packet(toc, &[], 1, 0)
-            } else if overflow {
-                plc_packet(
-                    toc,
-                    if options.variable_bitrate {
-                        2
-                    } else {
-                        packet_bytes
-                    },
-                )
-            } else {
-                packet(
-                    toc,
-                    payload,
-                    if options.variable_bitrate {
-                        payload.len() + 1
-                    } else {
-                        packet_bytes
-                    },
-                    range,
-                )
             },
-        };
-        let payload_bits = if decision == Decision::Silk {
-            0
-        } else {
-            encoded_length as i32 * 8
-        };
-        self.speech.excess = (self.speech.excess + payload_bits - nominal_bits).clamp(0, 10000);
-        self.bandwidth_control
-            .finish(self.speech.activity, duration);
+        )?;
         self.started = true;
-        Ok((result, decision))
+        Ok((StereoPacket { packet }, decision))
     }
 }

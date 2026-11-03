@@ -117,17 +117,6 @@ impl<const CHANNELS: usize> FecState<CHANNELS> {
         self.pending = std::array::from_fn(|_| std::array::from_fn(|_| None));
         self.stereo = [None; 3];
     }
-    pub fn prefix<F>(
-        &mut self,
-        writer: &mut RangeEncoder,
-        include: bool,
-        encode: F,
-    ) -> Result<(), FrameError>
-    where
-        F: FnMut(usize, &mut RangeEncoder, &RedundantFrame, PitchCoding) -> Result<(), FrameError>,
-    {
-        self.prefix_for_channels(writer, include, CHANNELS, encode)
-    }
     pub fn prefix_for_channels<F>(
         &mut self,
         writer: &mut RangeEncoder,

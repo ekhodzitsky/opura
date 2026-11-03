@@ -14,6 +14,9 @@ pub(crate) struct PcmState {
     history: [i16; 960],
 }
 impl PcmState {
+    pub fn has_geometry(&self, rate: OutputRate, channels: usize) -> bool {
+        self.rate == rate && self.channels == channels
+    }
     pub fn mono(rate: OutputRate) -> Self {
         Self {
             rate,

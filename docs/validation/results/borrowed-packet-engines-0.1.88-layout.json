@@ -1,0 +1,18 @@
+{
+  "status": "pass",
+  "baseline_version": "0.1.87",
+  "baseline_byte_identical": true,
+  "sha256": "a261e8e8c5ea8a50dc413896b1ea6748a3a346aca2fed8204cc9ab08fce2596f",
+  "bytes": 1501098,
+  "records": 11520,
+  "streams": 120,
+  "lost": 1080,
+  "fec_requests": 960,
+  "single_byte_packets": 1440,
+  "native_replay": true,
+  "reference_revision": "22244de5a79bd1d6d623c32e72bf1954b56235be",
+  "borrowed_entry_comparison_pairs": 128,
+  "capacity_two_mono_pairs": 64,
+  "capacity_two_stereo_pairs": 64,
+  "capacity_wire_fec_mutation_detected": true
+}
