@@ -59,8 +59,11 @@ records all seven passing offline gates (172 library/41 Python tests), detected
 source mutations and exact fixture/source hashes. The complete
 [120-case conformance report](results/decoder-pcm-0.2.2-conformance.json) passes
 all encoded final ranges and retains every0.2.1 PCM SHA256. Reports explicitly
-record their pre-commit provenance. Final public before/after timing and release
-finalization remain pending. The historical0.2.0 sparse timer profile supplied a lead about
+record their pre-commit provenance. The complete
+[paired public decoder measurement](../benchmarks/decoder-pcm-0.2.2.md) retains
+300 samples/15rounds/all ten geometries and an aggregate time ratio0.9571 versus
+0.2.1 (95% interval[0.9290,0.9883]). Every per-case interval includes1; individual
+wins, a5% per-case regression ceiling and native/best-competitor superiority
+remain unproven. The historical0.2.0 sparse timer profile supplied a lead about
 copying; it does not measure the current copy fraction, peak stack or memory.
-A7-round48kHz stereo pilot suggests lower codec time but is not retained final
-performance evidence. No native-competitor, encoder-speed or SOTA claim follows.
+The7-round48kHz stereo pilot is superseded by the full retained measurement. No native-competitor, encoder-speed or SOTA claim follows.

@@ -143,9 +143,13 @@
   ],
   "official_conformance_cases": 120,
   "pcm_unchanged_from": "0.2.1",
-  "performance_status": "pending final15round10geometry ordinary-release comparison",
+  "performance_status": "complete:300samples/15paired rounds/all10geometries; aggregate improvement only",
   "limitations": [
     "No peak-stack/heap/competitor/encoder-speed/SOTA claim.",
     "Pilot is not retained final performance evidence."
-  ]
+  ],
+  "performance_report": "../../benchmarks/results/decoder-pcm-0.2.2.json",
+  "measured_candidate_revision": "392abd3",
+  "measurement_source_sha256": "f19a994b79ce1740baede00efefb85159233219c08d464dc9cdb3ba5e1a32a42",
+  "measurement_driver_sha256": "b2cd7753c5fc8bf4a29cd4c008ac00f70ebaeaada6a3a0b66f8fa74faa31e299"
 }

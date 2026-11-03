@@ -21,7 +21,11 @@ and validation, without implying full Opus compatibility before PCM decoding.
   and premature owner commit are detected; restored regressions pass.
 - Pass all seven offline gates (172 library/41 Python tests) and all120 RFC8251
   cases with every0.2.1 PCM hash unchanged. Retain source-bound correctness
-  reports. Final public paired performance evidence remains pending.
+  reports and300ordinary-release paired measurements (15rounds/all ten output
+  geometries): aggregate time ratio0.9571 versus0.2.1,95% interval[0.9290,0.9883],
+  about4.3% less codec time. Every per-case interval includes1; individual wins
+  and the5% regression ceiling remain unproven. No current competitor/SOTA or
+  peak-memory claim follows.
 
 ## [0.2.1] - 2026-11-03
 
