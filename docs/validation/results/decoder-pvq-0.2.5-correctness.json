@@ -3,7 +3,7 @@
   "version": "0.2.5",
   "base_revision": "330df5d8f5c29664a79895304df883fa5b4bafd5",
   "worktree_modified": true,
-  "provenance": "Final codec source before correctness checkpoint commit; full retained paired timing pending, no final speed claim.",
+  "provenance": "Final codec source before correctness checkpoint commit; later retained paired timing uses identical codec/Cargo/adapter source.",
   "source_sha256": {
     "src/celt/pvq.rs": "632a9e5b1b3f17d98b7156ac94370aa610a8aaf27cd9df3b14c8afecf4d606d6",
     "src/celt/partition.rs": "fed14a4ffe6a53af50654ee76dd802215c55545ab2d33e59984da13939be493c",
@@ -166,9 +166,25 @@
   "native_decoder_operations": 1680,
   "official_conformance_cases": 120,
   "pcm_unchanged_from": "0.2.4",
-  "performance_status": "pending full paired before/after comparison",
+  "performance_status": "complete:300samples/15paired rounds/all10geometries; aggregate benefit and six individual intervals below1, four uncertain",
   "limitations": [
     "No native/other competitor, encoder speed/quality, peak-stack/heap/RSS or SOTA claim.",
     "Exploratory seven-pair48kHz stereo pilot is not final release evidence."
-  ]
+  ],
+  "performance_report": "../../benchmarks/results/decoder-pvq-0.2.5.json",
+  "measured_candidate_revision": "0f23d33",
+  "measurement_source_sha256": "aecf46c17838fb4852eb89e7f59c4d9708c86abadad4ff744169308bfe875fed",
+  "measurement_driver_sha256": "b2cd7753c5fc8bf4a29cd4c008ac00f70ebaeaada6a3a0b66f8fa74faa31e299",
+  "aggregate_time_ratio": 0.9554156327962775,
+  "aggregate_ci95": [
+    0.9266071240476064,
+    0.9701604479105198
+  ],
+  "individual_intervals_including_one": [
+    "8000/1",
+    "12000/2",
+    "16000/1",
+    "48000/1"
+  ],
+  "individual_upper_bounds_exceeding_1_05": []
 }

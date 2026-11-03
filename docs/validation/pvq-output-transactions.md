@@ -69,5 +69,8 @@ gates pass (181 library tests in debug/release and 44 Python tests). All 120
 official conformance cases pass with every 0.2.4 PCM hash unchanged. The
 [correctness record](results/decoder-pvq-0.2.5-correctness.json) and
 [conformance report](results/decoder-pvq-0.2.5-conformance.json) bind this evidence
-to the final codec source. Retained paired timing is pending; the exploratory
-seven-pair 48kHz stereo pilot is not release evidence.
+to the final codec source. The [full paired comparison](../benchmarks/decoder-pvq-0.2.5.md)
+finds 4.5% less aggregate codec time versus 0.2.4; six individual intervals
+exclude 1, four remain uncertain and all per-case upper bounds are below 1.05.
+The exploratory pilot is superseded. This is not native, encoder-performance,
+peak-memory or SOTA superiority evidence.

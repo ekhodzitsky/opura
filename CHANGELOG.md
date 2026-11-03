@@ -19,8 +19,11 @@ and validation, without implying full Opus compatibility before PCM decoding.
   Four restored source mutations are rejected at runtime. All seven offline
   gates pass (181 library/44 Python tests), with unchanged native PVQ/spectral
   and complete-decoder fixtures. All 120 official conformance cases pass with
-  every 0.2.4 PCM hash unchanged. Retained paired timing is pending; this
-  candidate is not yet an accepted performance milestone.
+  every 0.2.4 PCM hash unchanged. Retain 300 paired samples over all ten output
+  geometries: aggregate time ratio 0.9554 versus 0.2.4, 95% interval
+  [0.9266,0.9702], about 4.5% less codec time. Six individual intervals exclude
+  1, four remain uncertain; every per-case upper bound is below 1.05. No
+  native/SOTA, encoder-performance or peak-memory claim.
 
 ## [0.2.4] - 2026-11-03
 

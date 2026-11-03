@@ -77,6 +77,14 @@ integrated contract in the table above.
   nine individual cases are uncertain and four upper bounds exceed 1.05. This
   modest improvement does not refresh the native comparison or establish a
   cumulative gain from the separate earlier measurements.
+  The [0.2.5 PVQ output change](../benchmarks/decoder-pvq-0.2.5.md) reduces
+  aggregate version-to-version codec time by 4.5% versus 0.2.4 (ratio 0.9554,
+  95% interval [0.9266,0.9702], 300 samples/all ten geometries). All 120 official
+  PCM hashes remain unchanged and all seven offline gates pass (181 library/
+  44 Python tests). Six individual intervals exclude 1, four remain uncertain;
+  every per-case upper bound is below 1.05. Native/other-competitor, quality,
+  resource and portability acceptance remain open; separate historical ratios
+  are not combined into a cumulative or native comparison.
   Best-available native SIMD and the other direct implementations in the
   [comparison contract](../benchmarks/competitive-landscape.md) remain unmeasured.
 - Cross-platform/target coverage and malformed-input/resource measurements must
