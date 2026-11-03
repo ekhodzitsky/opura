@@ -2,10 +2,10 @@
 
 The library provides `multistream::ChannelMapping`, `MultistreamPacket`,
 `MultistreamDecoder`, `MultistreamPcm` and persistent generic encoding through
-`MultistreamEncoder`/`MultistreamEncodeOptions`. Mapped WAV/Ogg file workflows
-and surround energy-mask/LFE analysis remain unfinished; the existing CLI does
-not gain multichannel support from these library additions. Mono/stereo file
-decoding now honors signed header gain. There is no new speed or quality claim.
+`MultistreamEncoder`/`MultistreamEncodeOptions`. The CLI also supports
+[mapped WAV/Ogg files](mapped-audio-files.md) with1..8channels and families0/1/255.
+Surround energy-mask/LFE analysis remains unfinished. There is no new speed or
+quality claim.
 
 ## Contracts
 
@@ -105,8 +105,8 @@ self-delimited size fields, adjusts the final stream's nominal budget and pads
 only the final transport subpacket to the total.100ms packets reserve the extra
 frame-count bytes even for tiny-budget PLC. The cap is bounded to16MiB. The
 underlying library now accepts long capacities through7662 bytes, including the
-complete six-frame length header; the mono/stereo CLI retains its separate cap
-until mapped file integration is complete.
+complete six-frame length header. The positioned mono/stereo AUTO CLI retains
+its prior cap; mapped file caps apply to the complete multistream packet.
 
 `tools/multistream_rate_fixtures.py` observes the unchanged native generic
 allocation kernel through temporary observation wrappers. Its3240 cases cover

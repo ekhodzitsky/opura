@@ -1,8 +1,8 @@
 //! Bounded Ogg version-zero pages, lacing and Opus packet assembly.
-use super::invalid;
+use super::{invalid, layout::Layout};
 use std::io::{self, Read, Write};
 const MAX_BODY: usize = 65025;
-const MAX_PACKET: usize = 65536;
+const MAX_PACKET: usize = opura::multistream::MAX_PACKET_BYTES;
 const fn crc_table() -> [u32; 256] {
     let mut table = [0; 256];
     let mut i = 0;
@@ -111,7 +111,7 @@ impl<R: Read> Reader<R> {
         for lace in laces {
             let end = offset + usize::from(lace);
             if self.pending.len() + usize::from(lace) > MAX_PACKET {
-                return Err(invalid("Ogg packet exceeds 65536-byte command limit"));
+                return Err(invalid("Ogg packet exceeds16MiB command limit"));
             }
             self.pending.extend_from_slice(&body[offset..end]);
             offset = end;
@@ -147,6 +147,9 @@ pub struct Writer<W> {
     laces: Vec<u8>,
     granule: u64,
     last_page: u64,
+    complete: bool,
+    continued: bool,
+    ended: bool,
 }
 impl<W: Write> Writer<W> {
     pub fn new(output: W, channels: usize, rate: u32) -> io::Result<Self> {
@@ -156,6 +159,15 @@ impl<W: Write> Writer<W> {
         if !(1..=2).contains(&channels) {
             return Err(invalid("invalid Opus channel count"));
         }
+        Self::with_layout(output, &Layout::positioned(channels)?, rate, pre_skip, 0)
+    }
+    pub fn with_layout(
+        output: W,
+        layout: &Layout,
+        rate: u32,
+        pre_skip: u16,
+        gain: i16,
+    ) -> io::Result<Self> {
         let mut writer = Self {
             output,
             sequence: 0,
@@ -163,14 +175,13 @@ impl<W: Write> Writer<W> {
             laces: Vec::with_capacity(255),
             granule: 0,
             last_page: 0,
+            complete: true,
+            continued: false,
+            ended: false,
         };
-        let mut head = Vec::from(&b"OpusHead"[..]);
-        head.extend_from_slice(&[1, channels as u8]);
-        head.extend_from_slice(&pre_skip.to_le_bytes());
-        head.extend_from_slice(&rate.to_le_bytes());
-        head.extend_from_slice(&[0, 0, 0]);
+        let head = layout.header(rate, pre_skip, gain);
         writer.body.extend_from_slice(&head);
-        writer.laces.push(19);
+        writer.laces.push(head.len() as u8);
         writer.flush(2)?;
         let vendor = concat!("opura ", env!("CARGO_PKG_VERSION")).as_bytes();
         writer.body.extend_from_slice(b"OpusTags");
@@ -180,14 +191,22 @@ impl<W: Write> Writer<W> {
         writer.body.extend_from_slice(vendor);
         writer.body.extend_from_slice(&0u32.to_le_bytes());
         writer.laces.push(writer.body.len() as u8);
+        writer.complete = true;
         writer.flush(0)?;
         Ok(writer)
     }
     fn flush(&mut self, flags: u8) -> io::Result<()> {
         let mut h = [0u8; 27];
         h[..4].copy_from_slice(b"OggS");
-        h[5] = flags;
-        h[6..14].copy_from_slice(&self.granule.to_le_bytes());
+        h[5] = flags | u8::from(self.continued);
+        h[6..14].copy_from_slice(
+            &if self.complete {
+                self.granule
+            } else {
+                u64::MAX
+            }
+            .to_le_bytes(),
+        );
         h[14..18].copy_from_slice(&0x4f505552u32.to_le_bytes());
         h[18..22].copy_from_slice(&self.sequence.to_le_bytes());
         h[26] = self.laces.len() as u8;
@@ -200,14 +219,18 @@ impl<W: Write> Writer<W> {
         self.output.write_all(&self.laces)?;
         self.output.write_all(&self.body)?;
         self.sequence = self.sequence.wrapping_add(1);
-        self.last_page = self.granule;
+        if self.complete {
+            self.last_page = self.granule;
+        }
         self.body.clear();
         self.laces.clear();
+        self.complete = false;
+        self.continued = false;
         Ok(())
     }
     pub fn packet(&mut self, packet: &[u8], granule: u64, eos: bool) -> io::Result<()> {
         let segments = packet.len() / 255 + 1;
-        if packet.is_empty() || packet.len() > 1276 * 48 || granule < self.granule {
+        if self.ended || packet.is_empty() || packet.len() > MAX_PACKET || granule < self.granule {
             return Err(invalid("invalid encoder Ogg packet/granule"));
         }
         if !self.laces.is_empty()
@@ -217,14 +240,24 @@ impl<W: Write> Writer<W> {
         {
             self.flush(0)?;
         }
-        self.laces
-            .extend(std::iter::repeat_n(255, packet.len() / 255));
-        self.laces.push((packet.len() % 255) as u8);
-        self.body.extend_from_slice(packet);
+        let mut offset = 0;
+        for segment in 0..segments {
+            if self.laces.len() == 255 {
+                self.flush(0)?;
+                self.continued = segment != 0;
+            }
+            let length = (packet.len() - offset).min(255);
+            self.laces.push(length as u8);
+            self.body
+                .extend_from_slice(&packet[offset..offset + length]);
+            offset += length;
+        }
         self.granule = granule;
+        self.complete = true;
         if eos {
             self.flush(4)?;
             self.output.flush()?;
+            self.ended = true;
         }
         Ok(())
     }
@@ -261,6 +294,92 @@ mod tests {
             ]
         );
         assert_eq!(last, 23040);
+        Ok(())
+    }
+    #[test]
+    fn mapped_headers_and_multi_page_packets_retain_crc_granules_and_eos() -> io::Result<()> {
+        let mut bytes = Vec::new();
+        let sizes = [65024, 65025, 65026, 90000];
+        {
+            let layout = Layout::positioned(8)?;
+            let mut writer = Writer::with_layout(&mut bytes, &layout, 48000, 312, 1536)?;
+            for (i, size) in sizes.into_iter().enumerate() {
+                writer.packet(&vec![i as u8 + 1; size], (i as u64 + 1) * 960, i == 3)?;
+            }
+            let before = writer.output.len();
+            assert!(writer.packet(&[1], 4000, false).is_err());
+            assert_eq!(writer.output.len(), before);
+        }
+        let mut reader = Reader::new(bytes.as_slice());
+        let first = reader.page()?.ok_or_else(|| invalid("header absent"))?;
+        let header = super::super::layout::parse(&first.packets[0])?;
+        assert_eq!(header.layout.channels(), 8);
+        assert_eq!(header.layout.family(), 1);
+        assert_eq!(header.gain_q8, 1536);
+        assert_eq!(header.skip, 312);
+        reader.page()?;
+        let mut index = 0;
+        let mut unfinished = 0;
+        let mut end = false;
+        while let Some(page) = reader.page()? {
+            unfinished += usize::from(page.unfinished);
+            for packet in &page.packets {
+                assert_eq!(packet.len(), sizes[index]);
+                assert!(packet.iter().all(|&b| b == index as u8 + 1));
+                index += 1;
+            }
+            if let Some(g) = page.granule {
+                assert_eq!(g, index as u64 * 960);
+            }
+            end = page.eos;
+        }
+        assert_eq!(index, 4);
+        assert!(unfinished >= 3);
+        assert!(end);
+        Ok(())
+    }
+    #[test]
+    fn full_packet_limit_accepts_exact_and_rejects_excess_before_publish() -> io::Result<()> {
+        let mut bytes = Vec::new();
+        {
+            let mut writer = Writer::new(&mut bytes, 1, 48000)?;
+            let before = writer.output.len();
+            assert!(writer.packet(&vec![0; MAX_PACKET + 1], 960, false).is_err());
+            assert_eq!(writer.output.len(), before);
+            writer.packet(&vec![7; MAX_PACKET], 960, true)?;
+        }
+        let mut reader = Reader::new(bytes.as_slice());
+        reader.page()?;
+        reader.page()?;
+        let mut found = 0;
+        while let Some(page) = reader.page()? {
+            for packet in page.packets {
+                assert_eq!(packet.len(), MAX_PACKET);
+                assert!(packet.iter().all(|&b| b == 7));
+                found += 1;
+            }
+        }
+        assert_eq!(found, 1);
+        let mut over = Vec::new();
+        let full = (MAX_PACKET + 1) / MAX_BODY;
+        for index in 0..full {
+            over.extend(page(
+                if index == 0 { 2 } else { 1 },
+                index as u32,
+                u64::MAX,
+                &[255; 255],
+                &vec![1; MAX_BODY],
+            ));
+        }
+        let remaining = (MAX_PACKET + 1) % MAX_BODY;
+        let mut laces = vec![255; remaining / 255];
+        laces.push((remaining % 255) as u8);
+        over.extend(page(5, full as u32, 960, &laces, &vec![1; remaining]));
+        let mut reader = Reader::new(over.as_slice());
+        for _ in 0..full {
+            reader.page()?;
+        }
+        assert!(reader.page().is_err());
         Ok(())
     }
     fn page(flags: u8, sequence: u32, granule: u64, laces: &[u8], body: &[u8]) -> Vec<u8> {
@@ -324,7 +443,15 @@ mod tests {
         over.extend(page(5, 1, 1, &[255, 255, 2], &[2; 512]));
         let mut input = Reader::new(over.as_slice());
         input.page()?;
-        assert!(input.page().is_err());
+        assert_eq!(
+            input
+                .page()?
+                .ok_or_else(|| invalid("continued page absent"))?
+                .packets[0]
+                .len(),
+            65537
+        );
+        assert!(input.page()?.is_none());
         let mut missing = prefix;
         missing.extend(page(4, 1, 1, &[1], &[2]));
         let mut input = Reader::new(missing.as_slice());

@@ -3,6 +3,7 @@
 //! a newly created partial output, which must not be used.
 mod automatic;
 mod grouping;
+mod layout;
 mod ogg;
 mod wav;
 use opura::{
@@ -15,6 +16,7 @@ use opura::{
     decoder::OpusDecoder,
     encoder::control::{Application, Signal},
     hybrid::encoder::{HybridEncoder, Options as HybridOptions},
+    multistream::{MultistreamDecoder, MultistreamPacket, MultistreamPcm},
     silk::{
         decoder::PcmChannels,
         encoder::{
@@ -39,7 +41,7 @@ type Result<T> = std::result::Result<T, Box<dyn Error>>;
 fn invalid(message: impl Into<String>) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message.into())
 }
-const HELP: &str = "opura encode INPUT.wav OUTPUT.opus [--mode celt|silk|hybrid|auto] [--application audio|voip|lowdelay|restricted-silk|restricted-celt] [--signal auto|voice|music] [--complexity 0..10] [--channels 1|2] [--bitrate BPS] [--frame-ms MS] [--packet-ms MS] [--bandwidth nb|mb|wb|auto|swb|fb] [--dtx] [--fec LOSS_PERCENT] [--vbr|--cvbr] [--max-packet-bytes BYTES]\nopura decode INPUT.opus OUTPUT.wav\nopura --version\n\nEncode: PCM16 WAV at 8/12/16/24/48 kHz.\nAUTO: common mode/channel/band selection, packets2.5..120ms; application/signal/complexity/encoded-channel controls, DTX/FEC, CBR/VBR/CELT CVBR. AUTO packet-ms selects one complete packet with native component scheduling. AUTO permits1/2-byte caps and low nominal rates via native PLC;100ms requires at least2bytes. Fixed modes retain their defaults.\nCELT: mono/stereo, frames 2.5/5/10/20 ms. --vbr or --cvbr selects nominal-rate variable encoding with a hard --max-packet-bytes cap (default1276); cvbr enables reservoir/drift limits. CBR remains the default. SILK: mono/stereo, frames 10/20/40/60 ms. Hybrid: mono/stereo at 24/48 kHz, frames 10/20 ms; SWB at 24 kHz, SWB/FB at 48 kHz. Hybrid --vbr uses a nominal --bitrate and a separate hard --max-packet-bytes cap (default1276); CBR remains the default. Hybrid defaults to 32000 mono/64000 stereo bits/s and input-rate SWB/FB; --dtx enables silence suppression. --fec requests SILK-band protection while retaining the requested Hybrid bandwidth.\nDefaults: CELT, 64000 bits/s (SILK: 24000 mono/48000 stereo), 20 ms. SILK bandwidth defaults to input-rate NB/MB/WB; auto selects it from bitrate/loss. --dtx enables SILK/Hybrid silence suppression, including in CBR. --fec 1..100 requests SILK/Hybrid in-band FEC with the supplied loss estimate (0 disables it). --packet-ms sets a maximum compatible packet duration up to120 ms (a multiple of frame-ms); final groups and bandwidth changes can close earlier. Aggregate CBR includes packet framing; VBR/CVBR hard caps apply to each grouped packet (default1276 bytes per component frame). Ogg overhead is additional.\nDecode: one mono/stereo Ogg Opus stream with header output gain; output PCM16/48 kHz.\nExisting outputs are refused. Errors may leave a partial new output.";
+const HELP: &str = "opura encode INPUT.wav OUTPUT.opus [--mode celt|silk|hybrid|auto] [--application audio|voip|lowdelay|restricted-silk|restricted-celt] [--signal auto|voice|music] [--complexity 0..10] [--channels 1|2] [--bitrate BPS] [--frame-ms MS] [--packet-ms MS] [--bandwidth nb|mb|wb|auto|swb|fb] [--dtx] [--fec LOSS_PERCENT] [--vbr|--cvbr] [--max-packet-bytes BYTES]\nopura decode INPUT.opus OUTPUT.wav\nopura --version\n\nEncode: PCM16 WAV at 8/12/16/24/48 kHz. AUTO accepts1..8channels, canonical WAVE extensible speaker masks (family1) or unpositioned PCM (family255). Mapped encoding uses generic stream allocation; surround energy-mask/LFE analysis is not implemented. Mapped caps apply to the complete packet; --channels applies to each constituent stream.\nAUTO: common mode/channel/band selection, packets2.5..120ms; application/signal/complexity/encoded-channel controls, DTX/FEC, CBR/VBR/CELT CVBR. AUTO packet-ms selects one complete packet with native component scheduling. AUTO permits1/2-byte caps and low nominal rates via native PLC;100ms requires at least2bytes. Fixed modes retain their defaults.\nCELT: mono/stereo, frames 2.5/5/10/20 ms. --vbr or --cvbr selects nominal-rate variable encoding with a hard --max-packet-bytes cap (default1276); cvbr enables reservoir/drift limits. CBR remains the default. SILK: mono/stereo, frames 10/20/40/60 ms. Hybrid: mono/stereo at 24/48 kHz, frames 10/20 ms; SWB at 24 kHz, SWB/FB at 48 kHz. Hybrid --vbr uses a nominal --bitrate and a separate hard --max-packet-bytes cap (default1276); CBR remains the default. Hybrid defaults to 32000 mono/64000 stereo bits/s and input-rate SWB/FB; --dtx enables silence suppression. --fec requests SILK-band protection while retaining the requested Hybrid bandwidth.\nDefaults: CELT, 64000 bits/s (SILK: 24000 mono/48000 stereo), 20 ms. SILK bandwidth defaults to input-rate NB/MB/WB; auto selects it from bitrate/loss. --dtx enables SILK/Hybrid silence suppression, including in CBR. --fec 1..100 requests SILK/Hybrid in-band FEC with the supplied loss estimate (0 disables it). --packet-ms sets a maximum compatible packet duration up to120 ms (a multiple of frame-ms); final groups and bandwidth changes can close earlier. Aggregate CBR includes packet framing; VBR/CVBR hard caps apply to each grouped packet (default1276 bytes per component frame). Ogg overhead is additional.\nDecode: one Ogg Opus stream,1..8channels, mapping families0/1/255 and header output gain; output PCM16/48kHz WAVE with explicit speaker metadata.\nExisting outputs are refused. Errors may leave a partial new output.";
 fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
@@ -143,9 +145,9 @@ fn run() -> Result<()> {
                     Some("--max-packet-bytes") if max_packet_bytes.is_none() => {
                         let bytes = value
                             .parse::<usize>()
-                            .map_err(|_| invalid("max-packet-bytes must be1..61248"))?;
-                        if !(1..=61248).contains(&bytes) {
-                            return Err(invalid("max-packet-bytes must be1..61248").into());
+                            .map_err(|_| invalid("max-packet-bytes must be1..16777216"))?;
+                        if !(1..=opura::multistream::MAX_PACKET_BYTES).contains(&bytes) {
+                            return Err(invalid("max-packet-bytes must be1..16777216").into());
                         }
                         max_packet_bytes = Some(bytes);
                     }
@@ -340,6 +342,9 @@ fn encode(input: &Path, output: &Path, rate_control: FileRate, size: FrameSize) 
     let bitrate = rate_control.bitrate.unwrap_or(64000);
     let start = Instant::now();
     let mut source = wav::Reader::new(BufReader::new(File::open(input)?))?;
+    if source.channels > 2 || !source.positioned {
+        return Err(invalid("mapped or unpositioned WAVE input requires mode auto").into());
+    }
     let rate = match source.rate {
         8000 => InputRate::Khz8,
         12000 => InputRate::Khz12,
@@ -458,6 +463,9 @@ fn encode_silk(
 ) -> Result<()> {
     let start = Instant::now();
     let mut source = wav::Reader::new(BufReader::new(File::open(input)?))?;
+    if source.channels > 2 || !source.positioned {
+        return Err(invalid("mapped or unpositioned WAVE input requires mode auto").into());
+    }
     let bitrate = rate_control
         .bitrate
         .unwrap_or(if source.channels == 2 { 48000 } else { 24000 });
@@ -609,6 +617,9 @@ fn encode_hybrid(
 ) -> Result<()> {
     let start = Instant::now();
     let mut source = wav::Reader::new(BufReader::new(File::open(input)?))?;
+    if source.channels > 2 || !source.positioned {
+        return Err(invalid("mapped or unpositioned WAVE input requires mode auto").into());
+    }
     let rate = match source.rate {
         24000 => InputRate::Khz24,
         48000 => InputRate::Khz48,
@@ -709,26 +720,8 @@ fn encode_hybrid(
     );
     Ok(())
 }
-struct Head {
-    channels: usize,
-    skip: u64,
-    gain_q8: i16,
-}
-fn head(packet: &[u8]) -> io::Result<Head> {
-    if packet.len() < 19 || &packet[..8] != b"OpusHead" || packet[8] > 15 {
-        return Err(invalid("invalid/unsupported OpusHead"));
-    }
-    let channels = usize::from(packet[9]);
-    if !(1..=2).contains(&channels) || packet[18] != 0 {
-        return Err(invalid(
-            "only mono/stereo Opus mapping family zero is supported",
-        ));
-    }
-    Ok(Head {
-        channels,
-        skip: u64::from(u16::from_le_bytes([packet[10], packet[11]])),
-        gain_q8: i16::from_le_bytes([packet[16], packet[17]]),
-    })
+fn head(packet: &[u8]) -> io::Result<layout::Header> {
+    layout::parse(packet)
 }
 fn tags(packet: &[u8]) -> io::Result<()> {
     if packet.len() < 16 || &packet[..8] != b"OpusTags" {
@@ -787,14 +780,49 @@ fn decode(input: &Path, output: &Path) -> Result<()> {
             break;
         }
     }
-    let channels = if header.channels == 1 {
-        PcmChannels::Mono
+    if header.layout.family() == 0 {
+        let channels = if header.layout.channels() == 1 {
+            PcmChannels::Mono
+        } else {
+            PcmChannels::Stereo
+        };
+        let mut decoder = OpusDecoder::new(OutputRate::Khz48, channels)?;
+        decoder.set_gain_q8(header.gain_q8);
+        decode_audio(
+            source,
+            output,
+            header,
+            start,
+            |data| Ok(decoder.decode(data)?),
+            opura::decoder::DecodedPcm::samples,
+        )
     } else {
-        PcmChannels::Stereo
-    };
-    let mut decoder = OpusDecoder::new(OutputRate::Khz48, channels)?;
-    decoder.set_gain_q8(header.gain_q8);
-    let mut writer = wav::Writer::new(BufWriter::new(create(output)?), 48000, header.channels)?;
+        let mut decoder = MultistreamDecoder::new(OutputRate::Khz48, header.layout.wave().clone())?;
+        decoder.set_gain_q8(header.gain_q8);
+        decode_audio(
+            source,
+            output,
+            header,
+            start,
+            |data| Ok(decoder.decode(data)?),
+            MultistreamPcm::samples,
+        )
+    }
+}
+fn decode_audio<P>(
+    mut source: ogg::Reader<BufReader<File>>,
+    output: &Path,
+    header: layout::Header,
+    start: Instant,
+    mut decode_packet: impl FnMut(&[u8]) -> Result<P>,
+    get_samples: fn(&P) -> &[i16],
+) -> Result<()> {
+    let mut writer = wav::Writer::with_channel_order(
+        BufWriter::new(create(output)?),
+        48000,
+        header.layout.channels(),
+        header.layout.positioned_order(),
+    )?;
     let mut decoded = 0u64;
     let mut written = 0u64;
     let mut packets = 0u64;
@@ -809,8 +837,12 @@ fn decode(input: &Path, output: &Path) -> Result<()> {
             .ok_or_else(|| invalid("audio page granule absent"))?;
         let mut samples = 0u64;
         for packet in &page.packets {
-            let parsed = Packet::parse(packet)?;
-            samples += u64::from(parsed.frame_samples()) * parsed.frames().len() as u64;
+            let duration = if header.layout.opus().streams() == 1 {
+                Packet::parse(packet)?.duration_samples()
+            } else {
+                MultistreamPacket::parse(packet, header.layout.opus().streams())?.duration_samples()
+            };
+            samples += u64::from(duration);
         }
         let base = match initial {
             Some(base) => base,
@@ -838,16 +870,22 @@ fn decode(input: &Path, output: &Path) -> Result<()> {
             return Err(invalid("inconsistent Opus granule/sample duration").into());
         }
         for packet in &page.packets {
-            let pcm = decoder
-                .decode(packet)
-                .map_err(|e| invalid(format!("packet {packets}: {e}")))?;
-            let after = decoded + pcm.samples_per_channel() as u64;
+            let pcm =
+                decode_packet(packet).map_err(|e| invalid(format!("packet {packets}: {e}")))?;
+            let values = get_samples(&pcm);
+            if values.len() % header.layout.channels() != 0 {
+                return Err(invalid("partial decoded PCM channel frame").into());
+            }
+            let count = values.len() / header.layout.channels();
+            let after = decoded
+                .checked_add(count as u64)
+                .ok_or_else(|| invalid("decoded duration overflow"))?;
             let begin = header.skip.max(decoded);
             let stop = if page.eos { end.min(after) } else { after };
             if begin < stop {
-                let offset = ((begin - decoded) as usize) * header.channels;
-                let length = ((stop - begin) as usize) * header.channels;
-                writer.samples(&pcm.samples()[offset..offset + length])?;
+                let offset = ((begin - decoded) as usize) * header.layout.channels();
+                let length = ((stop - begin) as usize) * header.layout.channels();
+                writer.samples(&values[offset..offset + length])?;
                 written += stop - begin;
             }
             decoded = after;
@@ -864,7 +902,7 @@ fn decode(input: &Path, output: &Path) -> Result<()> {
     writer.finish()?;
     eprintln!(
         "decoded {written} samples/channel at 48000 Hz, {} channels; {packets} packets; {:.3} s",
-        header.channels,
+        header.layout.channels(),
         start.elapsed().as_secs_f64()
     );
     Ok(())

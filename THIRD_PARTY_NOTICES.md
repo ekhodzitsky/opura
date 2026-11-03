@@ -1754,6 +1754,11 @@ checks in `src/opus_multistream_encoder.c`, copyright (c) 2011 Xiph.Org Foundati
 written by Jean-Marc Valin. Decoder signed Q8 gain uses the fixed-point
 `src/opus_decoder.c` frame ordering and existing CELT scalar math. The existing
 BSD notices above apply; no foreign code is linked or vendored.
+Canonical file layout maps in `src/bin/opura/layout.rs` follow the same native
+encoder's `vorbis_mappings`, under these notices. Optional mapped file generators
+call unchanged native public APIs and use external FFmpeg only to observe channel
+order. Tracked Ogg fixtures contain deterministic synthetic audio; neither
+foreign source nor executables are included in Cargo or ordinary tests.
 
 Shared scalar encoder frontend decisions and stereo-width analysis follow
 `compute_stereo_width`, `compute_equiv_rate`, `decide_fec`, the threshold tables

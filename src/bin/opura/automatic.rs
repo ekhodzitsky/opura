@@ -1,5 +1,5 @@
 //! File I/O through the actual common packet owner; no independent mode banks.
-use super::{FileRate, Result, create, invalid, ogg, wav};
+use super::{FileRate, Result, create, invalid, layout, ogg, wav};
 use opura::{
     Bandwidth,
     celt::input::InputRate,
@@ -7,6 +7,7 @@ use opura::{
         EncodeOptions, OpusEncoder, PacketSize,
         control::{Application, Controls, Fec, Signal},
     },
+    multistream::{MAX_PACKET_BYTES, MultistreamEncodeOptions, MultistreamEncoder},
 };
 use std::{
     fs::File,
@@ -38,6 +39,19 @@ pub fn encode(input: &Path, output: &Path, rate_control: FileRate, options: Opti
     if options.application == Application::RestrictedSilk && size.samples() < 480 {
         return Err(invalid("restricted-silk requires at least10ms").into());
     }
+    let start = Instant::now();
+    let mut source = wav::Reader::new(BufReader::new(File::open(input)?))?;
+    let rate = match source.rate {
+        8000 => InputRate::Khz8,
+        12000 => InputRate::Khz12,
+        16000 => InputRate::Khz16,
+        24000 => InputRate::Khz24,
+        48000 => InputRate::Khz48,
+        _ => return Err(invalid("unsupported input rate").into()),
+    };
+    if source.channels > 2 || !source.positioned {
+        return encode_mapped(source, output, rate_control, options, size, rate, start);
+    }
     let maximum = if size.samples() > 960 { 7656 } else { 1276 };
     let cap = rate_control
         .maximum
@@ -49,16 +63,6 @@ pub fn encode(input: &Path, output: &Path, rate_control: FileRate, options: Opti
     if !(1..=1500000).contains(&bitrate) {
         return Err(invalid("automatic bitrate must be1..1500000").into());
     }
-    let start = Instant::now();
-    let mut source = wav::Reader::new(BufReader::new(File::open(input)?))?;
-    let rate = match source.rate {
-        8000 => InputRate::Khz8,
-        12000 => InputRate::Khz12,
-        16000 => InputRate::Khz16,
-        24000 => InputRate::Khz24,
-        48000 => InputRate::Khz48,
-        _ => return Err(invalid("unsupported input rate").into()),
-    };
     if options.channels.is_some_and(|n| n > source.channels) {
         return Err(invalid("encoded channels exceed WAV input channels").into());
     }
@@ -123,6 +127,108 @@ pub fn encode(input: &Path, output: &Path, rate_control: FileRate, options: Opti
         source.frames,
         source.rate,
         source.channels,
+        start.elapsed().as_secs_f64()
+    );
+    Ok(())
+}
+
+/// WAVE-order input uses a permuted coded-channel map; the OpusHead retains
+/// Vorbis order. Generic coding does not imply native surround analysis.
+fn encode_mapped(
+    mut source: wav::Reader<BufReader<File>>,
+    output: &Path,
+    rate_control: FileRate,
+    options: Options,
+    size: PacketSize,
+    rate: InputRate,
+    start: Instant,
+) -> Result<()> {
+    let layout = if source.positioned {
+        layout::Layout::positioned(source.channels)?
+    } else {
+        layout::Layout::unpositioned(source.channels)?
+    };
+    let streams = layout.opus().streams();
+    if options.channels == Some(2) && streams != layout.opus().coupled_streams() {
+        return Err(invalid("encoded channels2 requires every mapped stream to be coupled").into());
+    }
+    let minimum = 2 * streams - 1 + usize::from(size == PacketSize::Ms100) * streams;
+    let cap = rate_control
+        .maximum
+        .unwrap_or((if size.samples() > 960 { 7662 } else { 1276 }) * streams + 2 * (streams - 1));
+    if !(minimum..=MAX_PACKET_BYTES).contains(&cap) {
+        return Err(invalid("invalid mapped whole-packet cap").into());
+    }
+    let bitrate = rate_control.bitrate.unwrap_or(64000 * streams as u32);
+    if !(1..=191250000).contains(&bitrate) {
+        return Err(invalid("mapped bitrate must be1..191250000").into());
+    }
+    let mut encoder =
+        MultistreamEncoder::with_application(rate, layout.wave().clone(), options.application)?;
+    let skip = encoder.lookahead_48k();
+    let end = source
+        .frames
+        .checked_mul(rate.factor() as u64)
+        .and_then(|n| n.checked_add(u64::from(skip)))
+        .ok_or_else(|| invalid("audio duration overflow"))?;
+    let frames = end.div_ceil(size.samples() as u64);
+    let controls = Controls {
+        application: options.application,
+        signal: options.signal,
+        complexity: options.complexity,
+        channels: options.channels,
+        bandwidth: options.bandwidth,
+        variable: rate_control.vbr,
+        loss_percent: options.loss,
+        fec: if options.loss > 0 {
+            Fec::Enabled
+        } else {
+            Fec::Disabled
+        },
+        dtx: options.dtx,
+        ..Controls::default()
+    };
+    let mut pcm = vec![0; size.samples() / rate.factor() * source.channels];
+    let mut writer = ogg::Writer::with_layout(
+        BufWriter::new(create(output)?),
+        &layout,
+        source.rate,
+        skip as u16,
+        0,
+    )?;
+    let mut bytes = 0;
+    for i in 0..frames {
+        pcm.fill(0);
+        source.read_samples(&mut pcm)?;
+        let packet = encoder.encode_packet(
+            size,
+            &pcm,
+            cap,
+            MultistreamEncodeOptions {
+                bitrate,
+                controls,
+                constrained: rate_control.constrained,
+            },
+        )?;
+        let last = i + 1 == frames;
+        writer.packet(
+            packet.as_bytes(),
+            if last {
+                end
+            } else {
+                (i + 1) * size.samples() as u64
+            },
+            last,
+        )?;
+        bytes += packet.as_bytes().len();
+    }
+    eprintln!(
+        "encoded generic mapped {:?} {} samples/channel at{}Hz,{}channels, family{};{frames} packets,{bytes} packet bytes;{:.3}s",
+        options.application,
+        source.frames,
+        source.rate,
+        source.channels,
+        layout.family(),
         start.elapsed().as_secs_f64()
     );
     Ok(())

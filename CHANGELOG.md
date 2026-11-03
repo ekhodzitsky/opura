@@ -7,6 +7,27 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.98] - 2026-11-03
+
+- Add1..8channel Ogg Opus file decoding for mapping families0/1/255 with exact
+  native signed gain, pre-skip/end trim and explicit WAVE speaker order. Add
+  canonical WAVE extensible PCM16 masks and preserve unpositioned channels.
+- Route mapped AUTO file encoding through the persistent generic multistream
+  owner with total rate/packet budgets. Existing positioned mono/stereo encoding
+  retains its path; fixed file modes explicitly require positioned mono/stereo.
+  Native surround energy-mask/LFE analysis remains unfinished.
+- Support bounded Ogg continuation output through16MiB packets, including exact
+  65025-byte lacing boundaries. Preserve CRC/sequence/EOS and RIFF32 bounds;
+  reject invalid mapped metadata/controls/caps before output creation.
+- Capture60 original native synthetic files with FFmpeg-observed channel order,
+  gain/trim and repeated/silent maps. Add240 empty/partial/tail file cases and
+  independent native verification of2160 encoded CLI files across all rates,
+  nine durations and CBR/VBR/CVBR. Five isolated source mutations detect broken
+  input/output order, gain, pre-skip and continuation flags; restored suites pass.
+  These checks establish interoperability, without quality or speed leadership.
+- Pass all seven required offline gates, including163 library tests,15 binary
+  unit tests, five mapped CLI integration tests and36 Python tool tests.
+
 ## [0.1.97] - 2026-11-03
 
 - Pass all seven offline gates with163 library/34 Python tests and the full

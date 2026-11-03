@@ -30,7 +30,8 @@ requirements; SOTA performance is an ambition, not a current claim.
 The library's [multistream APIs](docs/validation/multistream.md) add bounded
 channel maps, self-delimited framing, persistent mapped PCM decoding with gain,
 and generic multistream encoding with whole-packet budgets and PLC/FEC/DTX.
-Surround analysis and mapped file workflows remain unfinished.
+The [mapped file CLI](docs/validation/mapped-audio-files.md) supports1..8channels
+and mapping families0/1/255. Native surround energy-mask/LFE analysis remains open.
 
 An optional [in-process encoder benchmark](docs/benchmarks/encoder-0.1.96.md)
 compares matched public APIs and independently verifies both packet streams.
@@ -70,8 +71,12 @@ target/release/opura encode input.wav output.opus --bitrate 64000 --frame-ms 20
 target/release/opura decode output.opus decoded.wav
 ```
 
-Encoding accepts little-endian RIFF/WAVE PCM16, mono/stereo, at
-8/12/16/24/48 kHz. It enables all six adaptive CELT analyses. Frame durations
+Encoding accepts little-endian RIFF/WAVE PCM16 at8/12/16/24/48kHz.
+AUTO supports1..8channels: canonical WAVE extensible speaker masks select
+positioned family1 layouts; unpositioned PCM selects family255. Mapped encoding
+uses generic stream allocation, without native surround energy-mask/LFE analysis.
+Fixed modes require positioned mono/stereo input. The default CELT path enables
+all six adaptive CELT analyses. Frame durations
 are 2.5, 5, 10 or 20 ms; defaults are 20 ms and 64,000 bits/s. Bitrate includes
 Opus packet TOC bytes and excludes Ogg overhead; fractional byte budgets carry
 between CBR packets. Add `--vbr` for unconstrained variable rate or `--cvbr`
@@ -189,13 +194,15 @@ and quality/performance
 leadership remain unfinished.
 
 
-Decoding accepts SILK, Hybrid and CELT in one mono/stereo Ogg Opus stream
-(mapping family zero, zero header output gain), and writes PCM16 WAV at 48 kHz.
-Chained/multiplexed streams, nonzero output gain, other mappings and packets
-larger than 65,536 bytes (including metadata) are explicitly rejected. CRC,
-sequence, continuation and granule inconsistencies are errors. Output is
-limited to RIFF32 size. Existing paths are never overwritten; an error can
-leave a newly created partial output, which must be discarded.
+Decoding accepts SILK, Hybrid and CELT in one Ogg Opus logical stream with
+1..8channels, mapping families0/1/255 and signed header output gain. Output is
+PCM16 WAVE at48kHz with explicit WAVE speaker order/masks for mapped layouts.
+Unpositioned family255 preserves channel order and writes a zero speaker mask.
+Chained/multiplexed streams, unknown mappings and packets larger than16MiB
+(including metadata) reject explicitly. CRC, sequence, continuation and granule
+inconsistencies are errors. Output is limited to RIFF32 size. Existing paths are
+never overwritten; errors may leave a new partial output, which must be discarded.
+See [mapped file contracts and independent validation](docs/validation/mapped-audio-files.md).
 
 The [interoperability record](docs/validation/audio-cli-0.1.65.md) covers
 independent decoding, exact durations, packet budgets and original native
