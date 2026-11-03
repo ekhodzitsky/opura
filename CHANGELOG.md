@@ -16,9 +16,13 @@ and validation, without implying full Opus compatibility before PCM decoding.
   and random indices, rank/energy invariants and unchanged native fixtures.
   Add an optional paired public-decoder before/after tool requiring full
   source-bound conformance and exact PCM/range fingerprints before timing.
-- Pass all seven offline gates (172 library/40 Python tests), two detected and
+- Pass all seven offline gates (172 library/41 Python tests), two detected and
   restored source mutations, and all120 RFC8251 cases with every0.2.0 PCM hash
-  unchanged. Final ordinary-release paired performance evidence is pending.
+  unchanged. Retain300 ordinary-release samples across15 paired rounds/all ten
+  output geometries: aggregate codec-time ratio0.9639 versus0.2.0 (95% interval
+  [0.9455,0.9791]), about3.6% less time. Every per-case interval includes1;
+  individual wins and the5% regression ceiling remain unproven. No current
+  native-competitor, encoder-speed or SOTA claim follows.
 
 ## [0.2.0] - 2026-11-03
 

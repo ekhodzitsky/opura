@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "version": "0.2.1",
-  "base_revision": "b05cb7451a256b61b9f3964137553027561ef087",
+  "base_revision": "5345d83",
   "worktree_modified": true,
-  "provenance": "Pre-commit final source; paired performance results pending and not part of this correctness checkpoint.",
+  "provenance": "Final checker-only update and reporting prepared after measurement. Rust codec/Cargo/public adapter contents are unchanged from measured candidate5345d83. All seven gates rerun after checker update; original timing driver remains bound to5345d83.",
   "source_sha256": {
     "src/celt/pulses.rs": "80b171782c145a4d33e173f28690d7cd11eae9572754184d808b07bc251b8b96",
     "tests/celt_pulses.rs": "d0bb94313fe9b7feb6704080d2c393d6c387bd5529ad8595d5d99fe56e0457b4",
-    "tools/decoder_change.py": "56d2d69488d11ac9ed59f869043fc566c99cd11ba1bb0f224b5d30fdcc7a61ca",
-    "tools/test_decoder_change.py": "70d0a27d3abf9b8efb52ca13b666a538df8e01a609470f909e8cf5c9dc1f348d",
+    "tools/decoder_change.py": "b2cd7753c5fc8bf4a29cd4c008ac00f70ebaeaada6a3a0b66f8fa74faa31e299",
+    "tools/test_decoder_change.py": "a18f97bdb1f7bdecf1e99a52cecc130aeb3e2a2379e5f339154b527cb8ab8557",
     "examples/decoder_bench.rs": "23810f8791c93657d958531d081b661fddc703bc50b5f773fe9d3c7638e8fa68",
     "Cargo.toml": "e6a690a4f48f4c78878e2fe5adeb749fad83e0aebe7385a35c2afa7d00474e2b",
     "Cargo.lock": "13cfac352e0e664ab4bb04ee0e3df0562f35d06754a22cafd0f8caac7595c7a5"
@@ -23,7 +23,7 @@
         "--check"
       ],
       "exit_code": 0,
-      "seconds": 0.5962977490125922
+      "seconds": 0.6465922409988707
     },
     {
       "command": [
@@ -33,7 +33,7 @@
         "--locked"
       ],
       "exit_code": 0,
-      "seconds": 152.0315141989995
+      "seconds": 123.40634840598796
     },
     {
       "command": [
@@ -44,7 +44,7 @@
         "--release"
       ],
       "exit_code": 0,
-      "seconds": 38.402306449002936
+      "seconds": 13.284783625000273
     },
     {
       "command": [
@@ -58,7 +58,7 @@
         "warnings"
       ],
       "exit_code": 0,
-      "seconds": 11.333530311007053
+      "seconds": 0.12542570299410727
     },
     {
       "command": [
@@ -69,7 +69,7 @@
         "--no-deps"
       ],
       "exit_code": 0,
-      "seconds": 1.1476883280120092
+      "seconds": 1.1424754229956307
     },
     {
       "command": [
@@ -77,7 +77,7 @@
         "tools/check_dependencies.py"
       ],
       "exit_code": 0,
-      "seconds": 0.05184985900996253
+      "seconds": 0.05940302099043038
     },
     {
       "command": [
@@ -91,14 +91,14 @@
         "test_*.py"
       ],
       "exit_code": 0,
-      "seconds": 4.871650513989152
+      "seconds": 4.688885529991239
     }
   ],
   "rustdoc_environment": {
     "RUSTDOCFLAGS": "-D warnings"
   },
   "library_tests": 172,
-  "python_tests": 40,
+  "python_tests": 41,
   "mutations": [
     {
       "mutation": "sign-boundary",
@@ -113,9 +113,13 @@
   ],
   "official_conformance_cases": 120,
   "all_pcm_hashes_unchanged_from": "0.2.0",
-  "performance_status": "pending full paired ordinary-release measurement",
+  "performance_status": "complete:300samples/15paired rounds/10geometries; aggregate improvement only",
   "limitations": [
     "No current native comparison or competitive leadership claim.",
     "Pilot profiling and timing are not accepted final speed evidence."
-  ]
+  ],
+  "performance_report": "../../benchmarks/results/decoder-cwrs-0.2.1.json",
+  "measurement_driver_revision": "5345d83",
+  "compile_profile": "Default release; Rust/Cargo profile overrides and RUSTFLAGS absent for both measured builds.",
+  "conformance_source_unchanged": true
 }

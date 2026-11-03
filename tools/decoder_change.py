@@ -69,6 +69,21 @@ def summarize(report):
             raise ValueError('Invalid driver/corpus provenance')
     if report['archive_sha256'] != conformance.MANIFEST['archive_sha256']:
         raise ValueError('Wrong official corpus')
+    before_hardware = report.get('hardware_before')
+    after_hardware = report.get('hardware_after')
+    if not isinstance(before_hardware, dict) or not isinstance(after_hardware, dict):
+        raise ValueError('Missing before/after hardware metadata')
+    cpu = before_hardware.get('cpu')
+    if (type(cpu) is not int or cpu < 0 or type(after_hardware.get('cpu')) is not int
+            or after_hardware.get('cpu') != cpu):
+        raise ValueError('Changed or missing CPU affinity')
+    for key in ['cpu_model', 'machine', 'kernel']:
+        if not isinstance(before_hardware.get(key), str) or not before_hardware[key].strip():
+            raise ValueError('Missing hardware identity: ' + key)
+        if after_hardware.get(key) != before_hardware[key]:
+            raise ValueError('Changed hardware identity: ' + key)
+    if not isinstance(report.get('rustc'), str) or not report['rustc'].startswith('rustc '):
+        raise ValueError('Missing Rust compiler identity')
     rng = random.Random(62482)
     result = {}
     for name, case in sorted(report['cases'].items()):
@@ -166,8 +181,8 @@ def main():
             report['cases'][step['case']][name].append(sample)
             save()
             print(step['round'], step['case'], name, sample['elapsed_ns'], flush=True)
-    report['summary'] = summarize(report)
     report['hardware_after'] = hardware(args.cpu)
+    report['summary'] = summarize(report)
     report['status'] = 'pass'
     save()
     print(json.dumps(report['summary']['aggregate']))
