@@ -74,6 +74,139 @@ fn output_pcm(bytes: &[u8], channels: u16, frames: usize) -> Result<&[u8]> {
     assert_eq!(bytes.len(), 44 + frames * usize::from(channels) * 2);
     Ok(&bytes[44..])
 }
+
+#[test]
+fn automatic_applications_preserve_empty_partial_duration_and_lookahead() -> Result<()> {
+    let temp = Temporary::new()?;
+    let mut cases = 0;
+    for rate in [8000, 12000, 16000, 24000, 48000] {
+        for channels in [1u16, 2] {
+            for (app, skip) in [
+                ("audio", 312),
+                ("voip", 312),
+                ("lowdelay", 120),
+                ("restricted-silk", 312),
+                ("restricted-celt", 120),
+            ] {
+                for variable in [false, true] {
+                    let frame = rate as usize / 50;
+                    for frames in [0, 1, frame + 1] {
+                        let stem = format!("auto-{cases}");
+                        cases += 1;
+                        let input = temp.0.join(stem.clone() + ".wav");
+                        let encoded = temp.0.join(stem.clone() + ".opus");
+                        let output = temp.0.join(stem + "-out.wav");
+                        fs::write(&input, wave(rate, channels, frames))?;
+                        let mut command = cli();
+                        command.arg("encode").arg(&input).arg(&encoded).args([
+                            "--mode",
+                            "auto",
+                            "--application",
+                            app,
+                            "--complexity",
+                            "0",
+                        ]);
+                        if variable {
+                            command.arg("--vbr");
+                        }
+                        success(&mut command)?;
+                        success(cli().arg("decode").arg(&encoded).arg(&output))?;
+                        output_pcm(
+                            &fs::read(output)?,
+                            channels,
+                            frames * (48000 / rate) as usize,
+                        )?;
+                        let bytes = fs::read(encoded)?;
+                        let head = bytes
+                            .windows(8)
+                            .position(|v| v == b"OpusHead")
+                            .ok_or("missing head")?;
+                        assert_eq!(
+                            u16::from_le_bytes(bytes[head + 10..head + 12].try_into()?),
+                            skip
+                        );
+                    }
+                }
+            }
+        }
+    }
+    assert_eq!(cases, 300);
+    Ok(())
+}
+
+#[test]
+fn automatic_controls_and_unsupported_long_packets_are_explicit() -> Result<()> {
+    let temp = Temporary::new()?;
+    let input = temp.0.join("source.wav");
+    let mut data = wave(48000, 2, 48000 / 2);
+    data[44 + 4800 * 4..44 + 18000 * 4].fill(0);
+    fs::write(&input, data)?;
+    for (i, app) in [
+        "audio",
+        "voip",
+        "lowdelay",
+        "restricted-silk",
+        "restricted-celt",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let encoded = temp.0.join(format!("configured-{i}.opus"));
+        let output = temp.0.join(format!("configured-{i}.wav"));
+        success(cli().arg("encode").arg(&input).arg(&encoded).args([
+            "--mode",
+            "auto",
+            "--application",
+            app,
+            "--signal",
+            "voice",
+            "--channels",
+            "1",
+            "--complexity",
+            "6",
+            "--fec",
+            "20",
+            "--dtx",
+            "--vbr",
+            "--bitrate",
+            "32000",
+            "--max-packet-bytes",
+            "160",
+        ]))?;
+        success(cli().arg("decode").arg(&encoded).arg(&output))?;
+        output_pcm(&fs::read(output)?, 2, 24000)?;
+        for packet in audio_packets(&fs::read(encoded)?)? {
+            assert!(packet.len() <= 160);
+        }
+    }
+    for (i, args) in [
+        vec!["--mode", "auto", "--packet-ms", "40"],
+        vec![
+            "--mode",
+            "auto",
+            "--application",
+            "restricted-silk",
+            "--frame-ms",
+            "5",
+        ],
+        vec!["--mode", "auto", "--complexity", "11"],
+        vec!["--mode", "celt", "--application", "voip"],
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let out = temp.0.join(format!("invalid-auto-{i}.opus"));
+        let result = cli()
+            .arg("encode")
+            .arg(&input)
+            .arg(&out)
+            .args(args)
+            .output()?;
+        assert!(!result.status.success());
+        assert!(!out.exists());
+    }
+    Ok(())
+}
 #[test]
 fn command_roundtrip_preserves_exact_duration_at_all_geometries() -> Result<()> {
     let temp = Temporary::new()?;

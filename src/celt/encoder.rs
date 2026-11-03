@@ -665,10 +665,13 @@ impl CeltEncoder {
                 hash,
             ]);
         }
-        let silence = vbr_rate.is_some() && !self.overlap_nonzero && pcm.iter().all(|&v| v == 0);
+        let silence = hybrid.is_none()
+            && (vbr_rate.is_some() || self.native_controls.is_some())
+            && !self.overlap_nonzero
+            && pcm.iter().all(|&v| v == 0);
         let tail = 120 / self.rate.factor() * self.channels;
         self.overlap_nonzero = pcm[pcm.len() - tail..].iter().any(|&v| v != 0);
-        if silence {
+        if silence && vbr_rate.is_some() {
             writer.shrink(2)?;
         }
         let payload_bytes = writer.capacity();
@@ -706,6 +709,9 @@ impl CeltEncoder {
         let budget = payload_bytes as u32 * 8;
         if hybrid.is_none() {
             writer.encode_bit_logp(silence, 15)?;
+            if silence && self.native_controls.is_some() {
+                writer.consume_remaining_budget()?;
+            }
         }
         let transient_candidate = size != FrameSize::Ms2_5 && writer.tell() + 3 <= budget;
         let diagnostics = if (self.detect_transients && transient_candidate)
@@ -755,7 +761,7 @@ impl CeltEncoder {
             },
         )?;
         context[..self.channels * stride].copy_from_slice(filtered.values());
-        if hybrid.is_none() {
+        if hybrid.is_none() && !(silence && self.native_controls.is_some()) {
             encode_comb(writer, filtered.parameters())?;
         }
         let transient_allowed = size != FrameSize::Ms2_5 && writer.tell() + 3 <= budget;

@@ -33,7 +33,7 @@ use std::fmt;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum EncoderError {
-    /// This application or frame configuration is not implemented yet.
+    /// The application request disagrees with immutable stream configuration.
     Unsupported,
     /// Invalid frontend input or controls.
     Frontend(FrontendError),
@@ -116,7 +116,7 @@ pub struct EncodeOptions {
     /// TOC-inclusive target rate, at most1500000bps; physical capacity caps it.
     pub bitrate: u32,
     /// Scalar application, signal, mode, layout, bandwidth, loss and DTX policy.
-    /// Currently only AUDIO is accepted by the unified owner.
+    /// Must match the immutable application selected at construction.
     pub controls: control::Controls,
     /// Enable CELT's constrained VBR feedback when variable rate is selected.
     pub constrained: bool,
@@ -153,16 +153,18 @@ impl EncodedPacket {
     }
 }
 
-/// Common AUDIO packet encoder with one live input/speech/CELT history.
+/// Common Opus packet encoder with one live input/speech/CELT history.
 ///
 /// This initial API accepts2.5/5/10/20ms frames at standard rates. Short frames
-/// select CELT. VOIP/restricted applications and multi-frame packet scheduling
-/// are not yet supported. Normal AUDIO lookahead is6.5ms. Whole-stream staging
+/// select CELT. All five applications are supported; restricted SILK requires
+///10/20ms. Multi-frame packet scheduling is not yet supported. Whole-stream staging
 /// makes input, coding, termination and transition failures atomic.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OpusEncoder {
     rate: InputRate,
     channels: usize,
+    application: control::Application,
+    hp_smooth: i32,
     pcm: PcmState,
     speech: SpeechState<2>,
     bandwidth: PacketBandwidth<2>,
@@ -180,11 +182,21 @@ pub struct OpusEncoder {
 impl OpusEncoder {
     /// Create a mono/stereo AUDIO stream at a standard input rate.
     pub fn new(rate: InputRate, channels: usize) -> Result<Self, EncoderError> {
+        Self::with_application(rate, channels, control::Application::Audio)
+    }
+    /// Create a stream with an immutable native application.
+    pub fn with_application(
+        rate: InputRate,
+        channels: usize,
+        application: control::Application,
+    ) -> Result<Self, EncoderError> {
         let history = control::History::new(channels)?;
         let input = output_rate(rate);
         Ok(Self {
             rate,
             channels,
+            application,
+            hp_smooth: crate::silk::encoder::highpass::initial_smoothing(),
             pcm: if channels == 1 {
                 PcmState::mono(input)
             } else {
@@ -206,8 +218,24 @@ impl OpusEncoder {
     }
     /// Clear all audio and selection histories, retaining immutable API geometry.
     pub fn reset(&mut self) -> Result<(), EncoderError> {
-        *self = Self::new(self.rate, self.channels)?;
+        *self = Self::with_application(self.rate, self.channels, self.application)?;
         Ok(())
+    }
+    /// Immutable application; per-frame controls must agree with this value.
+    pub fn application(&self) -> control::Application {
+        self.application
+    }
+    /// Native lookahead on the48kHz clock:120 for restricted CELT/low-delay,
+    ///312 for AUDIO, VOIP and restricted SILK.
+    pub fn lookahead_48k(&self) -> u32 {
+        if matches!(
+            self.application,
+            control::Application::RestrictedLowDelay | control::Application::RestrictedCelt
+        ) {
+            120
+        } else {
+            312
+        }
     }
     /// Encode interleaved signed16 PCM. The TOC-inclusive cap is3..=1276 bytes.
     /// CBR rounds the nominal target to whole bytes and fills that packet size.
@@ -222,7 +250,7 @@ impl OpusEncoder {
         if input.len() != size.samples() / self.rate.factor() * self.channels {
             return Err(FrontendError::InvalidGeometry.into());
         }
-        if options.controls.application != control::Application::Audio {
+        if options.controls.application != self.application {
             return Err(EncoderError::Unsupported);
         }
         if !(3..=1276).contains(&packet_bytes) || !(1..=1500000).contains(&options.bitrate) {
@@ -299,8 +327,25 @@ impl OpusEncoder {
         let requested_bandwidth = decision.bandwidth;
         let mut filtered = vec![0; input.len()];
         let mut aligned = vec![0; input.len()];
-        self.pcm.filter(input, &mut filtered)?;
-        self.pcm.aligned(&filtered, &mut aligned)?;
+        let hp_first = if decision.mode == Mode::Celt || decision.prefill_silk {
+            crate::silk::encoder::highpass::initial_smoothing()
+        } else {
+            self.speech.channels[0].cutoff.smooth
+        };
+        let cutoff = crate::silk::encoder::highpass::smooth_cutoff(&mut self.hp_smooth, hp_first);
+        if self.application == control::Application::Voip {
+            self.pcm.filter_voip(input, &mut filtered, cutoff)?;
+        } else {
+            self.pcm.filter(input, &mut filtered)?;
+        }
+        self.pcm.aligned_with_delay(
+            &filtered,
+            &mut aligned,
+            matches!(
+                self.application,
+                control::Application::Audio | control::Application::Voip
+            ),
+        )?;
         let mut tail = if decision.redundancy || self.bandwidth_prefill {
             redundancy_bytes(cap, bitrate, fps, decision.channels)
         } else {
@@ -308,6 +353,9 @@ impl OpusEncoder {
         };
         let mut incoming = decision.celt_to_silk || self.bandwidth_prefill;
         if decision.mode == Mode::Celt {
+            tail = 0;
+        }
+        if self.application == control::Application::RestrictedSilk {
             tail = 0;
         }
         let bits_target = (8 * (cap - tail))
@@ -480,7 +528,11 @@ impl OpusEncoder {
                 });
             }
             if self.can_switch {
-                tail = redundancy_bytes(cap, bitrate, fps, decision.channels);
+                tail = if self.application == control::Application::RestrictedSilk {
+                    0
+                } else {
+                    redundancy_bytes(cap, bitrate, fps, decision.channels)
+                };
                 incoming = false;
                 self.bandwidth_prefill = tail > 0;
             }
@@ -503,7 +555,12 @@ impl OpusEncoder {
         let prefill = old[old.len() - self.rate.hz() as usize / 250 * self.channels - n4
             ..old.len() - self.rate.hz() as usize / 250 * self.channels]
             .to_vec();
-        self.pcm.commit(&filtered)?;
+        if !matches!(
+            self.application,
+            control::Application::RestrictedCelt | control::Application::RestrictedSilk
+        ) {
+            self.pcm.commit(&filtered)?;
+        }
         if decision.mode != Mode::Hybrid {
             fade(
                 &mut aligned,

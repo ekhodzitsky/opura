@@ -265,6 +265,18 @@ impl RangeEncoder {
         let fraction = bucket + u32::from(normalized > CORRECTION[bucket as usize]);
         self.state.bits_total * 8 - (log * 8 + fraction)
     }
+    // Native CELT silence reserves the rest of the frame without coding any
+    // additional symbols. Keep interval/output state intact for termination.
+    pub(crate) fn consume_remaining_budget(&mut self) -> Result<(), EncoderError> {
+        if self.state.finished {
+            return Err(EncoderError::Finished);
+        }
+        let remaining = (self.state.capacity as u32 * 8)
+            .checked_sub(self.tell())
+            .ok_or(EncoderError::CapacityExhausted)?;
+        self.state.bits_total += remaining;
+        Ok(())
+    }
     fn transaction<T>(
         &mut self,
         operation: impl FnOnce(&mut State, &mut Journal) -> Result<T, EncoderError>,

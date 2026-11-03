@@ -14,11 +14,12 @@ retaining its live mid/input histories.
 **The fixed-band Hybrid encoder accepts mono/stereo24/48kHz PCM for
 10/20ms SWB/FB packets through the library and WAV/Ogg CLI, with opt-in DTX/FEC
 and VBR.**
-**`encoder::OpusEncoder` now automatically encodes single-frame AUDIO through
+**`encoder::OpusEncoder` now automatically encodes single frames through
 one PCM/SILK/CELT owner**, including wire-channel changes, bandwidth handshakes,
 real prefills and5ms cross-mode tails. It accepts2.5/5/10/20ms at all five input
-rates. VOIP/restricted applications, long packets and the automatic CLI remain
-in progress. See [unified AUDIO validation](docs/validation/unified-audio-owner.md).
+rates. All five native applications and `--mode auto` WAV/Ogg encoding are
+available. Long automatic packets remain in progress. See
+[application/CLI validation](docs/validation/encoder-applications.md).
 **The decoder passes all120 official RFC8251 vector/rate/channel cases.**
 The first complete-decoder benchmark is recorded: Opura trails the pinned scalar
 libopus reference in all ten configurations; complete adaptive encoding remains under development. The accepted direction is a complete decoder first, then an encoder,
@@ -82,9 +83,9 @@ Fixed SILK mono/stereo and Hybrid packet engines reuse the same internal
 speech-state type, frame analysis and AUDIO input filtering/history code.
 The common input state retains 10ms of filtered PCM, including the native
 early-DTX update order, and supplies Hybrid's compensated CELT input.
-Each fixed encoder remains an independent stream. The common AUDIO owner now
-connects these histories with native prefills/tails; VOIP and restricted
-application processing remain work. See
+Each fixed encoder remains an independent stream. The common owner now
+connects these histories with native prefills/tails and application-specific
+filter/delay processing. See
 [input-history validation](docs/validation/encoder-pcm-history.md).
 
 For SILK stereo API input, `StereoEncoder::set_encoded_channels(1)` requests
@@ -206,16 +207,17 @@ speech/music file cases and 96 deterministic loss scenarios. Unprotected/fixed
 SILK controls match native encoder PCM; protected profiles retain every SNR loss,
 backup-coverage tradeoff and PLC count. These are two-recording waveform
 checks, with process timings and no perceptual or native speed advantage claim.
-General Opus mode/channel adaptation remain unfinished.
+These fixed-mode results do not establish unified-encoder quality.
 
 Shared frontend primitives are available in `encoder::stereo_width` and
 `encoder::control`, with independently checked native scalar analysis and
 mode/channel/band/FEC decisions. `encoder::OpusEncoder` connects them to a single
-AUDIO packet owner for2.5/5/10/20ms input. The API accepts CBR/VBR/CELT CVBR,
+packet owner for2.5/5/10/20ms input and all five applications. The API accepts CBR/VBR/CELT CVBR,
 nominal rate, hard cap, mode/signal/band/channel hints, loss, DTX and FEC. Errors
 preserve all PCM, speech, CELT and selection histories. Native tiny-budget PLC,
-VOIP/restricted applications, long-packet scheduling and automatic file encoding
-remain work. Existing fixed library/CLI defaults are unchanged.
+long-packet scheduling and the remaining quality/control review remain work.
+All applications and single-frame automatic file encoding are now connected.
+Existing fixed library/CLI defaults are unchanged.
 
 ```rust
 use opura::{celt::{FrameSize, input::InputRate}, encoder::{EncodeOptions, OpusEncoder}};
@@ -231,6 +233,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 ```
+
+Automatic file encoding uses the same owner:
+
+```sh
+opura encode input.wav output.opus --mode auto --application voip --signal voice --bitrate 32000 --vbr --fec 20 --dtx
+opura decode output.opus output.wav
+```
+
+`--application` accepts `audio`, `voip`, `lowdelay`, `restricted-silk` and
+`restricted-celt`. `--complexity 0..10`, `--channels 1|2` and all supported band
+hints apply to auto mode. `lowdelay`/`restricted-celt` pre-skip is120 samples;
+AUDIO/VOIP/restricted-SILK use312. Restricted SILK requires10/20ms. Automatic
+`--packet-ms` must currently equal the frame duration; compatible grouping alone
+would not implement native transition-tail placement in long packets.
+See [application/CLI validation](docs/validation/encoder-applications.md).
 
 See [unified AUDIO validation](docs/validation/unified-audio-owner.md) for the
 connected state/transition evidence and remaining bounds, and the

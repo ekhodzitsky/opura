@@ -143,6 +143,7 @@ impl<const CHANNELS: usize> SpeechState<CHANNELS> {
             return Err(FrameError::InvalidControls);
         }
         let vad = self.vad.first_mut().ok_or(FrameError::InvalidControls)?;
+        self.channels[0].cutoff.advance(rate);
         let mut frame = AnalyzedFrame {
             pcm: [[0; 320]; 2],
             length,
@@ -265,6 +266,7 @@ impl SpeechState<2> {
         input: [&[i16]; 2],
         controls: AnalysisControls,
     ) -> Result<AnalyzedFrame, StereoFrameError> {
+        self.channels[0].cutoff.advance(rate);
         let stereo = self.stereo.analyze(
             rate,
             duration,

@@ -1,5 +1,8 @@
 # Unified AUDIO packet owner
 
+This records the0.1.90 boundary. Version0.1.91 adds all applications, embedded
+CBR silence and the automatic file CLI; see [application validation](encoder-applications.md).
+
 Version0.1.90 adds `encoder::OpusEncoder`: actual automatic single-frame AUDIO
 encoding over one PCM/DC/delay state, capacity-two speech/resampler/bandwidth
 state, CELT state and gain/width/selection history. It calls the borrowed SILK

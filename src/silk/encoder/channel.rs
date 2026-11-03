@@ -199,6 +199,7 @@ impl RedundantFrame {
 /// fixed 5 ms input delay, independent of the complexity-dependent shape window.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ChannelFrameEncoder {
+    pub(crate) cutoff: super::highpass::PitchCutoff,
     rate: SilkRate,
     history: [i16; 720],
     counter: u32,
@@ -217,6 +218,7 @@ impl ChannelFrameEncoder {
     /// and midstream internal-rate history conversion belong to the input layer.
     pub fn new(rate: SilkRate) -> Self {
         Self {
+            cutoff: super::highpass::PitchCutoff::default(),
             rate,
             history: [0; 720],
             counter: 0,
@@ -290,6 +292,7 @@ impl ChannelFrameEncoder {
     // delay, frame counter and entropy history. Independent-without-scaling
     // coding restarts the side inside a packet after mid-only omission.
     pub(crate) fn restart_prediction(&mut self) {
+        self.cutoff.reset_prediction();
         self.first = true;
         self.pitch.reset();
         self.shape.reset();
@@ -552,6 +555,11 @@ impl ChannelFrameEncoder {
         staged.advance(length);
         staged.counter = staged.counter.wrapping_add(1);
         staged.first = false;
+        staged.cutoff.record(
+            i32::from(pitch.lags()[count - 1]),
+            indices.signal,
+            controls.activity,
+        );
         let result = EncodedFrame {
             indices,
             pulses,

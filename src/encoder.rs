@@ -1,8 +1,8 @@
-//! Shared AUDIO Opus packet encoding and native scalar control primitives.
+//! Shared Opus packet encoding and native scalar control primitives.
 //!
 //! [`OpusEncoder`] owns common PCM, speech and CELT histories for automatic
-//! single-frame AUDIO encoding, including cross-mode prefills and redundancy.
-//! VOIP/restricted applications and multi-frame scheduling remain in progress.
+//! single-frame encoding across all native applications, with cross-mode
+//! prefills and redundancy. Multi-frame scheduling remains in progress.
 //! Fixed PCM encoders remain in [`crate::silk::encoder`],
 //! [`crate::celt::encoder`] and [`crate::hybrid::encoder`].
 pub mod control;

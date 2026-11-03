@@ -10,6 +10,7 @@ pub mod bandwidth;
 pub mod channel;
 pub(crate) mod dtx;
 pub(crate) mod fec;
+pub(crate) mod highpass;
 mod math;
 pub mod mono;
 pub mod nsq;

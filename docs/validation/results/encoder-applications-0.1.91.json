@@ -1,0 +1,76 @@
+{
+  "status": "pass",
+  "version": "0.1.91",
+  "reference_revision": "22244de5a79bd1d6d623c32e72bf1954b56235be",
+  "reference_configuration": "scalar fixed fast64 Q24, float analysis disabled",
+  "native_replay": true,
+  "corpus_bytes": 1454111,
+  "corpus_sha256": "8f5e9f429ca5dd1df9cb55032bd53ba8050cdfa896d673b4aec99f8627f1865d",
+  "corpus_repeat_identical": true,
+  "received_calls": {
+    "records": 9600,
+    "streams": 100,
+    "lost": 800,
+    "fec_requests": 800,
+    "single_byte_packets": 280
+  },
+  "encoded_packets": 9600,
+  "encoded_primary_modes": {
+    "silk": 3264,
+    "hybrid": 696,
+    "celt": 5640
+  },
+  "encoded_wire_changes": 700,
+  "encoded_dtx": 300,
+  "explicit_plc_calls": 800,
+  "fec_calls": 800,
+  "packet_corpus_complexities": [
+    0,
+    6,
+    10
+  ],
+  "native_input_scope": "complexity0 VOIP and three restricted applications; previous AUDIO evidence retained; CBR/unconstrained VBR",
+  "native_input_fixtures": [
+    {
+      "path": "tests/opus-application-input-fixtures.txt",
+      "rows": 5120,
+      "sha256": "02e134245816133ef7ccd08fb593d315a11be4c032ee7cf042ee17296eb4a826"
+    },
+    {
+      "path": "tests/opus-application-calls-fixtures.txt",
+      "rows": 5120,
+      "sha256": "6eb217dc2083864321eaf8f4e6f3bd225417b7c88463d9f7a7b79affb70c0171"
+    },
+    {
+      "path": "tests/opus-voip-highpass-fixtures.txt",
+      "rows": 640,
+      "sha256": "0497d434266ae5b3d3fb19f8d8b94698e3f9b3d2da7d869f26f292221d5da45b"
+    },
+    {
+      "path": "tests/opus-celt-silence-fixtures.txt",
+      "rows": 2560,
+      "sha256": "ce7ab6a8fb10d1fc8c9b7efbe42623ea12aefd9aa61a2b731875f7cbd7ab6891"
+    }
+  ],
+  "fixture_regeneration_identical": true,
+  "quiet_native_bytes_ranges": {
+    "cbr": 331,
+    "vbr": 331
+  },
+  "adaptive_cutoff_scope": "640 direct cases vary prior pitch, quality, activity, HP1/HP2 and memories; natural application snapshot HP1 remains minimum",
+  "cli_duration_cases": 300,
+  "cli_longer_control_cases": 5,
+  "isolated_mutations_detected": [
+    "omitted_silence_budget",
+    "altered_biquad_coefficient",
+    "altered_adaptation_coefficient",
+    "restricted_input_with_normal_compensation"
+  ],
+  "offline_gates": "all seven pass;23 Python tests",
+  "remaining": [
+    "long packet orchestration",
+    "native insufficient-budget PLC",
+    "full quality/complexity/rate-control review",
+    "competitive end-to-end evaluation"
+  ]
+}

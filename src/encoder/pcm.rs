@@ -11,6 +11,7 @@ pub(crate) struct PcmState {
     rate: OutputRate,
     channels: usize,
     dc: [i32; 2],
+    voip: [i32; 4],
     history: [i16; 960],
 }
 impl PcmState {
@@ -22,6 +23,7 @@ impl PcmState {
             rate,
             channels: 1,
             dc: [0; 2],
+            voip: [0; 4],
             history: [0; 960],
         }
     }
@@ -50,15 +52,46 @@ impl PcmState {
         }
         Ok(())
     }
+    pub fn filter_voip(
+        &mut self,
+        input: &[i16],
+        output: &mut [i16],
+        cutoff: i32,
+    ) -> Result<(), FrontendError> {
+        if !self.valid(input) || output.len() < input.len() || !(60..=100).contains(&cutoff) {
+            return Err(FrontendError::InvalidGeometry);
+        }
+        crate::silk::encoder::highpass::filter(
+            input,
+            output,
+            &mut self.voip,
+            self.rate.hz(),
+            self.channels,
+            cutoff,
+        );
+        Ok(())
+    }
     /// Produce the normal 4ms-compensated CELT input from the previous committed
     /// history and the current filtered frame. Call before `commit`, and before
     /// CELT-only gain/stereo fades. Supports frames shorter than compensation.
     pub fn aligned(&self, filtered: &[i16], output: &mut [i16]) -> Result<(), FrontendError> {
+        self.aligned_with_delay(filtered, output, true)
+    }
+    pub fn aligned_with_delay(
+        &self,
+        filtered: &[i16],
+        output: &mut [i16],
+        delayed: bool,
+    ) -> Result<(), FrontendError> {
         if !self.valid(filtered) || output.len() < filtered.len() {
             return Err(FrontendError::InvalidGeometry);
         }
         let end = self.rate.hz() as usize / 100 * self.channels;
-        let delay = self.rate.hz() as usize / 250 * self.channels;
+        let delay = if delayed {
+            self.rate.hz() as usize / 250 * self.channels
+        } else {
+            0
+        };
         let old = delay.min(filtered.len());
         output[..old].copy_from_slice(&self.history[end - delay..end - delay + old]);
         if filtered.len() > delay {

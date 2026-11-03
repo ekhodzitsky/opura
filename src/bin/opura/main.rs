@@ -1,6 +1,7 @@
 //! Native zero-dependency WAV/Ogg Opus command-line conversion.
 //! Existing output files are never overwritten. I/O/decoding errors can leave
 //! a newly created partial output, which must not be used.
+mod automatic;
 mod grouping;
 mod ogg;
 mod wav;
@@ -12,6 +13,7 @@ use opura::{
         input::InputRate,
     },
     decoder::OpusDecoder,
+    encoder::control::{Application, Signal},
     hybrid::encoder::{HybridEncoder, Options as HybridOptions},
     silk::{
         decoder::PcmChannels,
@@ -37,7 +39,7 @@ type Result<T> = std::result::Result<T, Box<dyn Error>>;
 fn invalid(message: impl Into<String>) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message.into())
 }
-const HELP: &str = "opura encode INPUT.wav OUTPUT.opus [--mode celt|silk|hybrid] [--bitrate BPS] [--frame-ms MS] [--packet-ms MS] [--bandwidth nb|mb|wb|auto|swb|fb] [--dtx] [--fec LOSS_PERCENT] [--vbr|--cvbr] [--max-packet-bytes BYTES]\nopura decode INPUT.opus OUTPUT.wav\nopura --version\n\nEncode: PCM16 WAV at 8/12/16/24/48 kHz.\nCELT: mono/stereo, frames 2.5/5/10/20 ms. --vbr or --cvbr selects nominal-rate variable encoding with a hard --max-packet-bytes cap (default1276); cvbr enables reservoir/drift limits. CBR remains the default. SILK: mono/stereo, frames 10/20/40/60 ms. Hybrid: mono/stereo at 24/48 kHz, frames 10/20 ms; SWB at 24 kHz, SWB/FB at 48 kHz. Hybrid --vbr uses a nominal --bitrate and a separate hard --max-packet-bytes cap (default1276); CBR remains the default. Hybrid defaults to 32000 mono/64000 stereo bits/s and input-rate SWB/FB; --dtx enables silence suppression. --fec requests SILK-band protection while retaining the requested Hybrid bandwidth.\nDefaults: CELT, 64000 bits/s (SILK: 24000 mono/48000 stereo), 20 ms. SILK bandwidth defaults to input-rate NB/MB/WB; auto selects it from bitrate/loss. --dtx enables SILK/Hybrid silence suppression, including in CBR. --fec 1..100 requests SILK/Hybrid in-band FEC with the supplied loss estimate (0 disables it). --packet-ms sets a maximum compatible packet duration up to120 ms (a multiple of frame-ms); final groups and bandwidth changes can close earlier. Aggregate CBR includes packet framing; VBR/CVBR hard caps apply to each grouped packet (default1276 bytes per component frame). Ogg overhead is additional.\nDecode: one mono/stereo Ogg Opus stream, zero header gain; output PCM16/48 kHz.\nExisting outputs are refused. Errors may leave a partial new output.";
+const HELP: &str = "opura encode INPUT.wav OUTPUT.opus [--mode celt|silk|hybrid|auto] [--application audio|voip|lowdelay|restricted-silk|restricted-celt] [--signal auto|voice|music] [--complexity 0..10] [--channels 1|2] [--bitrate BPS] [--frame-ms MS] [--packet-ms MS] [--bandwidth nb|mb|wb|auto|swb|fb] [--dtx] [--fec LOSS_PERCENT] [--vbr|--cvbr] [--max-packet-bytes BYTES]\nopura decode INPUT.opus OUTPUT.wav\nopura --version\n\nEncode: PCM16 WAV at 8/12/16/24/48 kHz.\nAUTO: common mode/channel/band selection, frames2.5/5/10/20ms; application/signal/complexity/encoded-channel controls, DTX/FEC, CBR/VBR/CELT CVBR. Long automatic packets are not yet supported. Fixed modes retain their defaults.\nCELT: mono/stereo, frames 2.5/5/10/20 ms. --vbr or --cvbr selects nominal-rate variable encoding with a hard --max-packet-bytes cap (default1276); cvbr enables reservoir/drift limits. CBR remains the default. SILK: mono/stereo, frames 10/20/40/60 ms. Hybrid: mono/stereo at 24/48 kHz, frames 10/20 ms; SWB at 24 kHz, SWB/FB at 48 kHz. Hybrid --vbr uses a nominal --bitrate and a separate hard --max-packet-bytes cap (default1276); CBR remains the default. Hybrid defaults to 32000 mono/64000 stereo bits/s and input-rate SWB/FB; --dtx enables silence suppression. --fec requests SILK-band protection while retaining the requested Hybrid bandwidth.\nDefaults: CELT, 64000 bits/s (SILK: 24000 mono/48000 stereo), 20 ms. SILK bandwidth defaults to input-rate NB/MB/WB; auto selects it from bitrate/loss. --dtx enables SILK/Hybrid silence suppression, including in CBR. --fec 1..100 requests SILK/Hybrid in-band FEC with the supplied loss estimate (0 disables it). --packet-ms sets a maximum compatible packet duration up to120 ms (a multiple of frame-ms); final groups and bandwidth changes can close earlier. Aggregate CBR includes packet framing; VBR/CVBR hard caps apply to each grouped packet (default1276 bytes per component frame). Ogg overhead is additional.\nDecode: one mono/stereo Ogg Opus stream, zero header gain; output PCM16/48 kHz.\nExisting outputs are refused. Errors may leave a partial new output.";
 fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
@@ -66,6 +68,10 @@ fn run() -> Result<()> {
             let mut size = None;
             let mut mode = None;
             let mut bandwidth = None;
+            let mut application = None;
+            let mut signal = None;
+            let mut complexity = None;
+            let mut wire_channels = None;
             let mut dtx = false;
             let mut fec = None;
             let mut vbr = false;
@@ -95,6 +101,42 @@ fn run() -> Result<()> {
                     .and_then(|v| v.to_str())
                     .ok_or_else(|| invalid("option requires a value"))?;
                 match args[i].to_str() {
+                    Some("--application") if application.is_none() => {
+                        application = Some(match value {
+                            "audio" => Application::Audio,
+                            "voip" => Application::Voip,
+                            "lowdelay" => Application::RestrictedLowDelay,
+                            "restricted-silk" => Application::RestrictedSilk,
+                            "restricted-celt" => Application::RestrictedCelt,
+                            _ => return Err(invalid("invalid application").into()),
+                        });
+                    }
+                    Some("--signal") if signal.is_none() => {
+                        signal = Some(match value {
+                            "auto" => Signal::Auto,
+                            "voice" => Signal::Voice,
+                            "music" => Signal::Music,
+                            _ => return Err(invalid("signal must be auto/voice/music").into()),
+                        });
+                    }
+                    Some("--complexity") if complexity.is_none() => {
+                        let parsed = value
+                            .parse::<u8>()
+                            .map_err(|_| invalid("complexity must be0..10"))?;
+                        if parsed > 10 {
+                            return Err(invalid("complexity must be0..10").into());
+                        }
+                        complexity = Some(parsed);
+                    }
+                    Some("--channels") if wire_channels.is_none() => {
+                        let parsed = value
+                            .parse::<usize>()
+                            .map_err(|_| invalid("encoded channels must be1 or2"))?;
+                        if !(1..=2).contains(&parsed) {
+                            return Err(invalid("encoded channels must be1 or2").into());
+                        }
+                        wire_channels = Some(parsed);
+                    }
                     Some("--packet-ms") if packet_samples.is_none() => {
                         packet_samples = Some(grouping::duration(value)?);
                     }
@@ -130,8 +172,8 @@ fn run() -> Result<()> {
                         size = Some(value);
                     }
                     Some("--mode") if mode.is_none() => {
-                        if !["celt", "silk", "hybrid"].contains(&value) {
-                            return Err(invalid("mode must be celt/silk/hybrid").into());
+                        if !["celt", "silk", "hybrid", "auto"].contains(&value) {
+                            return Err(invalid("mode must be celt/silk/hybrid/auto").into());
                         }
                         mode = Some(value);
                     }
@@ -154,6 +196,16 @@ fn run() -> Result<()> {
                 }
                 i += 2;
             }
+            if mode != Some("auto")
+                && (application.is_some()
+                    || signal.is_some()
+                    || complexity.is_some()
+                    || wire_channels.is_some())
+            {
+                return Err(
+                    invalid("application/signal/complexity/channels require mode auto").into(),
+                );
+            }
             if (vbr || max_packet_bytes.is_some()) && mode == Some("silk") {
                 return Err(
                     invalid("vbr/cvbr/max-packet-bytes require mode celt or hybrid").into(),
@@ -172,7 +224,37 @@ fn run() -> Result<()> {
                 maximum: max_packet_bytes,
                 packet_samples,
             };
-            if mode == Some("silk") {
+            if mode == Some("auto") {
+                let frame = match size.unwrap_or("20") {
+                    "2.5" => FrameSize::Ms2_5,
+                    "5" => FrameSize::Ms5,
+                    "10" => FrameSize::Ms10,
+                    "20" => FrameSize::Ms20,
+                    _ => return Err(invalid("auto frame-ms must be2.5/5/10/20").into()),
+                };
+                let bandwidth = bandwidth.and_then(|b| match b {
+                    EncodingBandwidth::Automatic => None,
+                    EncodingBandwidth::Fixed(SilkRate::Khz8) => Some(Bandwidth::Narrowband),
+                    EncodingBandwidth::Fixed(SilkRate::Khz12) => Some(Bandwidth::Mediumband),
+                    EncodingBandwidth::Fixed(SilkRate::Khz16) => Some(Bandwidth::Wideband),
+                    EncodingBandwidth::Hybrid(b) => Some(b),
+                });
+                automatic::encode(
+                    Path::new(&args[1]),
+                    Path::new(&args[2]),
+                    rate_control,
+                    automatic::Options {
+                        size: frame,
+                        application: application.unwrap_or(Application::Audio),
+                        signal: signal.unwrap_or(Signal::Auto),
+                        complexity: complexity.unwrap_or(9),
+                        channels: wire_channels,
+                        bandwidth,
+                        dtx,
+                        loss: fec.unwrap_or(0),
+                    },
+                )
+            } else if mode == Some("silk") {
                 if matches!(bandwidth, Some(EncodingBandwidth::Hybrid(_))) {
                     return Err(invalid("SILK bandwidth must be nb/mb/wb/auto").into());
                 }

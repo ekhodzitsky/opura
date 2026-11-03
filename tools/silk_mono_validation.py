@@ -90,10 +90,10 @@ def main():
             try:
                 with args.vectors.open('rb') as vectors:
                     magic = vectors.read(8)
-                    if magic not in [b'OPURAM01', b'OPURAS01', b'OPURAD01', b'OPURAD02', b'OPURAF01', b'OPURAF02', b'OPURAB01', b'OPURAB02', b'OPURAA01', b'OPURAA02', b'OPURAC01', b'OPURAC02', b'OPURAL02', b'OPURAU02']:
+                    if magic not in [b'OPURAM01', b'OPURAS01', b'OPURAD01', b'OPURAD02', b'OPURAF01', b'OPURAF02', b'OPURAB01', b'OPURAB02', b'OPURAA01', b'OPURAA02', b'OPURAC01', b'OPURAC02', b'OPURAL02', b'OPURAU02', b'OPURAP02']:
                         raise SystemExit('Invalid Rust vector header')
                     channels = 1 if magic in [b'OPURAM01', b'OPURAD01', b'OPURAF01', b'OPURAB01', b'OPURAA01', b'OPURAC01'] else 2
-                    expected_packets = 11520 if magic in [b'OPURAL02', b'OPURAU02'] else 108000 if magic.startswith((b'OPURAA', b'OPURAC')) else 12000 if magic.startswith((b'OPURAD', b'OPURAF', b'OPURAB')) else 1440 if channels == 1 else 2880
+                    expected_packets = 9600 if magic == b'OPURAP02' else 11520 if magic in [b'OPURAL02', b'OPURAU02'] else 108000 if magic.startswith((b'OPURAA', b'OPURAC')) else 12000 if magic.startswith((b'OPURAD', b'OPURAF', b'OPURAB')) else 1440 if channels == 1 else 2880
                     while header := vectors.read(17):
                         if len(header) != 17:
                             raise SystemExit('Truncated vector metadata')
@@ -101,8 +101,8 @@ def main():
                         packet = vectors.read(length)
                         if len(packet) != length:
                             raise SystemExit('Truncated packet')
-                        fec = bool(reset & 2) if magic.startswith((b'OPURAF', b'OPURAB', b'OPURAA', b'OPURAC', b'OPURAL', b'OPURAU')) else False
-                        if reset & ~(3 if magic.startswith((b'OPURAF', b'OPURAB', b'OPURAA', b'OPURAC', b'OPURAL', b'OPURAU')) else 1):
+                        fec = bool(reset & 2) if magic.startswith((b'OPURAF', b'OPURAB', b'OPURAA', b'OPURAC', b'OPURAL', b'OPURAU', b'OPURAP')) else False
+                        if reset & ~(3 if magic.startswith((b'OPURAF', b'OPURAB', b'OPURAA', b'OPURAC', b'OPURAL', b'OPURAU', b'OPURAP')) else 1):
                             raise SystemExit('Invalid vector flags')
                         if reset & 1:
                             if decoder:
@@ -124,7 +124,7 @@ def main():
             finally:
                 if decoder:
                     lib.opus_decoder_destroy(decoder)
-            if packets != expected_packets or streams != 120:
+            if packets != expected_packets or streams != (100 if magic == b'OPURAP02' else 120):
                 raise SystemExit(f'Unexpected corpus size: {streams} streams/{packets} packets')
             print(f'PASS: {streams} raw-PCM {channels}-channel streams, {packets} packets match unchanged native PCM/final ranges')
 

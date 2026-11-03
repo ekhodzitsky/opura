@@ -6,7 +6,8 @@
 //! [`celt::encoder::CeltEncoder`] and the fixed-bandwidth mono SILK
 //! [`silk::encoder::mono::MonoEncoder`], plus fixed-band Hybrid
 //! [`hybrid::encoder::HybridEncoder`]. [`encoder::OpusEncoder`] adds automatic
-//! single-frame AUDIO encoding; full application/duration integration remains work.
+//! single-frame encoding across all five applications; long-packet scheduling
+//! remains work.
 //! Frame-local entropy writing is available in [`range::RangeEncoder`]. Component APIs are in
 //! [`silk::decoder`], [`celt::decoder`] and [`hybrid`].
 //!

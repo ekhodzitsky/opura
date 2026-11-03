@@ -7,6 +7,41 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.91] - 2026-11-03
+
+- Support all five immutable applications in the common packet owner via
+  `OpusEncoder::with_application`, with application-preserving reset and native
+  lookahead reporting. Connect zero-compensation restricted input paths, native
+  retained-history bounds and restricted-SILK bandwidth switching without CELT
+  tails. Existing `new` remains AUDIO; fixed-mode defaults remain unchanged.
+- Connect native adaptive VOIP high-pass filtering to actual previous SILK pitch,
+  quality and activity histories, outer cutoff smoothing and per-API-channel
+  fixed-point biquads. Preserve rate-switch and full-reset initialization rules.
+- Correct embedded CELT CBR digital-silence signalling and entropy accounting.
+  Reserve the remaining budget without extra symbols, retain the CBR size and
+  include preceding overlap in the silence decision. Standalone fixed defaults
+  remain compatible; silent embedded CBR packets now match original bytes/ranges.
+- Add usable WAV/Ogg `--mode auto` through the shared owner, with application,
+  signal, complexity, encoded-channel and bandwidth controls, CBR/VBR/CELT CVBR,
+  DTX and FEC. Respect application-specific pre-skip and exact empty/partial-file
+  duration. Reject unsupported long automatic packets before output creation;
+  legacy file modes/defaults are unchanged.
+- Compare 5,120 original application histories/call traces, 640 independently
+  varied VOIP cutoff/filter cases and 2,560 silence/resume rows. All 662 quiet
+  packets match original bytes/ranges; four isolated mutations are detected.
+  All four fixture files regenerate identically from the pinned reference.
+- Fresh unchanged-native decoding matches 9,600 received calls in 100 streams,
+  including 800 PLC and 800 FEC calls; final corpus regeneration is identical.
+  CLI checks preserve duration/pre-skip in 300 empty/partial files and exercise
+  controls in five longer files. All seven required offline gates pass,
+  including 155 library and 23 Python tests; Cargo remains dependency-free.
+- All 24 fixed SILK/Hybrid corpora match committed 0.1.90 evidence exactly:
+  1,384,320 records in 5,088 streams. See
+  docs/validation/encoder-applications.md and its versioned results.
+- Full long-packet scheduling, native insufficient-budget PLC, remaining quality
+  control review and competitive evaluation remain work. No full-codec readiness
+  or state-of-the-art performance claim is made.
+
 ## [0.1.90] - 2026-11-03
 
 - Add `encoder::OpusEncoder`, a real shared AUDIO owner over one PCM/DC/delay,
