@@ -1,10 +1,11 @@
 # Classic multistream framing and decoder validation
 
-The library now provides `multistream::ChannelMapping`, `MultistreamPacket`,
-`MultistreamDecoder` and `MultistreamPcm`. This is the decoder portion of ongoing
-multistream integration. Multistream encoding and mapped WAV/Ogg file workflows
-are still missing; the existing CLI does not gain multichannel support from
-these library additions. There is no new speed or perceptual quality claim.
+The library provides `multistream::ChannelMapping`, `MultistreamPacket`,
+`MultistreamDecoder`, `MultistreamPcm` and persistent generic encoding through
+`MultistreamEncoder`/`MultistreamEncodeOptions`. Mapped WAV/Ogg file workflows
+and surround energy-mask/LFE analysis remain unfinished; the existing CLI does
+not gain multichannel support from these library additions. Mono/stereo file
+decoding now honors signed header gain. There is no new speed or quality claim.
 
 ## Contracts
 
@@ -85,3 +86,63 @@ All seven required offline checks pass, including162 existing library tests,
 optional; ordinary tests use the tracked synthetic fixtures.
 The full codec goal remains open, including encoder/file integration and broader
 compatibility, quality and competitive performance acceptance.
+
+
+## Generic encoder validation
+
+The encoder accepts complete mapped interleaved PCM and an inclusive whole-packet
+byte cap. Total bitrate is positive and bounded to191250000bps, then normalized
+to500..750000bps per mapped input channel as in the original generic API.
+Allocation accounts for coupled and mono coded channels. Common application,
+signal, bandwidth, loss/FEC/DTX, complexity and rate-mode controls pass to each
+persistent owner. Every coded channel needs an input occurrence; repeated input
+entries use the first and silent slots are ignored. A later stream/control or
+framing failure preserves all histories. Successful packets XOR every stream's
+final range and expose the nominal rates passed to constituent APIs.
+
+CBR rounds the total target to whole bytes, reserves remaining streams and
+self-delimited size fields, adjusts the final stream's nominal budget and pads
+only the final transport subpacket to the total.100ms packets reserve the extra
+frame-count bytes even for tiny-budget PLC. The cap is bounded to16MiB. The
+underlying library now accepts long capacities through7662 bytes, including the
+complete six-frame length header; the mono/stereo CLI retains its separate cap
+until mapped file integration is complete.
+
+`tools/multistream_rate_fixtures.py` observes the unchanged native generic
+allocation kernel through temporary observation wrappers. Its3240 cases cover
+nine durations, five rates, eight maps through255 channels and nine requested
+rates per geometry. Rust matches normalized totals, complete allocation arrays
+and sums in `tests/multistream-rate-fixtures.txt`.
+
+`examples/multistream_encode_vectors.rs` exports229 predeclared cases and7405
+operations, including1..8 channels, a repeated/silent map, five input rates, all
+five applications, all packet durations and CBR/VBR/CVBR. Separate8s voice
+profiles include actual quiet spans, dropped packets, PLC and FEC recovery.
+`tools/multistream_encoder_interop.py` decodes all packets with unchanged native
+multistream decoding, matching every sample count, final range and full PCM
+fingerprint. It rejects corrupted expected ranges/PCM and requires each exact
+case/control schedule, actual suppression and LBRR on FEC steps. It does not
+require unsupported byte or quality identity with the pristine native encoder.
+The report records the source fingerprint and dirty-worktree provenance.
+
+```sh
+python3 tools/multistream_rate_fixtures.py /path/to/opus /new/path/rates.txt
+python3 tools/multistream_encoder_interop.py /path/to/opus /new/path/interop
+cargo test --offline --locked --test multistream_encoder
+```
+
+Three encoder regressions also exercise all input rates/applications, ignored
+and repeated input slots, exact CBR budgets, every duration, large final padding,
+actual later-stream control failure and successful resume. A separate18-case
+CLI integration checks signed gain for existing SILK/CELT/Hybrid files against
+the frame decoder after exact pre-skip/end trimming. These cover wiring and
+budget semantics; independent native fixtures cover gain arithmetic and PCM.
+
+The encoder/file-gain integration passes all seven offline gates with 163 library
+and 33 Python tests. Four additional running-assertion mutations detect wrong
+rate offsets, last-occurrence input selection, partial state commits and CBR
+rounding. The sources are restored; targeted tests and fresh independent native
+validation pass again. Both full exports are byte-identical. The
+[source-fingerprinted report](results/multistream-generic-encoder.json) records
+7405 actual operations, with 49 FEC-step LBRR streams and 3108 suppressed frames.
+The earlier seven-gate statement above records the decoder-only checkpoint.

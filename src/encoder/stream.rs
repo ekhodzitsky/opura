@@ -335,7 +335,7 @@ impl OpusEncoder {
         self.encode_packet(size.into(), input, packet_bytes, options)
     }
     /// Encode a complete2.5..120ms packet with one mode/layout selection.
-    /// Caps are1..1276 for short packets and1..7656 for longer packets.
+    /// Caps are1..1276 for short packets and1..7662 for longer packets.
     /// A one-byte100ms packet cannot be represented. Insufficient useful audio
     /// budgets emit native PLC; every error preserves all histories.
     pub fn encode_packet(
@@ -351,7 +351,7 @@ impl OpusEncoder {
         if options.controls.application != self.application {
             return Err(EncoderError::Unsupported);
         }
-        let maximum = if size.samples() > 960 { 7656 } else { 1276 };
+        let maximum = if size.samples() > 960 { 7662 } else { 1276 };
         if !(1..=maximum).contains(&packet_bytes) || !(1..=1500000).contains(&options.bitrate) {
             return Err(FrontendError::InvalidControl.into());
         }

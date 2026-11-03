@@ -14,6 +14,9 @@ use crate::{
 };
 use std::fmt;
 
+mod encoder;
+pub use encoder::{MultistreamEncodeOptions, MultistreamEncodedPacket, MultistreamEncoder};
+
 /// Largest accepted multistream transport packet, including padding (16MiB).
 /// This bounds framing work independently of caller-controlled padding lengths.
 pub const MAX_PACKET_BYTES: usize = 16 * 1024 * 1024;
@@ -50,6 +53,19 @@ pub enum MultistreamError {
     },
     /// Decoded PCM geometry differs from validated stream geometry.
     InvalidOutput,
+    /// PCM length does not match mapped input geometry and duration.
+    InvalidInput,
+    /// Whole-packet capacity is outside resource or minimum framing bounds.
+    InvalidBudget,
+    /// Common controls or nominal total bitrate are invalid.
+    InvalidControl,
+    /// A constituent stream could not encode; the complete owner is unchanged.
+    Encode {
+        /// Zero-based constituent stream index.
+        stream: usize,
+        /// Underlying encoding or output framing failure.
+        error: crate::encoder::EncoderError,
+    },
 }
 impl fmt::Display for MultistreamError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -65,6 +81,10 @@ impl fmt::Display for MultistreamError {
             }
             Self::Decode { stream, error } => write!(f, "Opus stream {stream}: {error}"),
             Self::InvalidOutput => f.write_str("inconsistent multistream PCM geometry"),
+            Self::InvalidInput => f.write_str("invalid multistream input PCM geometry"),
+            Self::InvalidBudget => f.write_str("invalid multistream whole-packet capacity"),
+            Self::InvalidControl => f.write_str("invalid multistream encoding controls"),
+            Self::Encode { stream, error } => write!(f, "Opus stream {stream}: {error}"),
         }
     }
 }
@@ -73,6 +93,7 @@ impl std::error::Error for MultistreamError {
         match self {
             Self::Framing { error, .. } => Some(error),
             Self::Decode { error, .. } => Some(error),
+            Self::Encode { error, .. } => Some(error),
             _ => None,
         }
     }

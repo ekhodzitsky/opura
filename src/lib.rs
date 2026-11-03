@@ -13,8 +13,9 @@
 //! Pass exactly one externally delimited packet with transport headers removed.
 //! [`Packet`] validates RFC6716 section3 framing separately from compressed audio.
 //! [`multistream`] adds channel mapping, self-delimited framing and persistent
-//! mapped PCM decoding. Multistream encoding and container integration remain
-//! unfinished. Single-stream packet parsing uses allocation-free frame views.
+//! mapped PCM decoding and generic encoding. Surround analysis and mapped
+//! container integration remain unfinished. Single-stream packet parsing uses
+//! allocation-free frame views.
 //!
 //! ```
 //! let packet = opura::Packet::parse(&[0x98, 0x12, 0x34])?;

@@ -7,6 +7,20 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Add persistent generic mapped encoding with native total/per-stream rate
+  allocation, complete packet CBR/VBR/CVBR budgets,100ms framing reservations,
+  mapped first-occurrence PCM selection and complete-owner rollback/resume.
+  Original native allocation matches3240 boundary cases; independent native
+  decoding matches7405 operations over229 synthetic mapped cases, including
+  real DTX/FEC and loss schedules. This is generic encoding, without surround
+  energy-mask/LFE equivalence or competitive quality claims.
+
+- Honor signed Q8 dB OpusHead gain in mono/stereo Ogg decoding, with gain
+  applied by the frame decoder before pre-skip and final duration trimming.
+- Extend the unified library encoder's long-packet cap through7662 bytes to
+  include complete six-frame size headers. The prior7656-byte cap remains
+  accepted; mapped file integration is still in progress.
+
 - Add bounded classic multistream channel maps, borrowed self-delimited parsing
   and canonical self-delimited/padded repacketizer output. Ordinary packet
   parsing and writes retain their existing behavior.

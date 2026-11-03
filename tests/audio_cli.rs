@@ -1348,3 +1348,70 @@ fn silk_cli_fec_emits_redundancy_and_combines_with_dtx() -> Result<()> {
     }
     Ok(())
 }
+
+#[test]
+fn signed_header_gain_reaches_frame_decoder_before_exact_file_trimming() -> Result<()> {
+    use opura::{
+        decoder::OpusDecoder,
+        silk::{decoder::PcmChannels, resampler::OutputRate},
+    };
+    let temp = Temporary::new()?;
+    for name in ["silk-mono", "celt-stereo", "hybrid-stereo"] {
+        let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/audio")
+            .join(name);
+        let original = fs::read(base.with_extension("opus"))?;
+        let baseline = fs::read(base.with_extension("pcm"))?;
+        let header = original
+            .windows(8)
+            .position(|s| s == b"OpusHead")
+            .ok_or("missing OpusHead")?;
+        let channels = usize::from(original[header + 9]);
+        let skip = usize::from(u16::from_le_bytes([
+            original[header + 10],
+            original[header + 11],
+        ]));
+        let frames = baseline.len() / 2 / channels;
+        let packets = audio_packets(&original)?;
+        for gain in [0, i16::MIN, -1536, 1, 1536, i16::MAX] {
+            let mut bytes = original.clone();
+            bytes[header + 16..header + 18].copy_from_slice(&gain.to_le_bytes());
+            rewrite_granules(&mut bytes, |_, g| g)?;
+            let source = temp.0.join(format!("{name}-gain{gain}.opus"));
+            let output = temp.0.join(format!("{name}-gain{gain}.wav"));
+            fs::write(&source, &bytes)?;
+            success(cli().arg("decode").arg(&source).arg(&output))?;
+            let mut decoder = OpusDecoder::new(
+                OutputRate::Khz48,
+                if channels == 1 {
+                    PcmChannels::Mono
+                } else {
+                    PcmChannels::Stereo
+                },
+            )?;
+            decoder.set_gain_q8(gain);
+            let mut expected = Vec::new();
+            for packet in &packets {
+                expected.extend_from_slice(decoder.decode(packet)?.samples());
+            }
+            let expected: Vec<u8> = expected[skip * channels..(skip + frames) * channels]
+                .iter()
+                .flat_map(|n| n.to_le_bytes())
+                .collect();
+            let wave = fs::read(output)?;
+            let actual = output_pcm(&wave, channels as u16, frames)?;
+            assert_eq!(actual, expected, "{name},gain{gain}");
+            if gain == 0 {
+                assert_eq!(actual, baseline);
+            }
+            if gain == i16::MIN {
+                assert!(actual.iter().all(|&n| n == 0));
+            }
+            if gain == 1536 || gain == -1536 {
+                assert_ne!(actual, baseline, "gain was ignored");
+            }
+            assert_eq!(fs::read(source)?, bytes, "decoding modified the source");
+        }
+    }
+    Ok(())
+}

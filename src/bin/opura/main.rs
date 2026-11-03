@@ -39,7 +39,7 @@ type Result<T> = std::result::Result<T, Box<dyn Error>>;
 fn invalid(message: impl Into<String>) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message.into())
 }
-const HELP: &str = "opura encode INPUT.wav OUTPUT.opus [--mode celt|silk|hybrid|auto] [--application audio|voip|lowdelay|restricted-silk|restricted-celt] [--signal auto|voice|music] [--complexity 0..10] [--channels 1|2] [--bitrate BPS] [--frame-ms MS] [--packet-ms MS] [--bandwidth nb|mb|wb|auto|swb|fb] [--dtx] [--fec LOSS_PERCENT] [--vbr|--cvbr] [--max-packet-bytes BYTES]\nopura decode INPUT.opus OUTPUT.wav\nopura --version\n\nEncode: PCM16 WAV at 8/12/16/24/48 kHz.\nAUTO: common mode/channel/band selection, packets2.5..120ms; application/signal/complexity/encoded-channel controls, DTX/FEC, CBR/VBR/CELT CVBR. AUTO packet-ms selects one complete packet with native component scheduling. AUTO permits1/2-byte caps and low nominal rates via native PLC;100ms requires at least2bytes. Fixed modes retain their defaults.\nCELT: mono/stereo, frames 2.5/5/10/20 ms. --vbr or --cvbr selects nominal-rate variable encoding with a hard --max-packet-bytes cap (default1276); cvbr enables reservoir/drift limits. CBR remains the default. SILK: mono/stereo, frames 10/20/40/60 ms. Hybrid: mono/stereo at 24/48 kHz, frames 10/20 ms; SWB at 24 kHz, SWB/FB at 48 kHz. Hybrid --vbr uses a nominal --bitrate and a separate hard --max-packet-bytes cap (default1276); CBR remains the default. Hybrid defaults to 32000 mono/64000 stereo bits/s and input-rate SWB/FB; --dtx enables silence suppression. --fec requests SILK-band protection while retaining the requested Hybrid bandwidth.\nDefaults: CELT, 64000 bits/s (SILK: 24000 mono/48000 stereo), 20 ms. SILK bandwidth defaults to input-rate NB/MB/WB; auto selects it from bitrate/loss. --dtx enables SILK/Hybrid silence suppression, including in CBR. --fec 1..100 requests SILK/Hybrid in-band FEC with the supplied loss estimate (0 disables it). --packet-ms sets a maximum compatible packet duration up to120 ms (a multiple of frame-ms); final groups and bandwidth changes can close earlier. Aggregate CBR includes packet framing; VBR/CVBR hard caps apply to each grouped packet (default1276 bytes per component frame). Ogg overhead is additional.\nDecode: one mono/stereo Ogg Opus stream, zero header gain; output PCM16/48 kHz.\nExisting outputs are refused. Errors may leave a partial new output.";
+const HELP: &str = "opura encode INPUT.wav OUTPUT.opus [--mode celt|silk|hybrid|auto] [--application audio|voip|lowdelay|restricted-silk|restricted-celt] [--signal auto|voice|music] [--complexity 0..10] [--channels 1|2] [--bitrate BPS] [--frame-ms MS] [--packet-ms MS] [--bandwidth nb|mb|wb|auto|swb|fb] [--dtx] [--fec LOSS_PERCENT] [--vbr|--cvbr] [--max-packet-bytes BYTES]\nopura decode INPUT.opus OUTPUT.wav\nopura --version\n\nEncode: PCM16 WAV at 8/12/16/24/48 kHz.\nAUTO: common mode/channel/band selection, packets2.5..120ms; application/signal/complexity/encoded-channel controls, DTX/FEC, CBR/VBR/CELT CVBR. AUTO packet-ms selects one complete packet with native component scheduling. AUTO permits1/2-byte caps and low nominal rates via native PLC;100ms requires at least2bytes. Fixed modes retain their defaults.\nCELT: mono/stereo, frames 2.5/5/10/20 ms. --vbr or --cvbr selects nominal-rate variable encoding with a hard --max-packet-bytes cap (default1276); cvbr enables reservoir/drift limits. CBR remains the default. SILK: mono/stereo, frames 10/20/40/60 ms. Hybrid: mono/stereo at 24/48 kHz, frames 10/20 ms; SWB at 24 kHz, SWB/FB at 48 kHz. Hybrid --vbr uses a nominal --bitrate and a separate hard --max-packet-bytes cap (default1276); CBR remains the default. Hybrid defaults to 32000 mono/64000 stereo bits/s and input-rate SWB/FB; --dtx enables silence suppression. --fec requests SILK-band protection while retaining the requested Hybrid bandwidth.\nDefaults: CELT, 64000 bits/s (SILK: 24000 mono/48000 stereo), 20 ms. SILK bandwidth defaults to input-rate NB/MB/WB; auto selects it from bitrate/loss. --dtx enables SILK/Hybrid silence suppression, including in CBR. --fec 1..100 requests SILK/Hybrid in-band FEC with the supplied loss estimate (0 disables it). --packet-ms sets a maximum compatible packet duration up to120 ms (a multiple of frame-ms); final groups and bandwidth changes can close earlier. Aggregate CBR includes packet framing; VBR/CVBR hard caps apply to each grouped packet (default1276 bytes per component frame). Ogg overhead is additional.\nDecode: one mono/stereo Ogg Opus stream with header output gain; output PCM16/48 kHz.\nExisting outputs are refused. Errors may leave a partial new output.";
 fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
@@ -712,6 +712,7 @@ fn encode_hybrid(
 struct Head {
     channels: usize,
     skip: u64,
+    gain_q8: i16,
 }
 fn head(packet: &[u8]) -> io::Result<Head> {
     if packet.len() < 19 || &packet[..8] != b"OpusHead" || packet[8] > 15 {
@@ -723,12 +724,10 @@ fn head(packet: &[u8]) -> io::Result<Head> {
             "only mono/stereo Opus mapping family zero is supported",
         ));
     }
-    if packet[16..18] != [0, 0] {
-        return Err(invalid("nonzero OpusHead output gain is not supported"));
-    }
     Ok(Head {
         channels,
         skip: u64::from(u16::from_le_bytes([packet[10], packet[11]])),
+        gain_q8: i16::from_le_bytes([packet[16], packet[17]]),
     })
 }
 fn tags(packet: &[u8]) -> io::Result<()> {
@@ -794,6 +793,7 @@ fn decode(input: &Path, output: &Path) -> Result<()> {
         PcmChannels::Stereo
     };
     let mut decoder = OpusDecoder::new(OutputRate::Khz48, channels)?;
+    decoder.set_gain_q8(header.gain_q8);
     let mut writer = wav::Writer::new(BufWriter::new(create(output)?), 48000, header.channels)?;
     let mut decoded = 0u64;
     let mut written = 0u64;
@@ -880,13 +880,17 @@ mod tests {
         for length in 0..19 {
             assert!(head(&packet[..length]).is_err());
         }
-        for (index, value) in [(8, 16), (9, 0), (9, 3), (16, 1), (18, 1)] {
+        for (index, value) in [(8, 16), (9, 0), (9, 3), (18, 1)] {
             let mut invalid = packet.clone();
             invalid[index] = value;
             assert!(head(&invalid).is_err());
         }
         packet[8] = 15;
         assert!(head(&packet).is_ok());
+        for gain in [i16::MIN, -1536, 1, 1536, i16::MAX] {
+            packet[16..18].copy_from_slice(&gain.to_le_bytes());
+            assert!(head(&packet).is_ok_and(|h| h.gain_q8 == gain));
+        }
         assert!(tags(b"OpusTags\0\0\0\0\0\0\0\0").is_ok());
         assert!(tags(b"OpusTags\xff\xff\xff\xff\0\0\0\0").is_err());
         assert!(tags(b"OpusTags\0\0\0\0\xff\xff\xff\xff").is_err());

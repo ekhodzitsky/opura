@@ -1,0 +1,6810 @@
+{
+  "base_revision": "d757f3a3f51bc0c3d1695c0e387d8040bae8655b",
+  "binary_sha256": "3b21ed9c3d6de841a6f7216fae293d28b5fd84a7aa12d2a6e6242b6263e1509f",
+  "cases": [
+    {
+      "application": 0,
+      "channels": 1,
+      "coupled": 0,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0
+      ],
+      "mode_packets": [
+        9,
+        0,
+        18
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 1,
+      "coupled": 0,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0
+      ],
+      "mode_packets": [
+        21,
+        0,
+        6
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 1,
+      "coupled": 0,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0
+      ],
+      "mode_packets": [
+        3,
+        0,
+        24
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 1,
+      "coupled": 0,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0
+      ],
+      "mode_packets": [
+        21,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 21,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 1,
+      "coupled": 0,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0
+      ],
+      "mode_packets": [
+        3,
+        0,
+        24
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 2,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1
+      ],
+      "mode_packets": [
+        9,
+        0,
+        18
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 2,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1
+      ],
+      "mode_packets": [
+        21,
+        0,
+        6
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 2,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1
+      ],
+      "mode_packets": [
+        3,
+        0,
+        24
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 2,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1
+      ],
+      "mode_packets": [
+        21,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 21,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 2,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1
+      ],
+      "mode_packets": [
+        3,
+        0,
+        24
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        11,
+        0,
+        43
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        42,
+        0,
+        12
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        42,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 21,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 4,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 4,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        35,
+        0,
+        19
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 4,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 4,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        42,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 21,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 4,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 5,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        13,
+        0,
+        68
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 3,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 5,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        58,
+        0,
+        23
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 3,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 5,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        9,
+        0,
+        72
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 3,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 5,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        63,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 21,
+      "streams": 3,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 5,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        9,
+        0,
+        72
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 3,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 6,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 6,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5
+      ],
+      "mode_packets": [
+        76,
+        0,
+        32
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 6,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 6,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5
+      ],
+      "mode_packets": [
+        84,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 21,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 6,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 7,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5,
+        6
+      ],
+      "mode_packets": [
+        17,
+        0,
+        91
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 7,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5,
+        6
+      ],
+      "mode_packets": [
+        74,
+        0,
+        34
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 7,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5,
+        6
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 7,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5,
+        6
+      ],
+      "mode_packets": [
+        84,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 21,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 7,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5,
+        6
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        15,
+        0,
+        120
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 5,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        97,
+        0,
+        38
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 5,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        15,
+        0,
+        120
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 5,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        105,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 21,
+      "streams": 5,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        15,
+        0,
+        120
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 5,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 5,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        2,
+        0,
+        1,
+        255,
+        0
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 5,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        2,
+        0,
+        1,
+        255,
+        0
+      ],
+      "mode_packets": [
+        42,
+        0,
+        12
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 5,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        2,
+        0,
+        1,
+        255,
+        0
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 5,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        2,
+        0,
+        1,
+        255,
+        0
+      ],
+      "mode_packets": [
+        42,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 21,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 5,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        2,
+        0,
+        1,
+        255,
+        0
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 8000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 1,
+      "coupled": 0,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0
+      ],
+      "mode_packets": [
+        9,
+        0,
+        18
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 1,
+      "coupled": 0,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0
+      ],
+      "mode_packets": [
+        21,
+        0,
+        6
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 1,
+      "coupled": 0,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0
+      ],
+      "mode_packets": [
+        3,
+        0,
+        24
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 1,
+      "coupled": 0,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0
+      ],
+      "mode_packets": [
+        21,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 21,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 1,
+      "coupled": 0,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0
+      ],
+      "mode_packets": [
+        3,
+        0,
+        24
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 2,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1
+      ],
+      "mode_packets": [
+        9,
+        0,
+        18
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 2,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1
+      ],
+      "mode_packets": [
+        21,
+        0,
+        6
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 2,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1
+      ],
+      "mode_packets": [
+        3,
+        0,
+        24
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 2,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1
+      ],
+      "mode_packets": [
+        21,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 21,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 2,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1
+      ],
+      "mode_packets": [
+        3,
+        0,
+        24
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        11,
+        0,
+        43
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        42,
+        0,
+        12
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        42,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 21,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 4,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 4,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        35,
+        0,
+        19
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 4,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 4,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        42,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 21,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 4,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 5,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        13,
+        0,
+        68
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 3,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 5,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        62,
+        0,
+        19
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 3,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 5,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        9,
+        0,
+        72
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 3,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 5,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        63,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 21,
+      "streams": 3,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 5,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        9,
+        0,
+        72
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 3,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 6,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 6,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5
+      ],
+      "mode_packets": [
+        82,
+        0,
+        26
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 6,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 6,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5
+      ],
+      "mode_packets": [
+        84,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 21,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 6,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 7,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5,
+        6
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 7,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5,
+        6
+      ],
+      "mode_packets": [
+        71,
+        0,
+        37
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 7,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5,
+        6
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 7,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5,
+        6
+      ],
+      "mode_packets": [
+        84,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 21,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 7,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5,
+        6
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        15,
+        0,
+        120
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 5,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        103,
+        0,
+        32
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 5,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        15,
+        0,
+        120
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 5,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        105,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 21,
+      "streams": 5,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        15,
+        0,
+        120
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 5,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 5,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        2,
+        0,
+        1,
+        255,
+        0
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 5,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        2,
+        0,
+        1,
+        255,
+        0
+      ],
+      "mode_packets": [
+        42,
+        0,
+        12
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 5,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        2,
+        0,
+        1,
+        255,
+        0
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 5,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        2,
+        0,
+        1,
+        255,
+        0
+      ],
+      "mode_packets": [
+        42,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 21,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 5,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        2,
+        0,
+        1,
+        255,
+        0
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 12000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 1,
+      "coupled": 0,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0
+      ],
+      "mode_packets": [
+        9,
+        0,
+        18
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 1,
+      "coupled": 0,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0
+      ],
+      "mode_packets": [
+        21,
+        0,
+        6
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 1,
+      "coupled": 0,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0
+      ],
+      "mode_packets": [
+        3,
+        0,
+        24
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 1,
+      "coupled": 0,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0
+      ],
+      "mode_packets": [
+        21,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 21,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 1,
+      "coupled": 0,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0
+      ],
+      "mode_packets": [
+        3,
+        0,
+        24
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 2,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1
+      ],
+      "mode_packets": [
+        9,
+        0,
+        18
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 2,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1
+      ],
+      "mode_packets": [
+        21,
+        0,
+        6
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 2,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1
+      ],
+      "mode_packets": [
+        3,
+        0,
+        24
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 2,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1
+      ],
+      "mode_packets": [
+        21,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 21,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 2,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1
+      ],
+      "mode_packets": [
+        3,
+        0,
+        24
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        9,
+        0,
+        45
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        42,
+        0,
+        12
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        42,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 21,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 4,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 4,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        38,
+        0,
+        16
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 4,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 4,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        42,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 21,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 4,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 5,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        13,
+        0,
+        68
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 3,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 5,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        61,
+        0,
+        20
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 3,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 5,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        9,
+        0,
+        72
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 3,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 5,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        63,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 21,
+      "streams": 3,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 5,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        9,
+        0,
+        72
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 3,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 6,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 6,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5
+      ],
+      "mode_packets": [
+        75,
+        0,
+        33
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 6,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 6,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5
+      ],
+      "mode_packets": [
+        84,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 21,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 6,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 7,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5,
+        6
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 7,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5,
+        6
+      ],
+      "mode_packets": [
+        71,
+        0,
+        37
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 7,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5,
+        6
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 7,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5,
+        6
+      ],
+      "mode_packets": [
+        84,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 21,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 7,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5,
+        6
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        20,
+        0,
+        115
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 5,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        96,
+        0,
+        39
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 5,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        15,
+        0,
+        120
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 5,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        105,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 21,
+      "streams": 5,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        15,
+        0,
+        120
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 5,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 5,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        2,
+        0,
+        1,
+        255,
+        0
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 5,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        2,
+        0,
+        1,
+        255,
+        0
+      ],
+      "mode_packets": [
+        42,
+        0,
+        12
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 5,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        2,
+        0,
+        1,
+        255,
+        0
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 5,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        2,
+        0,
+        1,
+        255,
+        0
+      ],
+      "mode_packets": [
+        42,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 21,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 5,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        2,
+        0,
+        1,
+        255,
+        0
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 16000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 1,
+      "coupled": 0,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0
+      ],
+      "mode_packets": [
+        9,
+        0,
+        18
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 1,
+      "coupled": 0,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0
+      ],
+      "mode_packets": [
+        7,
+        14,
+        6
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 1,
+      "coupled": 0,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0
+      ],
+      "mode_packets": [
+        3,
+        0,
+        24
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 1,
+      "coupled": 0,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0
+      ],
+      "mode_packets": [
+        21,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 21,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 1,
+      "coupled": 0,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0
+      ],
+      "mode_packets": [
+        3,
+        0,
+        24
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 2,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1
+      ],
+      "mode_packets": [
+        9,
+        0,
+        18
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 2,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1
+      ],
+      "mode_packets": [
+        7,
+        14,
+        6
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 2,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1
+      ],
+      "mode_packets": [
+        3,
+        0,
+        24
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 2,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1
+      ],
+      "mode_packets": [
+        21,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 21,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 2,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1
+      ],
+      "mode_packets": [
+        3,
+        0,
+        24
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        9,
+        0,
+        45
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        17,
+        25,
+        12
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        42,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 21,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 4,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        11,
+        0,
+        43
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 4,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        16,
+        26,
+        12
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 4,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 4,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        42,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 21,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 4,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 5,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        9,
+        0,
+        72
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 3,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 5,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        30,
+        33,
+        18
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 3,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 5,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        9,
+        0,
+        72
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 3,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 5,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        63,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 21,
+      "streams": 3,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 5,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        9,
+        0,
+        72
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 3,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 6,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5
+      ],
+      "mode_packets": [
+        18,
+        0,
+        90
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 6,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5
+      ],
+      "mode_packets": [
+        41,
+        43,
+        24
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 6,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 6,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5
+      ],
+      "mode_packets": [
+        84,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 21,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 6,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 7,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5,
+        6
+      ],
+      "mode_packets": [
+        18,
+        0,
+        90
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 7,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5,
+        6
+      ],
+      "mode_packets": [
+        42,
+        42,
+        24
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 7,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5,
+        6
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 7,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5,
+        6
+      ],
+      "mode_packets": [
+        84,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 21,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 7,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5,
+        6
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        22,
+        0,
+        113
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 5,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        49,
+        56,
+        30
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 5,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        15,
+        0,
+        120
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 5,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        105,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 21,
+      "streams": 5,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        15,
+        0,
+        120
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 5,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 5,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        2,
+        0,
+        1,
+        255,
+        0
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 5,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        2,
+        0,
+        1,
+        255,
+        0
+      ],
+      "mode_packets": [
+        17,
+        25,
+        12
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 5,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        2,
+        0,
+        1,
+        255,
+        0
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 5,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        2,
+        0,
+        1,
+        255,
+        0
+      ],
+      "mode_packets": [
+        42,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 21,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 5,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        2,
+        0,
+        1,
+        255,
+        0
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 24000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 1,
+      "coupled": 0,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0
+      ],
+      "mode_packets": [
+        9,
+        0,
+        18
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 1,
+      "coupled": 0,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0
+      ],
+      "mode_packets": [
+        7,
+        14,
+        6
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 1,
+      "coupled": 0,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0
+      ],
+      "mode_packets": [
+        3,
+        0,
+        24
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 1,
+      "coupled": 0,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0
+      ],
+      "mode_packets": [
+        21,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 21,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 1,
+      "coupled": 0,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0
+      ],
+      "mode_packets": [
+        3,
+        0,
+        24
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 2,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1
+      ],
+      "mode_packets": [
+        9,
+        0,
+        18
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 2,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1
+      ],
+      "mode_packets": [
+        8,
+        13,
+        6
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 2,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1
+      ],
+      "mode_packets": [
+        3,
+        0,
+        24
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 2,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1
+      ],
+      "mode_packets": [
+        21,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 21,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 2,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1
+      ],
+      "mode_packets": [
+        3,
+        0,
+        24
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 1,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        14,
+        28,
+        12
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        42,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 21,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 4,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 4,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        14,
+        28,
+        12
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 4,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 4,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        42,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 21,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 4,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 5,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        13,
+        0,
+        68
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 3,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 5,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        25,
+        38,
+        18
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 3,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 5,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        9,
+        0,
+        72
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 3,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 5,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        63,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 21,
+      "streams": 3,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 5,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3
+      ],
+      "mode_packets": [
+        9,
+        0,
+        72
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 3,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 6,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 6,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5
+      ],
+      "mode_packets": [
+        36,
+        48,
+        24
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 6,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 6,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5
+      ],
+      "mode_packets": [
+        84,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 21,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 6,
+      "coupled": 2,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 7,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5,
+        6
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 7,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5,
+        6
+      ],
+      "mode_packets": [
+        31,
+        48,
+        29
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 7,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5,
+        6
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 7,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5,
+        6
+      ],
+      "mode_packets": [
+        84,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 21,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 7,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        4,
+        1,
+        2,
+        3,
+        5,
+        6
+      ],
+      "mode_packets": [
+        12,
+        0,
+        96
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 4,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        15,
+        0,
+        120
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 5,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        47,
+        58,
+        30
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 5,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        15,
+        0,
+        120
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 5,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        105,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 21,
+      "streams": 5,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        15,
+        0,
+        120
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 5,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 0,
+      "channels": 5,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        2,
+        0,
+        1,
+        255,
+        0
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 5,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        2,
+        0,
+        1,
+        255,
+        0
+      ],
+      "mode_packets": [
+        14,
+        28,
+        12
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 2,
+      "channels": 5,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        2,
+        0,
+        1,
+        255,
+        0
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 3,
+      "channels": 5,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        2,
+        0,
+        1,
+        255,
+        0
+      ],
+      "mode_packets": [
+        42,
+        0,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 21,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 21,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 4,
+      "channels": 5,
+      "coupled": 1,
+      "dtx_requested": false,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        2,
+        0,
+        1,
+        255,
+        0
+      ],
+      "mode_packets": [
+        6,
+        0,
+        48
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 27,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 27,
+      "streams": 2,
+      "suppressed_frames": 0
+    },
+    {
+      "application": 1,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": true,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        0,
+        752,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 376,
+        "plc": 24
+      },
+      "rate": 48000,
+      "rows": 400,
+      "streams": 2,
+      "suppressed_frames": 443
+    },
+    {
+      "application": 1,
+      "channels": 3,
+      "coupled": 1,
+      "dtx_requested": true,
+      "fec_requested": true,
+      "fec_step_lbrr_streams": 14,
+      "lbrr_stream_packets": 220,
+      "mapping": [
+        0,
+        2,
+        1
+      ],
+      "mode_packets": [
+        0,
+        752,
+        0
+      ],
+      "operations": {
+        "fec": 24,
+        "normal": 376,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 400,
+      "streams": 2,
+      "suppressed_frames": 443
+    },
+    {
+      "application": 1,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": true,
+      "fec_requested": false,
+      "fec_step_lbrr_streams": 0,
+      "lbrr_stream_packets": 0,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        0,
+        1880,
+        0
+      ],
+      "operations": {
+        "fec": 0,
+        "normal": 376,
+        "plc": 24
+      },
+      "rate": 48000,
+      "rows": 400,
+      "streams": 5,
+      "suppressed_frames": 1111
+    },
+    {
+      "application": 1,
+      "channels": 8,
+      "coupled": 3,
+      "dtx_requested": true,
+      "fec_requested": true,
+      "fec_step_lbrr_streams": 35,
+      "lbrr_stream_packets": 546,
+      "mapping": [
+        0,
+        6,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "mode_packets": [
+        0,
+        1880,
+        0
+      ],
+      "operations": {
+        "fec": 24,
+        "normal": 376,
+        "plc": 0
+      },
+      "rate": 48000,
+      "rows": 400,
+      "streams": 5,
+      "suppressed_frames": 1111
+    }
+  ],
+  "cc": "gcc-15 (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+  "cflags": [
+    "-shared",
+    "-fPIC",
+    "-O2",
+    "-fwrapv",
+    "-DVAR_ARRAYS",
+    "-DOPUS_BUILD",
+    "-DFIXED_POINT",
+    "-DDISABLE_FLOAT_API"
+  ],
+  "created_utc": "2026-11-03T10:55:39.838038+00:00",
+  "export_sha256": "3ff667f17ca6b2400389e7f9dbc6acb9aa9324ebe5261c6e3628bfccc8fbb1ac",
+  "fault_sensitivity": {
+    "wrong_pcm": "rejected",
+    "wrong_range": "rejected"
+  },
+  "limitations": [
+    "Synthetic compatibility evidence, not representative perceptual quality.",
+    "No native encoder byte/quality equality claim; intentional Q24 encoder correction remains.",
+    "Generic mapping, not surround energy-mask/LFE equivalence.",
+    "No performance or SOTA claim."
+  ],
+  "native_library_sha256": "d82b87fda52e83e3a1868c67a4ac6ba0c26179daea6c2374d8a9ad2c3ced34b6",
+  "opura_version": "0.1.96",
+  "reference_checkout_modified": false,
+  "reference_revision": "22244de5a79bd1d6d623c32e72bf1954b56235be",
+  "rustc": "rustc 1.87.0 (17067e9ac 2025-05-09)\nbinary: rustc\ncommit-hash: 17067e9ac6d7ecb70e50f92c1944e545188d2359\ncommit-date: 2025-05-09\nhost: x86_64-unknown-linux-gnu\nrelease: 1.87.0\nLLVM version: 20.1.1",
+  "schema_version": 1,
+  "source_sha256": "db9719fab15ed6776598e31b0184bbb81cf932d2de31a8831c5b6bc08c5a0b95",
+  "status": "pass",
+  "worktree_modified": true
+}

@@ -251,7 +251,7 @@ fn long_packet_errors_preserve_the_complete_live_owner() -> Result {
         let input: Vec<_> = (0..size.samples() * 2)
             .map(|i| (i as i16).wrapping_mul(811))
             .collect();
-        for cap in [0, 3, 31, 64, 257, 7656, 7657] {
+        for cap in [0, 3, 31, 64, 257, 7656, 7657, 7662, 7663] {
             let before = encoder.clone();
             match encoder.encode_packet(size, &input, cap, options) {
                 Ok(packet) => {
@@ -263,7 +263,7 @@ fn long_packet_errors_preserve_the_complete_live_owner() -> Result {
                     successes += 1;
                 }
                 Err(error) => {
-                    assert!(cap == 0 || cap == 7657, "legal pressure failed: {error}");
+                    assert!(cap == 0 || cap == 7663, "legal pressure failed: {error}");
                     assert_eq!(encoder, before);
                     errors += 1;
                 }
