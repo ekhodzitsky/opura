@@ -305,6 +305,10 @@ impl<const N: usize> PacketBandwidth<N> {
     pub fn allowed(&self) -> bool {
         self.allowed
     }
+    // A long Opus packet may acknowledge readiness only on its final component.
+    pub fn defer_switch(&mut self) {
+        self.can_switch = false;
+    }
     pub fn ready(&self) -> bool {
         self.ready
     }
@@ -312,6 +316,7 @@ impl<const N: usize> PacketBandwidth<N> {
         &mut self,
         controls: BandwidthControls,
         channels: usize,
+        previous_channels: usize,
     ) -> Result<SilkRate, BandwidthError> {
         if channels == 0 || channels > N {
             return Err(BandwidthError::InvalidControls);
@@ -320,7 +325,12 @@ impl<const N: usize> PacketBandwidth<N> {
         self.ready = false;
         let mut rate = controls.current.unwrap_or(controls.desired);
         for (c, transition) in self.transitions.iter_mut().enumerate().take(channels) {
+            let fresh_side = c == 1 && previous_channels < 2;
+            if fresh_side {
+                transition.reset();
+            }
             let selected = transition.select(BandwidthControls {
+                current: if fresh_side { None } else { controls.current },
                 max_bits: self.maximum,
                 ..controls
             })?;

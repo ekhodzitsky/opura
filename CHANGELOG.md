@@ -7,6 +7,36 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.92] - 2026-11-03
+
+- Add compatible `encoder::PacketSize` and `OpusEncoder::encode_packet` for
+  complete 2.5..120ms packets. Analyze and select policy once per packet;
+  retain the short-frame `encode` API. Schedule native SILK 40/60ms units,
+  20ms transform units, first incoming and final outgoing transition tails,
+  final-only bandwidth acknowledgement, native toMono handling and shared
+  prefills. Reserve framing from the whole CBR/VBR budget and repacketize
+  transactionally; report the final component range.
+- Preserve repeated native prefill initialization, mono resampler internal
+  frame boundaries, inactive side state during rate changes and side LP
+  initialization when stereo returns. Fixed public owners retain their paths.
+- Connect automatic WAV/Ogg packets through120ms via `--packet-ms` or
+  `--frame-ms`, with exact duration and whole-packet CBR caps. Read large PCM
+  windows through bounded WAV reads; reject invalid duration combinations.
+- Compare 5,248 original long-packet input/control states and actual CELT
+  call traces; both native fixtures regenerate identically. Four isolated
+  schedule mutations are detected and restored. Fresh native decoding matches
+  9,600 actual received calls, including 800 PLC and 800 FEC; corpus repeats
+  byte-identically. The complete 0.1.91 short corpus is unchanged.
+- CLI checks cover250 long files in addition to300 prior short empty/partial
+  files; both duration flags and whole CBR budgets are checked. All seven
+  required offline gates pass, including157 library and23 Python tests.
+- All24 complete fixed SILK/Hybrid corpora match committed0.1.91 hashes,
+  sizes and record statistics:1,384,320 records in5,088 streams. See
+  docs/validation/encoder-long-packets.md and its versioned evidence reports.
+- Native tiny-budget PLC, remaining quality/complexity/rate-control review
+  and competitive evaluation remain open. Long packet compatibility does not
+  establish perceptual superiority or SOTA performance.
+
 ## [0.1.91] - 2026-11-03
 
 - Support all five immutable applications in the common packet owner via

@@ -17,8 +17,8 @@ and VBR.**
 **`encoder::OpusEncoder` now automatically encodes single frames through
 one PCM/SILK/CELT owner**, including wire-channel changes, bandwidth handshakes,
 real prefills and5ms cross-mode tails. It accepts2.5/5/10/20ms at all five input
-rates. All five native applications and `--mode auto` WAV/Ogg encoding are
-available. Long automatic packets remain in progress. See
+rates through `encode`; `encode_packet` adds complete packets through120ms.
+All five native applications and `--mode auto` WAV/Ogg encoding are available. See
 [application/CLI validation](docs/validation/encoder-applications.md).
 **The decoder passes all120 official RFC8251 vector/rate/channel cases.**
 The first complete-decoder benchmark is recorded: Opura trails the pinned scalar
@@ -214,9 +214,11 @@ Shared frontend primitives are available in `encoder::stereo_width` and
 mode/channel/band/FEC decisions. `encoder::OpusEncoder` connects them to a single
 packet owner for2.5/5/10/20ms input and all five applications. The API accepts CBR/VBR/CELT CVBR,
 nominal rate, hard cap, mode/signal/band/channel hints, loss, DTX and FEC. Errors
-preserve all PCM, speech, CELT and selection histories. Native tiny-budget PLC,
-long-packet scheduling and the remaining quality/control review remain work.
-All applications and single-frame automatic file encoding are now connected.
+preserve all PCM, speech, CELT and selection histories. `PacketSize` and
+`encode_packet` select one policy for complete packets through120ms, including
+native component scheduling. Native tiny-budget PLC and the remaining
+quality/control review remain work.
+All applications and automatic file packets through120ms are connected.
 Existing fixed library/CLI defaults are unchanged.
 
 ```rust
@@ -244,10 +246,13 @@ opura decode output.opus output.wav
 `--application` accepts `audio`, `voip`, `lowdelay`, `restricted-silk` and
 `restricted-celt`. `--complexity 0..10`, `--channels 1|2` and all supported band
 hints apply to auto mode. `lowdelay`/`restricted-celt` pre-skip is120 samples;
-AUDIO/VOIP/restricted-SILK use312. Restricted SILK requires10/20ms. Automatic
-`--packet-ms` must currently equal the frame duration; compatible grouping alone
-would not implement native transition-tail placement in long packets.
-See [application/CLI validation](docs/validation/encoder-applications.md).
+AUDIO/VOIP/restricted-SILK use312. Restricted SILK requires at least10ms.
+Automatic `--packet-ms` selects a complete native-scheduled packet through120ms,
+with one mode/layout decision and correct first/final transition placement.
+It must be a standard duration and a multiple of `--frame-ms`; alternatively
+set `--frame-ms` directly to40/60/80/100/120. Caps apply to the whole packet;
+the automatic default is1276 bytes per20ms window, at most7656.
+See [long-packet validation](docs/validation/encoder-long-packets.md).
 
 See [unified AUDIO validation](docs/validation/unified-audio-owner.md) for the
 connected state/transition evidence and remaining bounds, and the

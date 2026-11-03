@@ -1,0 +1,72 @@
+{
+  "version": "0.1.92",
+  "reference_revision": "22244de5a79bd1d6d623c32e72bf1954b56235be",
+  "reference_configuration": "scalar fixed fast64 Q24, float analysis disabled",
+  "native_replay": true,
+  "corpus_bytes": 3580958,
+  "corpus_sha256": "89c3379b6677cca5bd3f548f4b4875fefd727967ea77230f0a017930b51b02c4",
+  "corpus_repeat_identical": true,
+  "received_calls": {
+    "records": 9600,
+    "streams": 100,
+    "lost": 800,
+    "fec_requests": 800,
+    "single_byte_packets": 574
+  },
+  "encoded_packets": 9600,
+  "encoded_primary_modes": {
+    "silk": 3308,
+    "hybrid": 712,
+    "celt": 5580
+  },
+  "encoded_wire_changes": 868,
+  "encoded_dtx_packets": 904,
+  "dtx_definition": "all compressed frames empty, including multi-component packets",
+  "explicit_plc_calls": 800,
+  "fec_calls": 800,
+  "packet_corpus_complexities": [
+    0,
+    6,
+    10
+  ],
+  "native_input_scope": "complexity0; all applications, CBR/unconstrained VBR; mixed20..120ms and long bandwidth/wire handshakes",
+  "native_input_fixtures": [
+    {
+      "path": "tests/opus-long-input-fixtures.txt",
+      "rows": 5248,
+      "sha256": "16fb6f5fa9d53be4a7bf53c2008667ceefc616c16f831b2587093e7583385990"
+    },
+    {
+      "path": "tests/opus-long-calls-fixtures.txt",
+      "rows": 5248,
+      "sha256": "8855a97ef656fe381be3105e1da17da54f226840dfa7577685685711bc372598"
+    }
+  ],
+  "fixture_regeneration_identical": true,
+  "isolated_mutations_detected": [
+    "early_bandwidth_ack",
+    "reversed_tail_position",
+    "repeated_full_speech_reset",
+    "missing_header_reservation"
+  ],
+  "cli_long_duration_cases": 250,
+  "cli_short_duration_cases": 300,
+  "short_corpus_version": "0.1.91",
+  "short_corpus_identical": true,
+  "short_corpus_sha256": "8f5e9f429ca5dd1df9cb55032bd53ba8050cdfa896d673b4aec99f8627f1865d",
+  "remaining": [
+    "native insufficient-budget and completed-speech-overflow PLC",
+    "full quality/complexity/rate-control review",
+    "competitive end-to-end evaluation"
+  ],
+  "status": "pass",
+  "offline_gates": "all seven pass;157 library tests,23 Python tests",
+  "native_celt_call_trace": {
+    "total": 6888,
+    "dummy_2_5ms": 136,
+    "redundant_5ms": 208,
+    "high_band": 576,
+    "prediction_zero": 264
+  },
+  "fixed_corpora_report": "encoder-long-packets-0.1.92-fixed.json"
+}

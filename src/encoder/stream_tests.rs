@@ -3,6 +3,53 @@ use crate::{Packet, decoder::OpusDecoder, silk::decoder::PcmChannels};
 type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[test]
+fn long_packet_errors_preserve_the_complete_live_owner() -> Result {
+    let mut encoder = OpusEncoder::new(InputRate::Khz48, 2)?;
+    let options = EncodeOptions {
+        bitrate: 64000,
+        controls: control::Controls {
+            mode: Some(Mode::Hybrid),
+            complexity: 6,
+            ..control::Controls::default()
+        },
+        ..EncodeOptions::default()
+    };
+    encoder.encode(FrameSize::Ms20, &[1000; 1920], 640, options)?;
+    let mut errors = 0;
+    let mut successes = 0;
+    for size in [
+        PacketSize::Ms40,
+        PacketSize::Ms60,
+        PacketSize::Ms80,
+        PacketSize::Ms100,
+        PacketSize::Ms120,
+    ] {
+        let input: Vec<_> = (0..size.samples() * 2)
+            .map(|i| (i as i16).wrapping_mul(811))
+            .collect();
+        for cap in [3, 31, 64, 257, 7656] {
+            let before = encoder.clone();
+            match encoder.encode_packet(size, &input, cap, options) {
+                Ok(packet) => {
+                    assert!(packet.as_bytes().len() <= cap);
+                    assert_eq!(
+                        usize::from(Packet::parse(packet.as_bytes())?.duration_samples()),
+                        size.samples()
+                    );
+                    successes += 1;
+                }
+                Err(_) => {
+                    assert_eq!(encoder, before);
+                    errors += 1;
+                }
+            }
+        }
+    }
+    assert!(errors > 0 && successes > 0);
+    assert!(PacketSize::try_from(1440).is_err());
+    Ok(())
+}
+#[test]
 fn applications_are_immutable_and_reset_retains_their_geometry() -> Result {
     for app in [
         control::Application::Audio,
@@ -59,20 +106,32 @@ fn applications_are_immutable_and_reset_retains_their_geometry() -> Result {
 
 #[test]
 fn original_applications_filter_delay_speech_and_celt_calls_match() -> Result {
+    check_applications(
+        include_str!("../../tests/opus-application-input-fixtures.txt"),
+        include_str!("../../tests/opus-application-calls-fixtures.txt"),
+        640,
+        5120,
+    )
+}
+#[test]
+fn original_long_packet_inputs_and_celt_calls_match() -> Result {
+    check_applications(
+        include_str!("../../tests/opus-long-input-fixtures.txt"),
+        include_str!("../../tests/opus-long-calls-fixtures.txt"),
+        2560,
+        5248,
+    )
+}
+fn check_applications(inputs: &str, calls: &str, cap: usize, expected_rows: usize) -> Result {
     let mut encoder = OpusEncoder::new(InputRate::Khz8, 1)?;
-    let mut call_rows = include_str!("../../tests/opus-application-calls-fixtures.txt")
-        .lines()
-        .filter(|l| !l.starts_with('#'));
+    let mut call_rows = calls.lines().filter(|l| !l.starts_with('#'));
     let mut rows = 0;
-    for line in include_str!("../../tests/opus-application-input-fixtures.txt")
-        .lines()
-        .filter(|l| !l.starts_with('#'))
-    {
+    for line in inputs.lines().filter(|l| !l.starts_with('#')) {
         let v = line
             .split_whitespace()
-            .map(str::parse::<u64>)
+            .map(|s| s.parse::<i128>().map(|v| v as u64))
             .collect::<std::result::Result<Vec<_>, _>>()?;
-        assert_eq!(v.len(), 21);
+        assert!([21, 28].contains(&v.len()));
         let rate = match v[0] {
             8000 => InputRate::Khz8,
             12000 => InputRate::Khz12,
@@ -82,6 +141,7 @@ fn original_applications_filter_delay_speech_and_celt_calls_match() -> Result {
         };
         let channels = v[1] as usize;
         let app = match v[2] {
+            2049 => control::Application::Audio,
             2048 => control::Application::Voip,
             2051 => control::Application::RestrictedLowDelay,
             2052 => control::Application::RestrictedSilk,
@@ -90,10 +150,15 @@ fn original_applications_filter_delay_speech_and_celt_calls_match() -> Result {
         if v[4] == 0 {
             encoder = OpusEncoder::with_application(rate, channels, app)?;
         }
-        let size = if v[5] == 10 {
-            FrameSize::Ms10
-        } else {
-            FrameSize::Ms20
+        let size = match v[5] {
+            10 => PacketSize::Ms10,
+            20 => PacketSize::Ms20,
+            40 => PacketSize::Ms40,
+            60 => PacketSize::Ms60,
+            80 => PacketSize::Ms80,
+            100 => PacketSize::Ms100,
+            120 => PacketSize::Ms120,
+            _ => return Err("invalid oracle duration".into()),
         };
         let mode = match v[6] {
             1000 => Mode::Silk,
@@ -115,28 +180,42 @@ fn original_applications_filter_delay_speech_and_celt_calls_match() -> Result {
                 }
             })
             .collect();
-        let packet = encoder.encode(
-            size,
-            &input,
-            640,
-            EncodeOptions {
-                bitrate: 64000 * channels as u32,
-                controls: control::Controls {
-                    application: app,
-                    mode: Some(mode),
-                    channels: Some(v[7] as usize),
-                    variable: v[3] != 0,
-                    complexity: 0,
-                    bandwidth: Some(if mode == Mode::Silk {
-                        Bandwidth::Wideband
-                    } else {
-                        Bandwidth::Fullband
-                    }),
-                    ..control::Controls::default()
+        let packet = encoder
+            .encode_packet(
+                size,
+                &input,
+                if size.samples() <= 960 {
+                    cap.min(1276)
+                } else {
+                    cap
                 },
-                ..EncodeOptions::default()
-            },
-        )?;
+                EncodeOptions {
+                    bitrate: 64000 * channels as u32,
+                    controls: control::Controls {
+                        application: app,
+                        mode: Some(mode),
+                        channels: Some(v[7] as usize),
+                        variable: v[3] != 0,
+                        complexity: 0,
+                        bandwidth: Some(if v.len() == 28 {
+                            match v[21] {
+                                1101 => Bandwidth::Narrowband,
+                                1102 => Bandwidth::Mediumband,
+                                1103 => Bandwidth::Wideband,
+                                1104 => Bandwidth::SuperWideband,
+                                _ => Bandwidth::Fullband,
+                            }
+                        } else if mode == Mode::Silk {
+                            Bandwidth::Wideband
+                        } else {
+                            Bandwidth::Fullband
+                        }),
+                        ..control::Controls::default()
+                    },
+                    ..EncodeOptions::default()
+                },
+            )
+            .map_err(|e| format!("{e}: {line}"))?;
         assert_eq!(encoder.application(), app);
         assert_eq!(encoder.lookahead_48k(), v[19] as u32, "lookahead: {line}");
         assert_eq!(packet.decision.channels, v[10] as usize, "wire: {line}");
@@ -180,6 +259,28 @@ fn original_applications_filter_delay_speech_and_celt_calls_match() -> Result {
             14695981039346656037
         };
         assert_eq!(hash, v[20], "delay: {line}");
+        if v.len() == 28 && v[12] != 0 {
+            assert_eq!(encoder.bandwidth.allowed(), v[22] != 0, "allowed: {line}");
+            assert_eq!(encoder.can_switch, v[23] != 0, "can: {line}");
+            assert_eq!(encoder.bandwidth.ready(), v[24] != 0, "ready: {line}");
+            assert_eq!(
+                encoder.bandwidth.transitions[0].position(),
+                v[25] as u16,
+                "LP: {line}"
+            );
+            assert_eq!(
+                encoder.bandwidth.transitions[0].direction(),
+                v[26] as i8,
+                "direction: {line}"
+            );
+            if app != control::Application::RestrictedSilk {
+                assert_eq!(
+                    encoder.bandwidth_prefill,
+                    v[27] != 0,
+                    "pending bandwidth prefill: {line}"
+                );
+            }
+        }
         let calls = call_rows
             .next()
             .ok_or("missing application calls")?
@@ -194,7 +295,7 @@ fn original_applications_filter_delay_speech_and_celt_calls_match() -> Result {
         assert_eq!(encoder.celt.call_trace, expected, "CELT calls: {line}");
         rows += 1;
     }
-    assert_eq!(rows, 5120);
+    assert_eq!(rows, expected_rows);
     assert!(call_rows.next().is_none());
     Ok(())
 }

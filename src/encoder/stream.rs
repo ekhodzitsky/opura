@@ -29,6 +29,81 @@ use crate::{
 };
 use std::fmt;
 
+/// Standard complete packet duration on the 48kHz clock.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PacketSize {
+    /// 2.5ms transform frame.
+    Ms2_5,
+    /// 5ms transform frame.
+    Ms5,
+    /// 10ms packet.
+    Ms10,
+    /// 20ms packet.
+    Ms20,
+    /// 40ms packet.
+    Ms40,
+    /// 60ms packet.
+    Ms60,
+    /// 80ms packet.
+    Ms80,
+    /// 100ms packet.
+    Ms100,
+    /// 120ms packet.
+    Ms120,
+}
+impl PacketSize {
+    /// Duration in samples/channel at48kHz.
+    pub const fn samples(self) -> usize {
+        match self {
+            Self::Ms2_5 => 120,
+            Self::Ms5 => 240,
+            Self::Ms10 => 480,
+            Self::Ms20 => 960,
+            Self::Ms40 => 1920,
+            Self::Ms60 => 2880,
+            Self::Ms80 => 3840,
+            Self::Ms100 => 4800,
+            Self::Ms120 => 5760,
+        }
+    }
+}
+impl From<FrameSize> for PacketSize {
+    fn from(size: FrameSize) -> Self {
+        match size {
+            FrameSize::Ms2_5 => Self::Ms2_5,
+            FrameSize::Ms5 => Self::Ms5,
+            FrameSize::Ms10 => Self::Ms10,
+            FrameSize::Ms20 => Self::Ms20,
+        }
+    }
+}
+impl TryFrom<usize> for PacketSize {
+    type Error = FrontendError;
+    fn try_from(samples: usize) -> Result<Self, Self::Error> {
+        match samples {
+            120 => Ok(Self::Ms2_5),
+            240 => Ok(Self::Ms5),
+            480 => Ok(Self::Ms10),
+            960 => Ok(Self::Ms20),
+            1920 => Ok(Self::Ms40),
+            2880 => Ok(Self::Ms60),
+            3840 => Ok(Self::Ms80),
+            4800 => Ok(Self::Ms100),
+            5760 => Ok(Self::Ms120),
+            _ => Err(FrontendError::InvalidGeometry),
+        }
+    }
+}
+#[derive(Clone, Copy)]
+struct PlannedFrame {
+    samples: usize,
+    cap: usize,
+    bitrate: u32,
+    decision: control::Decision,
+    nonfinal: bool,
+    reset_silk: bool,
+}
+
 /// Failure of a unified packet transaction. Every error preserves the stream.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
@@ -130,7 +205,7 @@ impl Default for EncodeOptions {
         }
     }
 }
-/// A complete single-frame packet produced by the common owner.
+/// A complete Opus packet produced by the common owner.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EncodedPacket {
     bytes: Vec<u8>,
@@ -143,7 +218,7 @@ impl EncodedPacket {
     pub fn as_bytes(&self) -> &[u8] {
         &self.bytes
     }
-    /// Primary entropy range XOR the redundant transform range.
+    /// Final component primary range XOR its redundant transform range.
     pub fn final_range(&self) -> u32 {
         self.range
     }
@@ -155,10 +230,10 @@ impl EncodedPacket {
 
 /// Common Opus packet encoder with one live input/speech/CELT history.
 ///
-/// This initial API accepts2.5/5/10/20ms frames at standard rates. Short frames
-/// select CELT. All five applications are supported; restricted SILK requires
-///10/20ms. Multi-frame packet scheduling is not yet supported. Whole-stream staging
-/// makes input, coding, termination and transition failures atomic.
+/// Accepts2.5..120ms packets at standard rates. Short frames select CELT.
+/// All five applications are supported; restricted SILK requires at least10ms.
+/// Whole-stream staging makes input, coding, termination, repacketization and
+/// transition failures atomic. Long packets select policy once for all components.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OpusEncoder {
     rate: InputRate,
@@ -247,25 +322,30 @@ impl OpusEncoder {
         packet_bytes: usize,
         options: EncodeOptions,
     ) -> Result<EncodedPacket, EncoderError> {
+        self.encode_packet(size.into(), input, packet_bytes, options)
+    }
+    /// Encode a complete2.5..120ms packet with one mode/layout selection.
+    /// Caps are3..1276 for short packets and3..7656 for longer packets.
+    /// Every error preserves all input, layer and policy histories.
+    pub fn encode_packet(
+        &mut self,
+        size: PacketSize,
+        input: &[i16],
+        packet_bytes: usize,
+        options: EncodeOptions,
+    ) -> Result<EncodedPacket, EncoderError> {
         if input.len() != size.samples() / self.rate.factor() * self.channels {
             return Err(FrontendError::InvalidGeometry.into());
         }
         if options.controls.application != self.application {
             return Err(EncoderError::Unsupported);
         }
-        if !(3..=1276).contains(&packet_bytes) || !(1..=1500000).contains(&options.bitrate) {
+        let maximum = if size.samples() > 960 { 7656 } else { 1276 };
+        if !(3..=maximum).contains(&packet_bytes) || !(1..=1500000).contains(&options.bitrate) {
             return Err(FrontendError::InvalidControl.into());
         }
         let mut next = self.clone();
-        let result = match next.encode_inner(size, input, packet_bytes, options, true) {
-            Err(error)
-                if budget_error(&error) && self.speech.fec.has_pending(packet_duration(size)) =>
-            {
-                next = self.clone();
-                next.encode_inner(size, input, packet_bytes, options, false)?
-            }
-            other => other?,
-        };
+        let result = next.encode_inner(size, input, packet_bytes, options)?;
         *self = next;
         Ok(result)
     }
@@ -284,21 +364,20 @@ impl OpusEncoder {
     }
     fn encode_inner(
         &mut self,
-        size: FrameSize,
+        size: PacketSize,
         input: &[i16],
         cap: usize,
         options: EncodeOptions,
-        include_fec: bool,
     ) -> Result<EncodedPacket, EncoderError> {
         #[cfg(test)]
         self.celt.call_trace.clear();
-        let fps = (400 >> size.lm()) as u32;
-        let mut bitrate = options.bitrate.min(cap as u32 * 8 * fps);
+        let samples = size.samples();
+        let mut bitrate = options.bitrate.min((cap * 8 * 48000 / samples) as u32);
         let cap = if options.controls.variable {
             cap
         } else {
-            let bytes = ((bitrate + 4 * fps) / (8 * fps)).max(1) as usize;
-            bitrate = bytes as u32 * 8 * fps;
+            let bytes = ((bits_for(bitrate, samples) + 4) / 8).max(1) as usize;
+            bitrate = (bytes * 8 * 48000 / samples) as u32;
             bytes.min(cap)
         };
         let silence = input.iter().all(|&v| v == 0);
@@ -324,10 +403,139 @@ impl OpusEncoder {
             options.controls,
             self.history,
         )?;
+        let unit = if decision.mode == Mode::Silk {
+            match samples {
+                3840 => 1920,
+                5760 => 2880,
+                4800 => 960,
+                _ => samples,
+            }
+        } else {
+            samples.min(960)
+        };
+        let count = samples / unit;
+        if count == 1 {
+            return self.encode_component(
+                input,
+                options,
+                PlannedFrame {
+                    samples: unit,
+                    cap,
+                    bitrate,
+                    decision,
+                    nonfinal: false,
+                    reset_silk: decision.prefill_silk,
+                },
+            );
+        }
+        let header = if count == 2 { 3 } else { 2 + (count - 1) * 2 };
+        let maximum_sum = count + cap.saturating_sub(header);
+        let component_cap = (bits_for(bitrate, unit) as usize / 8).min(maximum_sum / count);
+        if component_cap < 3 {
+            return Err(FrontendError::InsufficientBudget.into());
+        }
+        let to_mono = decision.to_mono;
+        decision.to_mono = false;
+        let mut packets = Vec::with_capacity(count);
+        let mut total = 0;
+        let mut tail_bytes = 0;
+        let mut final_range = 0;
+        for (index, pcm) in input
+            .chunks_exact(unit / self.rate.factor() * self.channels)
+            .enumerate()
+        {
+            let last = index + 1 == count;
+            let component = control::Decision {
+                to_celt: decision.to_celt && last,
+                redundancy: decision.redundancy
+                    && (if decision.to_celt { last } else { index == 0 }),
+                ..decision
+            };
+            let packet = self.encode_component(
+                pcm,
+                options,
+                PlannedFrame {
+                    samples: unit,
+                    cap: component_cap.min(maximum_sum - total),
+                    bitrate,
+                    decision: component,
+                    nonfinal: !last,
+                    reset_silk: decision.prefill_silk && index == 0,
+                },
+            )?;
+            total += packet.bytes.len();
+            tail_bytes += packet.tail_bytes;
+            final_range = packet.range;
+            packets.push(packet);
+        }
+        self.history.to_mono = to_mono;
+        let mut repacketizer = Repacketizer::new();
+        for packet in &packets {
+            repacketizer.add_packet(&packet.bytes)?;
+        }
+        let mut bytes = vec![0; cap];
+        let length = if !options.controls.variable && packets.iter().any(|p| p.bytes.len() != 1) {
+            repacketizer.write_padded(&mut bytes, cap)?
+        } else {
+            repacketizer.write(&mut bytes)?
+        };
+        bytes.truncate(length);
+        Ok(EncodedPacket {
+            bytes,
+            range: final_range,
+            decision: control::Decision {
+                to_mono,
+                bandwidth: packets[0].decision.bandwidth,
+                ..decision
+            },
+            tail_bytes,
+        })
+    }
+    fn encode_component(
+        &mut self,
+        input: &[i16],
+        options: EncodeOptions,
+        plan: PlannedFrame,
+    ) -> Result<EncodedPacket, EncoderError> {
+        // Only a pending prefix can require the bounded prefix-free retry.
+        let before = self
+            .speech
+            .fec
+            .has_pending(packet_duration(plan.samples))
+            .then(|| self.clone());
+        match self.encode_frame(input, options, plan, true) {
+            Err(error) if budget_error(&error) && before.is_some() => {
+                if let Some(before) = before {
+                    *self = before;
+                }
+                self.encode_frame(input, options, plan, false)
+            }
+            result => result,
+        }
+    }
+    fn encode_frame(
+        &mut self,
+        input: &[i16],
+        options: EncodeOptions,
+        plan: PlannedFrame,
+        include_fec: bool,
+    ) -> Result<EncodedPacket, EncoderError> {
+        let PlannedFrame {
+            samples,
+            cap,
+            bitrate,
+            mut decision,
+            nonfinal,
+            reset_silk,
+        } = plan;
+        let fps = (48000 / samples) as u32;
+        let original_cap = cap;
+        let cap = cap.min(1276);
+        let silence = input.iter().all(|&v| v == 0);
         let requested_bandwidth = decision.bandwidth;
         let mut filtered = vec![0; input.len()];
         let mut aligned = vec![0; input.len()];
-        let hp_first = if decision.mode == Mode::Celt || decision.prefill_silk {
+        let hp_first = if decision.mode == Mode::Celt || reset_silk {
             crate::silk::encoder::highpass::initial_smoothing()
         } else {
             self.speech.channels[0].cutoff.smooth
@@ -359,10 +567,10 @@ impl OpusEncoder {
             tail = 0;
         }
         let bits_target = (8 * (cap - tail))
-            .min((bitrate / fps) as usize)
+            .min(bits_for(bitrate, samples) as usize)
             .saturating_sub(8) as u32;
-        let duration = frame_duration(size);
-        let packet_duration = packet_duration(size);
+        let duration = frame_duration(samples);
+        let packet_duration = packet_duration(samples);
         let mut writer;
         let mut dtx = DtxDecision::Transmit;
         let mut hybrid = None;
@@ -375,7 +583,7 @@ impl OpusEncoder {
         self.speech.fec.enabled = decision.fec;
         if decision.mode != Mode::Celt {
             let desired = silk_rate(decision.bandwidth);
-            if decision.prefill_silk {
+            if reset_silk {
                 self.speech.reset(output_rate(self.rate), desired);
                 self.bandwidth = PacketBandwidth::default();
                 self.speech_started = false;
@@ -403,12 +611,17 @@ impl OpusEncoder {
                     max_bits: maximum_bits,
                 },
                 decision.channels,
+                self.speech_channels,
             )?;
             if !self
                 .speech
                 .has_rates(output_rate(self.rate), internal, decision.channels)
             {
-                self.speech.change_rate(output_rate(self.rate), internal)?;
+                self.speech.change_rate_channels(
+                    output_rate(self.rate),
+                    internal,
+                    decision.channels,
+                )?;
             }
             self.internal = internal;
             self.speech
@@ -420,7 +633,7 @@ impl OpusEncoder {
                             duration,
                             bandwidth: decision.bandwidth,
                             channels: decision.channels,
-                            bitrate: bits_target * fps,
+                            bitrate: rate_for(bits_target, samples),
                             payload_bytes: cap - 1,
                             variable_bitrate: options.controls.variable,
                             fec: decision.fec,
@@ -430,7 +643,7 @@ impl OpusEncoder {
                     .map_err(crate::hybrid::encoder::EncoderError::Rate)?
                     .silk_bitrate()
                 } else {
-                    bits_target * fps
+                    rate_for(bits_target, samples)
                 };
                 self.prefill_speech(decision, rate, silence)?;
             }
@@ -451,7 +664,7 @@ impl OpusEncoder {
                         to_mono: decision.to_mono,
                         digital_silence: silence,
                         fec: decision.fec,
-                        payload_rate: bits_target * fps,
+                        payload_rate: rate_for(bits_target, samples),
                         maximum_bits,
                         bitrate: options.controls.variable.then_some(bitrate),
                         include_fec,
@@ -494,7 +707,7 @@ impl OpusEncoder {
                         duration: packet_duration,
                         packet_bytes: cap,
                         policy: Some(PayloadPolicy {
-                            rate: (bits_target * fps) as i32,
+                            rate: (rate_for(bits_target, samples)) as i32,
                             fec: decision.fec,
                         }),
                         options: MonoOptions {
@@ -513,7 +726,10 @@ impl OpusEncoder {
                 decision.bandwidth = silk_band(internal);
             }
             self.speech_started = true;
-            self.can_switch = self.bandwidth.ready();
+            self.can_switch = self.bandwidth.ready() && !nonfinal;
+            if nonfinal {
+                self.bandwidth.defer_switch();
+            }
             if dtx == DtxDecision::Silk {
                 self.history.bandwidth = requested_bandwidth;
                 self.history.channels = decision.channels;
@@ -521,7 +737,7 @@ impl OpusEncoder {
                 self.history.fec = decision.fec;
                 self.history.to_mono = decision.to_mono;
                 return Ok(EncodedPacket {
-                    bytes: vec![toc(decision, size)],
+                    bytes: vec![toc(decision, samples)],
                     range: 0,
                     decision,
                     tail_bytes: 0,
@@ -652,10 +868,10 @@ impl OpusEncoder {
                 prediction: 0,
             })?;
         }
-        let mut bytes = vec![toc(decision, size)];
+        let mut bytes = vec![toc(decision, samples)];
         let range = if decision.mode == Mode::Celt {
             let packet = self.celt.encode_stream(
-                size,
+                celt_size(samples)?,
                 &aligned,
                 cap - 1,
                 options
@@ -669,7 +885,7 @@ impl OpusEncoder {
             if let Some(controls) = hybrid {
                 writer.shrink(cap - 1 - tail)?;
                 self.celt
-                    .encode_high_band(size, &aligned, &mut writer, controls)?;
+                    .encode_high_band(celt_size(samples)?, &aligned, &mut writer, controls)?;
             } else {
                 writer.shrink(writer.tell().div_ceil(8) as usize)?;
             }
@@ -719,10 +935,7 @@ impl OpusEncoder {
             to_mono: decision.to_mono,
         };
         if decision.mode == Mode::Celt {
-            dtx = self
-                .speech
-                .dtx
-                .finish_outer((size.samples() / 24) as u16, silence);
+            dtx = self.speech.dtx.finish_outer((samples / 24) as u16, silence);
         }
         let range = if dtx == DtxDecision::DigitalSilence {
             bytes.truncate(1);
@@ -734,11 +947,11 @@ impl OpusEncoder {
         if bytes.len() > cap {
             return Err(EntropyError::CapacityExhausted.into());
         }
-        if !options.controls.variable && bytes.len() > 1 && bytes.len() < cap {
-            let mut padded = vec![0; cap];
+        if !options.controls.variable && bytes.len() > 1 && bytes.len() < original_cap {
+            let mut padded = vec![0; original_cap];
             let mut packet = Repacketizer::default();
             packet.add_packet(&bytes)?;
-            packet.write_padded(&mut padded, cap)?;
+            packet.write_padded(&mut padded, original_cap)?;
             bytes = padded;
         }
         Ok(EncodedPacket {
@@ -766,7 +979,13 @@ impl OpusEncoder {
                 previous,
             )?;
         } else {
-            self.speech.resampler[0].process(input, &mut output[0])?;
+            // Match the actual SILK resampler call boundaries, including its
+            // overwritten delay slots, for40/60ms speech components.
+            let frames = duration.milliseconds().div_ceil(20) as usize;
+            let mut offset = 0;
+            for pcm in input.chunks_exact(input.len() / frames) {
+                offset += self.speech.resampler[0].process(pcm, &mut output[0][offset..])?;
+            }
         }
         self.speech_channels = channels;
         Ok(())
@@ -777,16 +996,17 @@ impl OpusEncoder {
         rate: u32,
         digital_silence: bool,
     ) -> Result<(), EncoderError> {
-        if self.bandwidth_prefill {
-            for c in 0..decision.channels {
-                self.speech.channels[c] = ChannelFrameEncoder::new(self.internal);
-                self.speech.vad[c] = VoiceActivityDetector::default();
-                self.speech.resampler[c] =
-                    EncoderResamplerState::new(output_rate(self.rate), self.internal);
-            }
-            self.speech.dtx.reset_speech();
-            self.speech.fec.clear_pending();
+        // Each native prefill call initializes the channel encoders, including
+        // repeated prefills inside a long incoming packet. Outer stereo and
+        // bit-reservoir history are retained; LP state survives prefill2.
+        for c in 0..decision.channels {
+            self.speech.channels[c] = ChannelFrameEncoder::new(self.internal);
+            self.speech.vad[c] = VoiceActivityDetector::default();
+            self.speech.resampler[c] =
+                EncoderResamplerState::new(output_rate(self.rate), self.internal);
         }
+        self.speech.dtx.reset_speech();
+        self.speech.fec.clear_pending();
         let offset = self.rate.hz() as usize * 7 / 2000 * self.channels;
         let n4 = self.rate.hz() as usize / 400 * self.channels;
         let history = self.pcm.history_mut();
@@ -854,15 +1074,31 @@ fn output_rate(rate: InputRate) -> OutputRate {
         InputRate::Khz48 => OutputRate::Khz48,
     }
 }
-fn packet_duration(size: FrameSize) -> PacketDuration {
-    if size == FrameSize::Ms10 {
-        PacketDuration::Ms10
-    } else {
-        PacketDuration::Ms20
+fn packet_duration(samples: usize) -> PacketDuration {
+    match samples {
+        480 => PacketDuration::Ms10,
+        1920 => PacketDuration::Ms40,
+        2880 => PacketDuration::Ms60,
+        _ => PacketDuration::Ms20,
     }
 }
-fn frame_duration(size: FrameSize) -> FrameDuration {
-    if size == FrameSize::Ms10 {
+fn celt_size(samples: usize) -> Result<FrameSize, EncoderError> {
+    match samples {
+        120 => Ok(FrameSize::Ms2_5),
+        240 => Ok(FrameSize::Ms5),
+        480 => Ok(FrameSize::Ms10),
+        960 => Ok(FrameSize::Ms20),
+        _ => Err(EncoderError::Unsupported),
+    }
+}
+fn bits_for(rate: u32, samples: usize) -> u32 {
+    (u64::from(rate) * samples as u64 / 48000) as u32
+}
+fn rate_for(bits: u32, samples: usize) -> u32 {
+    (u64::from(bits) * 48000 / samples as u64) as u32
+}
+fn frame_duration(samples: usize) -> FrameDuration {
+    if samples == 480 {
         FrameDuration::Ms10
     } else {
         FrameDuration::Ms20
@@ -912,21 +1148,31 @@ fn redundancy_bytes(cap: usize, bitrate: u32, fps: u32, channels: usize) -> usiz
         0
     }
 }
-fn toc(decision: control::Decision, size: FrameSize) -> u8 {
+fn toc(decision: control::Decision, samples: usize) -> u8 {
     let config = match decision.mode {
         Mode::Silk => {
             (match decision.bandwidth {
                 Bandwidth::Narrowband => 0,
                 Bandwidth::Mediumband => 4,
                 _ => 8,
-            }) + u8::from(size != FrameSize::Ms10)
+            }) + match samples {
+                480 => 0,
+                1920 => 2,
+                2880 => 3,
+                _ => 1,
+            }
         }
         Mode::Hybrid => {
             (if decision.bandwidth == Bandwidth::SuperWideband {
                 12
             } else {
                 14
-            }) + u8::from(size != FrameSize::Ms10)
+            }) + match samples {
+                480 => 0,
+                1920 => 2,
+                2880 => 3,
+                _ => 1,
+            }
         }
         Mode::Celt => {
             (match decision.bandwidth {
@@ -934,7 +1180,12 @@ fn toc(decision: control::Decision, size: FrameSize) -> u8 {
                 Bandwidth::SuperWideband => 24,
                 Bandwidth::Fullband => 28,
                 _ => 20,
-            }) + size.lm() as u8
+            }) + match samples {
+                120 => 0,
+                240 => 1,
+                480 => 2,
+                _ => 3,
+            }
         }
     };
     (config << 3) | if decision.channels == 2 { 4 } else { 0 }

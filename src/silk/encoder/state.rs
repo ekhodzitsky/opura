@@ -116,8 +116,24 @@ impl<const CHANNELS: usize> SpeechState<CHANNELS> {
         self.fec.enabled = fec;
     }
     pub fn change_rate(&mut self, input: OutputRate, rate: SilkRate) -> Result<(), FrameError> {
+        self.change_rate_channels(input, rate, CHANNELS)
+    }
+    pub fn change_rate_channels(
+        &mut self,
+        input: OutputRate,
+        rate: SilkRate,
+        channels: usize,
+    ) -> Result<(), FrameError> {
+        if channels == 0 || channels > CHANNELS {
+            return Err(FrameError::InvalidControls);
+        }
         let duration = self.fec.previous_frame_duration();
-        for (channel, resampler) in self.channels.iter_mut().zip(&mut self.resampler) {
+        for (channel, resampler) in self
+            .channels
+            .iter_mut()
+            .zip(&mut self.resampler)
+            .take(channels)
+        {
             channel.change_rate(input, rate, duration, resampler)?;
         }
         self.fec.clear_pending();

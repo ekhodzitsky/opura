@@ -135,7 +135,63 @@ fn automatic_applications_preserve_empty_partial_duration_and_lookahead() -> Res
 }
 
 #[test]
-fn automatic_controls_and_unsupported_long_packets_are_explicit() -> Result<()> {
+fn automatic_long_packets_preserve_duration_and_whole_cbr_budget() -> Result<()> {
+    let temp = Temporary::new()?;
+    let mut cases = 0;
+    for rate in [8000, 12000, 16000, 24000, 48000] {
+        for channels in [1u16, 2] {
+            for app in [
+                "audio",
+                "voip",
+                "lowdelay",
+                "restricted-silk",
+                "restricted-celt",
+            ] {
+                for ms in [40, 60, 80, 100, 120] {
+                    let variable = cases % 2 == 0;
+                    let input = temp.0.join(format!("long-{cases}.wav"));
+                    let encoded = temp.0.join(format!("long-{cases}.opus"));
+                    let output = temp.0.join(format!("long-{cases}-out.wav"));
+                    let frames = rate as usize * ms / 1000 + 1;
+                    fs::write(&input, wave(rate, channels, frames))?;
+                    let mut command = cli();
+                    command.arg("encode").arg(&input).arg(&encoded).args([
+                        "--mode",
+                        "auto",
+                        "--application",
+                        app,
+                        "--complexity",
+                        "0",
+                    ]);
+                    if variable {
+                        command.args(["--frame-ms", "20", "--packet-ms", &ms.to_string(), "--vbr"]);
+                    } else {
+                        command.args(["--frame-ms", &ms.to_string()]);
+                    }
+                    success(&mut command)?;
+                    success(cli().arg("decode").arg(&encoded).arg(&output))?;
+                    output_pcm(
+                        &fs::read(output)?,
+                        channels,
+                        frames * (48000 / rate) as usize,
+                    )?;
+                    for packet in audio_packets(&fs::read(encoded)?)? {
+                        let parsed = opura::Packet::parse(&packet)?;
+                        assert_eq!(usize::from(parsed.duration_samples()), ms * 48);
+                        if !variable {
+                            assert_eq!(packet.len(), (64000 * ms / 1000 + 4) / 8);
+                        }
+                    }
+                    cases += 1;
+                }
+            }
+        }
+    }
+    assert_eq!(cases, 250);
+    Ok(())
+}
+#[test]
+fn automatic_controls_and_invalid_packets_are_explicit() -> Result<()> {
     let temp = Temporary::new()?;
     let input = temp.0.join("source.wav");
     let mut data = wave(48000, 2, 48000 / 2);
@@ -180,7 +236,7 @@ fn automatic_controls_and_unsupported_long_packets_are_explicit() -> Result<()> 
         }
     }
     for (i, args) in [
-        vec!["--mode", "auto", "--packet-ms", "40"],
+        vec!["--mode", "auto", "--packet-ms", "10"],
         vec![
             "--mode",
             "auto",

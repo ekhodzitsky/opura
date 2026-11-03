@@ -1,5 +1,8 @@
 # Encoder applications and automatic file encoding
 
+This records the 0.1.91 boundary. Version 0.1.92 adds native long packets;
+see [long-packet validation](encoder-long-packets.md).
+
 Version 0.1.91 extends the common `encoder::OpusEncoder` owner to AUDIO, VOIP,
 restricted low delay, restricted SILK and restricted CELT. `new` remains AUDIO;
 `with_application` selects an immutable application. Reset preserves it, and a

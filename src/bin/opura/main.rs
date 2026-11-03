@@ -39,7 +39,7 @@ type Result<T> = std::result::Result<T, Box<dyn Error>>;
 fn invalid(message: impl Into<String>) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message.into())
 }
-const HELP: &str = "opura encode INPUT.wav OUTPUT.opus [--mode celt|silk|hybrid|auto] [--application audio|voip|lowdelay|restricted-silk|restricted-celt] [--signal auto|voice|music] [--complexity 0..10] [--channels 1|2] [--bitrate BPS] [--frame-ms MS] [--packet-ms MS] [--bandwidth nb|mb|wb|auto|swb|fb] [--dtx] [--fec LOSS_PERCENT] [--vbr|--cvbr] [--max-packet-bytes BYTES]\nopura decode INPUT.opus OUTPUT.wav\nopura --version\n\nEncode: PCM16 WAV at 8/12/16/24/48 kHz.\nAUTO: common mode/channel/band selection, frames2.5/5/10/20ms; application/signal/complexity/encoded-channel controls, DTX/FEC, CBR/VBR/CELT CVBR. Long automatic packets are not yet supported. Fixed modes retain their defaults.\nCELT: mono/stereo, frames 2.5/5/10/20 ms. --vbr or --cvbr selects nominal-rate variable encoding with a hard --max-packet-bytes cap (default1276); cvbr enables reservoir/drift limits. CBR remains the default. SILK: mono/stereo, frames 10/20/40/60 ms. Hybrid: mono/stereo at 24/48 kHz, frames 10/20 ms; SWB at 24 kHz, SWB/FB at 48 kHz. Hybrid --vbr uses a nominal --bitrate and a separate hard --max-packet-bytes cap (default1276); CBR remains the default. Hybrid defaults to 32000 mono/64000 stereo bits/s and input-rate SWB/FB; --dtx enables silence suppression. --fec requests SILK-band protection while retaining the requested Hybrid bandwidth.\nDefaults: CELT, 64000 bits/s (SILK: 24000 mono/48000 stereo), 20 ms. SILK bandwidth defaults to input-rate NB/MB/WB; auto selects it from bitrate/loss. --dtx enables SILK/Hybrid silence suppression, including in CBR. --fec 1..100 requests SILK/Hybrid in-band FEC with the supplied loss estimate (0 disables it). --packet-ms sets a maximum compatible packet duration up to120 ms (a multiple of frame-ms); final groups and bandwidth changes can close earlier. Aggregate CBR includes packet framing; VBR/CVBR hard caps apply to each grouped packet (default1276 bytes per component frame). Ogg overhead is additional.\nDecode: one mono/stereo Ogg Opus stream, zero header gain; output PCM16/48 kHz.\nExisting outputs are refused. Errors may leave a partial new output.";
+const HELP: &str = "opura encode INPUT.wav OUTPUT.opus [--mode celt|silk|hybrid|auto] [--application audio|voip|lowdelay|restricted-silk|restricted-celt] [--signal auto|voice|music] [--complexity 0..10] [--channels 1|2] [--bitrate BPS] [--frame-ms MS] [--packet-ms MS] [--bandwidth nb|mb|wb|auto|swb|fb] [--dtx] [--fec LOSS_PERCENT] [--vbr|--cvbr] [--max-packet-bytes BYTES]\nopura decode INPUT.opus OUTPUT.wav\nopura --version\n\nEncode: PCM16 WAV at 8/12/16/24/48 kHz.\nAUTO: common mode/channel/band selection, packets2.5..120ms; application/signal/complexity/encoded-channel controls, DTX/FEC, CBR/VBR/CELT CVBR. AUTO packet-ms selects one complete packet with native component scheduling. Fixed modes retain their defaults.\nCELT: mono/stereo, frames 2.5/5/10/20 ms. --vbr or --cvbr selects nominal-rate variable encoding with a hard --max-packet-bytes cap (default1276); cvbr enables reservoir/drift limits. CBR remains the default. SILK: mono/stereo, frames 10/20/40/60 ms. Hybrid: mono/stereo at 24/48 kHz, frames 10/20 ms; SWB at 24 kHz, SWB/FB at 48 kHz. Hybrid --vbr uses a nominal --bitrate and a separate hard --max-packet-bytes cap (default1276); CBR remains the default. Hybrid defaults to 32000 mono/64000 stereo bits/s and input-rate SWB/FB; --dtx enables silence suppression. --fec requests SILK-band protection while retaining the requested Hybrid bandwidth.\nDefaults: CELT, 64000 bits/s (SILK: 24000 mono/48000 stereo), 20 ms. SILK bandwidth defaults to input-rate NB/MB/WB; auto selects it from bitrate/loss. --dtx enables SILK/Hybrid silence suppression, including in CBR. --fec 1..100 requests SILK/Hybrid in-band FEC with the supplied loss estimate (0 disables it). --packet-ms sets a maximum compatible packet duration up to120 ms (a multiple of frame-ms); final groups and bandwidth changes can close earlier. Aggregate CBR includes packet framing; VBR/CVBR hard caps apply to each grouped packet (default1276 bytes per component frame). Ogg overhead is additional.\nDecode: one mono/stereo Ogg Opus stream, zero header gain; output PCM16/48 kHz.\nExisting outputs are refused. Errors may leave a partial new output.";
 fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
@@ -166,7 +166,9 @@ fn run() -> Result<()> {
                         )
                     }
                     Some("--frame-ms") if size.is_none() => {
-                        if !["2.5", "5", "10", "20", "40", "60"].contains(&value) {
+                        if !["2.5", "5", "10", "20", "40", "60", "80", "100", "120"]
+                            .contains(&value)
+                        {
                             return Err(invalid("invalid frame-ms").into());
                         }
                         size = Some(value);
@@ -226,11 +228,20 @@ fn run() -> Result<()> {
             };
             if mode == Some("auto") {
                 let frame = match size.unwrap_or("20") {
-                    "2.5" => FrameSize::Ms2_5,
-                    "5" => FrameSize::Ms5,
-                    "10" => FrameSize::Ms10,
-                    "20" => FrameSize::Ms20,
-                    _ => return Err(invalid("auto frame-ms must be2.5/5/10/20").into()),
+                    "2.5" => opura::encoder::PacketSize::Ms2_5,
+                    "5" => opura::encoder::PacketSize::Ms5,
+                    "10" => opura::encoder::PacketSize::Ms10,
+                    "20" => opura::encoder::PacketSize::Ms20,
+                    "40" => opura::encoder::PacketSize::Ms40,
+                    "60" => opura::encoder::PacketSize::Ms60,
+                    "80" => opura::encoder::PacketSize::Ms80,
+                    "100" => opura::encoder::PacketSize::Ms100,
+                    "120" => opura::encoder::PacketSize::Ms120,
+                    _ => {
+                        return Err(
+                            invalid("auto frame-ms must be2.5/5/10/20/40/60/80/100/120").into()
+                        );
+                    }
                 };
                 let bandwidth = bandwidth.and_then(|b| match b {
                     EncodingBandwidth::Automatic => None,

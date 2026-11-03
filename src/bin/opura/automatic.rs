@@ -2,9 +2,9 @@
 use super::{FileRate, Result, create, invalid, ogg, wav};
 use opura::{
     Bandwidth,
-    celt::{FrameSize, input::InputRate},
+    celt::input::InputRate,
     encoder::{
-        EncodeOptions, OpusEncoder,
+        EncodeOptions, OpusEncoder, PacketSize,
         control::{Application, Controls, Fec, Signal},
     },
 };
@@ -16,7 +16,7 @@ use std::{
 };
 
 pub struct Options {
-    pub size: FrameSize,
+    pub size: PacketSize,
     pub application: Application,
     pub signal: Signal,
     pub complexity: u8,
@@ -26,26 +26,30 @@ pub struct Options {
     pub loss: u8,
 }
 pub fn encode(input: &Path, output: &Path, rate_control: FileRate, options: Options) -> Result<()> {
-    if rate_control
-        .packet_samples
-        .is_some_and(|n| usize::from(n) != options.size.samples())
-    {
-        return Err(invalid(
-            "long automatic packets require native transition scheduling and are not supported yet",
-        )
-        .into());
+    let size = if let Some(samples) = rate_control.packet_samples {
+        let samples = usize::from(samples);
+        if samples < options.size.samples() || samples % options.size.samples() != 0 {
+            return Err(invalid("automatic packet-ms must be a multiple of frame-ms").into());
+        }
+        PacketSize::try_from(samples)?
+    } else {
+        options.size
+    };
+    if options.application == Application::RestrictedSilk && size.samples() < 480 {
+        return Err(invalid("restricted-silk requires at least10ms").into());
     }
-    if options.application == Application::RestrictedSilk && options.size.samples() < 480 {
-        return Err(invalid("restricted-silk requires10/20ms frames").into());
-    }
-    let cap = rate_control.maximum.unwrap_or(1276);
-    if !(3..=1276).contains(&cap) {
-        return Err(invalid("automatic single-frame cap must be3..1276").into());
+    let maximum = if size.samples() > 960 { 7656 } else { 1276 };
+    let cap = rate_control
+        .maximum
+        .unwrap_or(1276 * size.samples().div_ceil(960));
+    if !(3..=maximum).contains(&cap) {
+        return Err(invalid("invalid automatic packet cap").into());
     }
     let bitrate = rate_control.bitrate.unwrap_or(64000);
-    let fps = 48000 / options.size.samples() as u32;
+    let fps = 48000 / size.samples() as u32;
     if !(24 * fps..=1500000).contains(&bitrate)
-        || (!rate_control.vbr && (bitrate + 4 * fps) / (8 * fps) > cap as u32)
+        || (!rate_control.vbr
+            && (u64::from(bitrate) * size.samples() as u64 / 48000 + 4) / 8 > cap as u64)
     {
         return Err(invalid("invalid bitrate/frame/cap combination for automatic encoding").into());
     }
@@ -67,15 +71,15 @@ pub fn encode(input: &Path, output: &Path, rate_control: FileRate, options: Opti
     let end = (source.frames * rate.factor() as u64)
         .checked_add(u64::from(skip))
         .ok_or_else(|| invalid("audio duration overflow"))?;
-    let frames = end.div_ceil(options.size.samples() as u64);
+    let frames = end.div_ceil(size.samples() as u64);
     let mut writer = ogg::Writer::with_pre_skip(
         BufWriter::new(create(output)?),
         source.channels,
         source.rate,
         skip as u16,
     )?;
-    let mut pcm = [0_i16; 1920];
-    let length = options.size.samples() / rate.factor() * source.channels;
+    let mut pcm = [0_i16; 11520];
+    let length = size.samples() / rate.factor() * source.channels;
     let controls = Controls {
         application: options.application,
         signal: options.signal,
@@ -95,9 +99,11 @@ pub fn encode(input: &Path, output: &Path, rate_control: FileRate, options: Opti
     let mut bytes = 0;
     for i in 0..frames {
         pcm.fill(0);
-        source.read_samples(&mut pcm[..length])?;
-        let packet = encoder.encode(
-            options.size,
+        for chunk in pcm[..length].chunks_mut(5760) {
+            source.read_samples(chunk)?;
+        }
+        let packet = encoder.encode_packet(
+            size,
             &pcm[..length],
             cap,
             EncodeOptions {
@@ -110,7 +116,7 @@ pub fn encode(input: &Path, output: &Path, rate_control: FileRate, options: Opti
         let granule = if final_frame {
             end
         } else {
-            (i + 1) * options.size.samples() as u64
+            (i + 1) * size.samples() as u64
         };
         writer.packet(packet.as_bytes(), granule, final_frame)?;
         bytes += packet.as_bytes().len();
