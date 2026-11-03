@@ -1,0 +1,190 @@
+{
+  "status": "pass",
+  "version": "0.1.95",
+  "baseline_version": "0.1.94",
+  "baseline_commit": "cd8a4b3ae32e9e185d53ea20c6d559f871763de6",
+  "reference_revision": "22244de5a79bd1d6d623c32e72bf1954b56235be",
+  "reference_configuration": "scalar fixed fast64 Q24; float analysis disabled",
+  "reference_checkout_unchanged": true,
+  "reference_decoder_unchanged": true,
+  "encoder_reference_correction": "Private celt_encoder.c copy: only opus_val16 x1, x2; -> celt_glog x1, x2; in patch_transient_decision, as disclosed in0.1.94. Read-only snapshots observe native rate/intensity state.",
+  "reproduction": {
+    "input_rate": 12000,
+    "api_channels": 2,
+    "frame_index_zero_based": 154,
+    "frame_ms": 20,
+    "complexity": 9,
+    "mode": "VBR",
+    "bitrate": 9600,
+    "payload_capacity": 24,
+    "native_realized_intensity": 7,
+    "old_rust_intensity": 8,
+    "old_behavior": "Packet length and VBR histories matched; PCM/final range differed. Allocation failed to retain clipped intensity for next-frame hysteresis."
+  },
+  "rate_history_calls": 5132,
+  "rate_history_streams": 22,
+  "rate_history_byte_identical_payloads": 5132,
+  "rate_history_pcm_and_final_range_matches": 5132,
+  "snapshots": [
+    "spreading",
+    "tonal_average",
+    "hf_average",
+    "tapset",
+    "temporal_spectral_average",
+    "vbr_reservoir",
+    "vbr_drift",
+    "vbr_offset",
+    "vbr_count",
+    "realized_intensity"
+  ],
+  "maximum_feedback_count": 970,
+  "saturated_stream_frames": 1100,
+  "mono_stereo_wire_switch_stream_frames": 192,
+  "previous_quality_calls": 10560,
+  "previous_quality_byte_identical_payloads": 10560,
+  "previous_quality_pcm_and_range_matches": 10560,
+  "previous_quality_spectral_patches": 966,
+  "paired_helper_cases": 768,
+  "fixture_sha256": {
+    "celt-patch-corrected-q24-fixtures.txt": "01cff983ebc52727a5e49354ef0614adec7150f13bf32a632a4a1a1f2e520b18",
+    "celt-quality-corrected-q24-fixtures.txt": "3c59d383b0cf9b3f485e1ffe7f3fbdaab668cf10bbbf104ea2aba4f9279b733d",
+    "celt-rate-history-corrected-q24-fixtures.txt": "2ff20de3456f097400929b260161d9394bc95d6ed1fd3e71a28689bc952ac840"
+  },
+  "fixtures_regenerate_identically": true,
+  "mutations": [
+    {
+      "mutation": "omit_realized_intensity",
+      "detected": true
+    },
+    {
+      "mutation": "retain_stereo_intensity_during_mono",
+      "detected": true
+    },
+    {
+      "mutation": "feedback_count_saturates_early",
+      "detected": true
+    }
+  ],
+  "automatic_corpora": [
+    {
+      "name": "short",
+      "bytes": 1454151,
+      "sha256": "c35e01e535fe5619c991165f87c04e244adc0cbeeb06f76cb429f435b10f6b09",
+      "native_pcm_and_range": "pass",
+      "records": 9600,
+      "streams": 100,
+      "lost": 800,
+      "fec_requests": 800,
+      "identical_to_0_1_94": true
+    },
+    {
+      "name": "long",
+      "bytes": 3582109,
+      "sha256": "6324324a93a0d827de434d5d7a9d96d7fb2dd25844a4cb91f5acbc010f257175",
+      "native_pcm_and_range": "pass",
+      "records": 9600,
+      "streams": 100,
+      "lost": 800,
+      "fec_requests": 800,
+      "identical_to_0_1_94": true
+    },
+    {
+      "name": "pressure",
+      "bytes": 395337,
+      "sha256": "979c868e57c4d8200677397e27312539aa62754d1c564bc40bcabd629197d33a",
+      "native_pcm_and_range": "pass",
+      "records": 9600,
+      "streams": 100,
+      "lost": 800,
+      "fec_requests": 800,
+      "identical_to_0_1_94": true
+    }
+  ],
+  "fixed_corpus_regeneration_repeated": false,
+  "fixed_path_scope": "Native control writeback is guarded; fixed APIs retain existing behavior and run through required library/file regressions. Prior full fixed corpus identity is recorded in0.1.94.",
+  "required_offline_checks": [
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--release"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "doc",
+        "--offline",
+        "--locked",
+        "--no-deps"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python3",
+        "tools/check_dependencies.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools",
+        "-p",
+        "test_*.py"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "rustdoc_environment": "RUSTDOCFLAGS=-D warnings",
+  "library_tests": 161,
+  "python_tests": 23,
+  "real_recording_cases": 12,
+  "real_recording_native_pcm_matches": 24,
+  "limitations": [
+    "No full pristine native encoder byte parity claim.",
+    "No representative perceptual or competitive performance claim.",
+    "Remaining native encoder control audit and matched-rate/latency quality/throughput/memory comparisons remain open.",
+    "This milestone does not declare the complete codec ready."
+  ]
+}

@@ -27,6 +27,17 @@ void *quality_new(int Fs,int C,int complexity) {
  return s;
 }
 void quality_free(void *s){opus_decoder_destroy(quality_decoder);quality_decoder=NULL;free(s);}
+void quality_rate(CELTEncoder *s,int mode,int bitrate) {
+ celt_encoder_ctl(s,OPUS_SET_BITRATE(mode?bitrate:OPUS_BITRATE_MAX));
+ celt_encoder_ctl(s,OPUS_SET_VBR(mode!=0));
+ celt_encoder_ctl(s,OPUS_SET_VBR_CONSTRAINT(mode==2));
+}
+void quality_feedback(CELTEncoder *s,int *out) {
+ out[0]=s->vbr_reservoir;out[1]=s->vbr_drift;out[2]=s->vbr_offset;out[3]=s->vbr_count;out[4]=s->intensity;
+}
+void quality_wire(CELTEncoder *s,int channels){celt_encoder_ctl(s,CELT_SET_CHANNELS(channels));}
+void quality_complexity(CELTEncoder *s,int complexity){celt_encoder_ctl(s,OPUS_SET_COMPLEXITY(complexity));}
+
 int quality_patch(int C,int start,int end,const int *current,const int *previous) {
  return patch_transient_decision((celt_glog*)current,(celt_glog*)previous,21,start,end,C);
 }
@@ -48,7 +59,7 @@ int quality_encode(CELTEncoder *s,const opus_int16 *pcm,int LM,int bytes,int *ou
  out[1]=LM&&tell+3<=ret*8?ec_dec_bit_logp(&dec,3):0;
  memcpy(quality_bytes,data,ret);quality_length=ret;quality_range=s->rng;
  unsigned char packet[1276];int base=s->end==13?16:s->end==17?20:s->end==19?24:28;
- packet[0]=((base+LM)<<3)|(C==2?4:0);memcpy(packet+1,data,ret);
+ packet[0]=((base+LM)<<3)|(s->stream_channels==2?4:0);memcpy(packet+1,data,ret);
  opus_int16 decoded[1920];int samples=opus_decode(quality_decoder,packet,ret+1,decoded,N,0);if(samples!=N)return -9;
  quality_pcm_hash=14695981039346656037ULL;
  for(int i=0;i<N*C;i++){opus_uint16 v=(opus_uint16)decoded[i];quality_pcm_hash^=v&255;quality_pcm_hash*=1099511628211ULL;quality_pcm_hash^=v>>8;quality_pcm_hash*=1099511628211ULL;}
@@ -60,6 +71,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('source',type=Path);parser.add_argument('output',type=Path)
     parser.add_argument('--patch-output',type=Path,required=True)
+    parser.add_argument('--rate-output',type=Path,help='optional actual CBR/VBR/CVBR switch and feedback corpus')
     parser.add_argument('--correct-q24',action='store_true',help='private source copy: retain spectral-patch x1/x2 as celt_glog instead of int16')
     args=parser.parse_args();source=args.source.resolve()
     if subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip()!=REVISION:
@@ -142,4 +154,56 @@ def main():
                                     rows.append(' '.join(map(str,[rate,channels,lm,complexity,cap,index,seed,index,*out,rng_out.value,pcm_out.value,bytes(packet[:length]).hex()])))
                             finally:lib.quality_free(state)
         args.output.write_text('\n'.join(rows)+'\n');print('Captured',len(rows)-2,'native CELT calls;',patched,'patched;',len(patch)-2,'helper cases')
+        if args.rate_output:
+            capture_rate_history(lib,args.rate_output,args.correct_q24)
+
+def capture_rate_history(lib, output, corrected):
+    lib.quality_rate.argtypes = [c.c_void_p, c.c_int, c.c_int]
+    lib.quality_feedback.argtypes = [c.c_void_p, c.POINTER(c.c_int)]
+    lib.quality_complexity.argtypes = [c.c_void_p, c.c_int]
+    lib.quality_wire.argtypes = [c.c_void_p, c.c_int]
+    rows = ['# ' + ('Corrected Q24' if corrected else 'Pristine') + ' actual CELT rate histories ' + REVISION, '# FS API STREAM INDEX LM COMPLEX CAP MODE BITRATE SEED SCALE WIRE TEMPORAL TRANSIENT SPREAD AVG HF TAP SPEC_AVG RESERVOIR DRIFT OFFSET COUNT INTENSITY RANGE PCM_FNV PACKET_HEX']
+    configurations = [(rate, channels, stream, 192) for rate in [8000, 12000, 16000, 24000, 48000] for channels in [1, 2] for stream in range(2)]
+    configurations.append((48000, 1, 2, 1100))
+    configurations.append((48000, 2, 3, 192))
+    for rate, channels, stream, frames in configurations:
+        state = lib.quality_new(rate, channels, 0)
+        if not state:
+            raise ValueError('Native init failed')
+        try:
+            for index in range(frames):
+                wire = 1 if stream == 3 and index // 8 % 3 == 1 else channels
+                lm = index // 8 % 4 if stream != 2 else 0
+                complexity = index // 16 % 11 if stream != 2 else 0
+                cap = ([24, 160, 1275][index // 12 % 3] if stream == 0 else [2, 3, 8, 16, 32, 64, 160, 1275][index % 8]) if stream != 2 else 32
+                mode = index // 6 % 3 if stream != 2 else 2
+                bitrate = min([16000, 24000, 32000, 64000, 128000, 510000][index // 3 % 6], 750000 * channels, cap * 8 * (400 >> lm))
+                seed = 1918989413 + index * 982451653 + rate * stream & 4294967295
+                scale = 0 if index % 48 in range(24, 36) else [128, 512, 2048, 8192, 30000, 32, 24000, 32767][index % 8]
+                rng = seed
+                values = []
+                for i in range((120 << lm) * rate // 48000 * channels):
+                    rng ^= rng << 13 & 4294967295
+                    rng ^= rng >> 17
+                    rng ^= rng << 5 & 4294967295
+                    values.append(((rng & 65535) - 32768) * scale // 32768)
+                lib.quality_wire(state, wire)
+                lib.quality_complexity(state, complexity)
+                lib.quality_rate(state, mode, bitrate)
+                out = (c.c_int * 7)()
+                ret = lib.quality_encode(state, (c.c_int16 * len(values))(*values), lm, cap, out)
+                if ret < 0:
+                    raise ValueError(f'Native rate encode failed:{ret}')
+                feedback = (c.c_int * 5)()
+                lib.quality_feedback(state, feedback)
+                packet = (c.c_ubyte * 1275)()
+                rng_out = c.c_uint32()
+                pcm_out = c.c_uint64()
+                length = lib.quality_packet(packet, c.byref(rng_out), c.byref(pcm_out))
+                rows.append(' '.join(map(str, [rate, channels, stream, index, lm, complexity, cap, mode, bitrate, seed, scale, wire, *out, *feedback, rng_out.value, pcm_out.value, bytes(packet[:length]).hex()])))
+        finally:
+            lib.quality_free(state)
+    output.write_text('\n'.join(rows) + '\n')
+    print('Captured', len(rows) - 2, 'actual CELT rate-history calls')
+
 if __name__=='__main__':main()

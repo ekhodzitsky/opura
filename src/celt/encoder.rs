@@ -46,6 +46,9 @@ mod hybrid_dynalloc_tests;
 #[path = "quality_tests.rs"]
 mod quality_tests;
 #[cfg(test)]
+#[path = "rate_history_tests.rs"]
+mod rate_history_tests;
+#[cfg(test)]
 #[path = "vbr_tests.rs"]
 mod vbr_tests;
 
@@ -1138,6 +1141,11 @@ impl CeltEncoder {
                 Ok(())
             },
         )?;
+        // Native allocation writes the realizable intensity boundary back to
+        // the state used by the next frame's hysteresis (also zero for mono).
+        if self.native_controls.is_some() {
+            self.intensity = analysis::IntensityState::from_band(allocation.intensity() as u8)?;
+        }
         let budget = writer.capacity() as u32 * 8;
         self.energy.fine(writer, layout, allocation.fine_bits())?;
         partition::encode_spectrum(

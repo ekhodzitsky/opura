@@ -224,6 +224,10 @@ an int16 narrowing in the pinned fixed-point reference. Its corrected encoder
 oracle matches PCM/range and temporal VBR history over10,560 frames; the
 reference decoder remains unchanged. See [CELT quality controls and recording
 diagnostics](docs/validation/celt-quality.md).
+The shared CELT owner retains the realized allocation intensity boundary for
+subsequent hysteresis, including mono resets. [Rate-history validation](docs/validation/celt-rate-history.md)
+covers5,132 actual native CBR/VBR/CVBR calls with byte-identical packets,
+PCM/ranges and live feedback histories, using the disclosed Q24 correction.
 The remaining quality/control review and competitive evaluation remain work.
 All applications and automatic file packets through120ms are connected.
 Existing fixed library/CLI defaults are unchanged.

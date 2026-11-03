@@ -7,6 +7,32 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.1.95] - 2026-11-03
+
+- Retain the actual CELT allocation intensity boundary for the next native
+  frame's hysteresis, including zero after mono coding. Previously the shared
+  owner retained the requested boundary even when a tight budget clipped it.
+  A stateful12kHz stereo VBR sequence reproduced different PCM/final range;
+  retaining the realized boundary corrects that mismatch. Fixed public paths
+  retain their existing policy.
+- Extend the explicitly Q24-corrected optional encoder oracle with actual
+  CBR/VBR/CVBR switches, changing rates/caps/durations/complexity, silence,
+  mono/stereo wire changes and a1100-frame saturated-feedback stream. Compare
+  packet bytes, PCM, final range, spreading, spectral average, realized
+  intensity and reservoir/drift/offset/count directly with native state.
+- Match every payload byte, PCM and final range across5,132 actual rate-history
+  calls. This also eliminates the three byte differences retained in0.1.94:
+  the existing10,560-frame fixture now matches every byte. Strengthen its
+  regression assertion to require complete byte identity.
+- Three isolated mutations are detected and restored; all three fixtures
+  regenerate identically. Fresh native decoding matches each complete9,600-call
+  short/long/pressure corpus, with hashes unchanged from0.1.94. All seven
+  required gates pass, including161 library and23 Python tests.
+- Twelve paired full-recording CBR cases retain0.1.94 payloads/PCM; all24
+  outputs match unchanged-native decoding, exact duration and byte budgets.
+- See docs/validation/celt-rate-history.md for coverage and validation.
+  This fixes native control continuity; it does not establish SOTA quality.
+
 ## [0.1.94] - 2026-11-03
 
 - Correct native complexity-zero CELT spreading and skip temporal masking

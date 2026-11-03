@@ -179,6 +179,6 @@ fn corrected_q24_native_complexity_transient_and_spreading_histories_match()
     eprintln!("corrected Q24 byte-identical packets:{equal_bytes}/{count}; patched:{patched}");
     assert_eq!(count, 10560);
     assert_eq!(patched, 966);
-    assert_eq!(equal_bytes, 10557);
+    assert_eq!(equal_bytes, count);
     Ok(())
 }
