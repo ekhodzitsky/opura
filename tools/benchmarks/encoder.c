@@ -84,18 +84,18 @@ static void verify(const char *path){
 static int order(const void *a,const void *b){uint64_t x=*(const uint64_t*)a,y=*(const uint64_t*)b;return(x>y)-(x<y);}
 static int number(const char *p,int maximum){char *end;long n=strtol(p,&end,10);if(!*p||*end||n<1||n>maximum)fail("invalid pass/warmup count");return(int)n;}
 int main(int argc,char **argv){
- if(argc!=5&&!(argc==4&&!strcmp(argv[1],"verify")))fail("usage: encoder CORPUS RECORD_OR_DASH PASSES WARMUP; or verify CORPUS RECORD");
+ if(argc!=5&&argc!=6&&!(argc==4&&!strcmp(argv[1],"verify")))fail("usage: encoder CORPUS RECORD_OR_DASH PASSES WARMUP [MINIMUM_MS]; or verify CORPUS RECORD");
  int verification=argc==4;load(argv[verification?2:1]);int error;uint64_t begin=now();OpusEncoder *encoder=opus_encoder_create(input.rate,input.channels,input.application,&error);uint64_t init=now()-begin;if(!encoder||error)fail("encoder init failed");configure(encoder);
  if(verification){verify(argv[3]);opus_encoder_destroy(encoder);free(input.pcm);return 0;}
  int passes=number(argv[3],1000),warmup=number(argv[4],100);FILE *record=NULL;
  if(strcmp(argv[2],"-")){record=fopen(argv[2],"wbx");if(!record)fail("record create failed");unsigned char h[24];record_header(h);if(fwrite(h,1,24,record)!=24)fail("record header write failed");}
  Stats validation=replay(encoder,1,record,NULL);if(record&&fclose(record))fail("record close failed");
  for(int i=0;i<warmup;i++){if(opus_encoder_ctl(encoder,OPUS_RESET_STATE))fail("reset failed");replay(encoder,0,NULL,NULL);}
- uint64_t elapsed=0;
- for(int i=0;i<passes;i++){if(opus_encoder_ctl(encoder,OPUS_RESET_STATE))fail("reset failed");begin=now();Stats s=replay(encoder,0,NULL,NULL);elapsed+=now()-begin;if(s.packets!=validation.packets||s.bytes!=validation.bytes)fail("timed pass changed packet/byte counts");}
+ uint64_t elapsed=0,target=argc==6?(uint64_t)number(argv[5],2000)*1000000:0;int completed=0;
+ while(completed<passes||elapsed<target){if(completed==1000)fail("minimum measurement time exceeds pass limit");if(opus_encoder_ctl(encoder,OPUS_RESET_STATE))fail("reset failed");begin=now();Stats s=replay(encoder,0,NULL,NULL);elapsed+=now()-begin;completed++;if(s.packets!=validation.packets||s.bytes!=validation.bytes)fail("timed pass changed packet/byte counts");}
  uint64_t *latency=malloc((size_t)input.frames*sizeof(*latency));if(!latency)fail("latency allocation failed");if(opus_encoder_ctl(encoder,OPUS_RESET_STATE))fail("reset failed");replay(encoder,0,NULL,latency);
  if(opus_encoder_ctl(encoder,OPUS_RESET_STATE))fail("reset failed");Stats after=replay(encoder,1,NULL,NULL);if(after.packets!=validation.packets||after.bytes!=validation.bytes||after.fingerprint!=validation.fingerprint||after.in_dtx!=validation.in_dtx||memcmp(after.modes,validation.modes,sizeof(after.modes)))fail("post-timing validation changed output");
  qsort(latency,input.frames,sizeof(*latency),order);
- printf("{\"packets\":%"PRIu64",\"samples_per_pass\":%"PRIu64",\"packet_bytes\":%"PRIu64",\"fingerprint\":\"%016"PRIx64"\",\"encoder_object_bytes\":%d,\"lookahead\":%d,\"passes\":%d,\"elapsed_ns\":%"PRIu64",\"init_ns\":%"PRIu64",\"latency_ns\":{\"p50\":%"PRIu64",\"p95\":%"PRIu64",\"p99\":%"PRIu64",\"max\":%"PRIu64"},\"mode_packets\":[%"PRIu64",%"PRIu64",%"PRIu64"],\"native_in_dtx_frames\":%"PRIu64"}\n",validation.packets,(uint64_t)input.frames*input.n,validation.bytes,validation.fingerprint,opus_encoder_get_size(input.channels),input.skip,passes,elapsed,init,latency[(input.frames-1)*50/100],latency[(input.frames-1)*95/100],latency[(input.frames-1)*99/100],latency[input.frames-1],validation.modes[0],validation.modes[1],validation.modes[2],validation.in_dtx);
+ printf("{\"packets\":%"PRIu64",\"samples_per_pass\":%"PRIu64",\"packet_bytes\":%"PRIu64",\"fingerprint\":\"%016"PRIx64"\",\"encoder_object_bytes\":%d,\"lookahead\":%d,\"passes\":%d,\"elapsed_ns\":%"PRIu64",\"init_ns\":%"PRIu64",\"latency_ns\":{\"p50\":%"PRIu64",\"p95\":%"PRIu64",\"p99\":%"PRIu64",\"max\":%"PRIu64"},\"mode_packets\":[%"PRIu64",%"PRIu64",%"PRIu64"],\"native_in_dtx_frames\":%"PRIu64"}\n",validation.packets,(uint64_t)input.frames*input.n,validation.bytes,validation.fingerprint,opus_encoder_get_size(input.channels),input.skip,completed,elapsed,init,latency[(input.frames-1)*50/100],latency[(input.frames-1)*95/100],latency[(input.frames-1)*99/100],latency[input.frames-1],validation.modes[0],validation.modes[1],validation.modes[2],validation.in_dtx);
  free(latency);opus_encoder_destroy(encoder);free(input.pcm);return 0;
 }
