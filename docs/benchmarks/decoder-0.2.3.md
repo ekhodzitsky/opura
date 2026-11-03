@@ -14,6 +14,10 @@ signed16 caller-buffer API at Opus1.6.1 revision
 `22244de5a79bd1d6d623c32e72bf1954b56235be`. API ownership and complete-owner
 transaction contracts differ; their costs remain inside their public calls.
 No alternate fast path or relaxed error transaction is used for Rust timing.
+This track invokes normal packet decode; any in-stream DTX is handled normally.
+Explicit caller-requested PLC/FEC recovery, signed-gain controls, mapped channels,
+file/container I/O and representative encoder quality have separate correctness
+coverage but are not throughput workloads in this comparison.
 
 Both builds target generic x86-64 instructions with compiler auto-vectorization
 allowed and scalar dispatch. C uses `-O3 -fwrapv -march=x86-64 -mtune=generic`,
@@ -105,5 +109,64 @@ A changed-source checker probe is rejected. These results and source identities
 are retained in the [correctness evidence](../validation/results/decoder-current-0.2.3-correctness.json)
 and [conformance report](../validation/results/decoder-current-0.2.3-conformance.json).
 
-The complete retained comparison is still pending; preflight does not establish
-a speed result, current native target success or SOTA claim.
+## Retained results
+
+The complete300-sample/15paired-round run is structurally valid, but **the speed
+target is not met**. The equal-case aggregate Opura/native median-time ratio is
+**1.5936**, with paired95% interval **[1.5522,1.6209]**. Opura uses about59.4% more
+codec time in this aggregate. Every per-case interval is entirely above1;
+all ten output geometries lose to the pinned scalar reference. Both the0.900
+aggregate and1.050per-case upper-bound gates fail. The losing data are retained.
+
+Measured on AMD Ryzen AI 9 HX 370 w/ Radeon 890M,
+7.0.0-38-generic (x86_64), CPU0.
+The minimum retained sample is330.306667ms, exceeding the declared200ms.
+All retained samples used one pass; adaptive extension beyond one pass is
+independently exercised by the retained2s live probes. No build/test/fixture
+work ran concurrently with the retained timing phase.
+
+Median codec microseconds per packet across15 process samples; each sample
+replays the full20075-packet corpus. Lower ratio is faster.
+
+| Output Hz | Channels |Opura µs|Native µs|Ratio|95% interval|
+|---|---:|---:|---:|---:|---|
+|8000|1|30.16|18.05|1.672|[1.653,1.715]|
+|8000|2|35.39|23.13|1.530|[1.454,1.618]|
+|12000|1|30.44|18.36|1.658|[1.597,1.747]|
+|12000|2|34.68|23.77|1.459|[1.344,1.526]|
+|16000|1|29.47|17.78|1.657|[1.583,1.741]|
+|16000|2|34.94|22.88|1.527|[1.482,1.675]|
+|24000|1|30.10|18.32|1.643|[1.574,1.701]|
+|24000|2|36.22|23.68|1.529|[1.444,1.600]|
+|48000|1|30.42|18.67|1.629|[1.497,1.660]|
+|48000|2|38.25|23.22|1.647|[1.549,1.712]|
+
+At48kHz stereo, medians of per-process call-latency quantiles in microseconds:
+
+|Implementation|p50|p95|p99|
+|---|---:|---:|---:|
+|opura|21.75|128.09|218.09|
+|libopus|15.10|73.64|133.77|
+
+Median initialization at48kHz stereo is17.403µs for Rust and17.913µs for native;
+these are different public construction/ownership contracts, not a memory or
+initialization winner claim. Owner storage is34520bytes for Rust and27124bytes
+for native stereo (18404bytes for native mono), excluding the other costs listed
+above. Peak stack/heap/RSS and steady-state allocation counts remain unmeasured.
+
+Separate latency-pass mode buckets at48kHz stereo have median mean packet times
+of16.66/36.25/44.08µs for Opura and13.38/26.89/25.05µs for native
+(SILK/Hybrid/CELT respectively). The CELT bucket is the largest diagnostic gap;
+buckets include transitions, implicit loss/DTX and mixed frame durations and do
+not isolate individual component CPU cost. Current profiling is needed before
+selecting the next optimization.
+
+The [full generated report](results/decoder-0.2.3.json) contains every raw sample,
+pass count, initialization/latency observation, provenance hash and failed gate.
+Its structural checker passes; `--check` deliberately exits1 because the speed
+target fails. Reproduction must not change thresholds or omit cases to turn that
+failure into a pass. The current result is not a direct before/after improvement
+claim over the historical0.1.41run; its protocol and runtime environment differ.
+Codec algorithms are those of0.2.2, measured at the clean `dd51c4c` checkpoint;
+subsequent release changes are reporting only. No SOTA, best-available or broader
+competitor superiority is established.

@@ -21,7 +21,7 @@ versioned source scope.
 | Canonical surround analysis and encoding | [Spectral and allocation masks](surround-analysis.md) match2160 explicitly corrected-Q24 mask/history records and2816unchanged native mask-reduction outputs, with six detected source mutations. [Actual surround encoding](surround-encoder.md) adds1920CELT byte/PCM/state cases,6480common-owner traces,3240rate cases,1290wire-policy cases and6760native receiver operations. |
 | Invalid input and late errors | Shared-owner regressions compare the complete owner against its pre-call clone after failed short/long packets, invalid geometry/controls and impossible budgets. Successful insufficient-budget PLC follows its distinct documented state-retention contract. |
 | File timing and fixed paths | Full Cargo integration tests retain empty/partial, silence/resume, all applications/rates, whole CBR budgets and error-before-creation checks. The [0.1.95 recording report](results/celt-rate-history-0.1.95-recordings.json) checks12 paired full-recording CBR profiles,24 native PCM matches and exact durations. Prior complete fixed corpus identity is recorded in0.1.94; those corpora were not regenerated in this validation-only audit. |
-| Build constraints | The 0.1.95 control audit passed all seven offline gates with 162 library/23 Python tests; the 0.1.96 benchmark tooling also passes the gates, with 31 Python tests. The0.1.97 mapped-library milestone passes the seven gates with163 library/34 Python tests. The0.1.98 mapped-file milestone passes all seven with163 library/36 Python tests and five mapped CLI integration tests. The0.1.99 surround-analysis prerequisites pass all seven with167 library/36 Python tests. The0.2.0 actual surround integration passes all seven with172 library/37 Python tests; final generic7405-operation and mapped2160-file native replays pass. The0.2.1 CWRS optimization passes all seven with172 library/41 Python tests and retains all120 official PCM hashes from0.2.0. The0.2.2 PCM change also passes all seven with172 library/41 Python tests and all120 official PCM hashes unchanged from0.2.1. No third-party Cargo dependency, unsafe policy exception or ordinary external codec requirement was added. |
+| Build constraints | The 0.1.95 control audit passed all seven offline gates with 162 library/23 Python tests; the 0.1.96 benchmark tooling also passes the gates, with 31 Python tests. The0.1.97 mapped-library milestone passes the seven gates with163 library/34 Python tests. The0.1.98 mapped-file milestone passes all seven with163 library/36 Python tests and five mapped CLI integration tests. The0.1.99 surround-analysis prerequisites pass all seven with167 library/36 Python tests. The0.2.0 actual surround integration passes all seven with172 library/37 Python tests; final generic7405-operation and mapped2160-file native replays pass. The0.2.1 CWRS optimization passes all seven with172 library/41 Python tests and retains all120 official PCM hashes from0.2.0. The0.2.2 PCM change also passes all seven with172 library/41 Python tests and all120 official PCM hashes unchanged from0.2.1. The0.2.3 benchmark repair passes all seven with172 library/44 Python tests; codec algorithms and all120 official PCM hashes remain unchanged from0.2.2. No third-party Cargo dependency, unsafe policy exception or ordinary external codec requirement was added. |
 
 The0.2.0 official matrix retains every0.1.97 PCM hash at zero gain.
 The encoder's private reference build corrects only Q24 spectral-patch local
@@ -61,12 +61,16 @@ integrated contract in the table above.
   operations pass. Every per-case interval includes1 and five upper bounds
   exceed1.05. A fresh native comparison remains required; no cumulative ratio
   against0.2.0 is inferred from separate measurements.
-- The [decoder0.1.41 baseline](../benchmarks/decoder-0.1.41.md) lost to the pinned
-  scalar native reference in all ten configurations. This is a historical
-  baseline, not a current0.2.2 speed measurement. Current scalar and best
-  available competitor comparisons, including the other direct implementations
-  in the [comparison contract](../benchmarks/competitive-landscape.md), remain
-  necessary before any leadership claim.
+- The current [0.2.3 scalar native comparison](../benchmarks/decoder-0.2.3.md)
+  independently reproduces all120 official PCM hashes and retains300samples/
+  15paired rounds/all ten output geometries. Its Opura/native aggregate time
+  ratio is1.5936 (95% interval[1.5522,1.6209]); all ten case intervals exceed1.
+  Both speed gates fail. The CELT TOC latency bucket has the largest diagnostic
+  gap, requiring current profiling rather than a quality or speed leadership
+  claim. The [0.1.41 baseline](../benchmarks/decoder-0.1.41.md) remains historical;
+  no direct before/after improvement is inferred from these different runs.
+  Best-available native SIMD and the other direct implementations in the
+  [comparison contract](../benchmarks/competitive-landscape.md) remain unmeasured.
 - Cross-platform/target coverage and malformed-input/resource measurements must
   accompany a competitive release. Optional QEXT/neural/OSCE paths and no_std
   are not implemented; no_std is explicitly not a current project requirement.

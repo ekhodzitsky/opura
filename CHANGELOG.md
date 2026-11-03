@@ -24,7 +24,10 @@ and validation, without implying full Opus compatibility before PCM decoding.
   conformance PCM hashes remain unchanged. Newly compiled generic profiles
   independently reproduce all120hashes and pass ten live adapter probes plus
   stale-source rejection. Codec algorithms remain those of0.2.2; final native
-  comparison and speed target remain pending.
+  comparison retains300samples/15paired rounds/all ten geometries: Opura/native
+  aggregate time ratio1.5936 (95% interval[1.5522,1.6209]). All ten cases are slower
+  and both speed gates fail. Preserve complete losing results, latency and
+  scoped state-size evidence; no native/SOTA superiority claim.
 
 ## [0.2.2] - 2026-11-03
 

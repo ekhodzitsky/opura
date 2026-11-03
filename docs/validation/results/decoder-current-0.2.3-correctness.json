@@ -3,7 +3,7 @@
   "version": "0.2.3",
   "base_revision": "6c9d86a147cda1f06cea1c41d6ee2c35432afc5e",
   "worktree_modified": true,
-  "provenance": "Final optional benchmark source before correctness checkpoint commit; codec algorithms unchanged from0.2.2. Live preflight passes; complete retained timings pending.",
+  "provenance": "Correctness gates were run on final benchmark source before checkpointdd51c4c; complete source-bound clean-checkpoint timing is now retained. Codec algorithms remain0.2.2; later changes are Markdown/JSON reporting only.",
   "source_sha256": {
     "Cargo.lock": "d88b997bf4356bfd18382523dc375fd363c1271ec07be195a85daecb11ffa9b2",
     "Cargo.toml": "80341641bffe9e6cb8a8041f26b52ae395996b411558522f98a53b9cc6d69620",
@@ -269,10 +269,15 @@
     "rust_wrong_range": "rejected"
   },
   "stale_source_checker": "rejected",
-  "performance_status": "pending15paired rounds/all10geometries",
+  "performance_status": "complete and structurally valid; all10cases and aggregate fail speed target",
   "limitations": [
     "Preflight timings are not retained performance evidence.",
     "No current native target or SOTA claim.",
     "Default scalar generic target profile; best available native SIMD is not compared."
-  ]
+  ],
+  "performance_report": "../../benchmarks/results/decoder-0.2.3.json",
+  "measured_revision": "dd51c4c117b06da4aea9000bde76aaa8bb590125",
+  "measurement_source_sha256": "c43b1b4b43ad8b2934e437c3531c2b0b67fbb5f39cc5f2f08d1303f984850adb",
+  "reference_target_met": false,
+  "benchmark_verifier_sha256": "d28d23dfcca2ed45ac23b5045a50d12ac3927831bd0e8f1b1d3f9e82ef0b058e"
 }
