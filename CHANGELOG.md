@@ -24,6 +24,11 @@ and validation, without implying full Opus compatibility before PCM decoding.
   DTX profiles use sustained quiet windows, query native DTX state and require
   observed suppressed frames/recovery backups; short quiet fragments that never
   reach DTX cannot count as a DTX benchmark.
+- Enforce minimum accumulated encoding time inside both benchmark adapters,
+  retaining every pass up to a bounded1000-pass limit and reporting the actual
+  count. Check each sample immediately. Single-preflight fixed-count calibration
+  could produce short samples and only reject them after the complete run;
+  that failed run is preserved and does not count as baseline evidence.
 - Expose both endpoints of the existing paired percentile interval and correct
   its description: the unchanged upper gate is the97.5th percentile, the upper
   end of an equal-tail95% interval. Existing competitive thresholds are retained.
@@ -40,7 +45,7 @@ and validation, without implying full Opus compatibility before PCM decoding.
 - Preserve the post0.1.95 complete official RFC8251 decoder audit: all120
   cases/ranges and corruption probes pass. The unchanged decoder is covered by
   current required regressions. All seven offline gates pass, including162
-  library and30 Python tests; benchmark/report tests account for the increase.
+  library and31 Python tests; benchmark/report tests account for the increase.
 
 ## [0.1.95] - 2026-11-03
 

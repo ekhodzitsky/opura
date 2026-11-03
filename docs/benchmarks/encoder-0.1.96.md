@@ -77,8 +77,17 @@ must match the independently verified preflight fingerprint and geometry.
 Live wrong-range, wrong-PCM, oversized-packet and wrong-geometry records must
 be rejected by both verification adapters before retained measurement begins.
 
-One warmup precedes each process's measured passes. Calibration targets at least
-200ms with25% headroom; samples below75% of that minimum are rejected. Fifteen
+One warmup precedes each process's measured passes. Calibration estimates an
+initial pass count with25% headroom from the preflight. Each measured process
+then retains every pass and extends its loop until both that count and at least
+200ms of accumulated encode time are reached. It fails at1000 passes rather
+than publish a short measurement. Resets stay outside accumulated time. Actual
+pass counts are reported and used to normalize each sample; no fast passes are
+discarded or rerun in a replacement process. The driver checks the full minimum
+immediately after every invocation, and the report checker checks it again.
+This replaces single-preflight fixed-count calibration, which proved too short
+under changing runtime conditions and caused a complete development run to be
+rejected. Its data remain local and are not accepted baseline evidence. Fifteen
 paired rounds shuffle case order and implementation order with seed6716. CPU
 affinity is pinned; governor, frequency, available thermal sensors and load
 are recorded before/after timing. Frequency and CPU exclusivity are not controlled.

@@ -31,6 +31,7 @@ HEADER = struct.Struct('<8sIHHIHBBBBBBI')
 APPS = ('audio', 'voip', 'lowdelay', 'silk', 'celt')
 MODES = ('cbr', 'vbr', 'cvbr')
 VERSION = tomllib.loads((ROOT/'Cargo.toml').read_text())['package']['version']
+MINIMUM_TIME_POLICY = 'retain_all_passes_until_initial_count_and_minimum_elapsed_time; maximum1000'
 SAMPLE_KEYS = ('packets', 'samples_per_pass', 'packet_bytes', 'fingerprint',
                'encoder_object_bytes', 'lookahead', 'mode_packets')
 
@@ -128,6 +129,17 @@ def check_sample(sample, case, passes, expected=None):
         raise ValueError('Native DTX state changed')
     if expected and any(sample[k] != expected[k] for k in SAMPLE_KEYS):
         raise ValueError('Measured output changed from cross-verified preflight')
+    return sample
+
+
+
+def check_measurement(sample, case, initial_passes, minimum_ms, expected=None):
+    if type(initial_passes) is not int or not 1<=initial_passes<=1000 or type(minimum_ms) is not int or not 1<=minimum_ms<=2000:
+        raise ValueError('Invalid minimum-time measurement contract')
+    actual=sample.get('passes') if isinstance(sample,dict) else None
+    check_sample(sample,case,actual,expected)
+    if actual<initial_passes or sample['elapsed_ns']<minimum_ms*1000000:
+        raise ValueError('Measured sample below required count or minimum elapsed time')
     return sample
 
 
@@ -240,13 +252,16 @@ def cases(profile, corpus):
     return result
 
 
-def invoke(binary, path, case, passes, warmup, record, rss):
+def invoke(binary, path, case, passes, warmup, record, rss, minimum_ms=0):
     command = ['/usr/bin/time', '-f', '%M', '-o', str(rss), str(binary), str(path),
                str(record) if record else '-', str(passes), str(warmup)]
+    if minimum_ms: command.append(str(minimum_ms))
     result = subprocess.run(command, capture_output=True, text=True, timeout=600)
     if result.returncode:
         raise ValueError('Adapter failed: '+result.stderr[-2000:])
-    sample = check_sample(json.loads(result.stdout), case, passes)
+    sample = json.loads(result.stdout)
+    if minimum_ms: check_measurement(sample,case,passes,minimum_ms)
+    else: check_sample(sample,case,passes)
     memory = int(rss.read_text().strip())
     if memory <= 0:
         raise ValueError('Missing process RSS')
@@ -362,8 +377,10 @@ def validation_record(path, case, sample):
 
 
 def validate_report(report, require_full=False):
-    if not isinstance(report,dict) or type(report.get('schema_version')) is not int or report['schema_version']!=1 or report.get('track')!='encoder_scalar' or report.get('status')!='pass':
+    if not isinstance(report,dict) or type(report.get('schema_version')) is not int or report['schema_version']!=2 or report.get('track')!='encoder_scalar' or report.get('status')!='pass':
         raise ValueError('Complete successful encoder report required')
+    if report.get('minimum_time_policy')!=MINIMUM_TIME_POLICY:
+        raise ValueError('Missing bounded minimum-time measurement policy')
     if report.get('opura_version')!=VERSION:
         raise ValueError('Wrong measured package version')
     for key,length in [('source_sha256',64),('base_revision',40)]:
@@ -424,11 +441,10 @@ def validate_report(report, require_full=False):
             if not isinstance(samples,list) or len(samples)!=rounds:
                 raise ValueError('Missing measured rounds')
             for sample in [expected,*samples]:
-                check_sample(sample,c,1 if sample is expected else passes,expected)
+                if sample is expected: check_sample(sample,c,1,expected)
+                else: check_measurement(sample,c,passes,report['minimum_ms'],expected)
                 if type(sample.get('process_maxrss_kib')) is not int or not 0<sample['process_maxrss_kib']<=2*1024*1024:
                     raise ValueError('Missing process RSS scope')
-                if sample is not expected and sample['elapsed_ns']<report['minimum_ms']*750000:
-                    raise ValueError('Measured sample below calibrated minimum')
             d=c['packet_diagnostics'][impl]
             if not isinstance(d,dict) or d.get('verified_packets')!=frames:
                 raise ValueError('Missing native packet diagnostics')
@@ -518,7 +534,7 @@ def main():
     digest = fingerprint_sources()
     build = ROOT/'target/encoder-bench'/digest[:16]; build.mkdir(parents=True, exist_ok=True)
     binaries, rustc = compile_adapters(args.source.resolve(), build)
-    report = dict(schema_version=1, track='encoder_scalar', status='in_progress',
+    report = dict(schema_version=2, minimum_time_policy=MINIMUM_TIME_POLICY, track='encoder_scalar', status='in_progress',
                   opura_version=VERSION,
                   source_sha256=digest, base_revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
                   reference_revision=REVISION, reference_checkout_modified=False,
@@ -570,8 +586,8 @@ def main():
             name=row['case'];case=report['cases'][name];folder=args.output/name
             report['order'].append(row)
             for impl in row['implementations']:
-                sample=invoke(binaries[impl],folder/'input.bin',case,case['calibration'][impl],args.warmup,None,folder/'rss.txt')
-                check_sample(sample,case,case['calibration'][impl],case['preflight'][impl])
+                sample=invoke(binaries[impl],folder/'input.bin',case,case['calibration'][impl],args.warmup,None,folder/'rss.txt',args.minimum_ms)
+                check_measurement(sample,case,case['calibration'][impl],args.minimum_ms,case['preflight'][impl])
                 case['samples'][impl].append(sample)
             save()
             if (index+1)%len(report['cases'])==0:

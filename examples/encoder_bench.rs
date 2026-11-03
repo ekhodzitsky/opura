@@ -256,9 +256,9 @@ fn main() -> Result<()> {
         let input = load(Path::new(&args[1]))?;
         return verify(&input, Path::new(&args[2]));
     }
-    if args.len() != 4 {
+    if args.len() != 4 && args.len() != 5 {
         return Err(
-            "usage: encoder_bench CORPUS RECORD_OR_DASH PASSES WARMUP; or verify CORPUS RECORD"
+            "usage: encoder_bench CORPUS RECORD_OR_DASH PASSES WARMUP [MINIMUM_MS]; or verify CORPUS RECORD"
                 .into(),
         );
     }
@@ -268,6 +268,15 @@ fn main() -> Result<()> {
     if !(1..=1000).contains(&passes) || !(1..=100).contains(&warmup) {
         return Err("invalid pass/warmup count".into());
     }
+    let minimum_ms: u64 = if args.len() == 5 {
+        let value = args[4].to_str().ok_or("minimum time")?.parse()?;
+        if !(1..=2000).contains(&value) {
+            return Err("invalid minimum time".into());
+        }
+        value
+    } else {
+        0
+    };
     let begin = Instant::now();
     let mut encoder = OpusEncoder::with_application(
         input.rate,
@@ -295,11 +304,16 @@ fn main() -> Result<()> {
         black_box(replay(&input, &mut encoder, None, false, None)?);
     }
     let mut elapsed = 0u128;
-    for _ in 0..passes {
+    let mut completed = 0usize;
+    while completed < passes || elapsed < u128::from(minimum_ms) * 1_000_000 {
+        if completed == 1000 {
+            return Err("minimum measurement time exceeds pass limit".into());
+        }
         encoder.reset()?;
         let begin = Instant::now();
         let stats = replay(&input, &mut encoder, None, false, None)?;
         elapsed += begin.elapsed().as_nanos();
+        completed += 1;
         if stats.packets != validation.packets || stats.bytes != validation.bytes {
             return Err("timed pass changed packet/byte counts".into());
         }
@@ -321,7 +335,7 @@ fn main() -> Result<()> {
         validation.fingerprint,
         size_of::<OpusEncoder>(),
         skip,
-        passes,
+        completed,
         elapsed,
         init_ns,
         percentile(50),

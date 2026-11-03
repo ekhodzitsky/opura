@@ -27,6 +27,20 @@ class EncoderBenchmarkIntegrity(unittest.TestCase):
         damaged=deepcopy(valid);damaged['fingerprint']='f'*16
         with self.assertRaises(ValueError):bench.check_sample(damaged,case,1,valid)
 
+    def test_minimum_time_extends_count_without_dropping_fast_passes(self):
+        case=bench.config();case['frames']=100
+        expected=sample(case)
+        measured=deepcopy(expected);measured.update(passes=4,elapsed_ns=200_000_000)
+        bench.check_measurement(measured,case,1,200,expected)
+        for key,value in [('passes',0),('passes',True),('passes',1001),('elapsed_ns',199_999_999)]:
+            bad=deepcopy(measured);bad[key]=value
+            with self.subTest(key=key),self.assertRaises(ValueError):bench.check_measurement(bad,case,1,200,expected)
+        with self.assertRaises(ValueError):bench.check_measurement(measured,case,5,200,expected)
+        # A sample that used to satisfy the75% rule still fails the new full
+        # minimum, both immediately and when checking a retained report.
+        short=deepcopy(measured);short['elapsed_ns']=150_000_000
+        with self.assertRaises(ValueError):bench.check_measurement(short,case,1,200,expected)
+
     def test_corpus_geometry_padding_and_explicit_exclusions(self):
         with tempfile.TemporaryDirectory() as folder:
             path=Path(folder)/'input.bin';case=bench.prepare(path,bench.config(rate=8000),[1]*161)
@@ -46,7 +60,7 @@ class EncoderBenchmarkIntegrity(unittest.TestCase):
 
 def report_fixture(profile='smoke', rounds=3):
     import math
-    result=dict(opura_version=bench.VERSION,schema_version=1,track='encoder_scalar',status='pass',source_sha256='1'*64,
+    result=dict(opura_version=bench.VERSION,schema_version=2,minimum_time_policy=bench.MINIMUM_TIME_POLICY,track='encoder_scalar',status='pass',source_sha256='1'*64,
                 base_revision='2'*40,reference_revision=bench.REVISION,reference_checkout_modified=False,
                 seed=6716,cflags=bench.CFLAGS,rustflags=bench.RUST_FLAGS,rust_release_profile=bench.RUST_PROFILE,profile=profile,rounds=rounds,warmup=1,minimum_ms=20,
                 baseline_complete=profile=='full' and rounds>=15,rustc='rustc',cc='cc',
@@ -85,7 +99,7 @@ class EncoderReportProtocol(unittest.TestCase):
         bench.validate_report(valid)
         with self.assertRaises(ValueError):bench.validate_report(valid,require_full=True)
         for field,value in [('schema_version',True),('profile','unknown'),('rounds',True),('status','failed'),('source_sha256','bad'),
-                            ('reference_revision','0'*40),('fault_sensitivity',{}),('order',[]),
+                            ('reference_revision','0'*40),('fault_sensitivity',{}),('order',[]),('minimum_time_policy','fixed_count'),
                             ('equal_case_geometric_mean_ratio',0.1),('hardware_after',dict(cpu=1,cpu_model='test',machine='test'))]:
             damaged=deepcopy(valid);damaged[field]=value
             with self.subTest(field=field),self.assertRaises(ValueError):bench.validate_report(damaged)
