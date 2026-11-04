@@ -7,6 +7,15 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Retain the rejected fused inverse-MDCT FFT preparation experiment: all seven
+  gates pass (183 library/44 Python tests), with 1536 private native FFT cases,
+  unchanged public FFT/MDCT/synthesis and full decoder/multistream fixtures,
+  four caught/restored mutations and 120 official PCM hashes identical to 0.2.5.
+  Complete paired timing gives ratio 1.0116, 95% interval [0.9844,1.0354],
+  300 samples/all ten geometries; every case interval includes 1. Preserve
+  all samples and source/binary bindings. No production adoption, 0.2.6 tag
+  or native/SOTA/resource claim follows.
+
 - Retain the rejected private inverse-MDCT destination experiment: all seven
   gates pass (183 library/44 Python tests), with398native MDCT and480synthesis
   cases, native complete-decoder/multistream fixtures, three detected/restored

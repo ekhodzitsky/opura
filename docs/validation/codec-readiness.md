@@ -95,6 +95,11 @@ integrated contract in the table above.
   with all ten individual intervals including1. All seven gates and120unchanged
   official PCM hashes pass. Its code stays separate; stable production remains
   0.2.5. No unchanged experiment is repeated in search of significance.
+  The [fused inverse-MDCT FFT preparation experiment](../benchmarks/decoder-mdct-fft-0.2.6.md)
+  is also unaccepted: 300 samples, ratio 1.0116, 95% interval [0.9844,1.0354],
+  all ten individual intervals including 1. Seven gates and 120 unchanged
+  official PCM hashes pass; its implementation remains isolated. Production
+  stays 0.2.5, with no 0.2.6 tag or unchanged retry for significance.
   Best-available native SIMD and the other direct implementations in the
   [comparison contract](../benchmarks/competitive-landscape.md) remain unmeasured.
 - Cross-platform/target coverage and malformed-input/resource measurements must

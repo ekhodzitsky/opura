@@ -1,0 +1,192 @@
+{
+  "schema_version": 1,
+  "version": "0.2.6",
+  "base_revision": "fce23fc",
+  "worktree_modified": true,
+  "provenance": "Correctness checks bind codec content committed at99312a0. The complete comparison is inconclusive; no production adoption or release.",
+  "source_sha256": {
+    "src/celt/fft.rs": "0fd8dee87dc354ee6a6d97c4b8c88862eb77df1c7fc542415f7f79e7dbb6765c",
+    "src/celt/mdct.rs": "f7a9a2016864b66ba716285475345b54be08523718b14277068ce7f0bc23b792",
+    "src/celt/fft_permuted_tests.rs": "5fc715ccf7779329ec43a45098bc08e9a96376e78763e181f701d35271c65735",
+    "tests/celt-fft-fixtures.txt": "e8658538d81726029120d6a72f0bebe501cc5d2cfa105f2cde5c300463250691",
+    "tests/celt-mdct-fixtures.txt": "c7de5a33b9bdd2c5115432c8e82e318763c42bed6752ab4a453e6dcbae760808",
+    "tests/celt-synthesis-fixtures.txt": "e94b6090001c46d010b7f90d6375d4746a11f6ccc666c437c2482ecf233807e5",
+    "tests/decoder-pcm-fixtures.txt": "c14959e2f5e92a67760f7ca6ab2d4ce8a1dd5309d50a8ed19100029d8fabe1cf",
+    "Cargo.toml": "4bfcd68c47c65cb74dc9d236553bc8ebdba2cecece68621ff3bcf6c674bbba5a",
+    "Cargo.lock": "971bd4a92701ad6829df7ce53dcdef14087c2920a32ab97061f423541ca6ea54"
+  },
+  "offline_gates": [
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 0.4807352380012162
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked"
+      ],
+      "exit_code": 0,
+      "seconds": 144.52918187499745
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--release"
+      ],
+      "exit_code": 0,
+      "seconds": 34.70292243498261
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "seconds": 9.937849900015863
+    },
+    {
+      "command": [
+        "cargo",
+        "doc",
+        "--offline",
+        "--locked",
+        "--no-deps"
+      ],
+      "exit_code": 0,
+      "seconds": 0.8522073290077969
+    },
+    {
+      "command": [
+        "python3",
+        "tools/check_dependencies.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.056147210008930415
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools",
+        "-p",
+        "test_*.py"
+      ],
+      "exit_code": 0,
+      "seconds": 4.819364077004138
+    }
+  ],
+  "rustdoc_environment": {
+    "RUSTDOCFLAGS": "-D warnings"
+  },
+  "library_tests": 183,
+  "python_tests": 44,
+  "native_private_permuted_fft_cases": 1536,
+  "native_public_fft_cases": 1632,
+  "native_mdct_cases": 398,
+  "native_synthesis_cases": 480,
+  "all_transaction_tests": 9,
+  "new_private_fft_tests": 2,
+  "mutations": [
+    {
+      "name": "omit-buffer-validation",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--lib",
+        "invalid_permuted_geometry_and_shift_preserve_every_coordinate"
+      ],
+      "exit_code": 101,
+      "caught": true
+    },
+    {
+      "name": "omit-downshift-validation",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--lib",
+        "invalid_permuted_geometry_and_shift_preserve_every_coordinate"
+      ],
+      "exit_code": 101,
+      "caught": true
+    },
+    {
+      "name": "ignore-native-downshift",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--lib",
+        "permuted_forward_matches_native_for_every_plan_and_downshift"
+      ],
+      "exit_code": 101,
+      "caught": true
+    },
+    {
+      "name": "natural-instead-of-permuted-mdct",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--test",
+        "celt_mdct"
+      ],
+      "exit_code": 101,
+      "caught": true
+    }
+  ],
+  "native_decoder_operations": 1680,
+  "native_multistream_regressions": "pass",
+  "official_conformance_cases": 120,
+  "pcm_unchanged_from": "0.2.5",
+  "performance_status": "complete, inconclusive; rejected for release",
+  "exploratory_pilot": {
+    "pairs": 7,
+    "geometry": "48000/2",
+    "ratio": 1.0111086561077718,
+    "accepted_as_release_evidence": false
+  },
+  "limitations": [
+    "No native/best-available/other-competitor, encoder quality/speed, peak-stack/heap/RSS or SOTA claim.",
+    "The1020-element inverse workspace and public owning TimeFrame remain; this is not fully in-place MDCT."
+  ],
+  "codec_revision": "99312a0",
+  "performance": {
+    "report": "../../benchmarks/results/decoder-mdct-fft-0.2.6.json",
+    "samples": 300,
+    "paired_rounds": 15,
+    "geometries": 10,
+    "ci95": [
+      0.9843876402279146,
+      1.0353871212258545
+    ],
+    "ratio": 1.0115705621010105,
+    "accepted": false
+  }
+}
