@@ -7,6 +7,15 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Record source/binary-bound decoder allocation-entry observations for unchanged
+  0.2.5 and pinned scalar Opus 1.6.1. All ten geometries/five balanced replay
+  windows per geometry show zero watched allocator-entry events over 1,003,750
+  normal packet calls per implementation, with matching output fingerprints.
+  Positive Rust/C and empty-window controls pass; six live negative controls
+  are rejected. Preserve exact driver and scope: no all-input allocation,
+  peak-stack/heap/RSS, CPU-time, memory-superiority or SOTA claim. No codec,
+  Cargo or public API change; no version bump for diagnostic documentation.
+
 - Retain the rejected fused inverse-MDCT FFT preparation experiment: all seven
   gates pass (183 library/44 Python tests), with 1536 private native FFT cases,
   unchanged public FFT/MDCT/synthesis and full decoder/multistream fixtures,
