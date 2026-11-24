@@ -7,6 +7,12 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Add a library quick start and file conversion guide, organize historical
+  component notes under `docs/history/`, and align crate documentation, CLI
+  help and repository metadata with the supported codec and file formats.
+  Remove an embedded copy of upstream FFT code from the third-party notices
+  and link to the pinned source.
+
 - Record source/binary-bound decoder allocation-entry observations for unchanged
   0.2.5 and pinned scalar Opus 1.6.1. All ten geometries/five balanced replay
   windows per geometry show zero watched allocator-entry events over 1,003,750

@@ -1,10 +1,9 @@
-//! CELT normal/loss/DTX decoding and classic transform-layer primitives.
+//! CELT packet encoding, decoding and transform-layer primitives.
 //!
-//! See [`decoder`] for stateful CELT PCM output and concealment.
-//! [`crate::decoder::OpusDecoder`] handles shared Hybrid/mode-transition histories.
-//! [`encoder::CeltEncoder`] supplies baseline CELT-only PCM packet encoding.
-//! [`input`], forward [`mdct`] and channel/subframe [`analysis`] remain available.
-//! Adaptive encoder policies and SILK/Hybrid encoding remain under development.
+//! [`decoder`] provides stateful PCM output and loss concealment.
+//! Use [`encoder::CeltEncoder`] for CELT-only encoding or
+//! [`crate::encoder::OpusEncoder`] for automatic mode selection.
+//! [`crate::decoder::OpusDecoder`] handles transitions between coding modes.
 pub mod encoder;
 pub mod input;
 pub mod lpc;

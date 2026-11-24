@@ -2,8 +2,7 @@
 //!
 //! Includes scalar and delayed-decision NSQ paths. The enclosing encoder supplies analyzed,
 //! quantized predictor/gain and noise-shaping coefficients from the analysis
-//! module. Complete PCM buffering, rate control and packet orchestration remain
-//! encoder work.
+//! module. The enclosing encoder also buffers PCM, controls the bitrate and assembles packets.
 //! Adapted from Opus v1.6.1 silk/NSQ.c and NSQ.h; see THIRD_PARTY_NOTICES.md.
 use super::math::analysis_filter;
 use crate::silk::{

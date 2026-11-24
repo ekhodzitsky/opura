@@ -1,21 +1,14 @@
-//! Pure Rust standard Opus decoding with zero third-party dependencies.
+//! Opus packet encoding and decoding in safe Rust with zero Cargo dependencies.
 //!
-//! [`decoder::OpusDecoder`] combines SILK/CELT/Hybrid PCM, loss/DTX, FEC and mode
-//! transitions. All120 official RFC8251 vector/rate/channel cases pass.
-//! The measured scalar decoder baseline trails libopus. Encoding is available in
-//! [`celt::encoder::CeltEncoder`] and the fixed-bandwidth mono SILK
-//! [`silk::encoder::mono::MonoEncoder`], plus fixed-band Hybrid
-//! [`hybrid::encoder::HybridEncoder`]. [`encoder::OpusEncoder`] adds automatic
-//! encoding across all five applications with packets through120ms.
-//! Frame-local entropy writing is available in [`range::RangeEncoder`]. Component APIs are in
-//! [`silk::decoder`], [`celt::decoder`] and [`hybrid`].
+//! Use [`encoder::OpusEncoder`] to encode signed 16-bit PCM and
+//! [`decoder::OpusDecoder`] to decode SILK, CELT and Hybrid packets. Keep each
+//! instance for the lifetime of its stream. The decoder handles transitions,
+//! packet loss concealment and in-band forward error correction.
 //!
-//! Pass exactly one externally delimited packet with transport headers removed.
-//! [`Packet`] validates RFC6716 section3 framing separately from compressed audio.
-//! [`multistream`] adds channel mapping, self-delimited framing and persistent
-//! mapped PCM decoding and generic encoding. Surround analysis and mapped
-//! container integration remain unfinished. Single-stream packet parsing uses
-//! allocation-free frame views.
+//! [`Packet::parse`] borrows the frames of one externally delimited Opus packet.
+//! Remove transport and container headers before calling it. For mapped audio,
+//! [`multistream`] provides self-delimited framing, channel mapping, output
+//! gain and multistream encoding and decoding, including surround encoding.
 //!
 //! ```
 //! let packet = opura::Packet::parse(&[0x98, 0x12, 0x34])?;

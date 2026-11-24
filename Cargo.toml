@@ -3,7 +3,11 @@ name = "opura"
 version = "0.2.5"
 edition = "2024"
 rust-version = "1.87"
-description = "A pure Rust, zero-dependency Opus decoder and SILK/CELT/Hybrid encoder"
+description = "Opus encoder and decoder in safe Rust with zero dependencies and a WAV/Ogg Opus CLI"
+repository = "https://github.com/ekhodzitsky/opura"
+readme = "README.md"
+keywords = ["opus", "audio", "codec", "encoder", "decoder"]
+categories = ["multimedia::audio", "multimedia::encoding"]
 publish = false
 
 [lints.rust]

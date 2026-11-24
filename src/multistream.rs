@@ -1,10 +1,9 @@
-//! Bounded classic Opus multistream mappings and borrowed packet framing.
+//! Opus multistream framing, mapped PCM decoding and encoding.
 //!
-//! The first `streams - 1` subpackets use RFC6716 Appendix B framing; the
-//! final subpacket is externally delimited. Mapping indexes describe decoded
-//! channels, with coupled streams first and255 representing a silent output.
-//! Framing validation alone does not establish compressed audio decodability.
-//! Mapping/stream ordering follows original Opus1.6.1 multistream routines.
+//! The first `streams - 1` subpackets use RFC 6716 Appendix B framing. The
+//! last subpacket is externally delimited. Mapping indices count coupled streams'
+//! decoded channels first. An index of 255 produces silence on that output.
+//! Mapping and stream ordering follow the Opus 1.6.1 multistream routines.
 //! Copyright (c) 2011 Xiph.Org Foundation; written by Jean-Marc Valin.
 //! See THIRD_PARTY_NOTICES.md.
 use crate::{

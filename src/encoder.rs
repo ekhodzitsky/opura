@@ -2,7 +2,7 @@
 //!
 //! [`OpusEncoder`] owns common PCM, speech and CELT histories for automatic
 //! encoding across all native applications, with cross-mode prefills, redundancy
-//! and native component scheduling through120ms.
+//! and native component scheduling for packets up to 120 ms.
 //! Fixed PCM encoders remain in [`crate::silk::encoder`],
 //! [`crate::celt::encoder`] and [`crate::hybrid::encoder`].
 pub mod control;

@@ -1,113 +1,46 @@
-# Current codec readiness and remaining work
+# Codec readiness
 
-The classic signed16 mono/stereo PCM decoder and shared encoder are implemented
-for the advertised library and WAV/Ogg workflows. The library also implements
-bounded generic multistream decoding/encoding and signed output gain. The CLI
-supports1..8channel mapped WAVE/Ogg files; canonical surround masks/LFE are integrated. This is not a
-complete competitive acceptance result; earlier audits below retain their own
-versioned source scope.
+The v0.2.5 library encodes and decodes classic Opus packets in safe Rust. The
+tables below identify the version and workload behind each measurement. Commands
+for building and running the tests are in the [development guide](../README.md#development-and-verification).
 
-## Integrated contract and evidence
+## Supported workflows
 
-| Contract | Observed evidence |
-|---|---|
-| Decoder: SILK, CELT, Hybrid, five rates, mono/stereo | Fresh0.2.0 full RFC8251 matrix:120 vector/rate/layout cases and every encoded nonzero final range pass. Corrupted-range and zero-PCM probes are rejected. See the [current source-fingerprinted report](results/codec-readiness-0.2.0-conformance.json). |
-| Encoder: one PCM/SILK/CELT owner, five applications, all five input rates | [Application validation](encoder-applications.md) checks original input, HP/delay, active resamplers, speech PCM and real CELT call traces. CLI regressions check exact duration and lookahead. |
-| Mode/wire/band continuity and packets2.5..120ms | [Long-packet validation](encoder-long-packets.md) checks real prefills, bandwidth handshake/acknowledgement, native component geometry and transition-tail placement. Shared-owner tests check transition ranges and transaction rollback. |
-| CBR/VBR/CVBR, DTX/FEC, loss and tiny budgets | [Budget validation](encoder-budgets.md) checks early PLC, completed speech overflow, physical admission, retained histories and resume. Independent short/long/pressure corpora each cover9,600 receiver calls including800 PLC and800 FEC. [0.1.95 replay evidence](results/celt-rate-history-0.1.95.json) records the final hashes and fresh native PCM/range replay. |
-| CELT complexity, transients, spreading and rate feedback | [Quality](celt-quality.md), [rate/intensity](celt-rate-history.md) and [prediction/loss/band](celt-controls.md) audits compare actual stateful encoding. The normal test suite now checks every payload byte, PCM and final range over21,836 actual CELT calls, plus768 paired spectral-helper decisions. |
-| Generic mapped library codec | [Multistream validation](multistream.md) checks13,328 native framing outputs,560 native decode/gain operations,3240 allocation boundaries and7405 independently native-decoded encoder operations. Maps include repeated/omitted/silent channels and1..8channel generic encoding. Complete-owner late-error/resume and source mutations are checked. This generic constructor retains its original contract; canonical surround is checked separately below. |
-| Mapped file channel order, gain and timing | [Mapped file validation](mapped-audio-files.md):60 native fixtures with independently observed FFmpeg WAVE permutations;240 empty/partial/tail CLI cases;2160 independently native-decoded files across rates, channels, durations and CBR/VBR/CVBR. Positioned multichannel files now use canonical surround/LFE coding. |
-| Canonical surround analysis and encoding | [Spectral and allocation masks](surround-analysis.md) match2160 explicitly corrected-Q24 mask/history records and2816unchanged native mask-reduction outputs, with six detected source mutations. [Actual surround encoding](surround-encoder.md) adds1920CELT byte/PCM/state cases,6480common-owner traces,3240rate cases,1290wire-policy cases and6760native receiver operations. |
-| Invalid input and late errors | Shared-owner regressions compare the complete owner against its pre-call clone after failed short/long packets, invalid geometry/controls and impossible budgets. Successful insufficient-budget PLC follows its distinct documented state-retention contract. |
-| File timing and fixed paths | Full Cargo integration tests retain empty/partial, silence/resume, all applications/rates, whole CBR budgets and error-before-creation checks. The [0.1.95 recording report](results/celt-rate-history-0.1.95-recordings.json) checks12 paired full-recording CBR profiles,24 native PCM matches and exact durations. Prior complete fixed corpus identity is recorded in0.1.94; those corpora were not regenerated in this validation-only audit. |
-| Scoped normal-decoder allocator entry events | [0.2.5 external observations](../benchmarks/decoder-allocations-0.2.5.md) cover all ten geometries and 1,003,750 normal packet calls per implementation with five balanced replay windows per case. Both unchanged Opura and pinned scalar native show zero watched events and matching output. Positive Rust/C and empty controls pass; six live negative controls reject broken observation/output. This is not all-input, peak-stack/heap/RSS or memory-superiority acceptance. |
-| Build constraints | The 0.1.95 control audit passed all seven offline gates with 162 library/23 Python tests; the 0.1.96 benchmark tooling also passes the gates, with 31 Python tests. The0.1.97 mapped-library milestone passes the seven gates with163 library/34 Python tests. The0.1.98 mapped-file milestone passes all seven with163 library/36 Python tests and five mapped CLI integration tests. The0.1.99 surround-analysis prerequisites pass all seven with167 library/36 Python tests. The0.2.0 actual surround integration passes all seven with172 library/37 Python tests; final generic7405-operation and mapped2160-file native replays pass. The0.2.1 CWRS optimization passes all seven with172 library/41 Python tests and retains all120 official PCM hashes from0.2.0. The0.2.2 PCM change also passes all seven with172 library/41 Python tests and all120 official PCM hashes unchanged from0.2.1. The0.2.3 benchmark repair passes all seven with172 library/44 Python tests; codec algorithms and all120 official PCM hashes remain unchanged from0.2.2. No third-party Cargo dependency, unsafe policy exception or ordinary external codec requirement was added. |
+| Workflow | Coverage and evidence |
+| --- | --- |
+| Decode SILK, CELT and Hybrid to signed 16-bit PCM | The v0.2.5 decoder passed all 12 official RFC 8251 streams at five output rates and two channel layouts. All 120 PCM hashes matched v0.2.4, and all encoded nonzero final ranges were verified. [Conformance results](results/decoder-pvq-0.2.5-conformance.json) |
+| Recover from loss and switch modes | Reference checks include 1,680 full decoder operations covering gain, long packets, concealment, in-band FEC, transitions and reset. Error tests check rollback and retry. [v0.2.5 correctness report](results/decoder-pvq-0.2.5-correctness.json) |
+| Encode mono or stereo PCM | The shared encoder supports five applications and all five input rates. Checks cover cross-mode transitions, packets from 2.5 to 120 ms, bitrate and capacity controls, DTX and in-band FEC. [Applications](encoder-applications.md) · [Long packets](encoder-long-packets.md) · [Budgets](encoder-budgets.md) |
+| Use multistream and surround | The library supports channel mapping, output gain and self-delimited framing. Native comparisons cover 7,405 generic encoder operations. Canonical surround checks cover 6,760 receiver operations and include coupled streams and LFE. [Multistream](multistream.md) · [Surround](surround-encoder.md) |
+| Convert WAV and Ogg Opus files | File tests include 2,160 independently decoded files across channel counts, rates, durations and rate controls. They check channel order, gain, pre-skip and final duration. [Mapped file validation](mapped-audio-files.md) |
 
-The0.2.0 official matrix retains every0.1.97 PCM hash at zero gain.
-The encoder's private reference build corrects only Q24 spectral-patch local
-types, as disclosed in the linked audits. Its original checkout and reference
-decoder remain unchanged. Original common-owner input/control fixtures use the
-unchanged reference. These results do not claim global byte identity with every
-native encoder configuration, floating-point build or neural enhancement.
+The CLI supports one Ogg Opus logical stream with 1–8 channels and mapping
+family 0, 1 or 255. Chained and multiplexed Ogg streams are unsupported. The
+packet library expects the caller to handle transport framing, including RTP.
+The crate requires the Rust standard library.
 
-Detailed component sections in README retain earlier development milestones.
-Their old statements about missing later stages are historical, not the current
-integrated contract in the table above.
+## Performance and quality
 
-## Open work toward the full goal
+| Measurement | Result and scope |
+| --- | --- |
+| Decoder vs. libopus | On the official streams, v0.2.3 took 1.5936 times the decode time of pinned scalar fixed-point libopus 1.6.1 across ten output configurations (95% interval 1.5522–1.6209). All ten favored libopus. [Protocol and samples](../benchmarks/decoder-0.2.3.md) |
+| Later decoder work | In separate paired comparisons, v0.2.4 reduced aggregate decode time by 2.0% against v0.2.3, and v0.2.5 by 4.5% against v0.2.4. Each trial used its immediate predecessor as baseline. [v0.2.4](../benchmarks/decoder-staging-0.2.4.md) · [v0.2.5](../benchmarks/decoder-pvq-0.2.5.md) |
+| Decoder allocations | Across 1,003,750 normal packet calls per implementation, the v0.2.5 probe observed zero calls to the watched allocator entry points for both Opura and scalar libopus. Peak stack, heap and resident memory were outside the measurement. [Allocation observations](../benchmarks/decoder-allocations-0.2.5.md) |
+| Encoder vs. libopus | The v0.1.96 in-process mono/stereo baseline took 1.244 times the scalar reference's encoding time across 60 configurations. [Protocol and samples](../benchmarks/encoder-0.1.96.md) |
+| Encoder quality | Reference decoding and recording checks establish interoperability. The available speech and music waveform measurements cover two recordings. A representative listening comparison at matched bitrate and latency remains open. [Recording checks](celt-quality.md) · [CELT prediction and loss controls](celt-controls.md) |
 
-- The Ogg CLI has a documented single-stream subset, and rejects multiplexed or
-  chained streams. RTP is not implemented. These transport/container limits are
-  separate from successful classic mono/stereo audio decoding.
-- No representative matched-rate/latency encoder quality comparison exists.
-  Two full recordings and waveform SNR are diagnostics, not perceptual evidence.
-  The next comparison needs several speakers/languages, music, transients,
-  noise and silence with recorded licenses/hashes and explicit loss schedules.
-- The historical0.1.96 [in-process mono/stereo encoder baseline](../benchmarks/encoder-0.1.96.md) now covers
-  60 cases/15 paired rounds against pinned scalar native encoding, with separate
-  initialization, call latency and scoped memory. Its aggregate time ratio is
-  1.244; broader competitor/perceptual acceptance and performance improvement
-  remain work. File wall timings are not used as core-codec speed evidence.
-- The [0.2.1 CWRS change](../benchmarks/decoder-cwrs-0.2.1.md) lowers the
-  equal-case aggregate official-corpus decode time by3.6% versus0.2.0 in300
-  paired samples (ratio0.9639,95% interval[0.9455,0.9791]). All120 official PCM
-  hashes remain identical. Every per-case interval includes1; individual wins
-  and a5% per-case regression ceiling are unproven. This does not refresh the
-  native comparison or establish competitive leadership.
-- The [0.2.2 packet-local PCM change](../benchmarks/decoder-pcm-0.2.2.md) lowers
-  the equal-case official-corpus decode-time aggregate4.3% versus0.2.1 in300
-  paired samples (ratio0.9571,95% interval[0.9290,0.9883]). All120 official PCM
-  hashes remain identical;1680additional native gain/transition/long/PLC/FEC
-  operations pass. Every per-case interval includes1 and five upper bounds
-  exceed1.05. A fresh native comparison remains required; no cumulative ratio
-  against0.2.0 is inferred from separate measurements.
-- The current [0.2.3 scalar native comparison](../benchmarks/decoder-0.2.3.md)
-  independently reproduces all120 official PCM hashes and retains300samples/
-  15paired rounds/all ten output geometries. Its Opura/native aggregate time
-  ratio is1.5936 (95% interval[1.5522,1.6209]); all ten case intervals exceed1.
-  Both speed gates fail. The CELT TOC latency bucket has the largest diagnostic
-  gap, requiring current profiling rather than a quality or speed leadership
-  claim. The [0.1.41 baseline](../benchmarks/decoder-0.1.41.md) remains historical;
-  no direct before/after improvement is inferred from these different runs.
-  The [0.2.4 CELT backend staging change](../benchmarks/decoder-staging-0.2.4.md)
-  reduces the aggregate version-to-version codec time by 2.0% versus 0.2.3
-  (ratio 0.9798, 95% interval [0.9548,0.9981], 300 samples/all ten geometries).
-  All 120 official PCM hashes remain unchanged and the seven offline gates
-  pass (176 library/44 Python tests). Only the 48kHz stereo interval excludes 1;
-  nine individual cases are uncertain and four upper bounds exceed 1.05. This
-  modest improvement does not refresh the native comparison or establish a
-  cumulative gain from the separate earlier measurements.
-  The [0.2.5 PVQ output change](../benchmarks/decoder-pvq-0.2.5.md) reduces
-  aggregate version-to-version codec time by 4.5% versus 0.2.4 (ratio 0.9554,
-  95% interval [0.9266,0.9702], 300 samples/all ten geometries). All 120 official
-  PCM hashes remain unchanged and all seven offline gates pass (181 library/
-  44 Python tests). Six individual intervals exclude 1, four remain uncertain;
-  every per-case upper bound is below 1.05. Native/other-competitor, quality,
-  resource and portability acceptance remain open; separate historical ratios
-  are not combined into a cumulative or native comparison.
-  Two later rollback experiments were not adopted: the [full snapshot](../benchmarks/decoder-rollback-full-0.2.6.md)
-  gives ratio 0.9880, interval [0.9772,1.0041], and the [selective snapshot](../benchmarks/decoder-rollback-0.2.6.md)
-  gives 0.9916, interval [0.9739,1.0075], each with 300 samples/all ten geometries.
-  Neither demonstrates aggregate benefit. Their correctness-validated code is
-  retained separately; production remains 0.2.5 and no 0.2.6 tag is created.
-  The later [private MDCT destination experiment](../benchmarks/decoder-mdct-0.2.6.md)
-  also remains unaccepted:300samples, ratio1.0027,95% interval[0.9745,1.0345],
-  with all ten individual intervals including1. All seven gates and120unchanged
-  official PCM hashes pass. Its code stays separate; stable production remains
-  0.2.5. No unchanged experiment is repeated in search of significance.
-  The [fused inverse-MDCT FFT preparation experiment](../benchmarks/decoder-mdct-fft-0.2.6.md)
-  is also unaccepted: 300 samples, ratio 1.0116, 95% interval [0.9844,1.0354],
-  all ten individual intervals including 1. Seven gates and 120 unchanged
-  official PCM hashes pass; its implementation remains isolated. Production
-  stays 0.2.5, with no 0.2.6 tag or unchanged retry for significance.
-  Best-available native SIMD and the other direct implementations in the
-  [comparison contract](../benchmarks/competitive-landscape.md) remain unmeasured.
-- Cross-platform/target coverage and malformed-input/resource measurements must
-  accompany a competitive release. Optional QEXT/neural/OSCE paths and no_std
-  are not implemented; no_std is explicitly not a current project requirement.
+The CELT and surround validation reports identify the Q24 arithmetic correction
+in the encoder reference where it applies. The reference decoder used for
+interoperability checks is unmodified. [Q24 decision](../decisions/0003-surround-q24-precision.md)
 
-Next work should move to these measurement and portability gaps rather than
-repeat the closed CELT control matrix without a new failure or changed code.
-The full codec goal stays open; no SOTA, universal superiority or whole-project
-completion claim follows from this audit.
+## Deployment evidence still needed
+
+CI runs the pinned Rust toolchain on Ubuntu. Broader platform coverage, resource
+measurements on malformed input, representative encoder listening tests and
+comparisons with optimized SIMD implementations remain open. Application-specific
+latency and memory budgets need measurements on the deployment target.
+[CI configuration](../../.github/workflows/ci.yml) · [Comparison criteria](../benchmarks/competitive-landscape.md)
+
+The rollback and inverse MDCT experiments labelled 0.2.6 in benchmark filenames
+did not reach a release. Their individual reports preserve the results and
+reproduction steps. [Benchmark reports](../benchmarks/) · [Release history](../../CHANGELOG.md)

@@ -41,7 +41,45 @@ type Result<T> = std::result::Result<T, Box<dyn Error>>;
 fn invalid(message: impl Into<String>) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message.into())
 }
-const HELP: &str = "opura encode INPUT.wav OUTPUT.opus [--mode celt|silk|hybrid|auto] [--application audio|voip|lowdelay|restricted-silk|restricted-celt] [--signal auto|voice|music] [--complexity 0..10] [--channels 1|2] [--bitrate BPS] [--frame-ms MS] [--packet-ms MS] [--bandwidth nb|mb|wb|auto|swb|fb] [--dtx] [--fec LOSS_PERCENT] [--vbr|--cvbr] [--max-packet-bytes BYTES]\nopura decode INPUT.opus OUTPUT.wav\nopura --version\n\nEncode: PCM16 WAV at 8/12/16/24/48 kHz. AUTO accepts1..8channels, canonical WAVE extensible speaker masks (family1) or unpositioned PCM (family255). Positioned multichannel AUTO encoding uses surround masks/LFE and canonical Vorbis layouts; unpositioned input uses generic family255. Mapped caps apply to the complete packet. Surround coupled streams preserve stereo; channels1 is rejected for positioned multichannel input.\nAUTO: common mode/channel/band selection, packets2.5..120ms; application/signal/complexity/encoded-channel controls, DTX/FEC, CBR/VBR/CELT CVBR. AUTO packet-ms selects one complete packet with native component scheduling. AUTO permits1/2-byte caps and low nominal rates via native PLC;100ms requires at least2bytes. Fixed modes retain their defaults.\nCELT: mono/stereo, frames 2.5/5/10/20 ms. --vbr or --cvbr selects nominal-rate variable encoding with a hard --max-packet-bytes cap (default1276); cvbr enables reservoir/drift limits. CBR remains the default. SILK: mono/stereo, frames 10/20/40/60 ms. Hybrid: mono/stereo at 24/48 kHz, frames 10/20 ms; SWB at 24 kHz, SWB/FB at 48 kHz. Hybrid --vbr uses a nominal --bitrate and a separate hard --max-packet-bytes cap (default1276); CBR remains the default. Hybrid defaults to 32000 mono/64000 stereo bits/s and input-rate SWB/FB; --dtx enables silence suppression. --fec requests SILK-band protection while retaining the requested Hybrid bandwidth.\nDefaults: CELT, 64000 bits/s (SILK: 24000 mono/48000 stereo), 20 ms. SILK bandwidth defaults to input-rate NB/MB/WB; auto selects it from bitrate/loss. --dtx enables SILK/Hybrid silence suppression, including in CBR. --fec 1..100 requests SILK/Hybrid in-band FEC with the supplied loss estimate (0 disables it). --packet-ms sets a maximum compatible packet duration up to120 ms (a multiple of frame-ms); final groups and bandwidth changes can close earlier. Aggregate CBR includes packet framing; VBR/CVBR hard caps apply to each grouped packet (default1276 bytes per component frame). Ogg overhead is additional.\nDecode: one Ogg Opus stream,1..8channels, mapping families0/1/255 and header output gain; output PCM16/48kHz WAVE with explicit speaker metadata.\nExisting outputs are refused. Errors may leave a partial new output.";
+const HELP: &str = "opura encode INPUT.wav OUTPUT.opus [OPTIONS]
+opura decode INPUT.opus OUTPUT.wav
+opura --version
+
+Encode PCM16 WAV at 8, 12, 16, 24 or 48 kHz. Choose a mode with --mode:
+  celt     Positioned mono/stereo, 2.5/5/10/20 ms frames (default mode).
+  silk     Positioned mono/stereo, 10/20/40/60 ms frames.
+  hybrid   Positioned mono/stereo at 24 or 48 kHz, 10/20 ms frames.
+           24 kHz supports SWB. 48 kHz supports SWB and FB.
+  auto     1–8 channels, automatic mode selection, packets from 2.5 to 120 ms.
+           Canonical WAVE speaker masks select surround encoding with LFE.
+           Unpositioned PCM uses mapping family 255. Positioned multichannel
+           input preserves coupled stereo and rejects --channels 1.
+
+Encoding options (availability depends on mode):
+  --application audio|voip|lowdelay|restricted-silk|restricted-celt
+  --signal auto|voice|music     --complexity 0..10      --channels 1|2
+  --bitrate BPS                 --frame-ms MS           --packet-ms MS
+  --bandwidth nb|mb|wb|auto|swb|fb
+  --vbr | --cvbr                --max-packet-bytes BYTES
+  --dtx                         --fec LOSS_PERCENT
+
+Frames default to 20 ms. CELT defaults to 64000 bits/s. SILK defaults to
+24000/48000 bits/s for mono/stereo and Hybrid to 32000/64000. SILK bandwidth
+defaults to NB/MB/WB by input rate. In SILK mode, --bandwidth auto also uses
+bitrate and expected loss. DTX suppresses silence. FEC requests SILK-band
+protection with a 1–100% loss estimate (0 disables it).
+
+CBR is the default. --vbr selects variable bitrate and --cvbr constrains CELT
+rate variation. Bitrate includes Opus packet framing and excludes Ogg overhead.
+For fixed modes, --packet-ms groups compatible frames up to 120 ms. The group
+can end early at EOF or a bandwidth change. The default variable-rate cap is
+1276 bytes per component frame. In auto mode, --packet-ms schedules one
+complete packet. A very small cap can signal loss. A 100 ms packet needs at
+least two bytes. Mapped packet caps cover all streams together.
+
+Decode one Ogg Opus logical stream (1–8 channels, mapping families 0/1/255)
+to 48 kHz PCM16 WAV with header gain and speaker metadata.
+Use new output paths. A failed conversion can leave a partial output file.";
 fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,

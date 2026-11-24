@@ -1,7 +1,7 @@
 //! Stateful signed16 PCM to single-frame CELT-only Opus packets.
 //! Long-window default with optional native transient, TF, spreading, allocation
 //! and pitch-prefilter policies.
-//! Further adaptive decisions and SILK/Hybrid encoding remain separate work.
+//! For automatic mode selection, use [`crate::encoder::OpusEncoder`].
 //! See THIRD_PARTY_NOTICES.md for constituent algorithms.
 //! Copyright (c) 2007-2008 CSIRO; 2007-2010 Xiph.Org Foundation;
 //! 2008 Gregory Maxwell.
