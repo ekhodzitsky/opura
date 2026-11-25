@@ -1,0 +1,153 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index ea03179..16142b5 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -4,4 +4,4 @@ version = 4
+
+ [[package]]
+ name = "opura"
+-version = "0.2.8"
++version = "0.2.9"
+diff --git a/Cargo.toml b/Cargo.toml
+index a026ac7..b8972ef 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -1,6 +1,6 @@
+ [package]
+ name = "opura"
+-version = "0.2.8"
++version = "0.2.9"
+ edition = "2024"
+ rust-version = "1.87"
+ description = "Opus encoder and decoder in safe Rust with zero dependencies and a WAV/Ogg Opus CLI"
+diff --git a/src/celt/partition/band.rs b/src/celt/partition/band.rs
+index 1d098af..c053ca3 100644
+--- a/src/celt/partition/band.rs
++++ b/src/celt/partition/band.rs
+@@ -167,10 +167,12 @@ impl Decoder<'_, '_> {
+         if n == 1 {
+             return self.signs(x, None, out);
+         }
+-        let transform = BandTransform::prepare(None, fold, n, blocks, fill, self.tf_change)?;
++        let mut low = [0; 176];
++        let transform =
++            BandTransform::prepare(None, fold, &mut low[..n], blocks, fill, self.tf_change)?;
+         let cm = self.partition(
+             x,
+-            transform.low(n),
++            transform.low,
+             Node {
+                 bits,
+                 blocks: transform.blocks,
+@@ -331,40 +333,38 @@ impl Decoder<'_, '_> {
+ }
+
+ // Both entropy directions reconstruct the same TF basis and folding output.
+-struct BandTransform {
+-    low: [i32; 176],
+-    folded: bool,
++struct BandTransform<'a> {
++    low: Option<&'a [i32]>,
+     blocks: usize,
+     fill: u32,
+     recombine: usize,
+     time_divide: usize,
+     long: bool,
+ }
+-impl BandTransform {
++impl<'a> BandTransform<'a> {
+     fn prepare(
+         mut input: Option<&mut [i32]>,
+         fold: Option<&[i32]>,
+-        n: usize,
++        low: &'a mut [i32],
+         mut blocks: usize,
+         mut fill: u32,
+         tf_change: i8,
+     ) -> Result<Self, PartitionError> {
+-        let mut low = [0; 176];
+         if let Some(fold) = fold {
+-            low[..n].copy_from_slice(fold);
++            low.copy_from_slice(fold);
+         }
+         let long = blocks == 1;
+         let recombine = tf_change.max(0) as usize;
+         let mut time_divide = 0;
+         let mut tf = tf_change;
+-        let mut per = n / blocks;
++        let mut per = low.len() / blocks;
+         for k in 0..recombine {
+             const INTERLEAVE: [u32; 16] = [0, 1, 1, 1, 2, 3, 3, 3, 2, 3, 3, 3, 2, 3, 3, 3];
+             if let Some(x) = input.as_deref_mut() {
+                 bands::haar(x, 1 << k)?;
+             }
+             if fold.is_some() {
+-                bands::haar(&mut low[..n], 1 << k)?;
++                bands::haar(low, 1 << k)?;
+             }
+             fill = INTERLEAVE[(fill & 15) as usize] | INTERLEAVE[(fill >> 4) as usize] << 2;
+         }
+@@ -375,7 +375,7 @@ impl BandTransform {
+                 bands::haar(x, blocks)?;
+             }
+             if fold.is_some() {
+-                bands::haar(&mut low[..n], blocks)?;
++                bands::haar(low, blocks)?;
+             }
+             fill |= fill << blocks;
+             blocks <<= 1;
+@@ -388,12 +388,11 @@ impl BandTransform {
+                 bands::deinterleave(x, blocks << recombine, long)?;
+             }
+             if fold.is_some() {
+-                bands::deinterleave(&mut low[..n], blocks << recombine, long)?;
++                bands::deinterleave(low, blocks << recombine, long)?;
+             }
+         }
+         Ok(Self {
+-            low,
+-            folded: fold.is_some(),
++            low: fold.map(|_| &*low),
+             blocks,
+             fill,
+             recombine,
+@@ -401,13 +400,6 @@ impl BandTransform {
+             long,
+         })
+     }
+-    fn low(&self, n: usize) -> Option<&[i32]> {
+-        if self.folded {
+-            Some(&self.low[..n])
+-        } else {
+-            None
+-        }
+-    }
+     fn finish(
+         &self,
+         x: &mut [i32],
+diff --git a/src/celt/partition/band/encoder.rs b/src/celt/partition/band/encoder.rs
+index 52aa548..161b68d 100644
+--- a/src/celt/partition/band/encoder.rs
++++ b/src/celt/partition/band/encoder.rs
+@@ -159,11 +159,18 @@ impl Encoder<'_> {
+         if n == 1 {
+             return self.signs(x, None, out);
+         }
+-        let transform =
+-            BandTransform::prepare(Some(&mut *x), fold, n, blocks, fill, self.tf_change)?;
++        let mut low = [0; 176];
++        let transform = BandTransform::prepare(
++            Some(&mut *x),
++            fold,
++            &mut low[..n],
++            blocks,
++            fill,
++            self.tf_change,
++        )?;
+         let cm = self.partition(
+             x,
+-            transform.low(n),
++            transform.low,
+             Node {
+                 bits,
+                 blocks: transform.blocks,

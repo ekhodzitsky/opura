@@ -1,0 +1,824 @@
+{
+  "benchmark_driver_sha256": "395a5fc8f8e683d4728d91c13e57c7d901321720dc5538a85f0442e59caa8f1e",
+  "binaries": {
+    "baseline": "13b77f86c9e7b7b16b12aa8069e9425f2b2f1129983e1ffe8418216cfb09f3f1",
+    "candidate": "3d0ac4555559092cffffe770780f156e08d74086664c72c85643790e8c113f73"
+  },
+  "cpu": 2,
+  "cpu_model": "AMD Ryzen AI 9 HX 370 w/ Radeon 890M",
+  "cpu_settings": {
+    "energy_performance_preference": "performance",
+    "scaling_driver": "amd-pstate-epp",
+    "scaling_governor": "performance",
+    "scaling_max_freq": "5157895"
+  },
+  "estimator": "Per vector median of 15 candidate/baseline paired ratios of total in-process elapsed time; equal-case geometric mean of both ratios within each same-index round reported separately. Central percentile interval of 4000 paired bootstrap resamples, seed 8251.",
+  "joint_equal_case_ratio_ci95": [
+    0.9662348585735425,
+    0.9529252346313224,
+    0.9865607785924042
+  ],
+  "kernel": "7.0.0-42-generic",
+  "logical_sibling": 14,
+  "median_us_per_packet": {
+    "1": {
+      "baseline": 33.044777654867254,
+      "candidate": 30.991770319049838
+    },
+    "7": {
+      "baseline": 9.818111771380794,
+      "candidate": 9.401402353081702
+    }
+  },
+  "order": [
+    [
+      1,
+      1,
+      "baseline"
+    ],
+    [
+      1,
+      1,
+      "candidate"
+    ],
+    [
+      1,
+      7,
+      "baseline"
+    ],
+    [
+      1,
+      7,
+      "candidate"
+    ],
+    [
+      2,
+      7,
+      "candidate"
+    ],
+    [
+      2,
+      7,
+      "baseline"
+    ],
+    [
+      2,
+      1,
+      "candidate"
+    ],
+    [
+      2,
+      1,
+      "baseline"
+    ],
+    [
+      3,
+      1,
+      "baseline"
+    ],
+    [
+      3,
+      1,
+      "candidate"
+    ],
+    [
+      3,
+      7,
+      "baseline"
+    ],
+    [
+      3,
+      7,
+      "candidate"
+    ],
+    [
+      4,
+      7,
+      "candidate"
+    ],
+    [
+      4,
+      7,
+      "baseline"
+    ],
+    [
+      4,
+      1,
+      "candidate"
+    ],
+    [
+      4,
+      1,
+      "baseline"
+    ],
+    [
+      5,
+      7,
+      "baseline"
+    ],
+    [
+      5,
+      7,
+      "candidate"
+    ],
+    [
+      5,
+      1,
+      "baseline"
+    ],
+    [
+      5,
+      1,
+      "candidate"
+    ],
+    [
+      6,
+      7,
+      "baseline"
+    ],
+    [
+      6,
+      7,
+      "candidate"
+    ],
+    [
+      6,
+      1,
+      "candidate"
+    ],
+    [
+      6,
+      1,
+      "baseline"
+    ],
+    [
+      7,
+      1,
+      "baseline"
+    ],
+    [
+      7,
+      1,
+      "candidate"
+    ],
+    [
+      7,
+      7,
+      "baseline"
+    ],
+    [
+      7,
+      7,
+      "candidate"
+    ],
+    [
+      8,
+      1,
+      "baseline"
+    ],
+    [
+      8,
+      1,
+      "candidate"
+    ],
+    [
+      8,
+      7,
+      "candidate"
+    ],
+    [
+      8,
+      7,
+      "baseline"
+    ],
+    [
+      9,
+      1,
+      "candidate"
+    ],
+    [
+      9,
+      1,
+      "baseline"
+    ],
+    [
+      9,
+      7,
+      "baseline"
+    ],
+    [
+      9,
+      7,
+      "candidate"
+    ],
+    [
+      10,
+      1,
+      "baseline"
+    ],
+    [
+      10,
+      1,
+      "candidate"
+    ],
+    [
+      10,
+      7,
+      "baseline"
+    ],
+    [
+      10,
+      7,
+      "candidate"
+    ],
+    [
+      11,
+      1,
+      "baseline"
+    ],
+    [
+      11,
+      1,
+      "candidate"
+    ],
+    [
+      11,
+      7,
+      "baseline"
+    ],
+    [
+      11,
+      7,
+      "candidate"
+    ],
+    [
+      12,
+      1,
+      "candidate"
+    ],
+    [
+      12,
+      1,
+      "baseline"
+    ],
+    [
+      12,
+      7,
+      "candidate"
+    ],
+    [
+      12,
+      7,
+      "baseline"
+    ],
+    [
+      13,
+      7,
+      "candidate"
+    ],
+    [
+      13,
+      7,
+      "baseline"
+    ],
+    [
+      13,
+      1,
+      "candidate"
+    ],
+    [
+      13,
+      1,
+      "baseline"
+    ],
+    [
+      14,
+      7,
+      "candidate"
+    ],
+    [
+      14,
+      7,
+      "baseline"
+    ],
+    [
+      14,
+      1,
+      "candidate"
+    ],
+    [
+      14,
+      1,
+      "baseline"
+    ],
+    [
+      15,
+      1,
+      "baseline"
+    ],
+    [
+      15,
+      1,
+      "candidate"
+    ],
+    [
+      15,
+      7,
+      "candidate"
+    ],
+    [
+      15,
+      7,
+      "baseline"
+    ]
+  ],
+  "original_profile_driver_sha256": "8021603abe08396639a762c6e29062dc3fc5105bbea07ea37e80a89cd2587ae3",
+  "ratio_ci95": {
+    "1": [
+      0.9457959034185912,
+      0.9182658795582782,
+      0.9716431004456179
+    ],
+    "7": [
+      0.9792765505386017,
+      0.9591588535298894,
+      1.0132484128777761
+    ]
+  },
+  "release_flags": "cargo +1.100.0 build --offline --release; [profile.release] debug=1; RUSTFLAGS=-C target-cpu=native",
+  "rounds": 15,
+  "rustc": "rustc 1.100.0 (0ef1bc386 2026-11-09)\nbinary: rustc\ncommit-hash: 0ef1bc386059596dada8fb65b50425aab2ea637a\ncommit-date: 2026-11-09\nhost: x86_64-unknown-linux-gnu\nrelease: 1.100.0\nLLVM version: 23.1.5\n",
+  "samples": [
+    {
+      "elapsed_ns": 699889283,
+      "name": "baseline",
+      "packets": 17176,
+      "round": 1,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 625348496,
+      "name": "candidate",
+      "packets": 17176,
+      "round": 1,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 351958877,
+      "name": "baseline",
+      "packets": 33488,
+      "round": 1,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 344665075,
+      "name": "candidate",
+      "packets": 33488,
+      "round": 1,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 330361313,
+      "name": "candidate",
+      "packets": 33488,
+      "round": 2,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 351023674,
+      "name": "baseline",
+      "packets": 33488,
+      "round": 2,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 577849607,
+      "name": "candidate",
+      "packets": 17176,
+      "round": 2,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 631710152,
+      "name": "baseline",
+      "packets": 17176,
+      "round": 2,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 575152209,
+      "name": "baseline",
+      "packets": 17176,
+      "round": 3,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 543529047,
+      "name": "candidate",
+      "packets": 17176,
+      "round": 3,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 318941841,
+      "name": "baseline",
+      "packets": 33488,
+      "round": 3,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 328487783,
+      "name": "candidate",
+      "packets": 33488,
+      "round": 3,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 330640088,
+      "name": "candidate",
+      "packets": 33488,
+      "round": 4,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 334477101,
+      "name": "baseline",
+      "packets": 33488,
+      "round": 4,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 530333003,
+      "name": "candidate",
+      "packets": 17176,
+      "round": 4,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 577685787,
+      "name": "baseline",
+      "packets": 17176,
+      "round": 4,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 316393282,
+      "name": "baseline",
+      "packets": 33488,
+      "round": 5,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 308774943,
+      "name": "candidate",
+      "packets": 33488,
+      "round": 5,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 527343801,
+      "name": "baseline",
+      "packets": 17176,
+      "round": 5,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 507400010,
+      "name": "candidate",
+      "packets": 17176,
+      "round": 5,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 318092760,
+      "name": "baseline",
+      "packets": 33488,
+      "round": 6,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 315158670,
+      "name": "candidate",
+      "packets": 33488,
+      "round": 6,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 532314647,
+      "name": "candidate",
+      "packets": 17176,
+      "round": 6,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 538740472,
+      "name": "baseline",
+      "packets": 17176,
+      "round": 6,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 548577449,
+      "name": "baseline",
+      "packets": 17176,
+      "round": 7,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 579568560,
+      "name": "candidate",
+      "packets": 17176,
+      "round": 7,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 334462032,
+      "name": "baseline",
+      "packets": 33488,
+      "round": 7,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 363546296,
+      "name": "candidate",
+      "packets": 33488,
+      "round": 7,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 574204433,
+      "name": "baseline",
+      "packets": 17176,
+      "round": 8,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 531539865,
+      "name": "candidate",
+      "packets": 17176,
+      "round": 8,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 413839983,
+      "name": "candidate",
+      "packets": 33488,
+      "round": 8,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 336526803,
+      "name": "baseline",
+      "packets": 33488,
+      "round": 8,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 536812097,
+      "name": "candidate",
+      "packets": 17176,
+      "round": 9,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 567577101,
+      "name": "baseline",
+      "packets": 17176,
+      "round": 9,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 319248715,
+      "name": "baseline",
+      "packets": 33488,
+      "round": 9,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 306513343,
+      "name": "candidate",
+      "packets": 33488,
+      "round": 9,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 551186070,
+      "name": "baseline",
+      "packets": 17176,
+      "round": 10,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 527107427,
+      "name": "candidate",
+      "packets": 17176,
+      "round": 10,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 325704226,
+      "name": "baseline",
+      "packets": 33488,
+      "round": 10,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 312402092,
+      "name": "candidate",
+      "packets": 33488,
+      "round": 10,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 550300597,
+      "name": "baseline",
+      "packets": 17176,
+      "round": 11,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 547574229,
+      "name": "candidate",
+      "packets": 17176,
+      "round": 11,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 328788927,
+      "name": "baseline",
+      "packets": 33488,
+      "round": 11,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 314834162,
+      "name": "candidate",
+      "packets": 33488,
+      "round": 11,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 519109455,
+      "name": "candidate",
+      "packets": 17176,
+      "round": 12,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 534259395,
+      "name": "baseline",
+      "packets": 17176,
+      "round": 12,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 307931572,
+      "name": "candidate",
+      "packets": 33488,
+      "round": 12,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 310481751,
+      "name": "baseline",
+      "packets": 33488,
+      "round": 12,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 310041337,
+      "name": "candidate",
+      "packets": 33488,
+      "round": 13,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 334633543,
+      "name": "baseline",
+      "packets": 33488,
+      "round": 13,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 522499189,
+      "name": "candidate",
+      "packets": 17176,
+      "round": 13,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 569006429,
+      "name": "baseline",
+      "packets": 17176,
+      "round": 13,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 309833546,
+      "name": "candidate",
+      "packets": 33488,
+      "round": 14,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 336990720,
+      "name": "baseline",
+      "packets": 33488,
+      "round": 14,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 552557892,
+      "name": "candidate",
+      "packets": 17176,
+      "round": 14,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 544155320,
+      "name": "baseline",
+      "packets": 17176,
+      "round": 14,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 574379903,
+      "name": "baseline",
+      "packets": 17176,
+      "round": 15,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 517023696,
+      "name": "candidate",
+      "packets": 17176,
+      "round": 15,
+      "vector": 1
+    },
+    {
+      "elapsed_ns": 314401230,
+      "name": "candidate",
+      "packets": 33488,
+      "round": 15,
+      "vector": 7
+    },
+    {
+      "elapsed_ns": 310290375,
+      "name": "baseline",
+      "packets": 33488,
+      "round": 15,
+      "vector": 7
+    }
+  ],
+  "seed": 8251,
+  "source": {
+    "baseline": {
+      "git_base": "5511cabd240409b6da649b899ea1c3fba9eabcc5",
+      "patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_manifest": "27c5ded80076ec4aa7a975254628e7217d3e23910e5697c26ac7c05097045361"
+    },
+    "candidate": {
+      "git_base": "5511cabd240409b6da649b899ea1c3fba9eabcc5",
+      "patch_sha256": "bd623d33d2a9541854d626fc5732daf9c44cf3bc50352ea9566c7e02d40b20e7",
+      "source_manifest": "bb0ba36f3292a710dfdebc3d042cd47216c1913cd3f54cdc5cdf657162107302"
+    }
+  },
+  "timed_passes": 8,
+  "validation": {
+    "baseline-v1": {
+      "nonzero_ranges": 2147,
+      "packets": 2147,
+      "pcm_sha256": "d9269648a0909ba8231348c38ce5a90a19d95b89c65c97b5b7f49dcd180c54b2"
+    },
+    "baseline-v7": {
+      "nonzero_ranges": 4186,
+      "packets": 4186,
+      "pcm_sha256": "a57edf65100353499fefdedff33b4e8d5ac65a44382c7440a7bf290588fc8104"
+    },
+    "candidate-v1": {
+      "nonzero_ranges": 2147,
+      "packets": 2147,
+      "pcm_sha256": "d9269648a0909ba8231348c38ce5a90a19d95b89c65c97b5b7f49dcd180c54b2"
+    },
+    "candidate-v7": {
+      "nonzero_ranges": 4186,
+      "packets": 4186,
+      "pcm_sha256": "a57edf65100353499fefdedff33b4e8d5ac65a44382c7440a7bf290588fc8104"
+    }
+  },
+  "vectors": {
+    "1": {
+      "packets": 2147,
+      "prepared_sha256": "7ba1813394b7218391b60b394cda3d803e55aa8fbb74405d9ea96d56643049e6",
+      "range_checks": 2147,
+      "vector_sha256": "00a4d34e12a2a32a047bfcaf762f663430b2232bc76a1c21e3b598f060f99b7e"
+    },
+    "7": {
+      "packets": 4186,
+      "prepared_sha256": "3a6ece13cd9e8937fc695da796a1170823a93426f6c3e719c012c14883262a43",
+      "range_checks": 4186,
+      "vector_sha256": "ae7ae8f569807d4d964c574d7b1556e8b930307adfa9928942fe44f5e2bcc5f1"
+    }
+  },
+  "warmup_passes": 1
+}

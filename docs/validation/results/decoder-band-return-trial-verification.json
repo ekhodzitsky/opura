@@ -1,0 +1,388 @@
+{
+  "assembly_toolchain": "rustc 1.100.0, x86-64 target-cpu=native",
+  "assembly": {
+    "baseline-prof": {
+      "executable_sha256": "ba727ea10bbef534b39cc1a1d18146d94ac349532af2a77b393d42d61303725d",
+      "symbols": {
+        "decoder-band": {
+          "address": "000000000004ec60",
+          "bytes": 751,
+          "memory_symbols": [
+            "   4ed2b:\tmov    0x63536(%rip),%rax        # b2268 <memcpy@GLIBC_2.14>    [dynamic memcpy]"
+          ],
+          "immediate_704": []
+        },
+        "prepare": {
+          "address": "0000000000057ef0",
+          "bytes": 1669,
+          "memory_symbols": [
+            "   57faa:\tmov    0x5a2b7(%rip),%rax        # b2268 <memcpy@GLIBC_2.14>    [dynamic memcpy]",
+            "   58393:\tmov    0x59ece(%rip),%rax        # b2268 <memcpy@GLIBC_2.14>    [dynamic memcpy]"
+          ],
+          "immediate_704": [
+            "   583a3:\tmov    $0x2c0,%edx"
+          ]
+        }
+      }
+    },
+    "baseline-encoder": {
+      "executable_sha256": "e19f2f957ba6c77360d50347ef30b120977f7139b5f5741571e4ded2f9a830e1",
+      "symbols": {
+        "encoder-band": {
+          "address": "0000000000090bb0",
+          "bytes": 540,
+          "memory_symbols": [
+            "   90c6e:\tmov    0xc0b7b(%rip),%rax        # 1517f0 <memcpy@GLIBC_2.14>    [dynamic memcpy]"
+          ],
+          "immediate_704": []
+        },
+        "decoder-band": {
+          "address": "0000000000094670",
+          "bytes": 751,
+          "memory_symbols": [
+            "   9473b:\tmov    0xbd0ae(%rip),%rax        # 1517f0 <memcpy@GLIBC_2.14>    [dynamic memcpy]"
+          ],
+          "immediate_704": []
+        },
+        "prepare": {
+          "address": "00000000000b6f30",
+          "bytes": 1669,
+          "memory_symbols": [
+            "   b6fea:\tmov    0x9a7ff(%rip),%rax        # 1517f0 <memcpy@GLIBC_2.14>    [dynamic memcpy]",
+            "   b73d3:\tmov    0x9a416(%rip),%rax        # 1517f0 <memcpy@GLIBC_2.14>    [dynamic memcpy]"
+          ],
+          "immediate_704": [
+            "   b73e3:\tmov    $0x2c0,%edx"
+          ]
+        }
+      }
+    },
+    "candidate-prof": {
+      "executable_sha256": "febbf6ebed3b3a52c77c808702ae3ed4f245dd15cef2e77bf09a090cca34a825",
+      "symbols": {
+        "decoder-band": {
+          "address": "000000000004ee40",
+          "bytes": 759,
+          "memory_symbols": [],
+          "immediate_704": []
+        },
+        "prepare": {
+          "address": "000000000006ab30",
+          "bytes": 1289,
+          "memory_symbols": [
+            "   6ab69:\tmov    0x47498(%rip),%rax        # b2008 <memcpy@GLIBC_2.14>    [dynamic memcpy]"
+          ],
+          "immediate_704": []
+        }
+      }
+    },
+    "candidate-encoder": {
+      "executable_sha256": "f2621102968af25a95f16ca5771f039f9e6a15fc885bfd72ad87a0def3e6cd57",
+      "symbols": {
+        "encoder-band": {
+          "address": "00000000000926c0",
+          "bytes": 567,
+          "memory_symbols": [],
+          "immediate_704": []
+        },
+        "decoder-band": {
+          "address": "0000000000096190",
+          "bytes": 759,
+          "memory_symbols": [],
+          "immediate_704": []
+        },
+        "prepare": {
+          "address": "00000000000f92d0",
+          "bytes": 1289,
+          "memory_symbols": [
+            "   f9309:\tmov    0x58330(%rip),%rax        # 151640 <memcpy@GLIBC_2.14>    [dynamic memcpy]"
+          ],
+          "immediate_704": []
+        }
+      }
+    }
+  },
+  "encoder_cli": "Two 48 kHz PCM16 inputs. Whole Ogg comparison masks only the OpusTags vendor version and its CRC.",
+  "encoder_files": [
+    {
+      "source": "voice24",
+      "rate": 48000,
+      "channels": 1,
+      "source_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "options": [
+        "--mode",
+        "celt",
+        "--bitrate",
+        "24000",
+        "--frame-ms",
+        "2.5"
+      ],
+      "size": 37290,
+      "audio_packets": 4321,
+      "canonical_sha256": "8d534191950e5e927fd6a3525ca43a77ada3a3c61abcdeb3f20ae75dd0faa0dc"
+    },
+    {
+      "source": "voice24",
+      "rate": 48000,
+      "channels": 1,
+      "source_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "options": [
+        "--mode",
+        "celt",
+        "--bitrate",
+        "24000",
+        "--frame-ms",
+        "2.5",
+        "--vbr"
+      ],
+      "size": 56914,
+      "audio_packets": 4321,
+      "canonical_sha256": "42ba409636f8cce0f758f4a576bb9716ca8e1a9b5cc2498756121639a42ead90"
+    },
+    {
+      "source": "voice24",
+      "rate": 48000,
+      "channels": 1,
+      "source_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "options": [
+        "--mode",
+        "celt",
+        "--bitrate",
+        "24000",
+        "--frame-ms",
+        "5"
+      ],
+      "size": 34975,
+      "audio_packets": 2161,
+      "canonical_sha256": "e26e6184822c0c205eccced7b7e899ed817c3a7f4d48940648a2842aa672399e"
+    },
+    {
+      "source": "voice24",
+      "rate": 48000,
+      "channels": 1,
+      "source_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "options": [
+        "--mode",
+        "celt",
+        "--bitrate",
+        "24000",
+        "--frame-ms",
+        "5",
+        "--vbr"
+      ],
+      "size": 33895,
+      "audio_packets": 2161,
+      "canonical_sha256": "4bac5a3a1bd2d943865ddd4ff22fcc1c44348556fd6b6c928bf035dcd3168139"
+    },
+    {
+      "source": "voice24",
+      "rate": 48000,
+      "channels": 1,
+      "source_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "options": [
+        "--mode",
+        "celt",
+        "--bitrate",
+        "24000",
+        "--frame-ms",
+        "10"
+      ],
+      "size": 33910,
+      "audio_packets": 1081,
+      "canonical_sha256": "c5be5a2831d41f308c65c3bbebe6b2cce7cda99801242cda24282ff4b09538e1"
+    },
+    {
+      "source": "voice24",
+      "rate": 48000,
+      "channels": 1,
+      "source_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "options": [
+        "--mode",
+        "celt",
+        "--bitrate",
+        "24000",
+        "--frame-ms",
+        "10",
+        "--vbr"
+      ],
+      "size": 33200,
+      "audio_packets": 1081,
+      "canonical_sha256": "efb027f6f6177c4cb08c840901142e63270646938aa9d90ebb582c62eba845c5"
+    },
+    {
+      "source": "voice24",
+      "rate": 48000,
+      "channels": 1,
+      "source_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "options": [
+        "--mode",
+        "celt",
+        "--bitrate",
+        "24000",
+        "--frame-ms",
+        "20"
+      ],
+      "size": 33400,
+      "audio_packets": 541,
+      "canonical_sha256": "65109302c14d6c1016a3a08ab5c6bd5c477ca8775ebf93f83639090e0b76a7d9"
+    },
+    {
+      "source": "voice24",
+      "rate": 48000,
+      "channels": 1,
+      "source_sha256": "625ae47a791214ca5cef9927ac51ea085158a5ca1e3cc77db019b15579d63aa5",
+      "options": [
+        "--mode",
+        "celt",
+        "--bitrate",
+        "24000",
+        "--frame-ms",
+        "20",
+        "--vbr"
+      ],
+      "size": 39807,
+      "audio_packets": 541,
+      "canonical_sha256": "3e1b68ba1d765829c3f9587f73ef9b09fa802a49c941e8bcb1dc06437e04d53f"
+    },
+    {
+      "source": "music64",
+      "rate": 48000,
+      "channels": 2,
+      "source_sha256": "05234a51af10b01d272bfe5650ebed4ef89d286fc6c15330045c2b9f336b1c8f",
+      "options": [
+        "--mode",
+        "celt",
+        "--bitrate",
+        "64000",
+        "--frame-ms",
+        "2.5"
+      ],
+      "size": 84555,
+      "audio_packets": 4001,
+      "canonical_sha256": "ba786691ab4a7fc23385404e23f4d265c4a2394682841c76a169dba8b97edd58"
+    },
+    {
+      "source": "music64",
+      "rate": 48000,
+      "channels": 2,
+      "source_sha256": "05234a51af10b01d272bfe5650ebed4ef89d286fc6c15330045c2b9f336b1c8f",
+      "options": [
+        "--mode",
+        "celt",
+        "--bitrate",
+        "64000",
+        "--frame-ms",
+        "2.5",
+        "--vbr"
+      ],
+      "size": 88180,
+      "audio_packets": 4001,
+      "canonical_sha256": "0e851f1c610e0502184ea7fc02bc62e5382757da0ab175671fb61c3088bc1140"
+    },
+    {
+      "source": "music64",
+      "rate": 48000,
+      "channels": 2,
+      "source_sha256": "05234a51af10b01d272bfe5650ebed4ef89d286fc6c15330045c2b9f336b1c8f",
+      "options": [
+        "--mode",
+        "celt",
+        "--bitrate",
+        "64000",
+        "--frame-ms",
+        "5"
+      ],
+      "size": 82440,
+      "audio_packets": 2001,
+      "canonical_sha256": "a9c8c10decaabc42bbe103457863390a3dc6188510245409bd4b24d37a6c6bfa"
+    },
+    {
+      "source": "music64",
+      "rate": 48000,
+      "channels": 2,
+      "source_sha256": "05234a51af10b01d272bfe5650ebed4ef89d286fc6c15330045c2b9f336b1c8f",
+      "options": [
+        "--mode",
+        "celt",
+        "--bitrate",
+        "64000",
+        "--frame-ms",
+        "5",
+        "--vbr"
+      ],
+      "size": 81331,
+      "audio_packets": 2001,
+      "canonical_sha256": "9baadca3bae633a90b1ff22dc29c5e18f485a9fb977a7135cc5f8b8c7dbb2d31"
+    },
+    {
+      "source": "music64",
+      "rate": 48000,
+      "channels": 2,
+      "source_sha256": "05234a51af10b01d272bfe5650ebed4ef89d286fc6c15330045c2b9f336b1c8f",
+      "options": [
+        "--mode",
+        "celt",
+        "--bitrate",
+        "64000",
+        "--frame-ms",
+        "10"
+      ],
+      "size": 81480,
+      "audio_packets": 1001,
+      "canonical_sha256": "73fdf85cafdf6a5497fd6145f517af7af225e15324eecdc23f92e6c3b041792a"
+    },
+    {
+      "source": "music64",
+      "rate": 48000,
+      "channels": 2,
+      "source_sha256": "05234a51af10b01d272bfe5650ebed4ef89d286fc6c15330045c2b9f336b1c8f",
+      "options": [
+        "--mode",
+        "celt",
+        "--bitrate",
+        "64000",
+        "--frame-ms",
+        "10",
+        "--vbr"
+      ],
+      "size": 79860,
+      "audio_packets": 1001,
+      "canonical_sha256": "5133c3326b454ccdaf36d0d5f2fa2fe5fb572f6986e8698984d55bed03d5b0bd"
+    },
+    {
+      "source": "music64",
+      "rate": 48000,
+      "channels": 2,
+      "source_sha256": "05234a51af10b01d272bfe5650ebed4ef89d286fc6c15330045c2b9f336b1c8f",
+      "options": [
+        "--mode",
+        "celt",
+        "--bitrate",
+        "64000",
+        "--frame-ms",
+        "20"
+      ],
+      "size": 81060,
+      "audio_packets": 501,
+      "canonical_sha256": "738c8dab2c02108b66eb633d732fae0473b1048404c4aff092f15c6d119091ab"
+    },
+    {
+      "source": "music64",
+      "rate": 48000,
+      "channels": 2,
+      "source_sha256": "05234a51af10b01d272bfe5650ebed4ef89d286fc6c15330045c2b9f336b1c8f",
+      "options": [
+        "--mode",
+        "celt",
+        "--bitrate",
+        "64000",
+        "--frame-ms",
+        "20",
+        "--vbr"
+      ],
+      "size": 83164,
+      "audio_packets": 501,
+      "canonical_sha256": "0fe729c368dd3e4c7cd9117c96214e24a9469b71bdcda1dd1aefd3822be32cc7"
+    }
+  ]
+}

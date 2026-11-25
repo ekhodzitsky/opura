@@ -7,6 +7,8 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Evaluate caller-owned CELT folding storage. The trial missed the release performance criteria. Full decoder time ratio against v0.2.8 was 0.9879 (paired 95% interval 0.9752–0.9981). [Measurements](docs/benchmarks/decoder-band-return-trial.md)
+
 ## [0.2.8] - 2026-11-25
 
 - Calculate CELT split-angle symbol intervals directly. Opura used 6.55% less decoder time than v0.2.7 across ten output configurations, preserving all 120 official PCM hashes and all 200,750 final-range checks. [Measurements](docs/benchmarks/decoder-theta-0.2.8.md)
