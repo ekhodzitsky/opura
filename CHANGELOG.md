@@ -7,6 +7,12 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-11-25
+
+- Decode CELT pulse vectors into caller-owned storage in the private partition path. Public output and all 120 official PCM hashes match v0.2.6.
+
+- Compare caller-owned CELT pulse storage with v0.2.6 on the official streams. The aggregate decoder time ratio was 0.9600 (paired 95% interval 0.9535–0.9688). The trial met both acceptance criteria. [Measurements](docs/benchmarks/decoder-pulse-storage-0.2.7.md)
+
 - Profile the stable decoder on 8 kHz mono and 48 kHz stereo streams. Memory copies accounted for 19.6% and 17.4% of whole-process CPU samples respectively. [Profiling results](docs/benchmarks/decoder-cpu-0.2.5.md)
 
 - Measure the stable v0.2.5 decoder against scalar libopus 1.6.1 on the official streams. Opura used 1.4619× the codec time (paired 95% interval 1.4563–1.4757). [Results and reproduction](docs/benchmarks/decoder-native-0.2.5.md)
