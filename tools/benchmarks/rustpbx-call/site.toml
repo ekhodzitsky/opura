@@ -1,0 +1,22 @@
+http_addr = "127.0.0.1:18083"
+database_url = "sqlite://pbx.sqlite"
+external_ip = "127.0.0.1"
+log_level = "info"
+rtp_start_port = 27000
+rtp_end_port = 31000
+
+[proxy]
+addr = "127.0.0.1"
+udp_port = 15061
+media_proxy = "all"
+modules = ["acl", "auth", "registrar", "call"]
+acl_rules = ["allow all"]
+sip_worker_threads = 2
+media_worker_threads = 2
+realms = ["127.0.0.1"]
+[[proxy.user_backends]]
+type = "memory"
+users = [
+    { username = "bob", password = "smoke-only" },
+    { username = "alice", password = "smoke-only" },
+]

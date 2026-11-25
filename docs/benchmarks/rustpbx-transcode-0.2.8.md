@@ -2,6 +2,8 @@
 
 With 500 active one-way transcoding legs, changing the decoder from opus-rs 0.1.42 to Opura 0.2.8 reduced median worker RSS from **121.4 to 46.5 MiB**. Median CPU rose from 0.386 to 0.415 of one core. Four of 440 Opura batches finished after their 20 ms deadline, all in the fifth run. The stock worker finished every batch on time. At 250 legs the worker saved 37.6 MiB and both decoders met every batch deadline. A deployment with a memory cap and spare CPU is a candidate for a pilot at its expected call load. The upstream benchmark establishes that RustPBX exercises this workload. Operator demand for a decoder change remains unverified. [Individual runs and fingerprints](results/rustpbx-transcode-0.2.8.json)
 
+A separate end-to-end trial ran eight bidirectional calls through the complete RustPBX 0.5.0 SIP server. That release uses opus-rs 0.1.32. Both builds completed all eight calls. The server with Opura used about 1.3 MiB less resident memory and 0.019 more CPU core in the single paired speech run. [Full server trial](rustpbx-call-0.2.8.md)
+
 ## Results
 
 Each row covers five fresh processes. RSS is the median final resident set of the entire benchmark worker. CPU is the median sum of user and kernel CPU seconds per 1.76 seconds of offered audio. A batch contains one frame for every leg. Its latency runs from its scheduled start to the last encoded PCMU output. The p99 uses the nearest rank over all 440 batches per row.
