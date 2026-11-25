@@ -7,6 +7,8 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Measure the stable v0.2.5 decoder against scalar libopus 1.6.1 on the official streams. Opura used 1.4619× the codec time (paired 95% interval 1.4563–1.4757). [Results and reproduction](docs/benchmarks/decoder-native-0.2.5.md)
+
 ## [0.2.6] - 2026-11-25
 
 - Run the debug and release test suites in separate CI jobs. The CELT encoder
