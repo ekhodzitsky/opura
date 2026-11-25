@@ -75,6 +75,11 @@ been checked against libopus.
 [Decoder timings](https://github.com/ekhodzitsky/opura/blob/v0.2.8/docs/benchmarks/decoder-theta-0.2.8.md) · [Memory comparison](https://github.com/ekhodzitsky/opura/blob/8a2c443/docs/benchmarks/decoder-competition-0.2.7.md) ·
 [Validation results and limitations in the repository](https://github.com/ekhodzitsky/opura/blob/main/docs/validation/codec-readiness.md)
 
+In a local VoiceMCU conference with 64 participants, switching from native
+libopus to Opura reduced median server RSS from 26.9 to 17.8 MiB and increased
+CPU use from 0.505 to 0.575 of one core. Both delivered all 288 audio markers.
+[Conference workload and limits](https://github.com/ekhodzitsky/opura/blob/main/docs/benchmarks/voicemcu-0.2.8.md)
+
 The source repository contains the full fixture suite, examples and reference
 tools. Run the full test suite from a checkout of the corresponding release.
 [Changelog](CHANGELOG.md) · [Repository documentation](https://github.com/ekhodzitsky/opura/blob/main/docs/README.md)

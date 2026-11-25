@@ -1,0 +1,12 @@
+[package]
+name="opura-pbx-path"
+version="0.0.0"
+edition="2024"
+publish=false
+
+[dependencies]
+rustpbx-media = {path="../rustpbx/crates/rustpbx-media"}
+tokio = {version="1.53", features=["rt","macros","time"]}
+audio-codec = "=0.4.14"
+opus-rs = "=0.1.42"
+opura = "=0.2.8"
