@@ -96,3 +96,43 @@ fn reference_pcm_and_histories_match() -> Result<(), Box<dyn std::error::Error>>
     assert!(saturated > 0);
     Ok(())
 }
+
+#[test]
+fn transposed_lpc_matches_direct_sum_at_arithmetic_limits() {
+    fn compare<const ORDER: usize>(length: usize) {
+        let mut seed = 0x5a17_0e31u32;
+        let mut next = || {
+            seed ^= seed << 13;
+            seed ^= seed >> 17;
+            seed ^= seed << 5;
+            seed as i32
+        };
+        for case in 0..16 {
+            let filter: [i16; ORDER] = std::array::from_fn(|i| match case {
+                0 => i16::MIN,
+                1 if i % 2 == 0 => i16::MIN,
+                1 => i16::MAX,
+                _ => next() as i16,
+            });
+            let mut expected = std::array::from_fn(|_| if case == 0 { i32::MIN } else { next() });
+            let mut actual = expected;
+            let residual: [i32; 80] = std::array::from_fn(|_| next());
+            for (i, &sample) in residual[..length].iter().enumerate() {
+                let mut sum = (ORDER / 2) as i64;
+                for (j, &coefficient) in filter.iter().enumerate() {
+                    sum += (i64::from(expected[15 + i - j]) * i64::from(coefficient)) >> 16;
+                }
+                let prediction = (sum as i32).clamp(i32::MIN >> 4, i32::MAX >> 4) << 4;
+                expected[16 + i] = sample.saturating_add(prediction);
+            }
+            super::synthesize_lpc::<ORDER>(&mut actual, &residual[..length], &filter);
+            assert_eq!(
+                actual, expected,
+                "LPC order {ORDER}, length {length}, case {case}"
+            );
+        }
+    }
+    compare::<10>(40);
+    compare::<10>(60);
+    compare::<16>(80);
+}
