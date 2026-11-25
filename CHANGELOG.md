@@ -9,6 +9,10 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [0.2.6] - 2026-11-25
 
+- Run the debug and release test suites in separate CI jobs. The CELT encoder
+  and Opus decoder tests read their largest reference corpora from disk at
+  test time to reduce compiler memory usage on hosted runners.
+
 - Prepare the library and WAV/Ogg Opus CLI for crates.io. The package includes
   the Rust sources, CLI guide, changelog and license notices. The full test
   fixtures, reference tools and benchmark reports are available in the repository.

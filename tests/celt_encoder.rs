@@ -98,19 +98,13 @@ fn public_pcm_packets_are_decodable_and_failures_preserve_whole_state()
 #[test]
 fn original_policy_packets_and_public_libopus_pcm_match_at_every_output_geometry()
 -> Result<(), Box<dyn std::error::Error>> {
-    verify_public_packets(
-        include_str!("celt-encoder-fixtures.txt"),
-        false,
-        false,
-        false,
-        false,
-    )
+    verify_public_packets("celt-encoder-fixtures.txt", false, false, false, false)
 }
 #[test]
 fn original_transient_packets_and_public_libopus_pcm_match_at_every_output_geometry()
 -> Result<(), Box<dyn std::error::Error>> {
     verify_public_packets(
-        include_str!("celt-encoder-transient-fixtures.txt"),
+        "celt-encoder-transient-fixtures.txt",
         true,
         false,
         false,
@@ -120,19 +114,13 @@ fn original_transient_packets_and_public_libopus_pcm_match_at_every_output_geome
 #[test]
 fn original_tf_packets_and_public_libopus_pcm_match_at_every_output_geometry()
 -> Result<(), Box<dyn std::error::Error>> {
-    verify_public_packets(
-        include_str!("celt-encoder-tf-fixtures.txt"),
-        true,
-        true,
-        false,
-        false,
-    )
+    verify_public_packets("celt-encoder-tf-fixtures.txt", true, true, false, false)
 }
 #[test]
 fn original_dynamic_packets_and_public_libopus_pcm_match_at_every_output_geometry()
 -> Result<(), Box<dyn std::error::Error>> {
     verify_public_packets(
-        include_str!("celt-encoder-dynalloc-fixtures.txt"),
+        "celt-encoder-dynalloc-fixtures.txt",
         true,
         true,
         true,
@@ -143,7 +131,7 @@ fn original_dynamic_packets_and_public_libopus_pcm_match_at_every_output_geometr
 fn original_spreading_packets_and_public_libopus_pcm_match_at_every_output_geometry()
 -> Result<(), Box<dyn std::error::Error>> {
     verify_public_packets(
-        include_str!("celt-encoder-spreading-fixtures.txt"),
+        "celt-encoder-spreading-fixtures.txt",
         true,
         true,
         true,
@@ -151,14 +139,14 @@ fn original_spreading_packets_and_public_libopus_pcm_match_at_every_output_geome
     )
 }
 fn verify_public_packets(
-    fixtures: &str,
+    fixture_name: &str,
     detect: bool,
     tf_analysis: bool,
     dynamic_analysis: bool,
     spreading_corpus: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     verify_public_policy_packets(
-        fixtures,
+        fixture_name,
         detect,
         tf_analysis,
         dynamic_analysis,
@@ -170,7 +158,7 @@ fn verify_public_packets(
 fn original_allocation_packets_and_public_libopus_pcm_match_at_every_output_geometry()
 -> Result<(), Box<dyn std::error::Error>> {
     verify_public_policy_packets(
-        include_str!("celt-encoder-allocation-fixtures.txt"),
+        "celt-encoder-allocation-fixtures.txt",
         true,
         true,
         true,
@@ -179,7 +167,7 @@ fn original_allocation_packets_and_public_libopus_pcm_match_at_every_output_geom
     )
 }
 fn verify_public_policy_packets(
-    fixtures: &str,
+    fixture_name: &str,
     detect: bool,
     tf_analysis: bool,
     dynamic_analysis: bool,
@@ -187,7 +175,7 @@ fn verify_public_policy_packets(
     allocation_corpus: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     verify_full_public_packets(
-        fixtures,
+        fixture_name,
         detect,
         tf_analysis,
         dynamic_analysis,
@@ -200,7 +188,7 @@ fn verify_public_policy_packets(
 fn original_pitch_packets_and_public_libopus_pcm_match_at_every_output_geometry()
 -> Result<(), Box<dyn std::error::Error>> {
     verify_full_public_packets(
-        include_str!("celt-encoder-pitch-packets-fixtures.txt"),
+        "celt-encoder-pitch-packets-fixtures.txt",
         true,
         true,
         true,
@@ -210,7 +198,7 @@ fn original_pitch_packets_and_public_libopus_pcm_match_at_every_output_geometry(
     )
 }
 fn verify_full_public_packets(
-    fixtures: &str,
+    fixture_name: &str,
     detect: bool,
     tf_analysis: bool,
     dynamic_analysis: bool,
@@ -240,6 +228,10 @@ fn verify_full_public_packets(
         })
         .map(|(rate, channels)| OpusDecoder::new(rate, channels))
         .collect::<Result<_, _>>()?;
+    let fixture_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join(fixture_name);
+    let fixtures = std::fs::read_to_string(fixture_path)?;
     let mut lines = fixtures.lines().filter(|l| !l.starts_with('#'));
     let mut frames = 0;
     let mut decoded = 0;

@@ -16,9 +16,9 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Install pinned Rust toolchain
         run: bash .github/workflows/install-rust.sh
-      - run: cargo test --offline --locked --release
+      - run: cargo test --offline --locked --release --verbose
         env:
-          CARGO_BUILD_JOBS: 2
+          CARGO_BUILD_JOBS: 1
   check:
     needs: [debug-tests, release-tests]
     runs-on: ubuntu-latest

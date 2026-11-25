@@ -23,10 +23,14 @@ fn channels(n: usize) -> PcmChannels {
     }
 }
 fn reference_stream(
-    fixtures: &str,
+    fixture_name: &str,
     expected: (usize, [usize; 4], usize),
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut decoder = OpusDecoder::new(OutputRate::Khz48, PcmChannels::Mono)?;
+    let fixture_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join(fixture_name);
+    let fixtures = std::fs::read_to_string(fixture_path)?;
     let mut lines = fixtures.lines().filter(|s| !s.starts_with('#'));
     let mut count = 0;
     let mut modes = [0; 4];
@@ -259,25 +263,16 @@ fn reference_stream(
 
 #[test]
 fn prior_hybrid_loss_and_fec_evidence_matches() -> Result<(), Box<dyn std::error::Error>> {
-    reference_stream(
-        include_str!("hybrid-loss-fixtures.txt"),
-        (2130, [120, 840, 1170, 0], 0),
-    )
+    reference_stream("hybrid-loss-fixtures.txt", (2130, [120, 840, 1170, 0], 0))
 }
 #[test]
 fn prior_celt_loss_evidence_matches() -> Result<(), Box<dyn std::error::Error>> {
-    reference_stream(
-        include_str!("celt-loss-fixtures.txt"),
-        (872, [120, 331, 121, 300], 1),
-    )
+    reference_stream("celt-loss-fixtures.txt", (872, [120, 331, 121, 300], 1))
 }
 
 #[test]
 fn mixed_modes_transitions_loss_and_fec_match() -> Result<(), Box<dyn std::error::Error>> {
-    reference_stream(
-        include_str!("opus-packet-fixtures.txt"),
-        (2440, [320, 1350, 390, 380], 0),
-    )
+    reference_stream("opus-packet-fixtures.txt", (2440, [320, 1350, 390, 380], 0))
 }
 
 fn unhex(hex: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
