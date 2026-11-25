@@ -164,10 +164,12 @@ pub(in crate::celt) fn decode_partition_band_into(
     if output.len() != n {
         return Err(PvqError::InvalidInput);
     }
-    let pulses = codebook.decode(entropy)?;
+    let mut scratch = [0; 176];
+    let pulses = &mut scratch[..n];
+    let energy = codebook.decode_into(entropy, pulses)?;
     let collapse = reconstruct_into(
-        pulses.values(),
-        pulses.squared_norm(),
+        pulses,
+        energy,
         codebook.pulses(),
         spread,
         blocks,

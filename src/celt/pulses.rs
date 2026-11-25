@@ -166,21 +166,28 @@ impl PulseCodebook {
     }
     /// Decode a codebook index without consuming entropy.
     /// At most dimensions+pulses iterations of the coordinate/search loops.
-    pub fn decode_index(self, mut index: u32) -> Result<PulseVector, PulseError> {
+    pub fn decode_index(self, index: u32) -> Result<PulseVector, PulseError> {
         if index >= self.cardinality {
             return Err(PulseError::InvalidIndex);
         }
-        let mut result = PulseVector {
-            values: [0; 176],
+        let mut values = [0; 176];
+        let energy = self.unrank(index, &mut values[..self.dimensions]);
+        Ok(PulseVector {
+            values,
             length: self.dimensions,
-            energy: 0,
-        };
+            energy,
+        })
+    }
+
+    // Write every coordinate, including zero coordinates skipped by CWRS.
+    fn unrank(self, mut index: u32, values: &mut [i16]) -> u32 {
+        let mut energy = 0;
         let mut pulses = self.pulses;
         let mut n = self.dimensions;
         let mut coordinate = 0;
         // Separate row-oriented (many pulses) from column-oriented (many
         // dimensions) traversal. A representable codebook has min(n,k+1)<15,
-        // so every row selected below exists. Zero suffixes are already clear.
+        // so every row selected below exists.
         while n > 2 && pulses > 0 {
             let before = pulses;
             let negative;
@@ -211,6 +218,7 @@ impl PulseCodebook {
                 let boundary = U[pulses + 1][n];
                 if base <= index && index < boundary {
                     index -= base;
+                    values[coordinate] = 0;
                     coordinate += 1;
                     n -= 1;
                     continue;
@@ -229,8 +237,8 @@ impl PulseCodebook {
             index -= base;
             let magnitude = (before - pulses) as i16;
             let value = if negative { -magnitude } else { magnitude };
-            result.values[coordinate] = value;
-            result.energy += (i32::from(value) * i32::from(value)) as u32;
+            values[coordinate] = value;
+            energy += (i32::from(value) * i32::from(value)) as u32;
             coordinate += 1;
             n -= 1;
         }
@@ -252,26 +260,45 @@ impl PulseCodebook {
             } else {
                 remaining as i16
             };
-            result.values[coordinate] = first;
-            result.values[coordinate + 1] = last;
-            result.energy +=
+            values[coordinate] = first;
+            values[coordinate + 1] = last;
+            energy +=
                 (i32::from(first) * i32::from(first) + i32::from(last) * i32::from(last)) as u32;
+        } else {
+            values[coordinate..].fill(0);
         }
-        Ok(result)
+        energy
     }
     /// Decode a uniform codebook index and its pulse vector atomically.
     /// Range input may be zero-extended; callers enforce codec bit budgets.
     /// Large codebooks also need physically present raw suffix bits.
     pub fn decode(self, entropy: &mut RangeDecoder<'_>) -> Result<PulseVector, PulseError> {
         let mut next = entropy.clone();
-        let index = if self.cardinality == 1 {
-            0
-        } else {
-            next.decode_uint(self.cardinality)?
-        };
+        let index = self.read_index(&mut next)?;
         let result = self.decode_index(index)?;
         *entropy = next;
         Ok(result)
+    }
+
+    // The CELT partition owns the surrounding entropy transaction.
+    pub(super) fn decode_into(
+        self,
+        entropy: &mut RangeDecoder<'_>,
+        values: &mut [i16],
+    ) -> Result<u32, PulseError> {
+        if values.len() != self.dimensions {
+            return Err(PulseError::InvalidVector);
+        }
+        let index = self.read_index(entropy)?;
+        Ok(self.unrank(index, values))
+    }
+
+    fn read_index(self, entropy: &mut RangeDecoder<'_>) -> Result<u32, PulseError> {
+        if self.cardinality == 1 {
+            Ok(0)
+        } else {
+            Ok(entropy.decode_uint(self.cardinality)?)
+        }
     }
 }
 
