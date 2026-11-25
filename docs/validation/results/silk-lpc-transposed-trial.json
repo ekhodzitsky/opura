@@ -1,0 +1,2454 @@
+{
+  "archive_sha256": "6b26a22f9ba87b2b836906a9bb7afec5f8e54d49553b1200382520ee6fedfa55",
+  "archive_url": "https://opus-codec.org/docs/opus_testvectors-rfc8251.tar.gz",
+  "channels": [
+    1,
+    2
+  ],
+  "compare_flags": [
+    "-O2",
+    "-std=c99",
+    "-lm"
+  ],
+  "compare_source_sha256": "387e5486b93899b012065f1c71fe27d96eade36a7c0bd419f03945d124a110c7",
+  "compiler": "gcc-15 (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+  "complete": true,
+  "expanded_bytes": 126653482,
+  "fault_sensitivity": {
+    "corrupt_range_rejected": true,
+    "corrupted_packet_index": 0,
+    "zero_pcm_rejected_by_both_references": true
+  },
+  "file_hash_source": "https://www.rfc-editor.org/rfc/rfc8251.txt#section-11",
+  "opura_version": "0.2.8",
+  "passed": true,
+  "profile": "release",
+  "rates": [
+    8000,
+    12000,
+    16000,
+    24000,
+    48000
+  ],
+  "reference_revision": "22244de5a79bd1d6d623c32e72bf1954b56235be",
+  "results": [
+    {
+      "channels": 1,
+      "packets": 2147,
+      "passed": true,
+      "pcm_sha256": "e138fec4f233e184cd4729d635902aad34be3d2f2b1c3744f13bb8680982ba79",
+      "range_checks": 2147,
+      "rate": 8000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 91.4
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 91.4
+        }
+      },
+      "samples_per_channel": 235840,
+      "vector": 1
+    },
+    {
+      "channels": 2,
+      "packets": 2147,
+      "passed": true,
+      "pcm_sha256": "a283b14a2d394415179be880400252e1ad3c67aa5963bfce70698788995580f0",
+      "range_checks": 2147,
+      "rate": 8000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 93.3
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 93.3
+        }
+      },
+      "samples_per_channel": 235840,
+      "vector": 1
+    },
+    {
+      "channels": 1,
+      "packets": 2147,
+      "passed": true,
+      "pcm_sha256": "691f2998ab73ea1499f5e635abc5837f82cf61c60421096b79a3c36f391b93d7",
+      "range_checks": 2147,
+      "rate": 12000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 95.5
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 95.5
+        }
+      },
+      "samples_per_channel": 353760,
+      "vector": 1
+    },
+    {
+      "channels": 2,
+      "packets": 2147,
+      "passed": true,
+      "pcm_sha256": "440c8a27b726c7060705a2273cc1bd140a68843936b5764ae0565a6a15d05089",
+      "range_checks": 2147,
+      "rate": 12000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 96.0
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 96.0
+        }
+      },
+      "samples_per_channel": 353760,
+      "vector": 1
+    },
+    {
+      "channels": 1,
+      "packets": 2147,
+      "passed": true,
+      "pcm_sha256": "d9269648a0909ba8231348c38ce5a90a19d95b89c65c97b5b7f49dcd180c54b2",
+      "range_checks": 2147,
+      "rate": 16000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 95.2
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 95.1
+        }
+      },
+      "samples_per_channel": 471680,
+      "vector": 1
+    },
+    {
+      "channels": 2,
+      "packets": 2147,
+      "passed": true,
+      "pcm_sha256": "b1b29f8c2072b44b16fa28b79119aac9fb7579aa774ef0f56f60b91eda7eed3b",
+      "range_checks": 2147,
+      "rate": 16000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 94.6
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 94.6
+        }
+      },
+      "samples_per_channel": 471680,
+      "vector": 1
+    },
+    {
+      "channels": 1,
+      "packets": 2147,
+      "passed": true,
+      "pcm_sha256": "7013ac3405b4f4f2fa6d93411cac974a9e0a800cede267c1ce4094041d0a49a2",
+      "range_checks": 2147,
+      "rate": 24000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 97.3
+        },
+        "normal": {
+          "passed": false,
+          "quality_percent": null
+        }
+      },
+      "samples_per_channel": 707520,
+      "vector": 1
+    },
+    {
+      "channels": 2,
+      "packets": 2147,
+      "passed": true,
+      "pcm_sha256": "27568eb84fed3ed9bce06e56d79f13dd393147675e088395ce3dd1d06171db70",
+      "range_checks": 2147,
+      "rate": 24000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 69.2
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 96.8
+        }
+      },
+      "samples_per_channel": 707520,
+      "vector": 1
+    },
+    {
+      "channels": 1,
+      "packets": 2147,
+      "passed": true,
+      "pcm_sha256": "39653045d082d332a50ea97afb4da0c410a8fc625487c1b448c19d9c8b0d4092",
+      "range_checks": 2147,
+      "rate": 48000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 97.8
+        },
+        "normal": {
+          "passed": false,
+          "quality_percent": null
+        }
+      },
+      "samples_per_channel": 1415040,
+      "vector": 1
+    },
+    {
+      "channels": 2,
+      "packets": 2147,
+      "passed": true,
+      "pcm_sha256": "b3abd3e1c310cb05d971a613a308c7b5909d4699ddaa1b88c380c784fa970ca0",
+      "range_checks": 2147,
+      "rate": 48000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 66.3
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 98.8
+        }
+      },
+      "samples_per_channel": 1415040,
+      "vector": 1
+    },
+    {
+      "channels": 1,
+      "packets": 1185,
+      "passed": true,
+      "pcm_sha256": "3c086df9e663f7ebe9b12f0c3fb3ab6bd0f54e326516b6f23b14ff330e770efe",
+      "range_checks": 1185,
+      "rate": 8000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 59.7
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 59.7
+        }
+      },
+      "samples_per_channel": 200240,
+      "vector": 2
+    },
+    {
+      "channels": 2,
+      "packets": 1185,
+      "passed": true,
+      "pcm_sha256": "4c66762001f1b612fe3a07b25731361b460d82dbefa62864ea6048c1f1826097",
+      "range_checks": 1185,
+      "rate": 8000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 57.7
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 57.7
+        }
+      },
+      "samples_per_channel": 200240,
+      "vector": 2
+    },
+    {
+      "channels": 1,
+      "packets": 1185,
+      "passed": true,
+      "pcm_sha256": "e815e62d80d0726273fc748bf2df6905d7404c383613816309315cf18e610498",
+      "range_checks": 1185,
+      "rate": 12000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 83.4
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 83.4
+        }
+      },
+      "samples_per_channel": 300360,
+      "vector": 2
+    },
+    {
+      "channels": 2,
+      "packets": 1185,
+      "passed": true,
+      "pcm_sha256": "7c57413b850043b7ec96313926e6731892b96ecdfc8b640335140056ea8ea189",
+      "range_checks": 1185,
+      "rate": 12000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 83.5
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 83.5
+        }
+      },
+      "samples_per_channel": 300360,
+      "vector": 2
+    },
+    {
+      "channels": 1,
+      "packets": 1185,
+      "passed": true,
+      "pcm_sha256": "adad099a4c955b5a2c7926902c287e6c5c04bf232600acefd343601a258d492f",
+      "range_checks": 1185,
+      "rate": 16000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 92.8
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 92.8
+        }
+      },
+      "samples_per_channel": 400480,
+      "vector": 2
+    },
+    {
+      "channels": 2,
+      "packets": 1185,
+      "passed": true,
+      "pcm_sha256": "2caef8aad21ae8948cc2b4c42ee50a090f67b6109df61b93e82f66f7a10a8b48",
+      "range_checks": 1185,
+      "rate": 16000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 92.9
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 92.9
+        }
+      },
+      "samples_per_channel": 400480,
+      "vector": 2
+    },
+    {
+      "channels": 1,
+      "packets": 1185,
+      "passed": true,
+      "pcm_sha256": "804f72fe5ad4d35065559a255afd9f8a9d8fff53202fd8b57fa6644220324412",
+      "range_checks": 1185,
+      "rate": 24000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 94.1
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 94.1
+        }
+      },
+      "samples_per_channel": 600720,
+      "vector": 2
+    },
+    {
+      "channels": 2,
+      "packets": 1185,
+      "passed": true,
+      "pcm_sha256": "992b6b74e83e433e5aefcee6041a0789f7cef9c3b754c56ee33c867af01783f7",
+      "range_checks": 1185,
+      "rate": 24000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 94.4
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 94.4
+        }
+      },
+      "samples_per_channel": 600720,
+      "vector": 2
+    },
+    {
+      "channels": 1,
+      "packets": 1185,
+      "passed": true,
+      "pcm_sha256": "94367ca9d7cb8b43ba973ebe5668242c3fd5bc1922d457b3a1192fcdaae47718",
+      "range_checks": 1185,
+      "rate": 48000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 96.2
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 96.2
+        }
+      },
+      "samples_per_channel": 1201440,
+      "vector": 2
+    },
+    {
+      "channels": 2,
+      "packets": 1185,
+      "passed": true,
+      "pcm_sha256": "4ad3b7aeaea242acc96cafebee69edb0914abc2e46c0c884f812ce10bbee4dbc",
+      "range_checks": 1185,
+      "rate": 48000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 100.0
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 100.0
+        }
+      },
+      "samples_per_channel": 1201440,
+      "vector": 2
+    },
+    {
+      "channels": 1,
+      "packets": 998,
+      "passed": true,
+      "pcm_sha256": "a83f7f52b833aa29260e0e5b01907bcfdf44dd62118b2de4ce33d4b40aab78e7",
+      "range_checks": 998,
+      "rate": 8000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 66.3
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 66.3
+        }
+      },
+      "samples_per_channel": 169280,
+      "vector": 3
+    },
+    {
+      "channels": 2,
+      "packets": 998,
+      "passed": true,
+      "pcm_sha256": "6e22f0ea150d26556ec4372066d828efea18c28585361a510685a9cac90fae85",
+      "range_checks": 998,
+      "rate": 8000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 66.3
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 66.3
+        }
+      },
+      "samples_per_channel": 169280,
+      "vector": 3
+    },
+    {
+      "channels": 1,
+      "packets": 998,
+      "passed": true,
+      "pcm_sha256": "9b67f878718b7f3da774676b3c5f94ae816147549331bec28de8e5c15e70f46e",
+      "range_checks": 998,
+      "rate": 12000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 71.8
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 71.8
+        }
+      },
+      "samples_per_channel": 253920,
+      "vector": 3
+    },
+    {
+      "channels": 2,
+      "packets": 998,
+      "passed": true,
+      "pcm_sha256": "e6c13dc540f05054a0ad0c18e5eec2b00fc544eff78c87b9fd09f581f97e83d1",
+      "range_checks": 998,
+      "rate": 12000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 71.6
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 71.6
+        }
+      },
+      "samples_per_channel": 253920,
+      "vector": 3
+    },
+    {
+      "channels": 1,
+      "packets": 998,
+      "passed": true,
+      "pcm_sha256": "b361fe6d30f06d13778328667de6eb7cfc098ebb46345dc07fcb3fc4337da7fb",
+      "range_checks": 998,
+      "rate": 16000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 89.7
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 89.7
+        }
+      },
+      "samples_per_channel": 338560,
+      "vector": 3
+    },
+    {
+      "channels": 2,
+      "packets": 998,
+      "passed": true,
+      "pcm_sha256": "7488d015dd5c088731283ccdabd0258be4f5dcf591543429a7a1e4023dbd9c06",
+      "range_checks": 998,
+      "rate": 16000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 89.7
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 89.7
+        }
+      },
+      "samples_per_channel": 338560,
+      "vector": 3
+    },
+    {
+      "channels": 1,
+      "packets": 998,
+      "passed": true,
+      "pcm_sha256": "92a5c2b8cb2530322ec14ca747f5a419922dd441aaac3697652ee50f8d16fadc",
+      "range_checks": 998,
+      "rate": 24000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 83.3
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 83.3
+        }
+      },
+      "samples_per_channel": 507840,
+      "vector": 3
+    },
+    {
+      "channels": 2,
+      "packets": 998,
+      "passed": true,
+      "pcm_sha256": "cc55826534587959a9dad7692c1774893c46267a3cab84a91c88da4cdbac85a9",
+      "range_checks": 998,
+      "rate": 24000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 83.3
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 83.3
+        }
+      },
+      "samples_per_channel": 507840,
+      "vector": 3
+    },
+    {
+      "channels": 1,
+      "packets": 998,
+      "passed": true,
+      "pcm_sha256": "2048ec5ddc2e562912a5f0cb7a01c5fe13312116013757faf73992c07420f30e",
+      "range_checks": 998,
+      "rate": 48000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 96.7
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 96.7
+        }
+      },
+      "samples_per_channel": 1015680,
+      "vector": 3
+    },
+    {
+      "channels": 2,
+      "packets": 998,
+      "passed": true,
+      "pcm_sha256": "e00f4ee27f007d849fb67f4386db93254631d2ff31b580394d854819560f1bc7",
+      "range_checks": 998,
+      "rate": 48000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 100.0
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 100.0
+        }
+      },
+      "samples_per_channel": 1015680,
+      "vector": 3
+    },
+    {
+      "channels": 1,
+      "packets": 1265,
+      "passed": true,
+      "pcm_sha256": "2c0fe0a8a6d15c337a979db00dd7d46db54bca334ef19d22f6f730c073c799c5",
+      "range_checks": 1265,
+      "rate": 8000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 75.0
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 75.0
+        }
+      },
+      "samples_per_channel": 213040,
+      "vector": 4
+    },
+    {
+      "channels": 2,
+      "packets": 1265,
+      "passed": true,
+      "pcm_sha256": "b00196f0a6912d9db1a826433924a0337d0cc542f2d64adbcdd68bc092e3000e",
+      "range_checks": 1265,
+      "rate": 8000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 75.2
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 75.2
+        }
+      },
+      "samples_per_channel": 213040,
+      "vector": 4
+    },
+    {
+      "channels": 1,
+      "packets": 1265,
+      "passed": true,
+      "pcm_sha256": "2b7f4c4348ac62a3337607c2338dd4d0e2213de0d39e198af2fb8b53bd609eb3",
+      "range_checks": 1265,
+      "rate": 12000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 78.8
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 78.8
+        }
+      },
+      "samples_per_channel": 319560,
+      "vector": 4
+    },
+    {
+      "channels": 2,
+      "packets": 1265,
+      "passed": true,
+      "pcm_sha256": "04984eb8c3d96a82092fbe819b76c4179128ef03dd54c6a436e1fc5ef6a91cf3",
+      "range_checks": 1265,
+      "rate": 12000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 79.0
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 79.0
+        }
+      },
+      "samples_per_channel": 319560,
+      "vector": 4
+    },
+    {
+      "channels": 1,
+      "packets": 1265,
+      "passed": true,
+      "pcm_sha256": "c29a0dcca024b208efb09dbf19e395bb9f9ffe15eae1a0c2b72a6b2213717527",
+      "range_checks": 1265,
+      "rate": 16000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 81.5
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 81.5
+        }
+      },
+      "samples_per_channel": 426080,
+      "vector": 4
+    },
+    {
+      "channels": 2,
+      "packets": 1265,
+      "passed": true,
+      "pcm_sha256": "916f514a4bb36e47cf67ef23ffd25538ab4ff9bd62a40e2b4a1fc0ab1cd2e197",
+      "range_checks": 1265,
+      "rate": 16000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 80.6
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 80.6
+        }
+      },
+      "samples_per_channel": 426080,
+      "vector": 4
+    },
+    {
+      "channels": 1,
+      "packets": 1265,
+      "passed": true,
+      "pcm_sha256": "2e063910340bcd702cc6faf002c0a9acc94837878fdb999c77e0c9cfe4d603be",
+      "range_checks": 1265,
+      "rate": 24000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 95.2
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 95.2
+        }
+      },
+      "samples_per_channel": 639120,
+      "vector": 4
+    },
+    {
+      "channels": 2,
+      "packets": 1265,
+      "passed": true,
+      "pcm_sha256": "39f408a2105e7c5600ba4475c1c8930144d07bea74bb15be735b6e344e7e9362",
+      "range_checks": 1265,
+      "rate": 24000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 95.3
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 95.3
+        }
+      },
+      "samples_per_channel": 639120,
+      "vector": 4
+    },
+    {
+      "channels": 1,
+      "packets": 1265,
+      "passed": true,
+      "pcm_sha256": "7c14e250c4bee2b25527a3af31fb67643e7a3dd17bab11f3a6595d4cd90bfb9d",
+      "range_checks": 1265,
+      "rate": 48000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 96.5
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 96.5
+        }
+      },
+      "samples_per_channel": 1278240,
+      "vector": 4
+    },
+    {
+      "channels": 2,
+      "packets": 1265,
+      "passed": true,
+      "pcm_sha256": "ce7450716f4911284332e76dab66518dcfd5c84e320c0a8a54014e658f5c6908",
+      "range_checks": 1265,
+      "rate": 48000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 100.0
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 100.0
+        }
+      },
+      "samples_per_channel": 1278240,
+      "vector": 4
+    },
+    {
+      "channels": 1,
+      "packets": 2037,
+      "passed": true,
+      "pcm_sha256": "23204f2f2727531aad54119424997cb8e8fc85dc0b4d3420752ae1bd14c511c6",
+      "range_checks": 2037,
+      "rate": 8000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 75.4
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 75.4
+        }
+      },
+      "samples_per_channel": 217360,
+      "vector": 5
+    },
+    {
+      "channels": 2,
+      "packets": 2037,
+      "passed": true,
+      "pcm_sha256": "57cd78e21031678858c7a7b481d197ead528dd2640f024962517e5272696f4ed",
+      "range_checks": 2037,
+      "rate": 8000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 75.4
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 75.4
+        }
+      },
+      "samples_per_channel": 217360,
+      "vector": 5
+    },
+    {
+      "channels": 1,
+      "packets": 2037,
+      "passed": true,
+      "pcm_sha256": "2ff76a1533dee9e0c003874c31b992cf16e2dc85ca9d30dd5c7f8d81d0bbe171",
+      "range_checks": 2037,
+      "rate": 12000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 79.3
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 79.3
+        }
+      },
+      "samples_per_channel": 326040,
+      "vector": 5
+    },
+    {
+      "channels": 2,
+      "packets": 2037,
+      "passed": true,
+      "pcm_sha256": "68f0f87e4c04016acdc7c865fb4aaa3e282f88fc66d7063a0d1f7435a7a95c67",
+      "range_checks": 2037,
+      "rate": 12000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 79.4
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 79.4
+        }
+      },
+      "samples_per_channel": 326040,
+      "vector": 5
+    },
+    {
+      "channels": 1,
+      "packets": 2037,
+      "passed": true,
+      "pcm_sha256": "eab67e1c312427aa110322a15660f1b35020664277b0597aaff66b972416c71f",
+      "range_checks": 2037,
+      "rate": 16000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 81.7
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 81.7
+        }
+      },
+      "samples_per_channel": 434720,
+      "vector": 5
+    },
+    {
+      "channels": 2,
+      "packets": 2037,
+      "passed": true,
+      "pcm_sha256": "0f827af48f026790909185a2c99aa1deb79ac7f54682a72869dbf52a7bc732c9",
+      "range_checks": 2037,
+      "rate": 16000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 81.6
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 81.7
+        }
+      },
+      "samples_per_channel": 434720,
+      "vector": 5
+    },
+    {
+      "channels": 1,
+      "packets": 2037,
+      "passed": true,
+      "pcm_sha256": "196a6b09c1e78eeedd9f6446979a6ecf0fb8819f7004374df064259ec4350d22",
+      "range_checks": 2037,
+      "rate": 24000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 95.1
+        },
+        "normal": {
+          "passed": false,
+          "quality_percent": null
+        }
+      },
+      "samples_per_channel": 652080,
+      "vector": 5
+    },
+    {
+      "channels": 2,
+      "packets": 2037,
+      "passed": true,
+      "pcm_sha256": "da9cb4a6b5cbb0f844a092e117268104411b0fa47a6c2c6f4f4c1691d99403b1",
+      "range_checks": 2037,
+      "rate": 24000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 33.2
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 95.3
+        }
+      },
+      "samples_per_channel": 652080,
+      "vector": 5
+    },
+    {
+      "channels": 1,
+      "packets": 2037,
+      "passed": true,
+      "pcm_sha256": "0ff7aba58bee35871e1310536bb29fd26cda45215b2ea1074aadac9d748de5c2",
+      "range_checks": 2037,
+      "rate": 48000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 96.2
+        },
+        "normal": {
+          "passed": false,
+          "quality_percent": null
+        }
+      },
+      "samples_per_channel": 1304160,
+      "vector": 5
+    },
+    {
+      "channels": 2,
+      "packets": 2037,
+      "passed": true,
+      "pcm_sha256": "16d92e2dca85d249932eea99626b34b563496a1202da53d97905b4be40417eb8",
+      "range_checks": 2037,
+      "rate": 48000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 33.3
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 98.3
+        }
+      },
+      "samples_per_channel": 1304160,
+      "vector": 5
+    },
+    {
+      "channels": 1,
+      "packets": 1876,
+      "passed": true,
+      "pcm_sha256": "101b9faea728ae5e476fec8b86e21262469fe2e02a643bc1006e87c41a74223d",
+      "range_checks": 1876,
+      "rate": 8000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 69.0
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 69.0
+        }
+      },
+      "samples_per_channel": 200160,
+      "vector": 6
+    },
+    {
+      "channels": 2,
+      "packets": 1876,
+      "passed": true,
+      "pcm_sha256": "3f189f4d0d684188c4e5c31ad0148fef713eab4be1c83c40fdd9ee3e33fd73d2",
+      "range_checks": 1876,
+      "rate": 8000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 69.0
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 69.0
+        }
+      },
+      "samples_per_channel": 200160,
+      "vector": 6
+    },
+    {
+      "channels": 1,
+      "packets": 1876,
+      "passed": true,
+      "pcm_sha256": "cadd4b96bef52fa84802597715b9779a83c71ae509351b9d7cee66d4ef6ff14d",
+      "range_checks": 1876,
+      "rate": 12000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 74.0
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 74.0
+        }
+      },
+      "samples_per_channel": 300240,
+      "vector": 6
+    },
+    {
+      "channels": 2,
+      "packets": 1876,
+      "passed": true,
+      "pcm_sha256": "b6609cfae230fa177c88e710ec98cfb548ce5af9fbe632a681af2789f2b8d5a4",
+      "range_checks": 1876,
+      "rate": 12000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 74.1
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 74.1
+        }
+      },
+      "samples_per_channel": 300240,
+      "vector": 6
+    },
+    {
+      "channels": 1,
+      "packets": 1876,
+      "passed": true,
+      "pcm_sha256": "1ff987eabfe6f55883ec0a81c1556ec320c645ea52226e5dc945d20715fbff89",
+      "range_checks": 1876,
+      "rate": 16000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 77.2
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 77.2
+        }
+      },
+      "samples_per_channel": 400320,
+      "vector": 6
+    },
+    {
+      "channels": 2,
+      "packets": 1876,
+      "passed": true,
+      "pcm_sha256": "6b71f8e14f81e0bc675ea97e68ae3d8001a65064299c6b49ceef797fcf391709",
+      "range_checks": 1876,
+      "rate": 16000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 77.2
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 77.2
+        }
+      },
+      "samples_per_channel": 400320,
+      "vector": 6
+    },
+    {
+      "channels": 1,
+      "packets": 1876,
+      "passed": true,
+      "pcm_sha256": "e6c1345ecab04b70659962bd20fa246e5a864c6de67b5697624b63b0ea434d74",
+      "range_checks": 1876,
+      "rate": 24000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 94.2
+        },
+        "normal": {
+          "passed": false,
+          "quality_percent": null
+        }
+      },
+      "samples_per_channel": 600480,
+      "vector": 6
+    },
+    {
+      "channels": 2,
+      "packets": 1876,
+      "passed": true,
+      "pcm_sha256": "5968f5236d03b5bc0e865cc3a14001ea63f0481be71a97575bee4d70c0062e45",
+      "range_checks": 1876,
+      "rate": 24000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 45.2
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 94.2
+        }
+      },
+      "samples_per_channel": 600480,
+      "vector": 6
+    },
+    {
+      "channels": 1,
+      "packets": 1876,
+      "passed": true,
+      "pcm_sha256": "77131f60aab50550661e70ab53cc74f18b0eb7eb3b9962a7a0731833ac1c6fd0",
+      "range_checks": 1876,
+      "rate": 48000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 96.5
+        },
+        "normal": {
+          "passed": false,
+          "quality_percent": null
+        }
+      },
+      "samples_per_channel": 1200960,
+      "vector": 6
+    },
+    {
+      "channels": 2,
+      "packets": 1876,
+      "passed": true,
+      "pcm_sha256": "b1f6b80dd54ca96db2ba9ba37133267d8c6b3aab63c0e7f1468ded6f52c88300",
+      "range_checks": 1876,
+      "rate": 48000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 45.0
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 98.4
+        }
+      },
+      "samples_per_channel": 1200960,
+      "vector": 6
+    },
+    {
+      "channels": 1,
+      "packets": 4186,
+      "passed": true,
+      "pcm_sha256": "c35445c314138b278deb279c2687d7f4b9e9c7b854056efc1a71c6aaca0cdb1e",
+      "range_checks": 4186,
+      "rate": 8000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 76.0
+        },
+        "normal": {
+          "passed": false,
+          "quality_percent": null
+        }
+      },
+      "samples_per_channel": 180840,
+      "vector": 7
+    },
+    {
+      "channels": 2,
+      "packets": 4186,
+      "passed": true,
+      "pcm_sha256": "775e8577a1bf9e573a747295a5007c9ceaea49a93f7f6d349bf14e317a880c8b",
+      "range_checks": 4186,
+      "rate": 8000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": false,
+          "quality_percent": null
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 76.0
+        }
+      },
+      "samples_per_channel": 180840,
+      "vector": 7
+    },
+    {
+      "channels": 1,
+      "packets": 4186,
+      "passed": true,
+      "pcm_sha256": "d1b71c19fb7391fbbea26c44cc94cacc60931ea1224a84b1b5ef2df232845e04",
+      "range_checks": 4186,
+      "rate": 12000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 85.1
+        },
+        "normal": {
+          "passed": false,
+          "quality_percent": null
+        }
+      },
+      "samples_per_channel": 271260,
+      "vector": 7
+    },
+    {
+      "channels": 2,
+      "packets": 4186,
+      "passed": true,
+      "pcm_sha256": "ad0fc05e0511f6a584f04ae3528551b0d875a4540e51aff82e82c29864838a35",
+      "range_checks": 4186,
+      "rate": 12000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": false,
+          "quality_percent": null
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 85.1
+        }
+      },
+      "samples_per_channel": 271260,
+      "vector": 7
+    },
+    {
+      "channels": 1,
+      "packets": 4186,
+      "passed": true,
+      "pcm_sha256": "a57edf65100353499fefdedff33b4e8d5ac65a44382c7440a7bf290588fc8104",
+      "range_checks": 4186,
+      "rate": 16000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 89.7
+        },
+        "normal": {
+          "passed": false,
+          "quality_percent": null
+        }
+      },
+      "samples_per_channel": 361680,
+      "vector": 7
+    },
+    {
+      "channels": 2,
+      "packets": 4186,
+      "passed": true,
+      "pcm_sha256": "970d374395d19bee9ae162cb5ead71d78d201b59fd4f0a26c46c0fab0158ae40",
+      "range_checks": 4186,
+      "rate": 16000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": false,
+          "quality_percent": null
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 89.8
+        }
+      },
+      "samples_per_channel": 361680,
+      "vector": 7
+    },
+    {
+      "channels": 1,
+      "packets": 4186,
+      "passed": true,
+      "pcm_sha256": "e4a3c041a72e46d7633857900fcb5f94db0e9baa9d53f4464adf0621b6cdddc2",
+      "range_checks": 4186,
+      "rate": 24000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 93.9
+        },
+        "normal": {
+          "passed": false,
+          "quality_percent": null
+        }
+      },
+      "samples_per_channel": 542520,
+      "vector": 7
+    },
+    {
+      "channels": 2,
+      "packets": 4186,
+      "passed": true,
+      "pcm_sha256": "f6735a711a301f09c9337bef222107c6b681683997f25867029cf5df8e87943a",
+      "range_checks": 4186,
+      "rate": 24000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": false,
+          "quality_percent": null
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 94.0
+        }
+      },
+      "samples_per_channel": 542520,
+      "vector": 7
+    },
+    {
+      "channels": 1,
+      "packets": 4186,
+      "passed": true,
+      "pcm_sha256": "9c210d217f141ee22715575d78432d042bb9f4621b07a917c7b96eeb096a67f6",
+      "range_checks": 4186,
+      "rate": 48000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 98.0
+        },
+        "normal": {
+          "passed": false,
+          "quality_percent": null
+        }
+      },
+      "samples_per_channel": 1085040,
+      "vector": 7
+    },
+    {
+      "channels": 2,
+      "packets": 4186,
+      "passed": true,
+      "pcm_sha256": "60621dba1c83e25110b4c4cd1b9d8af7442a29e3f9fec16592635c499c2940ce",
+      "range_checks": 4186,
+      "rate": 48000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": false,
+          "quality_percent": null
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 98.3
+        }
+      },
+      "samples_per_channel": 1085040,
+      "vector": 7
+    },
+    {
+      "channels": 1,
+      "packets": 1247,
+      "passed": true,
+      "pcm_sha256": "eed2f30a7e77e57a9941fc804db1e2227a44c0f60e9070261805e48b92077dff",
+      "range_checks": 1247,
+      "rate": 8000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 70.0
+        },
+        "normal": {
+          "passed": false,
+          "quality_percent": null
+        }
+      },
+      "samples_per_channel": 218360,
+      "vector": 8
+    },
+    {
+      "channels": 2,
+      "packets": 1247,
+      "passed": true,
+      "pcm_sha256": "c0a711e9d354b3820ec576d8c784c453aa5cccc5a151e386b58c87db27e473fe",
+      "range_checks": 1247,
+      "rate": 8000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 15.1
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 70.4
+        }
+      },
+      "samples_per_channel": 218360,
+      "vector": 8
+    },
+    {
+      "channels": 1,
+      "packets": 1247,
+      "passed": true,
+      "pcm_sha256": "92444a12627b3117e227c24e16f9a9e71e6a2ef4da8ce4f0810245eba4294703",
+      "range_checks": 1247,
+      "rate": 12000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 81.6
+        },
+        "normal": {
+          "passed": false,
+          "quality_percent": null
+        }
+      },
+      "samples_per_channel": 327540,
+      "vector": 8
+    },
+    {
+      "channels": 2,
+      "packets": 1247,
+      "passed": true,
+      "pcm_sha256": "533d2c9c7ca31624559a87d5d1751865f77c8efa9ee5a86e486af64e73013ec9",
+      "range_checks": 1247,
+      "rate": 12000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 14.2
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 81.8
+        }
+      },
+      "samples_per_channel": 327540,
+      "vector": 8
+    },
+    {
+      "channels": 1,
+      "packets": 1247,
+      "passed": true,
+      "pcm_sha256": "d722d593a3dc48b75bcad3a100654a33048ef9318e467cd214d9448049783e87",
+      "range_checks": 1247,
+      "rate": 16000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 87.5
+        },
+        "normal": {
+          "passed": false,
+          "quality_percent": null
+        }
+      },
+      "samples_per_channel": 436720,
+      "vector": 8
+    },
+    {
+      "channels": 2,
+      "packets": 1247,
+      "passed": true,
+      "pcm_sha256": "282aabe68fdaaf03c5b43081df96225fa898d9ba6d135d7bb66ac6a88079590b",
+      "range_checks": 1247,
+      "rate": 16000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 13.7
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 87.6
+        }
+      },
+      "samples_per_channel": 436720,
+      "vector": 8
+    },
+    {
+      "channels": 1,
+      "packets": 1247,
+      "passed": true,
+      "pcm_sha256": "01e15a497d274f8a72218b92a9b2a7a1fd99d154e5e05af828fa8a793c3ccd2d",
+      "range_checks": 1247,
+      "rate": 24000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 93.6
+        },
+        "normal": {
+          "passed": false,
+          "quality_percent": null
+        }
+      },
+      "samples_per_channel": 655080,
+      "vector": 8
+    },
+    {
+      "channels": 2,
+      "packets": 1247,
+      "passed": true,
+      "pcm_sha256": "64ade7f98037b05635e8e6f9c3bac16248dfdb6f25d41570c2d0d10223e0b53f",
+      "range_checks": 1247,
+      "rate": 24000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 13.3
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 93.6
+        }
+      },
+      "samples_per_channel": 655080,
+      "vector": 8
+    },
+    {
+      "channels": 1,
+      "packets": 1247,
+      "passed": true,
+      "pcm_sha256": "04b695b95bad299157b93131ea4bead0fcae8baa61da80c342d3d6ad818d40e1",
+      "range_checks": 1247,
+      "rate": 48000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 96.5
+        },
+        "normal": {
+          "passed": false,
+          "quality_percent": null
+        }
+      },
+      "samples_per_channel": 1310160,
+      "vector": 8
+    },
+    {
+      "channels": 2,
+      "packets": 1247,
+      "passed": true,
+      "pcm_sha256": "439fc084c8c3a56c314e7bd3ad2af2b0f345280e2604034a03230aa58a0655de",
+      "range_checks": 1247,
+      "rate": 48000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 13.2
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 98.2
+        }
+      },
+      "samples_per_channel": 1310160,
+      "vector": 8
+    },
+    {
+      "channels": 1,
+      "packets": 1337,
+      "passed": true,
+      "pcm_sha256": "e6cd47c84729743d8e84dbdd6c8b1c5c034f0e75f70662bc2705e1c946f48e6e",
+      "range_checks": 1337,
+      "rate": 8000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 75.4
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 13.6
+        }
+      },
+      "samples_per_channel": 220600,
+      "vector": 9
+    },
+    {
+      "channels": 2,
+      "packets": 1337,
+      "passed": true,
+      "pcm_sha256": "c6a25d1cef9d82cc30d1c3c60493ce3e57536c07db6c644e0216e3ef3fde65fa",
+      "range_checks": 1337,
+      "rate": 8000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 43.5
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 76.2
+        }
+      },
+      "samples_per_channel": 220600,
+      "vector": 9
+    },
+    {
+      "channels": 1,
+      "packets": 1337,
+      "passed": true,
+      "pcm_sha256": "68193ebbc929a6bb092cf7e44887374668aeccf724fd4d2260e8ef8171fc2253",
+      "range_checks": 1337,
+      "rate": 12000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 84.8
+        },
+        "normal": {
+          "passed": false,
+          "quality_percent": null
+        }
+      },
+      "samples_per_channel": 330900,
+      "vector": 9
+    },
+    {
+      "channels": 2,
+      "packets": 1337,
+      "passed": true,
+      "pcm_sha256": "2f7d67e07d2917428a7b93eea78253b5898990b09d9f77760f517c0065cc5903",
+      "range_checks": 1337,
+      "rate": 12000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 41.0
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 85.2
+        }
+      },
+      "samples_per_channel": 330900,
+      "vector": 9
+    },
+    {
+      "channels": 1,
+      "packets": 1337,
+      "passed": true,
+      "pcm_sha256": "e034c24c0d2e162fe4a3af98155111c9fbcfa09a6e64067aca93f2a92fdf679f",
+      "range_checks": 1337,
+      "rate": 16000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 78.8
+        },
+        "normal": {
+          "passed": false,
+          "quality_percent": null
+        }
+      },
+      "samples_per_channel": 441200,
+      "vector": 9
+    },
+    {
+      "channels": 2,
+      "packets": 1337,
+      "passed": true,
+      "pcm_sha256": "d1ed2838782847001062b625b86c56bb633d24a3058ebb33080317de4fce9357",
+      "range_checks": 1337,
+      "rate": 16000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 40.9
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 78.9
+        }
+      },
+      "samples_per_channel": 441200,
+      "vector": 9
+    },
+    {
+      "channels": 1,
+      "packets": 1337,
+      "passed": true,
+      "pcm_sha256": "b2e5a7b760deff46e9581335e10873ce1a2e58c8978861efb566c90a8c7f8c99",
+      "range_checks": 1337,
+      "rate": 24000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 89.2
+        },
+        "normal": {
+          "passed": false,
+          "quality_percent": null
+        }
+      },
+      "samples_per_channel": 661800,
+      "vector": 9
+    },
+    {
+      "channels": 2,
+      "packets": 1337,
+      "passed": true,
+      "pcm_sha256": "5f216b9750ede5d0102a8e4bf75f9521aec2a62492f4f0edecb0dd29aaf7827b",
+      "range_checks": 1337,
+      "rate": 24000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 40.7
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 92.1
+        }
+      },
+      "samples_per_channel": 661800,
+      "vector": 9
+    },
+    {
+      "channels": 1,
+      "packets": 1337,
+      "passed": true,
+      "pcm_sha256": "e2a855acac1b02e85667e98bd18fc2b42f509b42b8552121b731a8471141fbc8",
+      "range_checks": 1337,
+      "rate": 48000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 97.7
+        },
+        "normal": {
+          "passed": false,
+          "quality_percent": null
+        }
+      },
+      "samples_per_channel": 1323600,
+      "vector": 9
+    },
+    {
+      "channels": 2,
+      "packets": 1337,
+      "passed": true,
+      "pcm_sha256": "0e481e28de707a6adfce859e491fc1c836ce749dbc290cfe48cd303d3de1643f",
+      "range_checks": 1337,
+      "rate": 48000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 40.7
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 98.0
+        }
+      },
+      "samples_per_channel": 1323600,
+      "vector": 9
+    },
+    {
+      "channels": 1,
+      "packets": 1912,
+      "passed": true,
+      "pcm_sha256": "fe741d84cac5a7fd0797a915d957d94a0621050bababec5f08c9844e6fc41aed",
+      "range_checks": 1912,
+      "rate": 8000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 86.0
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 86.0
+        }
+      },
+      "samples_per_channel": 256080,
+      "vector": 10
+    },
+    {
+      "channels": 2,
+      "packets": 1912,
+      "passed": true,
+      "pcm_sha256": "774d5efae2464ee97c4257cc98045756cb11e886377b44033320c7ed515eb910",
+      "range_checks": 1912,
+      "rate": 8000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 86.1
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 86.1
+        }
+      },
+      "samples_per_channel": 256080,
+      "vector": 10
+    },
+    {
+      "channels": 1,
+      "packets": 1912,
+      "passed": true,
+      "pcm_sha256": "3a2f794336554f6d39bb7fb0fe1785706919bfd30743cf63c683364ac9e6ecce",
+      "range_checks": 1912,
+      "rate": 12000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 88.2
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 88.2
+        }
+      },
+      "samples_per_channel": 384120,
+      "vector": 10
+    },
+    {
+      "channels": 2,
+      "packets": 1912,
+      "passed": true,
+      "pcm_sha256": "1cab94780e4c24acbb58fe80d6030b9d4dea1417384451d587fba79419c6c205",
+      "range_checks": 1912,
+      "rate": 12000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 88.3
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 88.3
+        }
+      },
+      "samples_per_channel": 384120,
+      "vector": 10
+    },
+    {
+      "channels": 1,
+      "packets": 1912,
+      "passed": true,
+      "pcm_sha256": "788b0b8df7f60682140bcf804890197f6a5fe904f2907dd67eae86090ae3a6b9",
+      "range_checks": 1912,
+      "rate": 16000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 89.5
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 89.5
+        }
+      },
+      "samples_per_channel": 512160,
+      "vector": 10
+    },
+    {
+      "channels": 2,
+      "packets": 1912,
+      "passed": true,
+      "pcm_sha256": "33414527bf9ff23fc58967b992ae2a7785369f4ca2886af84b9f36decea1089b",
+      "range_checks": 1912,
+      "rate": 16000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 89.6
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 89.6
+        }
+      },
+      "samples_per_channel": 512160,
+      "vector": 10
+    },
+    {
+      "channels": 1,
+      "packets": 1912,
+      "passed": true,
+      "pcm_sha256": "14d00ea52445005bcb247fa0cf01a71f8dea2ab5248de6b25082b7db1567ac16",
+      "range_checks": 1912,
+      "rate": 24000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 97.0
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 97.0
+        }
+      },
+      "samples_per_channel": 768240,
+      "vector": 10
+    },
+    {
+      "channels": 2,
+      "packets": 1912,
+      "passed": true,
+      "pcm_sha256": "a143a2fab2f195adeb8982f0b26de24b22ba8ffe67da3902c9e77ad4262ae7f2",
+      "range_checks": 1912,
+      "rate": 24000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 97.2
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 97.2
+        }
+      },
+      "samples_per_channel": 768240,
+      "vector": 10
+    },
+    {
+      "channels": 1,
+      "packets": 1912,
+      "passed": true,
+      "pcm_sha256": "6c668b5c4da2d12725c5c011022c0809c158c664474fef7e345f2a8230c7e7a1",
+      "range_checks": 1912,
+      "rate": 48000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 97.7
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 97.7
+        }
+      },
+      "samples_per_channel": 1536480,
+      "vector": 10
+    },
+    {
+      "channels": 2,
+      "packets": 1912,
+      "passed": true,
+      "pcm_sha256": "facf1277428254d08df129a73847eaf744894c4272bcf388efad866a6c2bd1cf",
+      "range_checks": 1912,
+      "rate": 48000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 98.2
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 98.2
+        }
+      },
+      "samples_per_channel": 1536480,
+      "vector": 10
+    },
+    {
+      "channels": 1,
+      "packets": 553,
+      "passed": true,
+      "pcm_sha256": "7921a730d69e39ea40d006d05d878a2f1a352d98e60795d0cda7292d243bfe54",
+      "range_checks": 553,
+      "rate": 8000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 91.1
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 91.1
+        }
+      },
+      "samples_per_channel": 240160,
+      "vector": 11
+    },
+    {
+      "channels": 2,
+      "packets": 553,
+      "passed": true,
+      "pcm_sha256": "cc62a6a3fba1df89ab23e31934d981e382382318eaefb4c39f97443e5005f1b0",
+      "range_checks": 553,
+      "rate": 8000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 93.0
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 93.0
+        }
+      },
+      "samples_per_channel": 240160,
+      "vector": 11
+    },
+    {
+      "channels": 1,
+      "packets": 553,
+      "passed": true,
+      "pcm_sha256": "95b6df384457c78f26130e03c945c3b3c538e3d4483e3e5c8cf3fa362dc6be3e",
+      "range_checks": 553,
+      "rate": 12000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 94.9
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 94.9
+        }
+      },
+      "samples_per_channel": 360240,
+      "vector": 11
+    },
+    {
+      "channels": 2,
+      "packets": 553,
+      "passed": true,
+      "pcm_sha256": "b957f98ce101d4f5064a362629554fe9dcfe9c73b1b82b12698aa71898fda835",
+      "range_checks": 553,
+      "rate": 12000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 95.8
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 95.8
+        }
+      },
+      "samples_per_channel": 360240,
+      "vector": 11
+    },
+    {
+      "channels": 1,
+      "packets": 553,
+      "passed": true,
+      "pcm_sha256": "908834ff10ecf13d99efdc81752a7911a42a4594578b47bba7a6fab735423a04",
+      "range_checks": 553,
+      "rate": 16000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 96.2
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 96.2
+        }
+      },
+      "samples_per_channel": 480320,
+      "vector": 11
+    },
+    {
+      "channels": 2,
+      "packets": 553,
+      "passed": true,
+      "pcm_sha256": "bf9f2c4a84b75a192cc808705f7e41c68357951d5627e189274a24d6d8114093",
+      "range_checks": 553,
+      "rate": 16000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 96.5
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 96.5
+        }
+      },
+      "samples_per_channel": 480320,
+      "vector": 11
+    },
+    {
+      "channels": 1,
+      "packets": 553,
+      "passed": true,
+      "pcm_sha256": "c852d65b50f8e72fa0ef784498fff0c2ea6d4cf625e21b112ac0f11720ecc041",
+      "range_checks": 553,
+      "rate": 24000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 98.0
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 98.0
+        }
+      },
+      "samples_per_channel": 720480,
+      "vector": 11
+    },
+    {
+      "channels": 2,
+      "packets": 553,
+      "passed": true,
+      "pcm_sha256": "55aca6b6f401498fe2113b6039b9d75a5aa14c3485e11913631d5b0b178c5a5b",
+      "range_checks": 553,
+      "rate": 24000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 98.1
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 98.1
+        }
+      },
+      "samples_per_channel": 720480,
+      "vector": 11
+    },
+    {
+      "channels": 1,
+      "packets": 553,
+      "passed": true,
+      "pcm_sha256": "22b4ee991a5e86e93cab395d71dca5e95be5c33b890f1070627ed960c734ce19",
+      "range_checks": 553,
+      "rate": 48000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 98.5
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 93.5
+        }
+      },
+      "samples_per_channel": 1440960,
+      "vector": 11
+    },
+    {
+      "channels": 2,
+      "packets": 553,
+      "passed": true,
+      "pcm_sha256": "f61d604e7ada6c3b177fe38b845bb6224d5440626558435e0ea39072b442c2f6",
+      "range_checks": 553,
+      "rate": 48000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 97.1
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 98.5
+        }
+      },
+      "samples_per_channel": 1440960,
+      "vector": 11
+    },
+    {
+      "channels": 1,
+      "packets": 1332,
+      "passed": true,
+      "pcm_sha256": "f591b2fa95ce6a6e9dee1c00c63f4480e8ee294c18752048c7753613210d3301",
+      "range_checks": 1332,
+      "rate": 8000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 43.4
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 43.4
+        }
+      },
+      "samples_per_channel": 213120,
+      "vector": 12
+    },
+    {
+      "channels": 2,
+      "packets": 1332,
+      "passed": true,
+      "pcm_sha256": "304471e8d66a509bbdac84704d1435cf0785b9a3af029dc9d3479d9cdd74af11",
+      "range_checks": 1332,
+      "rate": 8000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 43.7
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 43.7
+        }
+      },
+      "samples_per_channel": 213120,
+      "vector": 12
+    },
+    {
+      "channels": 1,
+      "packets": 1332,
+      "passed": true,
+      "pcm_sha256": "d0d1b28f448cd21b1a6a1d04df569ced75d9bf18e79948a34e658674334424ba",
+      "range_checks": 1332,
+      "rate": 12000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 66.1
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 66.1
+        }
+      },
+      "samples_per_channel": 319680,
+      "vector": 12
+    },
+    {
+      "channels": 2,
+      "packets": 1332,
+      "passed": true,
+      "pcm_sha256": "c4dd9273a024d395ac36d0b3b9d20fb522fd0f2173a3490468b634a47d7139a0",
+      "range_checks": 1332,
+      "rate": 12000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 66.2
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 66.2
+        }
+      },
+      "samples_per_channel": 319680,
+      "vector": 12
+    },
+    {
+      "channels": 1,
+      "packets": 1332,
+      "passed": true,
+      "pcm_sha256": "97ca731296faea95d03e8f1965fc55d4e2f5c5aa97040e63fec6c28c95692bb5",
+      "range_checks": 1332,
+      "rate": 16000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 56.5
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 56.5
+        }
+      },
+      "samples_per_channel": 426240,
+      "vector": 12
+    },
+    {
+      "channels": 2,
+      "packets": 1332,
+      "passed": true,
+      "pcm_sha256": "ab0845747a42f413b8d2cee275bb5f80d157f8588b7296dd16de3259a2deb7cc",
+      "range_checks": 1332,
+      "rate": 16000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 56.7
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 56.7
+        }
+      },
+      "samples_per_channel": 426240,
+      "vector": 12
+    },
+    {
+      "channels": 1,
+      "packets": 1332,
+      "passed": true,
+      "pcm_sha256": "619a023d4070573db7d134947c65dd9c067e1030ed24c1532a40c526b5a611b8",
+      "range_checks": 1332,
+      "rate": 24000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 68.5
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 68.5
+        }
+      },
+      "samples_per_channel": 639360,
+      "vector": 12
+    },
+    {
+      "channels": 2,
+      "packets": 1332,
+      "passed": true,
+      "pcm_sha256": "9a0aaa05873f7e0a292847d46ff9a2d315b55268fcd467c695d70098607b6893",
+      "range_checks": 1332,
+      "rate": 24000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 68.6
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 68.6
+        }
+      },
+      "samples_per_channel": 639360,
+      "vector": 12
+    },
+    {
+      "channels": 1,
+      "packets": 1332,
+      "passed": true,
+      "pcm_sha256": "9198fad2fe7ab07ccebd753903c8be9f09f546ba5d6d006db5f592e884de5931",
+      "range_checks": 1332,
+      "rate": 48000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 97.5
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 97.5
+        }
+      },
+      "samples_per_channel": 1278720,
+      "vector": 12
+    },
+    {
+      "channels": 2,
+      "packets": 1332,
+      "passed": true,
+      "pcm_sha256": "700ea4ab201575e81f3cc8d70c79ec205bb561c3acbea518f0edd447cda27500",
+      "range_checks": 1332,
+      "rate": 48000,
+      "reference_variants": {
+        "no_phase_inversion": {
+          "passed": true,
+          "quality_percent": 97.5
+        },
+        "normal": {
+          "passed": true,
+          "quality_percent": 97.5
+        }
+      },
+      "samples_per_channel": 1278720,
+      "vector": 12
+    }
+  ],
+  "rustc": "rustc 1.87.0 (17067e9ac 2025-05-09)\nbinary: rustc\ncommit-hash: 17067e9ac6d7ecb70e50f92c1944e545188d2359\ncommit-date: 2025-05-09\nhost: x86_64-unknown-linux-gnu\nrelease: 1.87.0\nLLVM version: 20.1.1",
+  "schema_version": 1,
+  "scope": "classic Opus signed16; no QEXT/neural/OSCE paths",
+  "source_sha256": "31177e46f63108df6b49a914cc49ba49c7fb10dff14d73238740a3fee7972441",
+  "vectors": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+  ]
+}

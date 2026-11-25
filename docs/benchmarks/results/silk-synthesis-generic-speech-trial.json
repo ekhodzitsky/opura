@@ -1,0 +1,51 @@
+{
+  "build": {
+  "rustc": "rustc 1.87.0 (17067e9ac 2025-05-09)\nbinary: rustc\ncommit-hash: 17067e9ac6d7ecb70e50f92c1944e545188d2359\ncommit-date: 2025-05-09\nhost: x86_64-unknown-linux-gnu\nrelease: 1.87.0\nLLVM version: 20.1.1",
+  "cpu_tuning": "default x86_64-unknown-linux-gnu, no RUSTFLAGS",
+  "profile": "release",
+  "binary_sha256": {
+    "baseline": "1960e407ca0decedacd988dd94464446c59d55cea5f269f880d58affe27d533e",
+    "candidate": "3b4626fc475b9fa68838f5acb1f730886ed89dc04dc4e88379b689490bb03619"
+  },
+  "synthesis_file_sha256": {
+    "baseline": "55d61f5b8828abc1f57c18673c1dd55c5e547a13328f22e4a3f6239e65b1066a",
+    "candidate": "844d05a969792962c61f5ef2409c6b34ce46703f70d044ab86d1984654d4712e"
+  },
+  "manifest_sha256": "c5f790064ad0837eaceac09031df3c024a154e9cabfe5c38b9c88b1b8da05519",
+  "lockfile_sha256": "97f7e32b8d6713f8c4ea0cbf4347f7fc56c574ae2370392409a3cf78c4ad4a26",
+  "worker_sha256": "54191567f10848164fdd1993a67b47045e60acd05ca1d804517a0c69c82a8078"
+},
+  "method": {
+  "cpu": 6,
+  "smt_sibling": 18,
+  "ticks_per_second": 100,
+  "hostname_arch": "x86_64",
+  "kernel": "7.0.0-42-generic",
+  "cpu_model": "AMD Ryzen AI 9 HX 370",
+  "governor": "performance",
+  "pairs": 6,
+  "packets_per_arm_per_trial": 61440,
+  "inputs": "active-speech-capacity-0.2.8.json; all 15 input hashes, PCM and ranges matched in both arms",
+  "qualification_packets_per_arm": 3101,
+  "seeds": [
+    7,
+    71,
+    113
+  ],
+  "order_shuffle_seed": 767103
+},
+  "runs": [
+    {"streams":768,"frames":80,"seed":71,"packets":61440,"wall_ns":1600050445,"cpu_ticks":155,"initial_rss_kib":30328,"final_rss_kib":30936,"peak_rss_kib":30936,"p50_ns":77784,"missed":0,"p99_ns":9007742,"p999_ns":9885347,"arm":"candidate","pair":1},
+    {"streams":768,"frames":80,"seed":71,"packets":61440,"wall_ns":1720353987,"cpu_ticks":172,"initial_rss_kib":30328,"final_rss_kib":30872,"peak_rss_kib":30872,"p50_ns":62689382,"missed":54163,"p99_ns":119906718,"p999_ns":120341693,"arm":"baseline","pair":1},
+    {"streams":768,"frames":80,"seed":7,"packets":61440,"wall_ns":1718616328,"cpu_ticks":172,"initial_rss_kib":30328,"final_rss_kib":30872,"peak_rss_kib":30872,"p50_ns":69766762,"missed":51479,"p99_ns":117733520,"p999_ns":118550402,"arm":"baseline","pair":2},
+    {"streams":768,"frames":80,"seed":7,"packets":61440,"wall_ns":1600034034,"cpu_ticks":158,"initial_rss_kib":30328,"final_rss_kib":30936,"peak_rss_kib":30936,"p50_ns":2100786,"missed":0,"p99_ns":6725915,"p999_ns":6770450,"arm":"candidate","pair":2},
+    {"streams":768,"frames":80,"seed":7,"packets":61440,"wall_ns":1600053731,"cpu_ticks":158,"initial_rss_kib":30324,"final_rss_kib":30932,"peak_rss_kib":30932,"p50_ns":157038,"missed":0,"p99_ns":2388185,"p999_ns":2496361,"arm":"candidate","pair":3},
+    {"streams":768,"frames":80,"seed":7,"packets":61440,"wall_ns":1723931735,"cpu_ticks":172,"initial_rss_kib":30328,"final_rss_kib":30872,"peak_rss_kib":30872,"p50_ns":74544757,"missed":53723,"p99_ns":123195051,"p999_ns":123924268,"arm":"baseline","pair":3},
+    {"streams":768,"frames":80,"seed":113,"packets":61440,"wall_ns":2406979627,"cpu_ticks":155,"initial_rss_kib":30332,"final_rss_kib":30940,"peak_rss_kib":30940,"p50_ns":246416349,"missed":48611,"p99_ns":815431754,"p999_ns":816516932,"arm":"candidate","pair":4},
+    {"streams":768,"frames":80,"seed":113,"packets":61440,"wall_ns":1701195496,"cpu_ticks":170,"initial_rss_kib":30332,"final_rss_kib":30876,"peak_rss_kib":30876,"p50_ns":61859977,"missed":49897,"p99_ns":100886529,"p999_ns":101196723,"arm":"baseline","pair":4},
+    {"streams":768,"frames":80,"seed":71,"packets":61440,"wall_ns":1783901625,"cpu_ticks":179,"initial_rss_kib":30332,"final_rss_kib":30876,"peak_rss_kib":30876,"p50_ns":85970924,"missed":52059,"p99_ns":182222743,"p999_ns":183774373,"arm":"baseline","pair":5},
+    {"streams":768,"frames":80,"seed":71,"packets":61440,"wall_ns":1600040396,"cpu_ticks":158,"initial_rss_kib":30332,"final_rss_kib":30940,"peak_rss_kib":30940,"p50_ns":1043280,"missed":0,"p99_ns":4928006,"p999_ns":5029839,"arm":"candidate","pair":5},
+    {"streams":768,"frames":80,"seed":113,"packets":61440,"wall_ns":1783958401,"cpu_ticks":178,"initial_rss_kib":30324,"final_rss_kib":30868,"peak_rss_kib":30868,"p50_ns":95400844,"missed":54226,"p99_ns":181749721,"p999_ns":183840096,"arm":"baseline","pair":6},
+    {"streams":768,"frames":80,"seed":113,"packets":61440,"wall_ns":1600068268,"cpu_ticks":156,"initial_rss_kib":30328,"final_rss_kib":30936,"peak_rss_kib":30936,"p50_ns":91902,"missed":0,"p99_ns":2805317,"p999_ns":3287494,"arm":"candidate","pair":6}
+  ]
+}

@@ -1,0 +1,60 @@
+--- a/src/silk/synthesis.rs
++++ b/src/silk/synthesis.rs
+@@ -238,17 +238,17 @@
+             } else {
+                 residual[..subframe]
+                     .copy_from_slice(&p.excitation[k * subframe..(k + 1) * subframe]);
+             }
+-            for i in 0..subframe {
+-                let mut prediction = (filter.len() / 2) as i32;
+-                for (j, &coefficient) in filter.iter().enumerate() {
+-                    prediction = prediction
+-                        .wrapping_add(mul_wb(short[16 + i - j - 1], i32::from(coefficient)));
+-                }
+-                short[16 + i] = residual[i].saturating_add(shift_saturated(prediction, 4));
+-                output.samples[k * subframe + i] =
+-                    saturate16(round_shift(mul_ww(short[16 + i], gain >> 6), 8));
++            let residual = &residual[..subframe];
++            if filter.len() == 16 {
++                synthesize_lpc::<16>(&mut short, residual, filter);
++            } else {
++                synthesize_lpc::<10>(&mut short, residual, filter);
++            }
++            let pcm = &mut output.samples[k * subframe..(k + 1) * subframe];
++            for (sample, &value) in pcm.iter_mut().zip(&short[16..]) {
++                *sample = saturate16(round_shift(mul_ww(value, gain >> 6), 8));
+             }
+             short.copy_within(subframe..subframe + 16, 0);
+         }
+         self.lpc.copy_from_slice(&short[..16]);
+@@ -258,8 +258,30 @@
+         self.recovery_lag = None;
+         self.history.copy_within(length..memory, 0);
+         self.history[memory - length..memory].copy_from_slice(output.samples());
+         output
++    }
++}
++
++fn synthesize_lpc<const ORDER: usize>(short: &mut [i32; 96], residual: &[i32], filter: &[i16]) {
++    let coefficients: [i32; ORDER] = std::array::from_fn(|j| i32::from(filter[j]));
++    // pending[j] holds the contribution of past samples to output j steps ahead.
++    // Shift each product to Q10 before accumulating it, as in the direct LPC sum.
++    let mut pending = [0i32; ORDER];
++    let push_sample = |pending: &mut [i32; ORDER], value| {
++        for j in 0..ORDER - 1 {
++            pending[j] = pending[j + 1].wrapping_add(mul_wb(value, coefficients[j]));
++        }
++        pending[ORDER - 1] = mul_wb(value, coefficients[ORDER - 1]);
++    };
++    for &value in &short[16 - ORDER..16] {
++        push_sample(&mut pending, value);
++    }
++    for (i, &sample) in residual.iter().enumerate() {
++        let prediction = pending[0].wrapping_add((ORDER / 2) as i32);
++        let value = sample.saturating_add(shift_saturated(prediction, 4));
++        push_sample(&mut pending, value);
++        short[16 + i] = value;
+     }
+ }
+
+ pub(super) fn mul_wb(a: i32, b: i32) -> i32 {

@@ -7,6 +7,8 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Compare two SILK synthesis implementations with 0.2.8 on concurrent speech. At 768 streams the transposed filter used 14.2% less CPU time with similar peak RSS. It met all packet deadlines in 17 of 18 trials. [Measurements](docs/benchmarks/silk-synthesis-speech-trial.md)
+
 - Measure Opura 0.2.8 in a QUIC conference server, a phone media worker and a replay of active speech streams. These trials quantify the memory saved, CPU cost and audio deadlines across three workloads. [VoiceMCU](docs/benchmarks/voicemcu-0.2.8.md) · [RustPBX](docs/benchmarks/rustpbx-transcode-0.2.8.md) · [Speech streams](docs/benchmarks/active-speech-capacity-0.2.8.md)
 
 - Evaluate caller-owned CELT folding storage. The trial missed the release performance criteria. Full decoder time ratio against v0.2.8 was 0.9879 (paired 95% interval 0.9752–0.9981). [Measurements](docs/benchmarks/decoder-band-return-trial.md)

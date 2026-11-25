@@ -1,0 +1,52 @@
+--- a/src/silk/synthesis.rs
++++ b/src/silk/synthesis.rs
+@@ -238,17 +238,17 @@
+             } else {
+                 residual[..subframe]
+                     .copy_from_slice(&p.excitation[k * subframe..(k + 1) * subframe]);
+             }
+-            for i in 0..subframe {
+-                let mut prediction = (filter.len() / 2) as i32;
+-                for (j, &coefficient) in filter.iter().enumerate() {
+-                    prediction = prediction
+-                        .wrapping_add(mul_wb(short[16 + i - j - 1], i32::from(coefficient)));
+-                }
+-                short[16 + i] = residual[i].saturating_add(shift_saturated(prediction, 4));
+-                output.samples[k * subframe + i] =
+-                    saturate16(round_shift(mul_ww(short[16 + i], gain >> 6), 8));
++            let residual = &residual[..subframe];
++            if filter.len() == 16 {
++                synthesize_lpc::<16>(&mut short, residual, filter);
++            } else {
++                synthesize_lpc::<10>(&mut short, residual, filter);
++            }
++            let pcm = &mut output.samples[k * subframe..(k + 1) * subframe];
++            for (sample, &value) in pcm.iter_mut().zip(&short[16..]) {
++                *sample = saturate16(round_shift(mul_ww(value, gain >> 6), 8));
+             }
+             short.copy_within(subframe..subframe + 16, 0);
+         }
+         self.lpc.copy_from_slice(&short[..16]);
+@@ -258,8 +258,22 @@
+         self.recovery_lag = None;
+         self.history.copy_within(length..memory, 0);
+         self.history[memory - length..memory].copy_from_slice(output.samples());
+         output
++    }
++}
++
++fn synthesize_lpc<const ORDER: usize>(short: &mut [i32; 96], residual: &[i32], filter: &[i16]) {
++    // Match increasing history addresses to the oldest coefficient first.
++    // SILK shifts each product to Q10 before adding it to the prediction.
++    let coefficients: [i16; ORDER] = std::array::from_fn(|j| filter[ORDER - 1 - j]);
++    for (i, &sample) in residual.iter().enumerate() {
++        let end = 16 + i;
++        let mut prediction = (ORDER / 2) as i32;
++        for (&previous, &coefficient) in short[end - ORDER..end].iter().zip(&coefficients) {
++            prediction = prediction.wrapping_add(mul_wb(previous, i32::from(coefficient)));
++        }
++        short[end] = sample.saturating_add(shift_saturated(prediction, 4));
+     }
+ }
+
+ pub(super) fn mul_wb(a: i32, b: i32) -> i32 {
