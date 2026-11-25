@@ -27,4 +27,4 @@ backlog.config.yml
 /target/
 
 # Optional Python developer-tool bytecode
-/tools/__pycache__/
+/tools/**/__pycache__/

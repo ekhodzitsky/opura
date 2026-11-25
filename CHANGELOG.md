@@ -7,6 +7,10 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Compare Opura 0.2.7 with opus-rs 0.1.42 and system libopus 1.6.1 on the official streams, including decode time and incremental decoder memory. [Decoder results](docs/benchmarks/decoder-competition-0.2.7.md)
+- Measure the CPU and memory cost of switching decoders in GigaSTT on 15 speech recordings through its CLI and warm HTTP service. [Application results](docs/benchmarks/gigastt-decoder-0.2.7.md)
+- Run the release test suite on native Linux ARM64 in GitHub Actions.
+
 ## [0.2.7] - 2026-11-25
 
 - Decode CELT pulse vectors into caller-owned storage in the private partition path. Public output and all 120 official PCM hashes match v0.2.6.

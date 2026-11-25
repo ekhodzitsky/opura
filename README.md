@@ -66,9 +66,12 @@ Choose new output paths for both commands. [File formats and options](docs/audio
 
 ## Validation and releases
 
-The v0.2.5 decoder passed all 120 RFC 8251 vector, rate and channel combinations.
-Encoder interoperability has been checked against libopus. Representative
-listening tests and broader platform benchmarks remain open.
+The v0.2.7 decoder passed all 120 RFC 8251 vector, rate and channel combinations.
+On one x86-64 machine, each additional warmed Opura decoder used about 34 KiB of
+private dirty memory, compared with 176 KiB for opus-rs 0.1.42. Opus-rs decoded
+the shared qualifying streams faster at both tested output settings. Encoder
+interoperability has been checked against libopus.
+[Decoder comparison and raw measurements](https://github.com/ekhodzitsky/opura/blob/main/docs/benchmarks/decoder-competition-0.2.7.md) ·
 [Validation results and limitations in the repository](https://github.com/ekhodzitsky/opura/blob/main/docs/validation/codec-readiness.md)
 
 The source repository contains the full fixture suite, examples and reference

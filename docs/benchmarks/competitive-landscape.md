@@ -13,9 +13,9 @@ Rows below summarize **maintainer claims and repository contents**, not benchmar
 independently reproduced by Opura. Source links pin reviewed README revisions.
 Selected Rust manifests were also inspected at those revisions. No competitor
 was built or timed for this survey. Every comparative performance result is
-**unmeasured at the survey snapshot**. Subsequent
-[local packet-framing measurements](local-results.md) are recorded separately;
-they do not establish full-codec performance.
+**unmeasured at the survey snapshot**. Subsequent work measured packet
+framing, full decoders and speech recognition in GigaSTT.
+[Packet framing](local-results.md) · [Opura 0.2.7 vs. opus-rs and libopus](decoder-competition-0.2.7.md) · [GigaSTT](gigastt-decoder-0.2.7.md)
 
 Opura 0.1.2 implements framing, range decoding and SILK side-information
 primitives, not a complete PCM decoder. Several competitors already advertise
@@ -104,7 +104,7 @@ all hardware, languages and use cases is not a meaningful testable guarantee.
    a clean checkout. Self-reported README speed ratios are leads to investigate,
    not numbers to copy into our scorecard.
 
-## Execution order
+## Execution order at the October 2026 survey
 
 Finish SILK excitation and synthesis, then stereo/resampling and frame-state
 orchestration; complete CELT/Hybrid and loss handling before full-codec claims.
