@@ -25,7 +25,7 @@ target/release/opura encode speech.wav speech.opus --mode auto --application voi
 `--bitrate` counts Opus packet bits and excludes Ogg overhead. For mapped audio
 it sets the total across streams. Positioned multichannel input uses canonical
 WAVE speaker masks and surround encoding. Unpositioned audio preserves channel
-order using mapping family 255. [Mapped file formats](validation/mapped-audio-files.md)
+order using mapping family 255. [Mapped file formats](https://github.com/ekhodzitsky/opura/blob/main/docs/validation/mapped-audio-files.md)
 
 ## Decode
 
@@ -39,4 +39,4 @@ produce a 48 kHz PCM16 WAV file with the decoded channel order and duration.
 Chained or multiplexed Ogg streams are unsupported.
 
 Both commands require a new output path. If conversion fails after writing
-begins, discard the partial output. [Timing and interoperability checks](validation/audio-cli-0.1.65.md)
+begins, discard the partial output. [Timing and interoperability checks](https://github.com/ekhodzitsky/opura/blob/main/docs/validation/audio-cli-0.1.65.md)

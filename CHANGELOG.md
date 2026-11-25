@@ -7,6 +7,13 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-11-25
+
+- Prepare the library and WAV/Ogg Opus CLI for crates.io. The package includes
+  the Rust sources, CLI guide, changelog and license notices. The full test
+  fixtures, reference tools and benchmark reports are available in the repository.
+  Original Opura code is MIT-licensed. Adapted components retain their BSD terms.
+
 - Add a library quick start and file conversion guide, organize historical
   component notes under `docs/history/`, and align crate documentation, CLI
   help and repository metadata with the supported codec and file formats.

@@ -30,9 +30,12 @@ cargo clippy --offline --locked --all-targets -- -D warnings
 RUSTDOCFLAGS="-D warnings" cargo doc --offline --locked --no-deps
 python3 tools/check_dependencies.py
 python3 -m unittest discover -s tools -p 'test_*.py'
+python3 tools/check_package.py
 ```
 
-The Rust tests read checked-in fixtures. Regenerating reference data or running
+The package check rebuilds the CLI and API documentation
+from the distribution archive and runs the README example in a separate application.
+The Rust regression suite reads the fixtures from a full repository checkout. Regenerating reference data or running
 the full official conformance matrix requires external inputs. The conformance
 guide gives the reference revision, vector archive and commands.
 [Conformance procedure](validation/decoder-0.1.40.md) · [v0.2.5 results](validation/results/decoder-pvq-0.2.5-conformance.json)

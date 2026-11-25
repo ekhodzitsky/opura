@@ -6,13 +6,16 @@ or the `opura` command to convert between WAV and Ogg Opus files.
 
 ## Use the library
 
-Opura requires Rust 1.87 or later and the standard library. With access to
-the repository, add the tagged version to your application's `Cargo.toml`:
+Opura requires Rust 1.87 or later and the standard library. For the crates.io
+release, add the following dependency to your application's `Cargo.toml`:
 
 ```toml
 [dependencies]
-opura = { git = "https://github.com/ekhodzitsky/opura.git", tag = "v0.2.5" }
+opura = "0.2.6"
 ```
+
+For a Git dependency, use the repository URL and an available release tag,
+for example `opura = { git = "https://github.com/ekhodzitsky/opura.git", tag = "v0.2.5" }`.
 
 This example encodes one 20 ms stereo frame and decodes it at 48 kHz. Keep the
 encoder and decoder alive across packets so prediction and recovery work across
@@ -47,7 +50,8 @@ channels and surround layouts.
 
 ## Convert audio files
 
-From the repository root with Rust 1.87.0 installed, run:
+Install the CLI from the registry with `cargo install opura --locked`, or build
+and run it from a source checkout:
 
 ```sh
 cargo build --release --offline --locked --bin opura
@@ -65,8 +69,14 @@ Choose new output paths for both commands. [File formats and options](docs/audio
 The v0.2.5 decoder passed all 120 RFC 8251 vector, rate and channel combinations.
 Encoder interoperability has been checked against libopus. Representative
 listening tests and broader platform benchmarks remain open.
-[Validation results and limitations](docs/validation/codec-readiness.md)
+[Validation results and limitations in the repository](https://github.com/ekhodzitsky/opura/blob/main/docs/validation/codec-readiness.md)
 
-Releases are identified by annotated Git tags. Opura is available from this
-repository, and crates.io publication is disabled.
-[Changelog](CHANGELOG.md) · [Documentation and development](docs/README.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
+The source repository contains the full fixture suite, examples and reference
+tools. Run the full test suite from a checkout of the corresponding release.
+[Changelog](CHANGELOG.md) · [Repository documentation](https://github.com/ekhodzitsky/opura/blob/main/docs/README.md)
+
+## License
+
+Original Opura code is available under the MIT License. Adapted Opus
+components retain their BSD terms. Binary redistributions must carry the
+applicable notices. [MIT License](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md)

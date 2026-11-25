@@ -45,6 +45,7 @@ Run before marking code work complete:
 - `RUSTDOCFLAGS="-D warnings" cargo doc --offline --locked --no-deps`
 - `python3 tools/check_dependencies.py`
 - `python3 -m unittest discover -s tools -p 'test_*.py'`
+- `python3 tools/check_package.py`
 
 The toolchain file pins the minimum supported Rust version. CI runs the same
 checks. Optional fixture regeneration requires an external libopus; ordinary

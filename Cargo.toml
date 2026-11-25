@@ -1,6 +1,6 @@
 [package]
 name = "opura"
-version = "0.2.5"
+version = "0.2.6"
 edition = "2024"
 rust-version = "1.87"
 description = "Opus encoder and decoder in safe Rust with zero dependencies and a WAV/Ogg Opus CLI"
@@ -8,7 +8,18 @@ repository = "https://github.com/ekhodzitsky/opura"
 readme = "README.md"
 keywords = ["opus", "audio", "codec", "encoder", "decoder"]
 categories = ["multimedia::audio", "multimedia::encoding"]
-publish = false
+license = "MIT AND BSD-2-Clause AND BSD-3-Clause"
+publish = ["crates-io"]
+include = [
+    "/src/**",
+    "/Cargo.toml",
+    "/Cargo.lock",
+    "/README.md",
+    "/LICENSE",
+    "/THIRD_PARTY_NOTICES.md",
+    "/CHANGELOG.md",
+    "/docs/audio-cli.md",
+]
 
 [lints.rust]
 unsafe_code = "forbid"
