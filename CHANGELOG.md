@@ -7,6 +7,10 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.2.8] - 2026-11-25
+
+- Calculate CELT split-angle symbol intervals directly. Opura used 6.55% less decoder time than v0.2.7 across ten output configurations, preserving all 120 official PCM hashes and all 200,750 final-range checks. [Measurements](docs/benchmarks/decoder-theta-0.2.8.md)
+
 - Compare Opura 0.2.7 with opus-rs 0.1.42 and system libopus 1.6.1 on the official streams, including decode time and incremental decoder memory. [Decoder results](docs/benchmarks/decoder-competition-0.2.7.md)
 - Measure the CPU and memory cost of switching decoders in GigaSTT on 15 speech recordings through its CLI and warm HTTP service. [Application results](docs/benchmarks/gigastt-decoder-0.2.7.md)
 - Run the release test suite on native Linux ARM64 in GitHub Actions.

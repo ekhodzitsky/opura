@@ -11,11 +11,11 @@ release, add the following dependency to your application's `Cargo.toml`:
 
 ```toml
 [dependencies]
-opura = "0.2.7"
+opura = "0.2.8"
 ```
 
 For a Git dependency, use the repository URL and an available release tag,
-for example `opura = { git = "https://github.com/ekhodzitsky/opura.git", tag = "v0.2.7" }`.
+for example `opura = { git = "https://github.com/ekhodzitsky/opura.git", tag = "v0.2.8" }`.
 
 This example encodes one 20 ms stereo frame and decodes it at 48 kHz. Keep the
 encoder and decoder alive across packets so prediction and recovery work across
@@ -66,12 +66,13 @@ Choose new output paths for both commands. [File formats and options](docs/audio
 
 ## Validation and releases
 
-The v0.2.7 decoder passed all 120 RFC 8251 vector, rate and channel combinations.
-On one x86-64 machine, each additional warmed Opura decoder used about 34 KiB of
-private dirty memory, compared with 176 KiB for opus-rs 0.1.42. Opus-rs decoded
-the shared qualifying streams faster at both tested output settings. Encoder
-interoperability has been checked against libopus.
-[Decoder comparison and raw measurements](https://github.com/ekhodzitsky/opura/blob/main/docs/benchmarks/decoder-competition-0.2.7.md) ·
+The v0.2.8 decoder passed all 120 RFC 8251 vector, rate and channel combinations.
+On one x86-64 machine, each additional warmed v0.2.7 decoder used about 34 KiB of
+private dirty memory, compared with 176 KiB for opus-rs 0.1.42. On the same host,
+v0.2.8 took 31% more decode time than opus-rs at 16 kHz mono and 18% more at
+48 kHz stereo on the shared qualifying streams. Encoder interoperability has
+been checked against libopus.
+[Decoder timings](https://github.com/ekhodzitsky/opura/blob/v0.2.8/docs/benchmarks/decoder-theta-0.2.8.md) · [Memory comparison](https://github.com/ekhodzitsky/opura/blob/8a2c443/docs/benchmarks/decoder-competition-0.2.7.md) ·
 [Validation results and limitations in the repository](https://github.com/ekhodzitsky/opura/blob/main/docs/validation/codec-readiness.md)
 
 The source repository contains the full fixture suite, examples and reference

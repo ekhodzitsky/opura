@@ -447,21 +447,14 @@ impl Decoder<'_, '_> {
             0
         } else {
             let index = if stereo && n > 2 {
-                let mut cdf = [0u16; 258];
-                let q = qn as usize;
-                for i in 0..=q {
-                    cdf[i + 1] = cdf[i] + if i <= q / 2 { 3 } else { 1 };
-                }
-                self.entropy.decode_cdf(&cdf[..q + 2])? as u32
+                self.entropy
+                    .decode_interval(2 * qn + 3, |f| stereo_theta_interval(qn, f))?
             } else if original_blocks > 1 || stereo {
                 self.entropy.decode_uint(qn + 1)?
             } else {
-                let mut cdf = [0u16; 258];
-                let q = qn as usize;
-                for i in 0..=q {
-                    cdf[i + 1] = cdf[i] + (if i <= q / 2 { i + 1 } else { q + 1 - i }) as u16;
-                }
-                self.entropy.decode_cdf(&cdf[..q + 2])? as u32
+                let total = (qn / 2 + 1).pow(2);
+                self.entropy
+                    .decode_interval(total, |f| triangular_theta_interval(qn, total, f))?
             };
             (index * 16384 / qn) as u16
         };
@@ -489,6 +482,37 @@ impl Decoder<'_, '_> {
         })
     }
 }
+// Stereo angles through the midpoint have weight 3, and all later angles have weight 1.
+fn stereo_theta_interval(qn: u32, frequency: u32) -> (u32, std::ops::Range<u32>) {
+    let wide_symbols = qn / 2 + 1;
+    let boundary = 3 * wide_symbols;
+    if frequency < boundary {
+        let symbol = frequency / 3;
+        let low = 3 * symbol;
+        (symbol, low..low + 3)
+    } else {
+        (
+            wide_symbols + frequency - boundary,
+            frequency..frequency + 1,
+        )
+    }
+}
+
+// The symmetric weights are 1, 2, ..., qn/2+1, ..., 2, 1. From either
+// edge the lower cumulative boundary of symbol k is k*(k+1)/2.
+fn triangular_theta_interval(qn: u32, total: u32, frequency: u32) -> (u32, std::ops::Range<u32>) {
+    let reflected = total - 1 - frequency;
+    let edge = frequency.min(reflected);
+    let symbol = ((8 * edge + 1).isqrt() - 1) / 2;
+    let low = symbol * (symbol + 1) / 2;
+    let high = low + symbol + 1;
+    if frequency <= reflected {
+        (symbol, low..high)
+    } else {
+        (qn - symbol, total - high..total - low)
+    }
+}
+
 fn fill_partition(
     x: &mut [i32],
     fold: Option<&[i32]>,
@@ -583,4 +607,57 @@ fn compute_qn(n: usize, bits: i32, offset: i32, pulse_cap: i32, stereo: bool) ->
 }
 fn mul31(a: i32, b: i32) -> i32 {
     ((i64::from(a) * i64::from(b)) >> 31) as i32
+}
+
+#[cfg(test)]
+mod theta_tests {
+    use super::*;
+
+    #[test]
+    fn direct_intervals_match_weighted_cdfs_and_decoder_state()
+    -> Result<(), Box<dyn std::error::Error>> {
+        // compute_qn emits 1 (handled separately) or an even value in 2..=256.
+        for qn in (2u32..=256).step_by(2) {
+            for stereo in [false, true] {
+                let mut cdf = vec![0u16];
+                for symbol in 0..=qn {
+                    let weight = if stereo {
+                        if symbol <= qn / 2 { 3 } else { 1 }
+                    } else {
+                        1 + symbol.min(qn - symbol)
+                    };
+                    cdf.push(cdf[symbol as usize] + weight as u16);
+                }
+                let total = if stereo {
+                    2 * qn + 3
+                } else {
+                    (qn / 2 + 1).pow(2)
+                };
+                assert_eq!(Some(total as u16), cdf.last().copied());
+                let locate = |f| {
+                    if stereo {
+                        stereo_theta_interval(qn, f)
+                    } else {
+                        triangular_theta_interval(qn, total, f)
+                    }
+                };
+                let mut encoder = RangeEncoder::new(1275)?;
+                for (symbol, pair) in cdf.windows(2).enumerate() {
+                    let bounds = u32::from(pair[0])..u32::from(pair[1]);
+                    for frequency in bounds.clone() {
+                        assert_eq!(locate(frequency), (symbol as u32, bounds.clone()));
+                    }
+                    encoder.encode_cdf(symbol, &cdf)?;
+                }
+                let mut direct = RangeDecoder::new(encoder.finish()?);
+                let mut table = direct.clone();
+                for symbol in 0..=qn {
+                    assert_eq!(table.decode_cdf(&cdf)?, symbol as usize);
+                    assert_eq!(direct.decode_interval(total, locate)?, symbol);
+                    assert_eq!(direct, table);
+                }
+            }
+        }
+        Ok(())
+    }
 }

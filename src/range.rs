@@ -115,6 +115,23 @@ impl<'a> RangeDecoder<'a> {
         })
     }
 
+    /// Decode a symbol whose cumulative interval can be computed directly.
+    /// The model must cover every frequency in `0..total` exactly once.
+    pub(crate) fn decode_interval(
+        &mut self,
+        total: u32,
+        locate: impl FnOnce(u32) -> (u32, std::ops::Range<u32>),
+    ) -> Result<u32, RangeError> {
+        debug_assert!((1..=u32::from(u16::MAX)).contains(&total));
+        self.transaction(|d| {
+            let frequency = d.frequency(total);
+            let (symbol, interval) = locate(frequency);
+            debug_assert!(interval.contains(&frequency) && interval.end <= total);
+            d.update(interval.start, interval.end, total);
+            Ok(symbol)
+        })
+    }
+
     /// Decode an inverse CDF with precision 1..=8 and a final zero entry.
     ///
     /// Entries must be non-increasing, with the first strictly below 2^bits.

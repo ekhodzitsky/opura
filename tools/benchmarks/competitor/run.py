@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import platform
 import random
+import re
 import shutil
 import struct
 import subprocess
@@ -22,11 +23,23 @@ PACKAGES = {"opura": "0.2.7", "opus-rs": "0.1.42"}
 SEED = 8251
 
 
+def crate_version(value):
+    number = r'(?:0|[1-9][0-9]*)'
+    prerelease = rf'(?:{number}|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
+    metadata = r'[0-9A-Za-z-]+'
+    pattern = rf'{number}\.{number}\.{number}(?:-{prerelease}(?:\.{prerelease})*)?(?:\+{metadata}(?:\.{metadata})*)?'
+    if not re.fullmatch(pattern, value):
+        raise argparse.ArgumentTypeError('expected an exact crate version, for example 0.2.8')
+    return value
+
+
 def build(work, args):
     bins = {}
     provenance = {}
     env = dict(os.environ, RUSTFLAGS="-C target-cpu=native")
     for name, version in PACKAGES.items():
+        if name == 'opura':
+            version = args.opura_version
         project = work / name
         project.mkdir()
         manifest = (f'[package]\nname = "probe"\nversion = "0.0.0"\nedition = "2021"\n'
@@ -120,6 +133,8 @@ def main():
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--cpu', type=int, required=True)
     parser.add_argument('--toolchain', default='1.100.0')
+    parser.add_argument('--opura-version', type=crate_version, default=PACKAGES['opura'],
+                        help='exact crates.io Opura version (default: %(default)s)')
     parser.add_argument('--rounds', type=int, default=15)
     args = parser.parse_args()
     if args.out.exists() or not 1 <= args.rounds <= 100:
