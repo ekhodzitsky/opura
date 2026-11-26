@@ -1,6 +1,13 @@
 //! Bounded Ogg version-zero pages, lacing and Opus packet assembly.
 use super::{invalid, layout::Layout};
-use std::io::{self, Read, Write};
+use std::{
+    hash::{BuildHasher, RandomState},
+    io::{self, Read, Write},
+    sync::{
+        LazyLock,
+        atomic::{AtomicU32, Ordering},
+    },
+};
 const MAX_BODY: usize = 65025;
 const MAX_PACKET: usize = opura::multistream::MAX_PACKET_BYTES;
 const fn crc_table() -> [u32; 256] {
@@ -142,6 +149,7 @@ impl<R: Read> Reader<R> {
 }
 pub struct Writer<W> {
     output: W,
+    serial: u32,
     sequence: u32,
     body: Vec<u8>,
     laces: Vec<u8>,
@@ -168,8 +176,13 @@ impl<W: Write> Writer<W> {
         pre_skip: u16,
         gain: i16,
     ) -> io::Result<Self> {
+        // Give independent encoders different starting points. Within this process
+        // each logical stream gets a distinct serial until the u32 wraps.
+        static NEXT_SERIAL: LazyLock<AtomicU32> =
+            LazyLock::new(|| AtomicU32::new(RandomState::new().hash_one(()) as u32));
         let mut writer = Self {
             output,
+            serial: NEXT_SERIAL.fetch_add(1, Ordering::Relaxed),
             sequence: 0,
             body: Vec::with_capacity(MAX_BODY),
             laces: Vec::with_capacity(255),
@@ -207,7 +220,7 @@ impl<W: Write> Writer<W> {
             }
             .to_le_bytes(),
         );
-        h[14..18].copy_from_slice(&0x4f505552u32.to_le_bytes());
+        h[14..18].copy_from_slice(&self.serial.to_le_bytes());
         h[18..22].copy_from_slice(&self.sequence.to_le_bytes());
         h[26] = self.laces.len() as u8;
         let sum = crc(h
@@ -266,6 +279,23 @@ impl<W: Write> Writer<W> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn independent_writers_keep_distinct_serials_through_eos() -> io::Result<()> {
+        let stream_serial = || -> io::Result<Option<u32>> {
+            let mut bytes = Vec::new();
+            Writer::new(&mut bytes, 1, 48000)?.packet(&[0xf8, 0xff, 0xfe], 960, true)?;
+            let mut reader = Reader::new(bytes.as_slice());
+            let mut pages = 0;
+            while reader.page()?.is_some() {
+                pages += 1;
+            }
+            assert_eq!(pages, 3); // Identification, comments and audio.
+            Ok(reader.serial)
+        };
+        assert_ne!(stream_serial()?, stream_serial()?);
+        Ok(())
+    }
+
     #[test]
     fn grouped_encoder_packets_fit_pages_and_preserve_lacing_crc_and_duration() -> io::Result<()> {
         let mut bytes = Vec::new();

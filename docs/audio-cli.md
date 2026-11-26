@@ -27,6 +27,19 @@ it sets the total across streams. Positioned multichannel input uses canonical
 WAVE speaker masks and surround encoding. Unpositioned audio preserves channel
 order using mapping family 255. [Mapped file formats](https://github.com/ekhodzitsky/opura/blob/main/docs/validation/mapped-audio-files.md)
 
+Each encoded file has a stream serial that stays constant across its pages.
+Starting with 0.2.10, independent encoder processes choose randomized starting
+serials so their outputs can be chained for players that support Ogg chaining.
+Applications assembling a chain must ensure its 32-bit serials are distinct.
+[Ogg chaining](https://www.rfc-editor.org/rfc/rfc3533#section-4)
+
+In a two-file test with 16 kHz inputs, FFmpeg decoded the chain to the exact
+48,960 samples obtained by playing the files separately. With a second pair
+of 48 kHz inputs it produced the same sample count, with four samples differing
+by one PCM unit. A control pair encoded by FFmpeg itself showed seven such
+differences. These comparisons used `-af asetpts=N/SR/TB` to assign a continuous
+output timeline across the links.
+
 ## Decode
 
 ```sh
