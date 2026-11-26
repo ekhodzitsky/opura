@@ -7,6 +7,8 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Measure compact Opura 0.2.12 in GigaSTT file transcription. Packet decoding accounted for about 0.9% of server CPU on short mono uploads. [Service CPU, latency and peak RSS](docs/benchmarks/gigastt-compact-0.2.12.md)
+
 ## [0.2.12] - 2026-11-26
 
 - Reduce CPU use in `CompactOpusDecoder` for ordinary single-frame SILK speech. When a stream has no CELT history, the decoder stages only its speech state. Packets with a possible redundant CELT tail use the full decoder. On 16 kHz mono meeting speech, paired CPU use fell by 16.5% at one stream and 17.9% at 768 streams compared with 0.2.11. Warm process RSS at 768 streams was 10.2 MiB. One measured SILK packet carrying a redundant CELT tail took 12 µs more CPU. [Measurements and limits](docs/benchmarks/compact-speech-0.2.12.md)
