@@ -104,17 +104,17 @@ pub fn decode_excitation(
     };
     let mut next = decoder.clone();
     let context = (signal_index >> 1) * 9;
-    let level = next.decode_icdf(&RATES[context..context + 9], 8)?;
+    let level = next.decode_icdf_table(&RATES[context..context + 9], 8)?;
     let mut sums = [0_usize; 20];
     let mut shifts = [0_u8; 20];
     for block in 0..blocks {
-        sums[block] = next.decode_icdf(&SUMS[level * 18..(level + 1) * 18], 8)?;
+        sums[block] = next.decode_icdf_table(&SUMS[level * 18..(level + 1) * 18], 8)?;
         while sums[block] == 17 {
             shifts[block] += 1;
             // On the tenth escape the shifted table has only 17 symbols,
             // so another escape is impossible even with zero-extended input.
             let start = 9 * 18 + usize::from(shifts[block] == 10);
-            sums[block] = next.decode_icdf(&SUMS[start..], 8)?;
+            sums[block] = next.decode_icdf_table(&SUMS[start..], 8)?;
         }
     }
     if !next.is_within_budget() {
@@ -136,7 +136,7 @@ pub fn decode_excitation(
     for (block, &shift) in shifts[..blocks].iter().enumerate() {
         for pulse in &mut frame.pulses[block * 16..(block + 1) * 16] {
             for _ in 0..shift {
-                *pulse = *pulse * 2 + next.decode_icdf(&[120, 0], 8)? as i16;
+                *pulse = *pulse * 2 + next.decode_icdf_table(&[120, 0], 8)? as i16;
             }
         }
     }
@@ -144,7 +144,7 @@ pub fn decode_excitation(
     for (block, &sum) in sums[..blocks].iter().enumerate() {
         let icdf = [SIGNS[sign_context + sum.min(6)], 0];
         for pulse in &mut frame.pulses[block * 16..(block + 1) * 16] {
-            if *pulse > 0 && next.decode_icdf(&icdf, 8)? == 0 {
+            if *pulse > 0 && next.decode_icdf_table(&icdf, 8)? == 0 {
                 *pulse = -*pulse;
             }
         }
@@ -183,7 +183,7 @@ fn shell(
     }
     let table = [&SHELL0, &SHELL1, &SHELL2, &SHELL3][level];
     let offset = usize::from(OFFSETS[sum]);
-    let left = decoder.decode_icdf(&table[offset..offset + sum + 1], 8)?;
+    let left = decoder.decode_icdf_table(&table[offset..offset + sum + 1], 8)?;
     if pulses.len() == 2 {
         pulses[0] = left as i16;
         pulses[1] = (sum - left) as i16;

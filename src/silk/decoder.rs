@@ -271,7 +271,7 @@ impl SilkDecoder {
             mid_only: false,
             collapse,
         };
-        self.frame(None, plan, &mut output)?;
+        output.length = self.frame(None, plan, &mut output.samples)?;
         Ok(output)
     }
     fn empty_output(&self) -> DecodedPcm {
@@ -322,10 +322,13 @@ impl SilkDecoder {
             let (header, mut entropy) =
                 decode_header(&packet, frame_index).map_err(DecoderError::Header)?;
             entropy.allow_silk_zero_extension();
-            let layer = next.decode_layer(&header, &mut entropy, rate, fec)?;
-            let end = output.length + layer.samples().len();
-            output.samples[output.length..end].copy_from_slice(layer.samples());
-            output.length = end;
+            output.length += next.decode_layer_into(
+                &header,
+                &mut entropy,
+                rate,
+                fec,
+                &mut output.samples[output.length..],
+            )?;
             if !fec && entropy.tell() + 17 <= payload.len() as u32 * 8 {
                 return Err(DecoderError::UnsupportedTransition);
             }
@@ -348,8 +351,23 @@ impl SilkDecoder {
         rate: SilkRate,
         fec: bool,
     ) -> Result<DecodedPcm, DecoderError> {
-        let channels = header.channel_count();
         let mut output = self.empty_output();
+        output.length = self.decode_layer_into(header, entropy, rate, fec, &mut output.samples)?;
+        output.range = entropy.range();
+        Ok(output)
+    }
+
+    // The caller stages decoder state and provides a destination for this layer.
+    pub(crate) fn decode_layer_into(
+        &mut self,
+        header: &FrameHeader,
+        entropy: &mut RangeDecoder<'_>,
+        rate: SilkRate,
+        fec: bool,
+        output: &mut [i16],
+    ) -> Result<usize, DecoderError> {
+        let channels = header.channel_count();
+        let mut written = 0;
         let duration = if header.frame_duration_ms() == 10 {
             FrameDuration::Ms10
         } else {
@@ -386,18 +404,17 @@ impl SilkDecoder {
                 mid_only,
                 collapse,
             };
-            self.frame(Some(entropy), plan, &mut output)?;
+            written += self.frame(Some(entropy), plan, &mut output[written..])?;
         }
         self.last_duration = duration;
-        output.range = entropy.range();
-        Ok(output)
+        Ok(written)
     }
     fn frame(
         &mut self,
         mut entropy: Option<&mut RangeDecoder<'_>>,
         plan: FramePlan,
-        output: &mut DecodedPcm,
-    ) -> Result<(), DecoderError> {
+        output: &mut [i16],
+    ) -> Result<usize, DecoderError> {
         let has_side = if plan.kind == Kind::Normal {
             !plan.mid_only
         } else {
@@ -464,44 +481,50 @@ impl SilkDecoder {
                 *samples = self.channel[channel].conceal_fec_gap(plan.rate, plan.duration)?;
             }
         }
-        let mut left = [0i16; 960];
-        let mut right = [0i16; 960];
-        let count = if self.output_channels == PcmChannels::Stereo && plan.channels == 2 {
-            let stereo = self.stereo.reconstruct(
-                plan.rate,
-                pcm[0].samples(),
-                pcm[1].samples(),
-                plan.prediction,
-            )?;
-            let count = self.resampler[0].process(plan.rate, stereo.left(), &mut left)?;
-            self.resampler[1].process(plan.rate, stereo.right(), &mut right)?;
-            count
-        } else {
+        let written = if self.output_channels == PcmChannels::Mono {
             let buffered = self.stereo.buffer_mono(pcm[0].samples());
-            let count = self.resampler[0].process(plan.rate, &buffered[..length], &mut left)?;
-            if self.output_channels == PcmChannels::Stereo {
+            self.resampler[0].process(plan.rate, &buffered[..length], output)?
+        } else {
+            let mut left = [0i16; 960];
+            let mut right = [0i16; 960];
+            let count = if plan.channels == 2 {
+                let stereo = self.stereo.reconstruct(
+                    plan.rate,
+                    pcm[0].samples(),
+                    pcm[1].samples(),
+                    plan.prediction,
+                )?;
+                let count = self.resampler[0].process(plan.rate, stereo.left(), &mut left)?;
+                self.resampler[1].process(plan.rate, stereo.right(), &mut right)?;
+                count
+            } else {
+                let buffered = self.stereo.buffer_mono(pcm[0].samples());
+                let count = self.resampler[0].process(plan.rate, &buffered[..length], &mut left)?;
                 if plan.collapse {
                     self.resampler[1].process(plan.rate, &buffered[..length], &mut right)?;
                 } else {
                     right[..count].copy_from_slice(&left[..count]);
                 }
+                count
+            };
+            let required = count * 2;
+            let available = output.len();
+            let dst = output
+                .get_mut(..required)
+                .ok_or(ResampleError::OutputTooSmall {
+                    required,
+                    available,
+                })?;
+            for (i, pair) in dst.chunks_exact_mut(2).enumerate() {
+                pair[0] = left[i];
+                pair[1] = right[i];
             }
-            count
+            required
         };
-        let channels = self.output_channels.count();
-        // Framing/loss validation bounds the total to 120 ms: at most 11520
-        // interleaved samples at 48 kHz stereo. Each frame is at most 20 ms.
-        for i in 0..count {
-            output.samples[output.length + channels * i] = left[i];
-            if channels == 2 {
-                output.samples[output.length + channels * i + 1] = right[i];
-            }
-        }
-        output.length += count * channels;
         if plan.kind != Kind::Loss {
             self.previous_mid_only = plan.mid_only;
         }
-        Ok(())
+        Ok(written)
     }
 }
 

@@ -11,11 +11,11 @@ release, add the following dependency to your application's `Cargo.toml`:
 
 ```toml
 [dependencies]
-opura = "0.2.8"
+opura = "0.2.9"
 ```
 
 For a Git dependency, use the repository URL and an available release tag,
-for example `opura = { git = "https://github.com/ekhodzitsky/opura.git", tag = "v0.2.8" }`.
+for example `opura = { git = "https://github.com/ekhodzitsky/opura.git", tag = "v0.2.9" }`.
 
 This example encodes one 20 ms stereo frame and decodes it at 48 kHz. Keep the
 encoder and decoder alive across packets so prediction and recovery work across
@@ -36,13 +36,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pcm = [0_i16; 960 * 2]; // Interleaved left and right samples.
     let options = EncodeOptions { bitrate: 64_000, ..Default::default() };
     let packet = encoder.encode(FrameSize::Ms20, &pcm, 320, options)?;
-    let decoded = decoder.decode(packet.as_bytes())?;
-    assert_eq!(decoded.samples_per_channel(), 960);
+    let mut output = [0_i16; 960 * 2]; // Reuse this buffer for subsequent 20 ms packets.
+    let written = decoder.decode_into(packet.as_bytes(), &mut output)?;
+    assert_eq!(written, 960 * 2);
     Ok(())
 }
 ```
 
-Pass one complete Opus packet to `decode`. If your input comes from RTP or an
+Pass one complete Opus packet to `decode_into` for caller-owned output, or to
+`decode` for an owned PCM result. If your input comes from RTP or an
 Ogg container, extract the packet first. The decoder supports SILK, CELT and
 Hybrid at 8, 12, 16, 24 and 48 kHz, including packet loss concealment and
 in-band forward error correction. The `multistream` module handles mapped
@@ -66,7 +68,11 @@ Choose new output paths for both commands. [File formats and options](docs/audio
 
 ## Validation and releases
 
-The v0.2.8 decoder passed all 120 RFC 8251 vector, rate and channel combinations.
+The v0.2.9 decoder passed all 120 RFC 8251 vector, rate and channel combinations.
+At 48 kHz mono on 15 speech recordings, `decode_into` in v0.2.9 used
+13.1% less CPU time than the v0.2.8 decoder and took 4.1% more than opus-rs
+0.1.42 with the same floating-point output. [Speech benchmark](https://github.com/ekhodzitsky/opura/blob/v0.2.9/docs/benchmarks/decoder-speech-0.2.9.md)
+
 On one x86-64 machine, each additional warmed v0.2.7 decoder used about 34 KiB of
 private dirty memory, compared with 176 KiB for opus-rs 0.1.42. On the same host,
 v0.2.8 took 31% more decode time than opus-rs at 16 kHz mono and 18% more at

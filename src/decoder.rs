@@ -30,6 +30,11 @@ pub enum DecoderError {
     InvalidDuration,
     /// Transition redundancy exceeds the remaining primary entropy storage.
     InvalidRedundancy,
+    /// The caller's PCM buffer cannot hold the packet at the configured output geometry.
+    BufferTooSmall {
+        /// Number of interleaved i16 samples needed for the whole packet.
+        required: usize,
+    },
     /// Layer output or retained geometry is inconsistent.
     InvalidOutput,
     /// SILK header failed.
@@ -50,6 +55,9 @@ impl fmt::Display for DecoderError {
             }
             Self::InvalidRedundancy => {
                 f.write_str("Opus transition redundancy exceeds primary storage")
+            }
+            Self::BufferTooSmall { required } => {
+                write!(f, "Opus output buffer needs {required} interleaved samples")
             }
             Self::InvalidOutput => f.write_str("inconsistent Opus output geometry"),
             Self::Header(e) => write!(f, "Opus SILK header: {e}"),
@@ -261,22 +269,50 @@ impl OpusDecoder {
         let packet = Packet::parse(data).map_err(DecoderError::Framing)?;
         self.decode_packet(&packet)
     }
+    /// Decode one complete packet into a reusable interleaved PCM buffer.
+    ///
+    /// Returns the number of i16 samples written across all output channels.
+    /// Samples beyond that prefix are untouched. Use [`Self::final_range`] to
+    /// inspect the range state after a successful decode.
+    ///
+    /// A framing error or [`DecoderError::BufferTooSmall`] leaves the buffer
+    /// untouched. On a later decode error, discard the packet's output prefix.
+    /// All errors preserve the decoder state, so the caller can retry.
+    pub fn decode_into(&mut self, data: &[u8], output: &mut [i16]) -> Result<usize, DecoderError> {
+        let packet = Packet::parse(data).map_err(DecoderError::Framing)?;
+        let frames =
+            usize::from(packet.duration_samples()) * self.output_rate().hz() as usize / 48000;
+        let required = frames * self.output_channels().count();
+        let out = output
+            .get_mut(..required)
+            .ok_or(DecoderError::BufferTooSmall { required })?;
+        self.decode_packet_into(&packet, out)
+    }
+
     pub(crate) fn decode_packet(
         &mut self,
         packet: &Packet<'_>,
     ) -> Result<DecodedPcm, DecoderError> {
+        let mut output = self.empty_output();
+        output.length = self.decode_packet_into(packet, &mut output.values)?;
+        output.range = self.range;
+        Ok(output)
+    }
+
+    fn decode_packet_into(
+        &mut self,
+        packet: &Packet<'_>,
+        output: &mut [i16],
+    ) -> Result<usize, DecoderError> {
         let mut next = self.clone();
         next.configure_packet(packet);
-        let mut output = self.empty_output();
-        let mut pcm = PcmBuffer::new(&mut output.values);
+        let mut pcm = PcmBuffer::new(output);
         for index in 0..packet.frames().len() {
             pcm.frame(|frame| next.packet_frame(packet, index, false, frame))?;
         }
-        output.length = pcm.length;
         next.last_duration = packet.duration_samples();
-        output.range = next.range;
         *self = next;
-        Ok(output)
+        Ok(pcm.length)
     }
     /// Conceal120..5760 samples on a48kHz clock, in120-sample steps.
     pub fn conceal_samples(&mut self, duration: u16) -> Result<DecodedPcm, DecoderError> {
@@ -460,13 +496,17 @@ impl OpusDecoder {
                     _ => SilkRate::Khz16,
                 }
             };
-            let low = self.silk.decode_layer(
+            let destination = output
+                .values
+                .get_mut(output.length..)
+                .ok_or(DecoderError::InvalidOutput)?;
+            output.length += self.silk.decode_layer_into(
                 header.ok_or(DecoderError::InvalidOutput)?,
                 entropy,
                 rate,
                 fec,
+                destination,
             )?;
-            output.append(low.samples())?;
         }
         let mut primary = payload.len();
         let mut redundant = None;

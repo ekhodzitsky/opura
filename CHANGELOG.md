@@ -7,6 +7,11 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.2.9] - 2026-11-26
+
+- Add `OpusDecoder::decode_into` for reusable, caller-sized interleaved PCM buffers. Short buffers report the required sample count and preserve the decoder state for retry. Existing `decode` calls retain their owned result.
+- Render the SILK layer into its destination and avoid repeatedly validating the codec's fixed pulse tables. At 16 and 48 kHz mono on 15 speech recordings, the existing API used 10.8% and 7.2% less CPU time than 0.2.8. With the new buffer API the savings were 16.7% and 13.1%, and resident worker stack fell from 296 KiB to 148 KiB. The existing API also used 2.14% less decode time across ten output configurations on the full official corpus. [Measurements and conformance](docs/benchmarks/decoder-speech-0.2.9.md)
+
 - Measure CPU per minute of recognized Opus speech in GigaSTT. With four inference threads the deployed decoder and Opura pilot used 5.11 and 5.12 CPU-seconds per speech minute. Two threads with the deployed decoder used 3.94. [GigaSTT pilot](docs/benchmarks/gigastt-silk-pilot.md)
 
 - Compare two SILK synthesis implementations with 0.2.8 on concurrent speech. At 768 streams the transposed filter used 14.2% less CPU time with similar peak RSS. It met all packet deadlines in 17 of 18 trials. [Measurements](docs/benchmarks/silk-synthesis-speech-trial.md)

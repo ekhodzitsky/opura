@@ -70,3 +70,27 @@ pub(in crate::silk) const SHELL3: [u8; 152] = [
     112, 69, 36, 15, 6, 2, 1, 0, 255, 254, 253, 245, 231, 209, 176, 136, 93, 55, 27, 11, 3, 2, 1,
     0, 255, 254, 253, 252, 239, 221, 194, 158, 117, 76, 42, 18, 4, 3, 2, 1, 0,
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pulse_models_have_valid_inverse_cdf_rows() {
+        let check = |row: &[u8]| {
+            assert_eq!(row.last(), Some(&0));
+            assert!(row.windows(2).all(|pair| pair[0] >= pair[1]));
+        };
+        for row in RATES.chunks_exact(9).chain(SUMS.chunks_exact(18)) {
+            check(row);
+        }
+        // The tenth escape drops the first entry of the final sum model.
+        check(&SUMS[9 * 18 + 1..]);
+        for (sum, &offset) in OFFSETS.iter().enumerate().skip(1) {
+            let start = usize::from(offset);
+            for table in [&SHELL0, &SHELL1, &SHELL2, &SHELL3] {
+                check(&table[start..start + sum + 1]);
+            }
+        }
+    }
+}

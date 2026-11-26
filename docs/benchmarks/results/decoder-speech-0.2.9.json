@@ -1,0 +1,900 @@
+{
+  "description": "Complete decoder to mono interleaved f32 including conversion, without packet pacing",
+  "sample_clock": "Linux /proc/thread-self/schedstat field 1, nanoseconds of CPU execution",
+  "cpu": 2,
+  "cpu_model": "AMD Ryzen AI 9 HX 370",
+  "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "build_flags": "default Cargo release, generic x86-64",
+  "arms": {
+    "baseline": "Opura 0.2.8 decode",
+    "owned": "Opura 0.2.9 decode",
+    "caller": "Opura 0.2.9 decode_into",
+    "r41": "opus-rs 0.1.41 decode",
+    "r42": "opus-rs 0.1.42 decode"
+  },
+  "warm_corpus_passes": 1,
+  "timed_corpus_passes": 8,
+  "packets_per_corpus": 3101,
+  "speech_files": 15,
+  "order_seed": 261106,
+  "qualification": {
+    "hashes": {
+      "16000": {
+        "libopus": "b3fccc4f1725440572d6da2c69d911cfc61b73f0d2b88fe5dddd0a9dacb7e9aa",
+        "baseline": "b3fccc4f1725440572d6da2c69d911cfc61b73f0d2b88fe5dddd0a9dacb7e9aa",
+        "owned": "b3fccc4f1725440572d6da2c69d911cfc61b73f0d2b88fe5dddd0a9dacb7e9aa",
+        "caller": "b3fccc4f1725440572d6da2c69d911cfc61b73f0d2b88fe5dddd0a9dacb7e9aa",
+        "r41": "cd569a2033df0cba9d7c5d81a2e935ac9525bbca7f676147706a96604bad79ef",
+        "r41_pcm_matches_reference": true,
+        "r42": "b3fccc4f1725440572d6da2c69d911cfc61b73f0d2b88fe5dddd0a9dacb7e9aa"
+      },
+      "48000": {
+        "libopus": "4212f1ce6a7a9e2d8090e57adaafe3cdb25635b44e673151530f94d429195a71",
+        "baseline": "4212f1ce6a7a9e2d8090e57adaafe3cdb25635b44e673151530f94d429195a71",
+        "owned": "4212f1ce6a7a9e2d8090e57adaafe3cdb25635b44e673151530f94d429195a71",
+        "caller": "4212f1ce6a7a9e2d8090e57adaafe3cdb25635b44e673151530f94d429195a71",
+        "r41": "f58ff5364e3bda666e0d136d710c742920589dfffbaa85d3f2f876ed0f663d20",
+        "r41_pcm_matches_reference": true,
+        "r42": "4212f1ce6a7a9e2d8090e57adaafe3cdb25635b44e673151530f94d429195a71"
+      }
+    },
+    "binaries": {
+      "baseline": "45343cd116534c96cb6ef089ce644d3c471d59eeabbf1f24b535fe17f58d3a2f",
+      "owned": "4fede39dc8d44dd27c34677019ab1f8f1f6cfb33c81bb72e3a87e22ee715e68b",
+      "caller": "abdc45a805ad2892f2b9c65791278e22f71377ab4a83539fa44fc3ff01d86986",
+      "r41": "a7c66b6f6abe7161ee6f52a0b935d09aabeb3233ab5c54bff2673ed13f23567f",
+      "r42": "97554b1219dd673eaaccbb74670ca33c830d12d9095fe3a400380ff120b64231"
+    },
+    "reference": "libopus 1.6.1"
+  },
+  "reference_note": "opus-rs 0.1.41 has no public final_range accessor; a zero placeholder was written for its combined hash. PCM was compared separately. All other hashes cover each per-frame final range in little-endian followed by all f32 samples in little-endian.",
+  "input_hashes": {
+    "golos_00": "ce8d374d57cb2c8cfb6f169272abd3454f1457bb3bcfbdbe187c1e16d7bf0c67",
+    "golos_01": "82aae43de696001444dc766e63194c974f97a4e0470f6339efab9d0cdcbe4245",
+    "golos_02": "ca790d4c9240cd905b9914e6d5a68f0deb865655667966b3184fbf3bd852b2f0",
+    "golos_03": "7bae97f87b821da4dc2929653df6a20702d0217db383ae72ae322b05af73abcb",
+    "golos_04": "68a7d504dc5fddf5e17ea2dcc36b51134b2803e5a31f4f780a2694ba35008858",
+    "golos_05": "2610e9f8b5da7fb0b913cae487a129e3445c62ecd7913ee84ea265c67fcbcf88",
+    "golos_06": "208d5766202673665b26951ee2cd2961bd593e9b8881888d142c5e609277eb9d",
+    "golos_07": "5a0dd56348baac3993f804f9971f0e0262c95b5afbc7cdcec670e365337c5562",
+    "golos_08": "afb8fcba0b3f42e81d54e1270e9f43676387706e9c2af22d5fc7eb6f6486d513",
+    "golos_09": "becbc9223acc461ccba1071302db7892ede5fc6a54e2887755efcbb44bb59f79",
+    "golos_10": "7a458cdb5011aa1350d065ce19dd926fe89df36f8aa33de8f7e24a6535a79de3",
+    "golos_11": "602bcbf226585adf3299352784e79e1dce9aee77deccbc906854858df9248e07",
+    "golos_12": "3f1a09f2b031d5aa79018b8a1dbe4a663d12df756c75fe4bb624ebb55298aac9",
+    "golos_13": "be08c3843f9cdba8c92ad3a6a3fd8d1c4a86ca30bfa226e11f5645c898e6da60",
+    "golos_14": "0c2eb84db1a21f0ea82601fffc8ed637978a207e38180a9bda87fe82abd11c74"
+  },
+  "worker_sha256": "99b67a25ff888fccc02aa6176a4b1247eb30674e2cec6cab3d7d56fb7acde2f6",
+  "stack_measurement": {
+    "cpu": 0,
+    "thread_stack_bytes": 4194304,
+    "columns": [
+      "round",
+      "rate",
+      "arm",
+      "initial_rss_kib",
+      "after_one_corpus_rss_kib"
+    ],
+    "isolated_binary_sha256": {
+      "baseline": "3d9b97d0550c498924867d0cc2064d520d6c1c6574d1297320c06c2f6248ee34",
+      "owned": "fe741c492b33c80a27384e9ef8d58e73560ce62b975ce0364a932b7bc5a1a151",
+      "caller": "0a8b710ad200c1f04d3c31296857cbd43e7509c17ce7334f673fc819c35dfeae"
+    },
+    "standalone_main": "fn resident_stack_kib(address: usize) -> Result<usize> {\n    let mut in_stack = false;\n    for line in fs::read_to_string(\"/proc/self/smaps\")?.lines() {\n        let mut fields = line.split_ascii_whitespace();\n        if let Some((lo, hi)) = fields.next().and_then(|word| word.split_once('-')) {\n            let range = usize::from_str_radix(lo, 16)?..usize::from_str_radix(hi, 16)?;\n            in_stack = range.contains(&address);\n        } else if in_stack && line.starts_with(\"Rss:\") {\n            return Ok(line.split_ascii_whitespace().nth(1).ok_or(\"RSS\")?.parse()?);\n        }\n    }\n    Err(\"worker stack mapping not found\".into())\n}\nfn main() -> Result<()> {\n    use std::sync::mpsc::sync_channel;\n    let args: Vec<_> = env::args().collect();\n    let clips = corpus(Path::new(&args[1]))?;\n    let hz = args[2].parse()?;\n    let (tx, rx) = sync_channel(0);\n    let (ack, go) = sync_channel(0);\n    let worker = std::thread::Builder::new().stack_size(4 * 1024 * 1024).spawn(move || {\n        let anchor = 1u8;\n        tx.send(black_box(&anchor) as *const u8 as usize).unwrap();\n        go.recv().unwrap();\n        pass(&clips, hz, None).unwrap();\n        tx.send(black_box(&anchor) as *const u8 as usize).unwrap();\n        go.recv().unwrap();\n    })?;\n    let address = rx.recv()?;\n    let before = resident_stack_kib(address)?;\n    ack.send(())?;\n    assert_eq!(rx.recv()?, address);\n    let after = resident_stack_kib(address)?;\n    ack.send(())?;\n    worker.join().map_err(|_| \"worker panicked\")?;\n    println!(\"{before},{after}\");\n    Ok(())\n}\n",
+    "observations": [
+      [
+        1,
+        16000,
+        "baseline",
+        8,
+        296
+      ],
+      [
+        1,
+        16000,
+        "owned",
+        8,
+        216
+      ],
+      [
+        1,
+        16000,
+        "caller",
+        8,
+        148
+      ],
+      [
+        1,
+        48000,
+        "baseline",
+        8,
+        296
+      ],
+      [
+        1,
+        48000,
+        "owned",
+        8,
+        216
+      ],
+      [
+        1,
+        48000,
+        "caller",
+        8,
+        148
+      ],
+      [
+        2,
+        16000,
+        "baseline",
+        8,
+        296
+      ],
+      [
+        2,
+        16000,
+        "owned",
+        8,
+        216
+      ],
+      [
+        2,
+        16000,
+        "caller",
+        8,
+        148
+      ],
+      [
+        2,
+        48000,
+        "baseline",
+        8,
+        296
+      ],
+      [
+        2,
+        48000,
+        "owned",
+        8,
+        216
+      ],
+      [
+        2,
+        48000,
+        "caller",
+        8,
+        148
+      ],
+      [
+        3,
+        16000,
+        "baseline",
+        8,
+        296
+      ],
+      [
+        3,
+        16000,
+        "owned",
+        8,
+        216
+      ],
+      [
+        3,
+        16000,
+        "caller",
+        8,
+        148
+      ],
+      [
+        3,
+        48000,
+        "baseline",
+        8,
+        296
+      ],
+      [
+        3,
+        48000,
+        "owned",
+        8,
+        216
+      ],
+      [
+        3,
+        48000,
+        "caller",
+        8,
+        148
+      ],
+      [
+        4,
+        16000,
+        "baseline",
+        8,
+        296
+      ],
+      [
+        4,
+        16000,
+        "owned",
+        8,
+        216
+      ],
+      [
+        4,
+        16000,
+        "caller",
+        8,
+        148
+      ],
+      [
+        4,
+        48000,
+        "baseline",
+        8,
+        296
+      ],
+      [
+        4,
+        48000,
+        "owned",
+        8,
+        216
+      ],
+      [
+        4,
+        48000,
+        "caller",
+        8,
+        148
+      ],
+      [
+        5,
+        16000,
+        "baseline",
+        8,
+        296
+      ],
+      [
+        5,
+        16000,
+        "owned",
+        8,
+        216
+      ],
+      [
+        5,
+        16000,
+        "caller",
+        8,
+        148
+      ],
+      [
+        5,
+        48000,
+        "baseline",
+        8,
+        296
+      ],
+      [
+        5,
+        48000,
+        "owned",
+        8,
+        216
+      ],
+      [
+        5,
+        48000,
+        "caller",
+        8,
+        148
+      ]
+    ]
+  },
+  "timings": [
+    {
+      "round": 1,
+      "rate": 48000,
+      "arm": "r41",
+      "cpu_ns": 307002686
+    },
+    {
+      "round": 1,
+      "rate": 48000,
+      "arm": "baseline",
+      "cpu_ns": 366998398
+    },
+    {
+      "round": 1,
+      "rate": 48000,
+      "arm": "r42",
+      "cpu_ns": 303002924
+    },
+    {
+      "round": 1,
+      "rate": 48000,
+      "arm": "caller",
+      "cpu_ns": 308003190
+    },
+    {
+      "round": 1,
+      "rate": 48000,
+      "arm": "owned",
+      "cpu_ns": 316982157
+    },
+    {
+      "round": 1,
+      "rate": 16000,
+      "arm": "r41",
+      "cpu_ns": 174001796
+    },
+    {
+      "round": 1,
+      "rate": 16000,
+      "arm": "baseline",
+      "cpu_ns": 306993279
+    },
+    {
+      "round": 1,
+      "rate": 16000,
+      "arm": "r42",
+      "cpu_ns": 170988842
+    },
+    {
+      "round": 1,
+      "rate": 16000,
+      "arm": "caller",
+      "cpu_ns": 237749061
+    },
+    {
+      "round": 1,
+      "rate": 16000,
+      "arm": "owned",
+      "cpu_ns": 257999453
+    },
+    {
+      "round": 2,
+      "rate": 48000,
+      "arm": "baseline",
+      "cpu_ns": 370003577
+    },
+    {
+      "round": 2,
+      "rate": 48000,
+      "arm": "r42",
+      "cpu_ns": 302738947
+    },
+    {
+      "round": 2,
+      "rate": 48000,
+      "arm": "caller",
+      "cpu_ns": 305001828
+    },
+    {
+      "round": 2,
+      "rate": 48000,
+      "arm": "owned",
+      "cpu_ns": 332992586
+    },
+    {
+      "round": 2,
+      "rate": 48000,
+      "arm": "r41",
+      "cpu_ns": 308737502
+    },
+    {
+      "round": 2,
+      "rate": 16000,
+      "arm": "baseline",
+      "cpu_ns": 305003221
+    },
+    {
+      "round": 2,
+      "rate": 16000,
+      "arm": "r42",
+      "cpu_ns": 175002490
+    },
+    {
+      "round": 2,
+      "rate": 16000,
+      "arm": "caller",
+      "cpu_ns": 248659105
+    },
+    {
+      "round": 2,
+      "rate": 16000,
+      "arm": "owned",
+      "cpu_ns": 268001527
+    },
+    {
+      "round": 2,
+      "rate": 16000,
+      "arm": "r41",
+      "cpu_ns": 186001411
+    },
+    {
+      "round": 3,
+      "rate": 16000,
+      "arm": "r42",
+      "cpu_ns": 177985046
+    },
+    {
+      "round": 3,
+      "rate": 16000,
+      "arm": "caller",
+      "cpu_ns": 253731857
+    },
+    {
+      "round": 3,
+      "rate": 16000,
+      "arm": "owned",
+      "cpu_ns": 270998199
+    },
+    {
+      "round": 3,
+      "rate": 16000,
+      "arm": "r41",
+      "cpu_ns": 180349048
+    },
+    {
+      "round": 3,
+      "rate": 16000,
+      "arm": "baseline",
+      "cpu_ns": 311002698
+    },
+    {
+      "round": 3,
+      "rate": 48000,
+      "arm": "r42",
+      "cpu_ns": 305993465
+    },
+    {
+      "round": 3,
+      "rate": 48000,
+      "arm": "caller",
+      "cpu_ns": 327993441
+    },
+    {
+      "round": 3,
+      "rate": 48000,
+      "arm": "owned",
+      "cpu_ns": 344712895
+    },
+    {
+      "round": 3,
+      "rate": 48000,
+      "arm": "r41",
+      "cpu_ns": 296995112
+    },
+    {
+      "round": 3,
+      "rate": 48000,
+      "arm": "baseline",
+      "cpu_ns": 366003585
+    },
+    {
+      "round": 4,
+      "rate": 16000,
+      "arm": "caller",
+      "cpu_ns": 255723066
+    },
+    {
+      "round": 4,
+      "rate": 16000,
+      "arm": "owned",
+      "cpu_ns": 281002248
+    },
+    {
+      "round": 4,
+      "rate": 16000,
+      "arm": "r41",
+      "cpu_ns": 183002183
+    },
+    {
+      "round": 4,
+      "rate": 16000,
+      "arm": "baseline",
+      "cpu_ns": 297720318
+    },
+    {
+      "round": 4,
+      "rate": 16000,
+      "arm": "r42",
+      "cpu_ns": 172985903
+    },
+    {
+      "round": 4,
+      "rate": 48000,
+      "arm": "caller",
+      "cpu_ns": 303985064
+    },
+    {
+      "round": 4,
+      "rate": 48000,
+      "arm": "owned",
+      "cpu_ns": 326761891
+    },
+    {
+      "round": 4,
+      "rate": 48000,
+      "arm": "r41",
+      "cpu_ns": 296953684
+    },
+    {
+      "round": 4,
+      "rate": 48000,
+      "arm": "baseline",
+      "cpu_ns": 351003940
+    },
+    {
+      "round": 4,
+      "rate": 48000,
+      "arm": "r42",
+      "cpu_ns": 300723964
+    },
+    {
+      "round": 5,
+      "rate": 16000,
+      "arm": "owned",
+      "cpu_ns": 265996070
+    },
+    {
+      "round": 5,
+      "rate": 16000,
+      "arm": "r41",
+      "cpu_ns": 174995437
+    },
+    {
+      "round": 5,
+      "rate": 16000,
+      "arm": "baseline",
+      "cpu_ns": 288992133
+    },
+    {
+      "round": 5,
+      "rate": 16000,
+      "arm": "r42",
+      "cpu_ns": 167617675
+    },
+    {
+      "round": 5,
+      "rate": 16000,
+      "arm": "caller",
+      "cpu_ns": 238988055
+    },
+    {
+      "round": 5,
+      "rate": 48000,
+      "arm": "owned",
+      "cpu_ns": 312002701
+    },
+    {
+      "round": 5,
+      "rate": 48000,
+      "arm": "r41",
+      "cpu_ns": 292086269
+    },
+    {
+      "round": 5,
+      "rate": 48000,
+      "arm": "baseline",
+      "cpu_ns": 351965131
+    },
+    {
+      "round": 5,
+      "rate": 48000,
+      "arm": "r42",
+      "cpu_ns": 296994800
+    },
+    {
+      "round": 5,
+      "rate": 48000,
+      "arm": "caller",
+      "cpu_ns": 302796915
+    },
+    {
+      "round": 6,
+      "rate": 16000,
+      "arm": "owned",
+      "cpu_ns": 266994752
+    },
+    {
+      "round": 6,
+      "rate": 16000,
+      "arm": "caller",
+      "cpu_ns": 240002445
+    },
+    {
+      "round": 6,
+      "rate": 16000,
+      "arm": "r42",
+      "cpu_ns": 172981224
+    },
+    {
+      "round": 6,
+      "rate": 16000,
+      "arm": "baseline",
+      "cpu_ns": 293807239
+    },
+    {
+      "round": 6,
+      "rate": 16000,
+      "arm": "r41",
+      "cpu_ns": 169995001
+    },
+    {
+      "round": 6,
+      "rate": 48000,
+      "arm": "owned",
+      "cpu_ns": 323979703
+    },
+    {
+      "round": 6,
+      "rate": 48000,
+      "arm": "caller",
+      "cpu_ns": 318823394
+    },
+    {
+      "round": 6,
+      "rate": 48000,
+      "arm": "r42",
+      "cpu_ns": 287996217
+    },
+    {
+      "round": 6,
+      "rate": 48000,
+      "arm": "baseline",
+      "cpu_ns": 349980062
+    },
+    {
+      "round": 6,
+      "rate": 48000,
+      "arm": "r41",
+      "cpu_ns": 465827683
+    },
+    {
+      "round": 7,
+      "rate": 48000,
+      "arm": "r41",
+      "cpu_ns": 462994369
+    },
+    {
+      "round": 7,
+      "rate": 48000,
+      "arm": "owned",
+      "cpu_ns": 420671795
+    },
+    {
+      "round": 7,
+      "rate": 48000,
+      "arm": "caller",
+      "cpu_ns": 328986672
+    },
+    {
+      "round": 7,
+      "rate": 48000,
+      "arm": "r42",
+      "cpu_ns": 308854944
+    },
+    {
+      "round": 7,
+      "rate": 48000,
+      "arm": "baseline",
+      "cpu_ns": 361986871
+    },
+    {
+      "round": 7,
+      "rate": 16000,
+      "arm": "r41",
+      "cpu_ns": 166001591
+    },
+    {
+      "round": 7,
+      "rate": 16000,
+      "arm": "owned",
+      "cpu_ns": 254002617
+    },
+    {
+      "round": 7,
+      "rate": 16000,
+      "arm": "caller",
+      "cpu_ns": 252884181
+    },
+    {
+      "round": 7,
+      "rate": 16000,
+      "arm": "r42",
+      "cpu_ns": 174993472
+    },
+    {
+      "round": 7,
+      "rate": 16000,
+      "arm": "baseline",
+      "cpu_ns": 281990478
+    },
+    {
+      "round": 8,
+      "rate": 48000,
+      "arm": "baseline",
+      "cpu_ns": 353884836
+    },
+    {
+      "round": 8,
+      "rate": 48000,
+      "arm": "r41",
+      "cpu_ns": 290971439
+    },
+    {
+      "round": 8,
+      "rate": 48000,
+      "arm": "owned",
+      "cpu_ns": 318996320
+    },
+    {
+      "round": 8,
+      "rate": 48000,
+      "arm": "caller",
+      "cpu_ns": 318905047
+    },
+    {
+      "round": 8,
+      "rate": 48000,
+      "arm": "r42",
+      "cpu_ns": 289988037
+    },
+    {
+      "round": 8,
+      "rate": 16000,
+      "arm": "baseline",
+      "cpu_ns": 287984826
+    },
+    {
+      "round": 8,
+      "rate": 16000,
+      "arm": "r41",
+      "cpu_ns": 167950931
+    },
+    {
+      "round": 8,
+      "rate": 16000,
+      "arm": "owned",
+      "cpu_ns": 254995165
+    },
+    {
+      "round": 8,
+      "rate": 16000,
+      "arm": "caller",
+      "cpu_ns": 238001467
+    },
+    {
+      "round": 8,
+      "rate": 16000,
+      "arm": "r42",
+      "cpu_ns": 166001992
+    },
+    {
+      "round": 9,
+      "rate": 16000,
+      "arm": "r42",
+      "cpu_ns": 166955989
+    },
+    {
+      "round": 9,
+      "rate": 16000,
+      "arm": "baseline",
+      "cpu_ns": 298990119
+    },
+    {
+      "round": 9,
+      "rate": 16000,
+      "arm": "r41",
+      "cpu_ns": 177992760
+    },
+    {
+      "round": 9,
+      "rate": 16000,
+      "arm": "owned",
+      "cpu_ns": 257988603
+    },
+    {
+      "round": 9,
+      "rate": 16000,
+      "arm": "caller",
+      "cpu_ns": 248934104
+    },
+    {
+      "round": 9,
+      "rate": 48000,
+      "arm": "r42",
+      "cpu_ns": 297966248
+    },
+    {
+      "round": 9,
+      "rate": 48000,
+      "arm": "baseline",
+      "cpu_ns": 352959462
+    },
+    {
+      "round": 9,
+      "rate": 48000,
+      "arm": "r41",
+      "cpu_ns": 293961019
+    },
+    {
+      "round": 9,
+      "rate": 48000,
+      "arm": "owned",
+      "cpu_ns": 317994213
+    },
+    {
+      "round": 9,
+      "rate": 48000,
+      "arm": "caller",
+      "cpu_ns": 298979048
+    },
+    {
+      "round": 10,
+      "rate": 16000,
+      "arm": "caller",
+      "cpu_ns": 248833492
+    },
+    {
+      "round": 10,
+      "rate": 16000,
+      "arm": "r42",
+      "cpu_ns": 169988278
+    },
+    {
+      "round": 10,
+      "rate": 16000,
+      "arm": "baseline",
+      "cpu_ns": 285980462
+    },
+    {
+      "round": 10,
+      "rate": 16000,
+      "arm": "r41",
+      "cpu_ns": 167001153
+    },
+    {
+      "round": 10,
+      "rate": 16000,
+      "arm": "owned",
+      "cpu_ns": 259949284
+    },
+    {
+      "round": 10,
+      "rate": 48000,
+      "arm": "caller",
+      "cpu_ns": 293995824
+    },
+    {
+      "round": 10,
+      "rate": 48000,
+      "arm": "r42",
+      "cpu_ns": 289978128
+    },
+    {
+      "round": 10,
+      "rate": 48000,
+      "arm": "baseline",
+      "cpu_ns": 348986532
+    },
+    {
+      "round": 10,
+      "rate": 48000,
+      "arm": "r41",
+      "cpu_ns": 299969561
+    },
+    {
+      "round": 10,
+      "rate": 48000,
+      "arm": "owned",
+      "cpu_ns": 313996316
+    }
+  ]
+}

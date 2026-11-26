@@ -148,6 +148,20 @@ impl<'a> RangeDecoder<'a> {
         {
             return Err(RangeError::InvalidDistribution);
         }
+        self.decode_icdf_table(icdf, bits)
+    }
+
+    /// Decode with a codec-defined inverse CDF whose shape is known in advance.
+    /// Callers must supply the same valid distribution accepted by `decode_icdf`.
+    pub(crate) fn decode_icdf_table(
+        &mut self,
+        icdf: &[u8],
+        bits: u32,
+    ) -> Result<usize, RangeError> {
+        debug_assert!((1..=8).contains(&bits));
+        debug_assert_eq!(icdf.last(), Some(&0));
+        debug_assert!(u32::from(icdf[0]) < 1 << bits);
+        debug_assert!(icdf.windows(2).all(|pair| pair[0] >= pair[1]));
         self.transaction(|d| {
             let unit = d.range >> bits;
             let mut upper = d.range;

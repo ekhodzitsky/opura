@@ -281,6 +281,50 @@ fn unhex(hex: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         .map(|v| Ok(u8::from_str_radix(std::str::from_utf8(v)?, 16)?))
         .collect()
 }
+
+#[test]
+fn reusable_output_matches_owned_across_rates_channels_and_durations()
+-> Result<(), Box<dyn std::error::Error>> {
+    use opura::decoder::DecoderError;
+    let fixtures = ["celt-packet-fixtures.txt", "hybrid-packet-fixtures.txt"];
+    let mut packets = Vec::new();
+    for name in fixtures {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join(name);
+        let text = std::fs::read_to_string(path)?;
+        for row in text.lines().filter(|s| s.starts_with("packet ")).take(3) {
+            packets.push(unhex(row.split_whitespace().nth(4).ok_or("packet hex")?)?);
+        }
+    }
+    // Minimum CELT frame, then a 120 ms packet of six 20 ms SILK DTX frames.
+    packets.extend([vec![0x80], vec![0x0b, 6]]);
+    for hz in [8000, 12000, 16000, 24000, 48000] {
+        for count in [1, 2] {
+            let mut owned = OpusDecoder::new(rate(hz), channels(count))?;
+            let mut reused = owned.clone();
+            reused.set_gain_q8(128);
+            owned.set_gain_q8(128);
+            for packet in &packets {
+                let expected = owned.decode(packet)?;
+                let needed = expected.samples().len();
+                let mut buffer = vec![12345; needed + 2];
+                let before = reused.clone();
+                assert_eq!(
+                    reused.decode_into(packet, &mut buffer[..needed - 1]),
+                    Err(DecoderError::BufferTooSmall { required: needed })
+                );
+                assert!(buffer.iter().all(|&v| v == 12345));
+                assert_eq!(reused, before);
+                assert_eq!(reused.decode_into(packet, &mut buffer)?, needed);
+                assert_eq!(&buffer[..needed], expected.samples());
+                assert_eq!(buffer[needed..], [12345; 2]);
+                assert_eq!(reused, owned);
+            }
+        }
+    }
+    Ok(())
+}
 #[test]
 fn invalid_and_late_packet_failures_preserve_both_layers() -> Result<(), Box<dyn std::error::Error>>
 {
@@ -339,6 +383,17 @@ fn invalid_and_late_packet_failures_preserve_both_layers() -> Result<(), Box<dyn
     assert_eq!(decoder.decode(&deep), Err(expected));
     assert_eq!(decoder, before);
     late.extend_from_slice(&deep[1..]);
+    let mut storage = [12345; 11520];
+    assert!(matches!(
+        decoder.decode_into(&[], &mut storage),
+        Err(DecoderError::Framing(_))
+    ));
+    assert!(storage.iter().all(|&v| v == 12345));
+    assert!(matches!(
+        decoder.decode_into(&late, &mut storage),
+        Err(DecoderError::Celt(_))
+    ));
+    assert_eq!(decoder, before);
     assert!(matches!(decoder.decode(&late), Err(DecoderError::Celt(_))));
     assert_eq!(decoder, before);
     let mut hybrid = before.clone();
