@@ -7,6 +7,8 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Measure CPU per minute of recognized Opus speech in GigaSTT. With four inference threads the deployed decoder and Opura pilot used 5.11 and 5.12 CPU-seconds per speech minute. Two threads with the deployed decoder used 3.94. [GigaSTT pilot](docs/benchmarks/gigastt-silk-pilot.md)
+
 - Compare two SILK synthesis implementations with 0.2.8 on concurrent speech. At 768 streams the transposed filter used 14.2% less CPU time with similar peak RSS. It met all packet deadlines in 17 of 18 trials. [Measurements](docs/benchmarks/silk-synthesis-speech-trial.md)
 
 - Measure Opura 0.2.8 in a QUIC conference server, a phone media worker and a replay of active speech streams. These trials quantify the memory saved, CPU cost and audio deadlines across three workloads. [VoiceMCU](docs/benchmarks/voicemcu-0.2.8.md) · [RustPBX](docs/benchmarks/rustpbx-transcode-0.2.8.md) · [Speech streams](docs/benchmarks/active-speech-capacity-0.2.8.md)
