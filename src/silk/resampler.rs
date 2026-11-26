@@ -353,24 +353,30 @@ impl<const DELAY: usize, const FIR: usize, const WORK: usize> ResamplerCore<DELA
                 let batch_size = rate.khz() * 10;
                 for chunk in input.chunks(batch_size) {
                     upsample2(&mut self.iir, chunk, &mut buffer[8..8 + 2 * chunk.len()]);
-                    let maximum = (chunk.len() as u32) << 17;
-                    let mut index = 0;
-                    while index < maximum {
-                        let phase = (((index & 65535) * 12) >> 16) as usize;
-                        let at = (index >> 16) as usize;
-                        let mut sum = 0i32;
-                        for j in 0..4 {
-                            sum = sum.wrapping_add(
-                                i32::from(buffer[at + j]) * i32::from(FRACTIONAL[phase * 4 + j]),
-                            );
-                            sum = sum.wrapping_add(
-                                i32::from(buffer[at + 7 - j])
-                                    * i32::from(FRACTIONAL[(11 - phase) * 4 + j]),
-                            );
+                    if self.ratio == 43_691 {
+                        // A 3x rate uses a rounded Q16 step of 2/3 after upsample2.
+                        // Over a batch of at most 480 outputs, rounding never moves
+                        // a phase across a 1/12 boundary: 0, 8, 4 repeat at 0, 0, 1.
+                        let end = written + 3 * chunk.len();
+                        for (pcm, window) in output[written..end]
+                            .chunks_exact_mut(3)
+                            .zip(buffer.windows(9).step_by(2))
+                        {
+                            pcm[0] = interpolate(&window[..8], 0);
+                            pcm[1] = interpolate(&window[..8], 8);
+                            pcm[2] = interpolate(&window[1..], 4);
                         }
-                        output[written] = saturate16(round_shift(sum, 15));
-                        written += 1;
-                        index += self.ratio;
+                        written = end;
+                    } else {
+                        let maximum = (chunk.len() as u32) << 17;
+                        let mut index = 0;
+                        while index < maximum {
+                            let phase = (((index & 65535) * 12) >> 16) as usize;
+                            let at = (index >> 16) as usize;
+                            output[written] = interpolate(&buffer[at..at + 8], phase);
+                            written += 1;
+                            index += self.ratio;
+                        }
                     }
                     buffer.copy_within(2 * chunk.len()..2 * chunk.len() + 8, 0);
                 }
@@ -429,6 +435,17 @@ impl<const DELAY: usize, const FIR: usize, const WORK: usize> ResamplerCore<DELA
             }
         }
     }
+}
+
+#[inline]
+fn interpolate(window: &[i16], phase: usize) -> i16 {
+    let mut sum = 0i32;
+    for j in 0..4 {
+        sum = sum.wrapping_add(i32::from(window[j]) * i32::from(FRACTIONAL[phase * 4 + j]));
+        sum = sum
+            .wrapping_add(i32::from(window[7 - j]) * i32::from(FRACTIONAL[(11 - phase) * 4 + j]));
+    }
+    saturate16(round_shift(sum, 15))
 }
 
 // Three allpass sections per phase. The final negative coefficient has an
