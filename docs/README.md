@@ -5,7 +5,7 @@
 | Task | Where to start |
 | --- | --- |
 | Add the library and encode or decode a packet | [Library quick start](../README.md#use-the-library) |
-| Reduce memory in servers with many simultaneous speech streams | [Compact decoder measurements](benchmarks/compact-speech-0.2.11.md) |
+| Reduce memory in servers with many simultaneous speech streams | [Compact decoder measurements](benchmarks/compact-speech-0.2.12.md) |
 | Convert WAV and Ogg Opus files | [Audio command](audio-cli.md) |
 | Use channel mappings, output gain or surround encoding | [Multistream API](validation/multistream.md) and [surround encoding](validation/surround-encoder.md) |
 | Check supported configurations and compare performance | [Codec readiness](validation/codec-readiness.md) |

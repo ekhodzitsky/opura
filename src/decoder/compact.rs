@@ -107,9 +107,9 @@ impl CompactOpusDecoder {
     /// Decode one complete packet, preserving state on error.
     pub fn decode(&mut self, data: &[u8]) -> Result<DecodedPcm, DecoderError> {
         let packet = Packet::parse(data).map_err(DecoderError::Framing)?;
-        let mut next = self.staged()?;
-        let pcm = next.decode_packet_staged(&packet)?;
-        self.commit(next);
+        let mut pcm = self.state.empty_output();
+        pcm.length = self.decode_packet_into(&packet, &mut pcm.values)?;
+        pcm.range = self.final_range();
         Ok(pcm)
     }
 
@@ -123,10 +123,62 @@ impl CompactOpusDecoder {
         let out = output
             .get_mut(..required)
             .ok_or(DecoderError::BufferTooSmall { required })?;
+        self.decode_packet_into(&packet, out)
+    }
+
+    fn decode_packet_into(
+        &mut self,
+        packet: &Packet<'_>,
+        output: &mut [i16],
+    ) -> Result<usize, DecoderError> {
+        if self.celt.is_none() && packet.mode() == Mode::Silk {
+            if let Some(count) = self.decode_speech(packet, output)? {
+                return Ok(count);
+            }
+        }
         let mut next = self.staged()?;
-        let count = next.decode_packet_into_staged(&packet, out)?;
+        let count = next.decode_packet_into_staged(packet, output)?;
         self.commit(next);
         Ok(count)
+    }
+
+    // A SILK packet may carry a redundant CELT tail. Its presence is known only
+    // after decoding the SILK layer. In that case discard the tentative state
+    // and let the general path handle the transition from the original history.
+    fn decode_speech(
+        &mut self,
+        packet: &Packet<'_>,
+        output: &mut [i16],
+    ) -> Result<Option<usize>, DecoderError> {
+        let [payload] = packet.frames() else {
+            return Ok(None);
+        };
+        if payload.len() <= 1
+            || !matches!(self.state.previous, None | Some(Mode::Silk))
+            || self.state.redundancy
+        {
+            return Ok(None);
+        }
+        let (header, mut entropy) = silk_header(packet, 0)?;
+        let mut next = self.state.clone();
+        next.configure_packet(packet);
+        let count = next.silk.decode_layer_into(
+            &header,
+            &mut entropy,
+            silk_rate(next.bandwidth),
+            false,
+            output,
+        )?;
+        if has_redundancy_bits(Mode::Silk, &entropy, payload.len()) {
+            return Ok(None);
+        }
+        next.apply_gain(&mut output[..count]);
+        next.range = entropy.range();
+        next.previous = Some(Mode::Silk);
+        next.last_duration = packet.duration_samples();
+        self.bands = (17, end_band(next.bandwidth));
+        self.state = next;
+        Ok(Some(count))
     }
 
     /// Conceal a missing interval, measured on the 48 kHz clock.

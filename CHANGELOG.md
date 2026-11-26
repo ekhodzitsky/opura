@@ -7,6 +7,10 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.2.12] - 2026-11-26
+
+- Reduce CPU use in `CompactOpusDecoder` for ordinary single-frame SILK speech. When a stream has no CELT history, the decoder stages only its speech state. Packets with a possible redundant CELT tail use the full decoder. On 16 kHz mono meeting speech, paired CPU use fell by 16.5% at one stream and 17.9% at 768 streams compared with 0.2.11. Warm process RSS at 768 streams was 10.2 MiB. One measured SILK packet carrying a redundant CELT tail took 12 µs more CPU. [Measurements and limits](docs/benchmarks/compact-speech-0.2.12.md)
+
 ## [0.2.11] - 2026-11-26
 
 - Add the opt-in `decoder::CompactOpusDecoder` for applications retaining many speech streams. It allocates CELT history on demand and releases it on reset. At 768 active SILK streams, median worker RSS fell from 29.9 to 10.2 MiB against 0.2.10. The first switch to CELT increased median per-run p99 from 62.4 to 80.7 µs. The single-stream replay used 10% more CPU with the compact API. [Measurements and reproduction](docs/benchmarks/compact-speech-0.2.11.md)
