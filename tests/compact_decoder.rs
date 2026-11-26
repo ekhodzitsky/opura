@@ -128,3 +128,66 @@ fn cold_silk_falls_back_for_redundant_celt_after_narrowband_speech() -> Result<(
     }
     Ok(())
 }
+
+#[test]
+fn mono_diagnostics_preserve_logical_state_and_retry_across_promotion() -> Result<(), Box<dyn Error>>
+{
+    fn assert_traits<
+        T: Clone + Eq + Send + Sync + std::panic::UnwindSafe + std::panic::RefUnwindSafe,
+    >() {
+    }
+    assert_traits::<CompactOpusDecoder>();
+
+    let hybrid = recorded_packet(Mode::Hybrid)?;
+    let silk = recorded_packet(Mode::Silk)?;
+    let celt = recorded_packet(Mode::Celt)?;
+    let mut fixed = OpusDecoder::new(OutputRate::Khz48, PcmChannels::Mono)?;
+    let mut packed = CompactOpusDecoder::new(OutputRate::Khz48, PcmChannels::Mono)?;
+    for data in [&hybrid, &silk, &celt, &hybrid] {
+        assert_eq!(packed.decode(data)?, fixed.decode(data)?);
+        assert_eq!(packed.conceal_samples(960)?, fixed.conceal_samples(960)?);
+    }
+
+    let mut observed = packed.clone();
+    assert_eq!(observed.celt(), Some(fixed.celt()));
+    let snapshot = observed.celt().ok_or("missing CELT state")?;
+    let repeated = observed.celt().ok_or("missing repeated CELT state")?;
+    assert!(std::ptr::eq(snapshot, repeated));
+    assert_eq!(observed, packed);
+    assert_eq!(format!("{observed:?}"), format!("{packed:?}"));
+    assert_eq!(observed.clone(), packed);
+
+    // An invalid buffer must preserve the logical state and the cached snapshot.
+    let original = snapshot as *const _;
+    let mut short = [123; 1];
+    assert!(observed.decode_into(&hybrid, &mut short).is_err());
+    assert_eq!(short, [123]);
+    assert_eq!(observed, packed);
+    assert_eq!(
+        observed.celt().ok_or("missing cached state")? as *const _,
+        original
+    );
+
+    // Subsequent success promotes only the observed decoder. The two
+    // representations must continue to compare equal and emit identical PCM.
+    for data in [&hybrid, &celt, &silk] {
+        let expected = fixed.decode(data)?;
+        assert_eq!(packed.decode(data)?, expected);
+        assert_eq!(observed.decode(data)?, expected);
+        assert_eq!(observed, packed);
+        assert_eq!(observed.celt(), Some(fixed.celt()));
+    }
+    let expected_loss = fixed.conceal_samples(960)?;
+    assert_eq!(packed.conceal_samples(960)?, expected_loss);
+    assert_eq!(observed.conceal_samples(960)?, expected_loss);
+    assert_eq!(observed, packed);
+    assert_eq!(packed.celt(), Some(fixed.celt()));
+    assert_eq!(observed.celt(), Some(fixed.celt()));
+
+    packed.reset();
+    observed.reset();
+    assert_eq!(observed, packed);
+    assert!(observed.celt().is_none());
+    assert!(packed.celt().is_none());
+    Ok(())
+}

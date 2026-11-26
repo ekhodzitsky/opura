@@ -1,0 +1,4015 @@
+{
+  "baseline_crate_sha256": "284d926c6a434c95e01d8305b55c16755c1ec0f0748be6c63d9ace52882cdea2",
+  "binary_sha256": {
+    "base-memory": "7154b5183f8401a33270b637d92a20be2d82c674adf54bd8ce518381233416e9",
+    "base-qa": "3739e1f29efee2710aa31cc92bf8244c7836b4ed063c0904045b3e8f0502afda",
+    "base-timing": "275686784e90b4c974e6deeb370c8699ee93d2d051d0474530a1eab8b9e4a303",
+    "candidate-memory": "fa1c69226f42314c5eb5857c9a29b17a74238aa9c70f03f20bad26d975762a87",
+    "candidate-qa": "4dc70da298dffa3d65a53bf4b5979cd55cc8473b4164f5d3ef9d149b68ad72ba",
+    "candidate-timing": "c5b097c5edcdd59f593d17cdf7cf5e96fc8609b41c0103d5afc4ab73d0ee2440"
+  },
+  "candidate_patch_sha256": "877ca51c12a760b72d520b5d0616aa3254e05bf9d327d10695e68a5587d3d704",
+  "clock_smoke": {
+    "packet_samples": 1600,
+    "sha256": "6948c476ee8a7a7f90e82d3b52e443ed5aa30dbdb9a5a8c1fbcc3d766a8d5f8c",
+    "zero_deltas": 1564
+  },
+  "compiler": "rustc 1.87.0 (17067e9ac 2025-05-09)\nbinary: rustc\ncommit-hash: 17067e9ac6d7ecb70e50f92c1944e545188d2359\ncommit-date: 2025-05-09\nhost: x86_64-unknown-linux-gnu\nrelease: 1.87.0\nLLVM version: 20.1.1",
+  "diagnostic_read_each_packet": {
+    "binary_sha256": {
+      "('base', 'memory')": "f303702b7789f9d846542fdd13702621f74e0c02e32133b2a2ff31156729e0b8",
+      "('base', 'timing')": "90244698e367de7e515a12d34fc7ef10e70c179581cf982d5e84e096a1c9c1f7",
+      "('candidate', 'memory')": "5752847f6334f920b513c20a3d30a5630d7e27e7ee74f8323b1bc6af53daf279",
+      "('candidate', 'timing')": "71264a7fce7b94266a43dd4e39664fd651a9c499b23158f56a3b7c618174b9c8"
+    },
+    "memory": [
+      {
+        "arm": "base",
+        "before": [
+          2456,
+          180
+        ],
+        "decoder_bytes": 7648,
+        "hash": "6addb5f6f19834eb",
+        "range_hash": "3cca83fc1a5d69cd",
+        "round": 1,
+        "samples": 17694720,
+        "warm": [
+          28760,
+          26276
+        ]
+      },
+      {
+        "arm": "candidate",
+        "before": [
+          2476,
+          548
+        ],
+        "decoder_bytes": 7672,
+        "hash": "6addb5f6f19834eb",
+        "range_hash": "3cca83fc1a5d69cd",
+        "round": 1,
+        "samples": 17694720,
+        "warm": [
+          39172,
+          37244
+        ]
+      },
+      {
+        "arm": "candidate",
+        "before": [
+          2512,
+          580
+        ],
+        "decoder_bytes": 7672,
+        "hash": "6addb5f6f19834eb",
+        "range_hash": "3cca83fc1a5d69cd",
+        "round": 2,
+        "samples": 17694720,
+        "warm": [
+          39160,
+          37228
+        ]
+      },
+      {
+        "arm": "base",
+        "before": [
+          2552,
+          172
+        ],
+        "decoder_bytes": 7648,
+        "hash": "6addb5f6f19834eb",
+        "range_hash": "3cca83fc1a5d69cd",
+        "round": 2,
+        "samples": 17694720,
+        "warm": [
+          28828,
+          26272
+        ]
+      },
+      {
+        "arm": "base",
+        "before": [
+          2444,
+          176
+        ],
+        "decoder_bytes": 7648,
+        "hash": "6addb5f6f19834eb",
+        "range_hash": "3cca83fc1a5d69cd",
+        "round": 3,
+        "samples": 17694720,
+        "warm": [
+          28740,
+          26272
+        ]
+      },
+      {
+        "arm": "candidate",
+        "before": [
+          2484,
+          552
+        ],
+        "decoder_bytes": 7672,
+        "hash": "6addb5f6f19834eb",
+        "range_hash": "3cca83fc1a5d69cd",
+        "round": 3,
+        "samples": 17694720,
+        "warm": [
+          39180,
+          37248
+        ]
+      },
+      {
+        "arm": "base",
+        "before": [
+          2496,
+          172
+        ],
+        "decoder_bytes": 7648,
+        "hash": "6addb5f6f19834eb",
+        "range_hash": "3cca83fc1a5d69cd",
+        "round": 4,
+        "samples": 17694720,
+        "warm": [
+          28800,
+          26268
+        ]
+      },
+      {
+        "arm": "candidate",
+        "before": [
+          2516,
+          588
+        ],
+        "decoder_bytes": 7672,
+        "hash": "6addb5f6f19834eb",
+        "range_hash": "3cca83fc1a5d69cd",
+        "round": 4,
+        "samples": 17694720,
+        "warm": [
+          39172,
+          37244
+        ]
+      },
+      {
+        "arm": "base",
+        "before": [
+          2488,
+          176
+        ],
+        "decoder_bytes": 7648,
+        "hash": "6addb5f6f19834eb",
+        "range_hash": "3cca83fc1a5d69cd",
+        "round": 5,
+        "samples": 17694720,
+        "warm": [
+          28796,
+          26276
+        ]
+      },
+      {
+        "arm": "candidate",
+        "before": [
+          2532,
+          600
+        ],
+        "decoder_bytes": 7672,
+        "hash": "6addb5f6f19834eb",
+        "range_hash": "3cca83fc1a5d69cd",
+        "round": 5,
+        "samples": 17694720,
+        "warm": [
+          39236,
+          37304
+        ]
+      }
+    ],
+    "protocol": {
+      "method": "read celt() after each decode via black_box; all other settings as normal qualification. 5 fresh paired memory rounds at 768 and 5 CPU pairs Mandarin; diagnostic only",
+      "schedule": [
+        {
+          "arms": [
+            "base",
+            "candidate"
+          ],
+          "kind": "memory",
+          "round": 1
+        },
+        {
+          "arms": [
+            "candidate",
+            "base"
+          ],
+          "kind": "memory",
+          "round": 2
+        },
+        {
+          "arms": [
+            "base",
+            "candidate"
+          ],
+          "kind": "memory",
+          "round": 3
+        },
+        {
+          "arms": [
+            "base",
+            "candidate"
+          ],
+          "kind": "memory",
+          "round": 4
+        },
+        {
+          "arms": [
+            "base",
+            "candidate"
+          ],
+          "kind": "memory",
+          "round": 5
+        },
+        {
+          "arms": [
+            "candidate",
+            "base"
+          ],
+          "kind": "cpu",
+          "round": 1
+        },
+        {
+          "arms": [
+            "base",
+            "candidate"
+          ],
+          "kind": "cpu",
+          "round": 2
+        },
+        {
+          "arms": [
+            "base",
+            "candidate"
+          ],
+          "kind": "cpu",
+          "round": 3
+        },
+        {
+          "arms": [
+            "candidate",
+            "base"
+          ],
+          "kind": "cpu",
+          "round": 4
+        },
+        {
+          "arms": [
+            "base",
+            "candidate"
+          ],
+          "kind": "cpu",
+          "round": 5
+        }
+      ]
+    },
+    "receipt_sha256": "c73d24327a6a2d830eaa5521a2c2fb97df9a167c3acb3fccc987181597ec11ad",
+    "summary": {
+      "base": {
+        "median_cpu_ns_per_replay": 62092435.1,
+        "warm_private_dirty_kib": 26272,
+        "warm_rss_kib": 28796
+      },
+      "candidate": {
+        "median_cpu_ns_per_replay": 61930530.3,
+        "warm_private_dirty_kib": 37244,
+        "warm_rss_kib": 39172
+      }
+    },
+    "timing": [
+      {
+        "arm": "candidate",
+        "cpu_ns": 619305303,
+        "round": 1
+      },
+      {
+        "arm": "base",
+        "cpu_ns": 573885877,
+        "round": 1
+      },
+      {
+        "arm": "base",
+        "cpu_ns": 607465346,
+        "round": 2
+      },
+      {
+        "arm": "candidate",
+        "cpu_ns": 697904053,
+        "round": 2
+      },
+      {
+        "arm": "base",
+        "cpu_ns": 686992587,
+        "round": 3
+      },
+      {
+        "arm": "candidate",
+        "cpu_ns": 609972088,
+        "round": 3
+      },
+      {
+        "arm": "candidate",
+        "cpu_ns": 587992230,
+        "round": 4
+      },
+      {
+        "arm": "base",
+        "cpu_ns": 623968884,
+        "round": 4
+      },
+      {
+        "arm": "base",
+        "cpu_ns": 620924351,
+        "round": 5
+      },
+      {
+        "arm": "candidate",
+        "cpu_ns": 623988390,
+        "round": 5
+      }
+    ]
+  },
+  "host": {
+    "cpu": "AMD Ryzen AI 9 HX 370 w/ Radeon 890M",
+    "kernel": "Linux 7.0.0-42-generic"
+  },
+  "memory": {
+    "1": {
+      "base": {
+        "private_dirty_kib": {
+          "warm": 388,
+          "warm_minus_before": 208
+        },
+        "rss_kib": {
+          "warm": 2872,
+          "warm_minus_before": 400
+        }
+      },
+      "candidate": {
+        "private_dirty_kib": {
+          "warm": 376,
+          "warm_minus_before": 196
+        },
+        "rss_kib": {
+          "warm": 2928,
+          "warm_minus_before": 412
+        }
+      }
+    },
+    "128": {
+      "base": {
+        "private_dirty_kib": {
+          "warm": 4676,
+          "warm_minus_before": 4496
+        },
+        "rss_kib": {
+          "warm": 7240,
+          "warm_minus_before": 4724
+        }
+      },
+      "candidate": {
+        "private_dirty_kib": {
+          "warm": 3040,
+          "warm_minus_before": 2864
+        },
+        "rss_kib": {
+          "warm": 5548,
+          "warm_minus_before": 3064
+        }
+      }
+    },
+    "768": {
+      "base": {
+        "private_dirty_kib": {
+          "warm": 26276,
+          "warm_minus_before": 26096
+        },
+        "rss_kib": {
+          "warm": 28780,
+          "warm_minus_before": 26296
+        }
+      },
+      "candidate": {
+        "private_dirty_kib": {
+          "warm": 16476,
+          "warm_minus_before": 16296
+        },
+        "rss_kib": {
+          "warm": 18968,
+          "warm_minus_before": 16488
+        }
+      }
+    }
+  },
+  "memory_gate": true,
+  "memory_saving_kib": 9800,
+  "original_receipt_sha256": "e5b18b9aeccfbc947a6828f44942c4853240c0ace55827eaebec7caf10fd455e",
+  "portable_manifest": {
+    "baseline_crate_sha256": "284d926c6a434c95e01d8305b55c16755c1ec0f0748be6c63d9ace52882cdea2",
+    "candidate_source_sha256": {
+      "src/celt/decoder.rs": "6468066e52916f8d8207cedb76e4b1b3a62cb1b680e83fd1210a49f51329aec4",
+      "src/celt/decoder/loss.rs": "3b3f26fb3ed4e39df98d4ec925bfd399f4b5dd145d3fb6bb2e131b5c230aa2b5",
+      "src/celt/synthesis.rs": "e4cf0799420414dc49dd81444d353de3e34f0593079ba5c819744a1c829c9852",
+      "src/decoder/compact.rs": "6dfa699e5cf6533821d9bc6524ab0e5bd49543547abe2f94ebb44810c2e900c2"
+    },
+    "original_measured_script_sha256": {
+      "build.py": "5900bfbc8269ac63e56b0fe4db8d52475adf399893cc5c1e1f23cd17199cddd4",
+      "memory.rs": "0fe0b9cb83b3959592f06fc26f7b12f86031cb8c3b1002e9d5ea853323a72212",
+      "qa.py": "d9d40dc3d09c3d75436cf702d36ab380da370ce5adf623966e23cc6f7da4ab5d",
+      "qa.rs": "8feb97b39459f00ae99adef5a2b5626337d417efda8f074fc713570df76da012",
+      "run.py": "c9be3138a214324446e8e35628e32d61fe0db4c4f7113f71725ace9fa790a6b6",
+      "timing.rs": "4c933d1e5cfaabc330099492482ad1a70468823fb6729371213066f02e3be482"
+    },
+    "original_public_receipt_sha256": "e5b18b9aeccfbc947a6828f44942c4853240c0ace55827eaebec7caf10fd455e",
+    "portable_files_sha256": {
+      "REPRODUCE.md": "60e7f9cf1f897c68961710e99cde34de563a78d8dc3370bf9ae81bd6c5dc7da7",
+      "build.py": "5900bfbc8269ac63e56b0fe4db8d52475adf399893cc5c1e1f23cd17199cddd4",
+      "diagnostics.py": "55dd3565a48698b325f95d6487bd97b239dbe8719c9b9fe6455872cf1f5e44c7",
+      "memory.rs": "0fe0b9cb83b3959592f06fc26f7b12f86031cb8c3b1002e9d5ea853323a72212",
+      "prepare.py": "bc021968a97cecb862d1367a9cb0d75f0235b7b4a6840c977272f826e62d96b3",
+      "protocol.json": "d4c42c9c2b1064190b933d3eac7c8efada7a856fe003e9574ddaed1c31866095",
+      "qa.py": "44a8a99da8932035143e8b782c59174b17a15e20d532a2b09ecd8ea722a3e181",
+      "qa.rs": "8feb97b39459f00ae99adef5a2b5626337d417efda8f074fc713570df76da012",
+      "run.py": "8c92f5576b953537e760f6d8a4eec2d86c7f1258325dc1eef8aa9ce1bb3c2569",
+      "timing.rs": "4c933d1e5cfaabc330099492482ad1a70468823fb6729371213066f02e3be482"
+    },
+    "protocol_sha256": "d4c42c9c2b1064190b933d3eac7c8efada7a856fe003e9574ddaed1c31866095",
+    "vector_input_sha256": {
+      "testvector01.bit": "00a4d34e12a2a32a047bfcaf762f663430b2232bc76a1c21e3b598f060f99b7e",
+      "testvector02.bit": "285deaf78e6b1ebdde7dc6a76af279a08bf0fa7a13e3a84e87ac3f76213626a6",
+      "testvector03.bit": "811b3d28483c781e4d1a0f8008bf73c3882c6c9cf8dedc65c0c14fa4239bb9d9",
+      "testvector04.bit": "874b838699a471acd97bd13e11224a3ef71c95b018b85a9c93a41459a7185565",
+      "testvector05.bit": "9b13f677c61cfad9a94460f986401b843e07e3245265067580539d9d8f1ec230",
+      "testvector06.bit": "65a779507949842232cfb6119db3ec8c056c05b80d65abb7a3ae9b06b443e33f",
+      "testvector07.bit": "ae7ae8f569807d4d964c574d7b1556e8b930307adfa9928942fe44f5e2bcc5f1",
+      "testvector08.bit": "4de258de02ccc08c805b3d41414c3a0f2f607e57ea3a7a5cb9bef26c2f01eb01",
+      "testvector09.bit": "91a798186cd2483e47a6b3db44eb3f8fb7f5584c3ed2f2c8158ae8f9172a6b31",
+      "testvector10.bit": "7288deb8d0e9e49f7f8ae50d6b4f2221294faa222b9db69161951b928e62435a",
+      "testvector11.bit": "ee3cd3c6f420d803f563af6518851316696fd121932a191045349a615df7a249",
+      "testvector12.bit": "48df85083178e8fc9c31af3fa6d5b38377f0eb84da4931a8886af503b17a0218"
+    }
+  },
+  "production_candidate_sha256": {
+    "src/celt/decoder.rs": "6468066e52916f8d8207cedb76e4b1b3a62cb1b680e83fd1210a49f51329aec4",
+    "src/celt/decoder/loss.rs": "3b3f26fb3ed4e39df98d4ec925bfd399f4b5dd145d3fb6bb2e131b5c230aa2b5",
+    "src/celt/synthesis.rs": "e4cf0799420414dc49dd81444d353de3e34f0593079ba5c819744a1c829c9852",
+    "src/decoder/compact.rs": "6dfa699e5cf6533821d9bc6524ab0e5bd49543547abe2f94ebb44810c2e900c2"
+  },
+  "protocol": {
+    "compiler": "Rust 1.87.0 Cargo default release, no profile override",
+    "cpu": 4,
+    "cpu_method": "20 paired rounds (10 mirrored blocks) each corpus and phase. CPU after one warmup, fresh state per pass, 10 repeats, thread schedstat read once before/after measured loop; separate p99 measurement uses 3 passes and std::time::Instant before/after each packet decode (wall latency), with nearest-rank p99; includes instrumentation overhead, not subtracted. A discarded baseline clock smoke test found 1564 zeros out of 1600 with schedstat per packet, confirming that clock is unsuitable for p99; timing phases have not started. In each phase paired ratio is geometric mean and 95% percentile bootstrap of mirrored blocks, 50000 samples. For p99 additional guard ratio of median arm p99 across runs <=1.05.",
+    "gate": {
+      "cpu_ratio_max": 1.02,
+      "cpu_ratio_upper95_max": 1.05,
+      "p99_ratio_max": 1.05,
+      "p99_ratio_upper95_max": 1.1,
+      "warm_private_dirty_saving_kib_768": 6144
+    },
+    "inputs": {
+      "ami": {
+        "path_relative_to_day": "speed124/input/ami/packets.bin",
+        "sha256": "b664a3bd8939314c4823e5199fc4b5b6cf0d02b379cf33c9e55a6c6114131a10"
+      },
+      "mandarin": {
+        "path_relative_to_day": "speed124/input/first/packets.bin",
+        "sha256": "02e5699c7b40d07b7db7ad87583d1db99c713756c2188b6458aa7db4039faaa7"
+      }
+    },
+    "memory": [
+      {
+        "arm": "base",
+        "round": 1,
+        "streams": 768
+      },
+      {
+        "arm": "candidate",
+        "round": 1,
+        "streams": 768
+      },
+      {
+        "arm": "candidate",
+        "round": 1,
+        "streams": 128
+      },
+      {
+        "arm": "base",
+        "round": 1,
+        "streams": 128
+      },
+      {
+        "arm": "base",
+        "round": 1,
+        "streams": 1
+      },
+      {
+        "arm": "candidate",
+        "round": 1,
+        "streams": 1
+      },
+      {
+        "arm": "candidate",
+        "round": 2,
+        "streams": 1
+      },
+      {
+        "arm": "base",
+        "round": 2,
+        "streams": 1
+      },
+      {
+        "arm": "base",
+        "round": 2,
+        "streams": 128
+      },
+      {
+        "arm": "candidate",
+        "round": 2,
+        "streams": 128
+      },
+      {
+        "arm": "candidate",
+        "round": 2,
+        "streams": 768
+      },
+      {
+        "arm": "base",
+        "round": 2,
+        "streams": 768
+      },
+      {
+        "arm": "base",
+        "round": 3,
+        "streams": 768
+      },
+      {
+        "arm": "candidate",
+        "round": 3,
+        "streams": 768
+      },
+      {
+        "arm": "candidate",
+        "round": 3,
+        "streams": 128
+      },
+      {
+        "arm": "base",
+        "round": 3,
+        "streams": 128
+      },
+      {
+        "arm": "base",
+        "round": 3,
+        "streams": 1
+      },
+      {
+        "arm": "candidate",
+        "round": 3,
+        "streams": 1
+      },
+      {
+        "arm": "candidate",
+        "round": 4,
+        "streams": 128
+      },
+      {
+        "arm": "base",
+        "round": 4,
+        "streams": 128
+      },
+      {
+        "arm": "base",
+        "round": 4,
+        "streams": 768
+      },
+      {
+        "arm": "candidate",
+        "round": 4,
+        "streams": 768
+      },
+      {
+        "arm": "candidate",
+        "round": 4,
+        "streams": 1
+      },
+      {
+        "arm": "base",
+        "round": 4,
+        "streams": 1
+      },
+      {
+        "arm": "base",
+        "round": 5,
+        "streams": 1
+      },
+      {
+        "arm": "candidate",
+        "round": 5,
+        "streams": 1
+      },
+      {
+        "arm": "candidate",
+        "round": 5,
+        "streams": 768
+      },
+      {
+        "arm": "base",
+        "round": 5,
+        "streams": 768
+      },
+      {
+        "arm": "base",
+        "round": 5,
+        "streams": 128
+      },
+      {
+        "arm": "candidate",
+        "round": 5,
+        "streams": 128
+      }
+    ],
+    "memory_method": "5 paired fresh processes per geometry 1,128,768; 24 consecutive Hybrid packets; one output buffer shared; all decoder states live at /proc/self/smaps_rollup read; baseline and candidate use same CompactOpusDecoder with no diagnostics",
+    "memory_prefix_sha256": "3907fc86dafb333fc687704002a5f93534b1a0b6176e095461a3503dbb7d1da1",
+    "seed": 128,
+    "timing": {
+      "cpu": {
+        "ami": {
+          "repeats": 10,
+          "rounds": [
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ]
+          ]
+        },
+        "mandarin": {
+          "repeats": 10,
+          "rounds": [
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ]
+          ]
+        }
+      },
+      "latency": {
+        "ami": {
+          "repeats": 3,
+          "rounds": [
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ]
+          ]
+        },
+        "mandarin": {
+          "repeats": 3,
+          "rounds": [
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ],
+            [
+              "base",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "base"
+            ]
+          ]
+        }
+      }
+    },
+    "version": "0.2.13"
+  },
+  "protocol_sha256": "d4c42c9c2b1064190b933d3eac7c8efada7a856fe003e9574ddaed1c31866095",
+  "qa": {
+    "baseline_binary_sha256": "3739e1f29efee2710aa31cc92bf8244c7836b4ed063c0904045b3e8f0502afda",
+    "binary_sha256": "4dc70da298dffa3d65a53bf4b5979cd55cc8473b4164f5d3ef9d149b68ad72ba",
+    "extended_primary_packets": 80300,
+    "extended_primary_samples": 92342880,
+    "input_hashes": {
+      "ami": "b664a3bd8939314c4823e5199fc4b5b6cf0d02b379cf33c9e55a6c6114131a10",
+      "mandarin": "02e5699c7b40d07b7db7ad87583d1db99c713756c2188b6458aa7db4039faaa7",
+      "testvector01.bit": "00a4d34e12a2a32a047bfcaf762f663430b2232bc76a1c21e3b598f060f99b7e",
+      "testvector02.bit": "285deaf78e6b1ebdde7dc6a76af279a08bf0fa7a13e3a84e87ac3f76213626a6",
+      "testvector03.bit": "811b3d28483c781e4d1a0f8008bf73c3882c6c9cf8dedc65c0c14fa4239bb9d9",
+      "testvector04.bit": "874b838699a471acd97bd13e11224a3ef71c95b018b85a9c93a41459a7185565",
+      "testvector05.bit": "9b13f677c61cfad9a94460f986401b843e07e3245265067580539d9d8f1ec230",
+      "testvector06.bit": "65a779507949842232cfb6119db3ec8c056c05b80d65abb7a3ae9b06b443e33f",
+      "testvector07.bit": "ae7ae8f569807d4d964c574d7b1556e8b930307adfa9928942fe44f5e2bcc5f1",
+      "testvector08.bit": "4de258de02ccc08c805b3d41414c3a0f2f607e57ea3a7a5cb9bef26c2f01eb01",
+      "testvector09.bit": "91a798186cd2483e47a6b3db44eb3f8fb7f5584c3ed2f2c8158ae8f9172a6b31",
+      "testvector10.bit": "7288deb8d0e9e49f7f8ae50d6b4f2221294faa222b9db69161951b928e62435a",
+      "testvector11.bit": "ee3cd3c6f420d803f563af6518851316696fd121932a191045349a615df7a249",
+      "testvector12.bit": "48df85083178e8fc9c31af3fa6d5b38377f0eb84da4931a8886af503b17a0218"
+    },
+    "original_receipt_sha256": {
+      "base": "a1f39a2466e41c1309c9378d3e0df4c84b40b0709a4c2ee286d0e9d3e549dc3b",
+      "candidate": "72994b8c08c8ed82e1fdb443fe60b5a9dcb34562cea4cb905adea411a772c2df"
+    },
+    "plain_primary_packets": 93100,
+    "plain_primary_samples": 110774880,
+    "results": [
+      {
+        "api": "fixed",
+        "bytes": 3084800,
+        "channels": 1,
+        "format": "sip",
+        "info": "packets 1600 samples 1536000",
+        "input": "mandarin",
+        "method": "plain",
+        "sha256": "f94c3ee77632b29e6b5feac29c04a820e7cd6dc9750e4710cdb6df7b5cb3f823"
+      },
+      {
+        "api": "compact",
+        "bytes": 3084800,
+        "channels": 1,
+        "format": "sip",
+        "info": "packets 1600 samples 1536000",
+        "input": "mandarin",
+        "method": "plain",
+        "sha256": "f94c3ee77632b29e6b5feac29c04a820e7cd6dc9750e4710cdb6df7b5cb3f823"
+      },
+      {
+        "api": "fixed",
+        "bytes": 6156800,
+        "channels": 2,
+        "format": "sip",
+        "info": "packets 1600 samples 3072000",
+        "input": "mandarin",
+        "method": "plain",
+        "sha256": "f4d1f29dbdbc1d75c20d7d6602944512ba05bca2a9fc812f6a2aee27fbe90f23"
+      },
+      {
+        "api": "compact",
+        "bytes": 6156800,
+        "channels": 2,
+        "format": "sip",
+        "info": "packets 1600 samples 3072000",
+        "input": "mandarin",
+        "method": "plain",
+        "sha256": "f4d1f29dbdbc1d75c20d7d6602944512ba05bca2a9fc812f6a2aee27fbe90f23"
+      },
+      {
+        "api": "fixed",
+        "bytes": 3084800,
+        "channels": 1,
+        "format": "sip",
+        "info": "packets 1600 samples 1536000",
+        "input": "ami",
+        "method": "plain",
+        "sha256": "4d92437839cdf0b4a38d2153fe13d7db5f2f782ce7c3c903b8c59bd8f6573dc9"
+      },
+      {
+        "api": "compact",
+        "bytes": 3084800,
+        "channels": 1,
+        "format": "sip",
+        "info": "packets 1600 samples 1536000",
+        "input": "ami",
+        "method": "plain",
+        "sha256": "4d92437839cdf0b4a38d2153fe13d7db5f2f782ce7c3c903b8c59bd8f6573dc9"
+      },
+      {
+        "api": "fixed",
+        "bytes": 6156800,
+        "channels": 2,
+        "format": "sip",
+        "info": "packets 1600 samples 3072000",
+        "input": "ami",
+        "method": "plain",
+        "sha256": "d00d9f3c7ad20f1739181b77a25cd0cd9e7bfd540d1c0c8cf89d3206f0f806e8"
+      },
+      {
+        "api": "compact",
+        "bytes": 6156800,
+        "channels": 2,
+        "format": "sip",
+        "info": "packets 1600 samples 3072000",
+        "input": "ami",
+        "method": "plain",
+        "sha256": "d00d9f3c7ad20f1739181b77a25cd0cd9e7bfd540d1c0c8cf89d3206f0f806e8"
+      },
+      {
+        "api": "fixed",
+        "bytes": 2847256,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 2147 samples 1415040",
+        "input": "testvector01.bit",
+        "method": "plain",
+        "sha256": "531222867908069436874316d01ca6766309803cdbed8e03618114e1d4938c3f"
+      },
+      {
+        "api": "compact",
+        "bytes": 2847256,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 2147 samples 1415040",
+        "input": "testvector01.bit",
+        "method": "plain",
+        "sha256": "531222867908069436874316d01ca6766309803cdbed8e03618114e1d4938c3f"
+      },
+      {
+        "api": "fixed",
+        "bytes": 3983228,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 2147 samples 1415040",
+        "input": "testvector01.bit",
+        "method": "extended",
+        "sha256": "545f02434f7a9eaf79281d36960d3260942d09e4ab2c7f5d59564b0edfb68df7"
+      },
+      {
+        "api": "compact",
+        "bytes": 3896056,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 2147 samples 1415040",
+        "input": "testvector01.bit",
+        "method": "extended",
+        "sha256": "7958ddb8262ec740c1dcee9d9f39a5e517b2764d5cd9093a54698b972e4aff33"
+      },
+      {
+        "api": "fixed",
+        "bytes": 5677336,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 2147 samples 2830080",
+        "input": "testvector01.bit",
+        "method": "plain",
+        "sha256": "be3da7a570ddf38a83c8bfbb47af58a5ace060b24cf1e0eabc26836a210c65a5"
+      },
+      {
+        "api": "compact",
+        "bytes": 5677336,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 2147 samples 2830080",
+        "input": "testvector01.bit",
+        "method": "plain",
+        "sha256": "be3da7a570ddf38a83c8bfbb47af58a5ace060b24cf1e0eabc26836a210c65a5"
+      },
+      {
+        "api": "fixed",
+        "bytes": 7076588,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 2147 samples 2830080",
+        "input": "testvector01.bit",
+        "method": "extended",
+        "sha256": "aa415c5f3cc01862e1fd7c134df45acda4c7c59484b05707bf95d954651408cb"
+      },
+      {
+        "api": "compact",
+        "bytes": 6972040,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 2147 samples 2830080",
+        "input": "testvector01.bit",
+        "method": "extended",
+        "sha256": "19fc78732dfcea41c2708d744ae2c374265193f01519c305bfac5314257258fe"
+      },
+      {
+        "api": "fixed",
+        "bytes": 2412360,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1185 samples 1201440",
+        "input": "testvector02.bit",
+        "method": "plain",
+        "sha256": "672def42461c16e7c087def68080aa6ed606a668288435de6fc9e1605e2e8d20"
+      },
+      {
+        "api": "compact",
+        "bytes": 2412360,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1185 samples 1201440",
+        "input": "testvector02.bit",
+        "method": "plain",
+        "sha256": "672def42461c16e7c087def68080aa6ed606a668288435de6fc9e1605e2e8d20"
+      },
+      {
+        "api": "fixed",
+        "bytes": 3025862,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1185 samples 1201440",
+        "input": "testvector02.bit",
+        "method": "extended",
+        "sha256": "ee71898abdd548d9a18fae664b9613821000f864f379e2b827bad5db016e9215"
+      },
+      {
+        "api": "compact",
+        "bytes": 2437451,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1185 samples 1201440",
+        "input": "testvector02.bit",
+        "method": "extended",
+        "sha256": "96d9e27b22db13c3cf91f5e320f47470b2ac6678e15ef5e6a43205810fd5488b"
+      },
+      {
+        "api": "fixed",
+        "bytes": 4815240,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1185 samples 2402880",
+        "input": "testvector02.bit",
+        "method": "plain",
+        "sha256": "ad072e538a9aa4430ec5c47d9796dad0d0af65a62eefc62523cc1ab5091c8277"
+      },
+      {
+        "api": "compact",
+        "bytes": 4815240,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1185 samples 2402880",
+        "input": "testvector02.bit",
+        "method": "plain",
+        "sha256": "ad072e538a9aa4430ec5c47d9796dad0d0af65a62eefc62523cc1ab5091c8277"
+      },
+      {
+        "api": "fixed",
+        "bytes": 5570990,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1185 samples 2402880",
+        "input": "testvector02.bit",
+        "method": "extended",
+        "sha256": "594c9099f18f660d181f96e6d5d76fbeb1e15f72b2e370b5fb641e9ea5e90a89"
+      },
+      {
+        "api": "compact",
+        "bytes": 4865291,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1185 samples 2402880",
+        "input": "testvector02.bit",
+        "method": "extended",
+        "sha256": "cdfc01ff309de7dafec242ddc48c1e6bc38bd4b5b15ced96ce86fc87e92e41a3"
+      },
+      {
+        "api": "fixed",
+        "bytes": 2039344,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 998 samples 1015680",
+        "input": "testvector03.bit",
+        "method": "plain",
+        "sha256": "86b04aebf18994c0553b8202c3559db559fa929f345b460688123144fb3f960c"
+      },
+      {
+        "api": "compact",
+        "bytes": 2039344,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 998 samples 1015680",
+        "input": "testvector03.bit",
+        "method": "plain",
+        "sha256": "86b04aebf18994c0553b8202c3559db559fa929f345b460688123144fb3f960c"
+      },
+      {
+        "api": "fixed",
+        "bytes": 2516298,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 998 samples 1015680",
+        "input": "testvector03.bit",
+        "method": "extended",
+        "sha256": "93618daa859ebe0b71ad468ebb44038d443be90074b52ef0736b9798d1843908"
+      },
+      {
+        "api": "compact",
+        "bytes": 2058645,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 998 samples 1015680",
+        "input": "testvector03.bit",
+        "method": "extended",
+        "sha256": "e85ce6d4f8144cd1eda5a6b0e9a37527efbe7310198a913393c627d03484c499"
+      },
+      {
+        "api": "fixed",
+        "bytes": 4070704,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 998 samples 2031360",
+        "input": "testvector03.bit",
+        "method": "plain",
+        "sha256": "b9420e9108b3c56d2f1a6c9a74eb5017fc34f02d98a913d023b9e285a4f47fb1"
+      },
+      {
+        "api": "compact",
+        "bytes": 4070704,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 998 samples 2031360",
+        "input": "testvector03.bit",
+        "method": "plain",
+        "sha256": "b9420e9108b3c56d2f1a6c9a74eb5017fc34f02d98a913d023b9e285a4f47fb1"
+      },
+      {
+        "api": "fixed",
+        "bytes": 4658082,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 998 samples 2031360",
+        "input": "testvector03.bit",
+        "method": "extended",
+        "sha256": "d724b5e2e211837099a6f17a15a0fa6417584b6ed7dd5a8c4d99c6db68cf5815"
+      },
+      {
+        "api": "compact",
+        "bytes": 4109205,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 998 samples 2031360",
+        "input": "testvector03.bit",
+        "method": "extended",
+        "sha256": "46f99828cfa232417c97bc067e15e50f75e80621c03f5038ceb49a10f0bec7dd"
+      },
+      {
+        "api": "fixed",
+        "bytes": 2566600,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1265 samples 1278240",
+        "input": "testvector04.bit",
+        "method": "plain",
+        "sha256": "daafa6bb4db8724964cadb4b6aaf5a944e6873b8bbb61b14f2175dd4160ea3c3"
+      },
+      {
+        "api": "compact",
+        "bytes": 2566600,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1265 samples 1278240",
+        "input": "testvector04.bit",
+        "method": "plain",
+        "sha256": "daafa6bb4db8724964cadb4b6aaf5a944e6873b8bbb61b14f2175dd4160ea3c3"
+      },
+      {
+        "api": "fixed",
+        "bytes": 3201896,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1265 samples 1278240",
+        "input": "testvector04.bit",
+        "method": "extended",
+        "sha256": "2b931fa35246da0c4250492c5c0043fe4da747b2aeb69ac33c4421376e200bea"
+      },
+      {
+        "api": "compact",
+        "bytes": 2591692,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1265 samples 1278240",
+        "input": "testvector04.bit",
+        "method": "extended",
+        "sha256": "f2af5270e9079ebc96de6769c05beebe109ed1ea47161bf98bc5a4e93acf4007"
+      },
+      {
+        "api": "fixed",
+        "bytes": 5123080,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1265 samples 2556480",
+        "input": "testvector04.bit",
+        "method": "plain",
+        "sha256": "177f3693d7c3533be0e1e1693acb5b04ac5e1eb21bad5bf3cb6d66088e42e052"
+      },
+      {
+        "api": "compact",
+        "bytes": 5123080,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1265 samples 2556480",
+        "input": "testvector04.bit",
+        "method": "plain",
+        "sha256": "177f3693d7c3533be0e1e1693acb5b04ac5e1eb21bad5bf3cb6d66088e42e052"
+      },
+      {
+        "api": "fixed",
+        "bytes": 5904968,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1265 samples 2556480",
+        "input": "testvector04.bit",
+        "method": "extended",
+        "sha256": "1bd663c3ed4f2df2311ebe6fbfdacb55b3a36326170c7205a3a11cdc4563a7a6"
+      },
+      {
+        "api": "compact",
+        "bytes": 5173132,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1265 samples 2556480",
+        "input": "testvector04.bit",
+        "method": "extended",
+        "sha256": "ff126cbb55af84326eefc7bdcb495f77eacda7433096602385beb7d802b0d899"
+      },
+      {
+        "api": "fixed",
+        "bytes": 2624616,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 2037 samples 1304160",
+        "input": "testvector05.bit",
+        "method": "plain",
+        "sha256": "7867b2b5f9068ba292302d9b9876961376335f114c762b3212a4941c440c0bb5"
+      },
+      {
+        "api": "compact",
+        "bytes": 2624616,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 2037 samples 1304160",
+        "input": "testvector05.bit",
+        "method": "plain",
+        "sha256": "7867b2b5f9068ba292302d9b9876961376335f114c762b3212a4941c440c0bb5"
+      },
+      {
+        "api": "fixed",
+        "bytes": 3715072,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 2037 samples 1304160",
+        "input": "testvector05.bit",
+        "method": "extended",
+        "sha256": "47f03e8bef177d9d068e2d54aca7406836de1dd13e1d7281e25ad16e613ee635"
+      },
+      {
+        "api": "compact",
+        "bytes": 3627900,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 2037 samples 1304160",
+        "input": "testvector05.bit",
+        "method": "extended",
+        "sha256": "b78aa7a7a69d7d5038254826c7fd7d805069874ef5a744f578905812b4b720e2"
+      },
+      {
+        "api": "fixed",
+        "bytes": 5232936,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 2037 samples 2608320",
+        "input": "testvector05.bit",
+        "method": "plain",
+        "sha256": "b4e9452756ac9350ef217a595bbd4627983a9b0e733fee52530c3ee3c077895c"
+      },
+      {
+        "api": "compact",
+        "bytes": 5232936,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 2037 samples 2608320",
+        "input": "testvector05.bit",
+        "method": "plain",
+        "sha256": "b4e9452756ac9350ef217a595bbd4627983a9b0e733fee52530c3ee3c077895c"
+      },
+      {
+        "api": "fixed",
+        "bytes": 6576064,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 2037 samples 2608320",
+        "input": "testvector05.bit",
+        "method": "extended",
+        "sha256": "ee013ea608f72f795b9c44c8f8b137d2a7cd30520293dad21711b05bf26e0569"
+      },
+      {
+        "api": "compact",
+        "bytes": 6471516,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 2037 samples 2608320",
+        "input": "testvector05.bit",
+        "method": "extended",
+        "sha256": "110e0439eb55af3ec5bbd8bb3b930dff5c2fd36905de114d369fe12281b167d8"
+      },
+      {
+        "api": "fixed",
+        "bytes": 2416928,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1876 samples 1200960",
+        "input": "testvector06.bit",
+        "method": "plain",
+        "sha256": "3a5951c4b2c8cc4c06cb1c88e92531f4e382b861893ad82d52bf873a3a9591db"
+      },
+      {
+        "api": "compact",
+        "bytes": 2416928,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1876 samples 1200960",
+        "input": "testvector06.bit",
+        "method": "plain",
+        "sha256": "3a5951c4b2c8cc4c06cb1c88e92531f4e382b861893ad82d52bf873a3a9591db"
+      },
+      {
+        "api": "fixed",
+        "bytes": 3394558,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1876 samples 1200960",
+        "input": "testvector06.bit",
+        "method": "extended",
+        "sha256": "b1afe59ca896f5caa7cd37415363d4e3ad091661be9961bfa9aa0246dd704a91"
+      },
+      {
+        "api": "compact",
+        "bytes": 3329179,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1876 samples 1200960",
+        "input": "testvector06.bit",
+        "method": "extended",
+        "sha256": "2c4035e5a01f9c309cd9424f53e0a5a6ab1061a7fca07ba83a8ad9e00d780473"
+      },
+      {
+        "api": "fixed",
+        "bytes": 4818848,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1876 samples 2401920",
+        "input": "testvector06.bit",
+        "method": "plain",
+        "sha256": "735240bedad15b3b2861702daf56f58929de1fe31eef43902568f57d9ca93381"
+      },
+      {
+        "api": "compact",
+        "bytes": 4818848,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1876 samples 2401920",
+        "input": "testvector06.bit",
+        "method": "plain",
+        "sha256": "735240bedad15b3b2861702daf56f58929de1fe31eef43902568f57d9ca93381"
+      },
+      {
+        "api": "fixed",
+        "bytes": 6023590,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1876 samples 2401920",
+        "input": "testvector06.bit",
+        "method": "extended",
+        "sha256": "78a52dbfd476479e06258bd6d93d7ce9965efe8cb53ac9dc0efe1d6c56fef5a4"
+      },
+      {
+        "api": "compact",
+        "bytes": 5945179,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1876 samples 2401920",
+        "input": "testvector06.bit",
+        "method": "extended",
+        "sha256": "562b736a9c0ab108d06f8d19f6937a38dcde7f14ef2f7ea90b40925d2a0f58bd"
+      },
+      {
+        "api": "fixed",
+        "bytes": 2203568,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 4186 samples 1085040",
+        "input": "testvector07.bit",
+        "method": "plain",
+        "sha256": "d88fe24c49d563c9a537e8291f013ca4386652c2235a839878e635b398e4c6f3"
+      },
+      {
+        "api": "compact",
+        "bytes": 2203568,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 4186 samples 1085040",
+        "input": "testvector07.bit",
+        "method": "plain",
+        "sha256": "d88fe24c49d563c9a537e8291f013ca4386652c2235a839878e635b398e4c6f3"
+      },
+      {
+        "api": "fixed",
+        "bytes": 4431924,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 4186 samples 1085040",
+        "input": "testvector07.bit",
+        "method": "extended",
+        "sha256": "31972a12c2fa6d7fb8a770ab3748e2b53806990fb350f4aeb68946a46f40d068"
+      },
+      {
+        "api": "compact",
+        "bytes": 4257580,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 4186 samples 1085040",
+        "input": "testvector07.bit",
+        "method": "extended",
+        "sha256": "6673a35eac234b833fc631c68ed230a87708f76f03c9732e426680ccd2120bfb"
+      },
+      {
+        "api": "fixed",
+        "bytes": 4373648,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 4186 samples 2170080",
+        "input": "testvector07.bit",
+        "method": "plain",
+        "sha256": "f52158a99832545b197f9e99f52023671540c7fe8a486245b9a5b45187e88984"
+      },
+      {
+        "api": "compact",
+        "bytes": 4373648,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 4186 samples 2170080",
+        "input": "testvector07.bit",
+        "method": "plain",
+        "sha256": "f52158a99832545b197f9e99f52023671540c7fe8a486245b9a5b45187e88984"
+      },
+      {
+        "api": "fixed",
+        "bytes": 7119876,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 4186 samples 2170080",
+        "input": "testvector07.bit",
+        "method": "extended",
+        "sha256": "d78246ad0834789c36e009aaa29701be9bac5049244a2318392e2b52732a5280"
+      },
+      {
+        "api": "compact",
+        "bytes": 6910780,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 4186 samples 2170080",
+        "input": "testvector07.bit",
+        "method": "extended",
+        "sha256": "ab64a90c53285d73c3a8c5338098f34a0a9a4d2c14d1d8fc2e155f7541b51829"
+      },
+      {
+        "api": "fixed",
+        "bytes": 2630296,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1247 samples 1310160",
+        "input": "testvector08.bit",
+        "method": "plain",
+        "sha256": "1e35823592f65b4341095bf05ee3bdeb8e68d36ce572886b204a7ee13ae2f67c"
+      },
+      {
+        "api": "compact",
+        "bytes": 2630296,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1247 samples 1310160",
+        "input": "testvector08.bit",
+        "method": "plain",
+        "sha256": "1e35823592f65b4341095bf05ee3bdeb8e68d36ce572886b204a7ee13ae2f67c"
+      },
+      {
+        "api": "fixed",
+        "bytes": 3265592,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1247 samples 1310160",
+        "input": "testvector08.bit",
+        "method": "extended",
+        "sha256": "c9feeb63518537de60b2c3b4207bcdccffe68fe61da4e72840bd9bbf8df67313"
+      },
+      {
+        "api": "compact",
+        "bytes": 3200213,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1247 samples 1310160",
+        "input": "testvector08.bit",
+        "method": "extended",
+        "sha256": "ea132bf7f0a0bb97bc6cddb83b8dc1329d2e185c7542a8db7a4124c611f1f3d6"
+      },
+      {
+        "api": "fixed",
+        "bytes": 5250616,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1247 samples 2620320",
+        "input": "testvector08.bit",
+        "method": "plain",
+        "sha256": "74d241777d6b3d42bda041d437b1149cd92e83d1c678037db3517b988ffab04d"
+      },
+      {
+        "api": "compact",
+        "bytes": 5250616,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1247 samples 2620320",
+        "input": "testvector08.bit",
+        "method": "plain",
+        "sha256": "74d241777d6b3d42bda041d437b1149cd92e83d1c678037db3517b988ffab04d"
+      },
+      {
+        "api": "fixed",
+        "bytes": 6032504,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1247 samples 2620320",
+        "input": "testvector08.bit",
+        "method": "extended",
+        "sha256": "37222fd6e35fb4b23044f447ae5b764a5fc616457dfea4ff33631a6c7cceeb55"
+      },
+      {
+        "api": "compact",
+        "bytes": 5954093,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1247 samples 2620320",
+        "input": "testvector08.bit",
+        "method": "extended",
+        "sha256": "01def22ead717644557a0d9338bf69294b90a86fc04b08f59df2a412cf298ab4"
+      },
+      {
+        "api": "fixed",
+        "bytes": 2657896,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1337 samples 1323600",
+        "input": "testvector09.bit",
+        "method": "plain",
+        "sha256": "88dcc936d158953b446582cd7b8e031363c10b591674940ed2e982b959efa090"
+      },
+      {
+        "api": "compact",
+        "bytes": 2657896,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1337 samples 1323600",
+        "input": "testvector09.bit",
+        "method": "plain",
+        "sha256": "88dcc936d158953b446582cd7b8e031363c10b591674940ed2e982b959efa090"
+      },
+      {
+        "api": "fixed",
+        "bytes": 3362430,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1337 samples 1323600",
+        "input": "testvector09.bit",
+        "method": "extended",
+        "sha256": "e32354796aa99b3f84c641921e30868d255ff8e6695a449786647b4b9145f166"
+      },
+      {
+        "api": "compact",
+        "bytes": 3297051,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1337 samples 1323600",
+        "input": "testvector09.bit",
+        "method": "extended",
+        "sha256": "b03bc552e6d914fe4b6ed7cfa1a37628967870b72bde6973dcac0891c1980555"
+      },
+      {
+        "api": "fixed",
+        "bytes": 5305096,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1337 samples 2647200",
+        "input": "testvector09.bit",
+        "method": "plain",
+        "sha256": "61fb7243077ead1e4b7658d960bbae33fac7657624dafc39995c1994d91dc420"
+      },
+      {
+        "api": "compact",
+        "bytes": 5305096,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1337 samples 2647200",
+        "input": "testvector09.bit",
+        "method": "plain",
+        "sha256": "61fb7243077ead1e4b7658d960bbae33fac7657624dafc39995c1994d91dc420"
+      },
+      {
+        "api": "fixed",
+        "bytes": 6173094,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1337 samples 2647200",
+        "input": "testvector09.bit",
+        "method": "extended",
+        "sha256": "34b9299dfb67b4b9efc0fc9031f5c48c37a0999cf282c6ed78b32a2c5b257684"
+      },
+      {
+        "api": "compact",
+        "bytes": 6094683,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1337 samples 2647200",
+        "input": "testvector09.bit",
+        "method": "extended",
+        "sha256": "fa8b42047b468d554d474843cced0f173b0867d55749151986d83ad48f50a79b"
+      },
+      {
+        "api": "fixed",
+        "bytes": 3088256,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1912 samples 1536480",
+        "input": "testvector10.bit",
+        "method": "plain",
+        "sha256": "02bb5fb607930e084756998441d2c3adb13b6978cc0be97674e393bcdc6af08f"
+      },
+      {
+        "api": "compact",
+        "bytes": 3088256,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1912 samples 1536480",
+        "input": "testvector10.bit",
+        "method": "plain",
+        "sha256": "02bb5fb607930e084756998441d2c3adb13b6978cc0be97674e393bcdc6af08f"
+      },
+      {
+        "api": "fixed",
+        "bytes": 4089608,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1912 samples 1536480",
+        "input": "testvector10.bit",
+        "method": "extended",
+        "sha256": "132b5588ce4908386ea32aa1a912c227f4b7792b4a0ae245e2e7be087bce33f0"
+      },
+      {
+        "api": "compact",
+        "bytes": 4024229,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1912 samples 1536480",
+        "input": "testvector10.bit",
+        "method": "extended",
+        "sha256": "a28cd3c783d3b9b60b84ef2609531c6f1da2e6914870251843666337bb0e269a"
+      },
+      {
+        "api": "fixed",
+        "bytes": 6161216,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1912 samples 3072960",
+        "input": "testvector10.bit",
+        "method": "plain",
+        "sha256": "b6e1257bb5030a498a8a94ee20afb675b0a6263d3f4e87b1565676c90fafc63c"
+      },
+      {
+        "api": "compact",
+        "bytes": 6161216,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1912 samples 3072960",
+        "input": "testvector10.bit",
+        "method": "plain",
+        "sha256": "b6e1257bb5030a498a8a94ee20afb675b0a6263d3f4e87b1565676c90fafc63c"
+      },
+      {
+        "api": "fixed",
+        "bytes": 7395944,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1912 samples 3072960",
+        "input": "testvector10.bit",
+        "method": "extended",
+        "sha256": "6831b50979deb2663cc2dfd03f56fb24fec3a2daec512a66a349d28badc9c519"
+      },
+      {
+        "api": "compact",
+        "bytes": 7317533,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1912 samples 3072960",
+        "input": "testvector10.bit",
+        "method": "extended",
+        "sha256": "dbc318092dfd5af75320d73f2974ac0894e096e4973195ad87bde8d80d5ce155"
+      },
+      {
+        "api": "fixed",
+        "bytes": 2886344,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 553 samples 1440960",
+        "input": "testvector11.bit",
+        "method": "plain",
+        "sha256": "7134dd3cb9fa210dcf8bc3fb6096f95ca79cae1a942fb991e43415e5719a4c22"
+      },
+      {
+        "api": "compact",
+        "bytes": 2886344,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 553 samples 1440960",
+        "input": "testvector11.bit",
+        "method": "plain",
+        "sha256": "7134dd3cb9fa210dcf8bc3fb6096f95ca79cae1a942fb991e43415e5719a4c22"
+      },
+      {
+        "api": "fixed",
+        "bytes": 3181234,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 553 samples 1440960",
+        "input": "testvector11.bit",
+        "method": "extended",
+        "sha256": "207de1a621452683ff503e021dd790fed565df4ebccf4943110b3c09b2e0e75e"
+      },
+      {
+        "api": "compact",
+        "bytes": 3159441,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 553 samples 1440960",
+        "input": "testvector11.bit",
+        "method": "extended",
+        "sha256": "22b6e98e4fdebf8d8b5fec08d00cc839240cb8b8285e0fe4ef6a8d3b8b43a073"
+      },
+      {
+        "api": "fixed",
+        "bytes": 5768264,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 553 samples 2881920",
+        "input": "testvector11.bit",
+        "method": "plain",
+        "sha256": "28c8853c207749cc166d23c47ccc83a4adfd261b8d3b820c93ec8e51a92f649f"
+      },
+      {
+        "api": "compact",
+        "bytes": 5768264,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 553 samples 2881920",
+        "input": "testvector11.bit",
+        "method": "plain",
+        "sha256": "28c8853c207749cc166d23c47ccc83a4adfd261b8d3b820c93ec8e51a92f649f"
+      },
+      {
+        "api": "fixed",
+        "bytes": 6131146,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 553 samples 2881920",
+        "input": "testvector11.bit",
+        "method": "extended",
+        "sha256": "96d35af929042abe8f7a63e4903e2218b85b23a14b6d84e15f8886d203ca76ad"
+      },
+      {
+        "api": "compact",
+        "bytes": 6105009,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 553 samples 2881920",
+        "input": "testvector11.bit",
+        "method": "extended",
+        "sha256": "648d64eda1559c193f5bc60cc9528c2e80b8cd061d28256839c8496c267b09be"
+      },
+      {
+        "api": "fixed",
+        "bytes": 2568096,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1332 samples 1278720",
+        "input": "testvector12.bit",
+        "method": "plain",
+        "sha256": "f86f584e1ba8b8b93f144be2ef5061ae4e1adbd23824539dcc40e246de343d62"
+      },
+      {
+        "api": "compact",
+        "bytes": 2568096,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1332 samples 1278720",
+        "input": "testvector12.bit",
+        "method": "plain",
+        "sha256": "f86f584e1ba8b8b93f144be2ef5061ae4e1adbd23824539dcc40e246de343d62"
+      },
+      {
+        "api": "fixed",
+        "bytes": 3272630,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1332 samples 1278720",
+        "input": "testvector12.bit",
+        "method": "extended",
+        "sha256": "f6bb18771c684658a9a5274f0cbb3744738d7bd759f496efd438f6a2d56c5fc9"
+      },
+      {
+        "api": "compact",
+        "bytes": 3141872,
+        "channels": 1,
+        "format": "rfc",
+        "info": "packets 1332 samples 1278720",
+        "input": "testvector12.bit",
+        "method": "extended",
+        "sha256": "d7f69968a8d3626e436aabc48aeae93f0c0eb06a0585c0bf85c828385d6057fe"
+      },
+      {
+        "api": "fixed",
+        "bytes": 5125536,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1332 samples 2557440",
+        "input": "testvector12.bit",
+        "method": "plain",
+        "sha256": "e9a939d1f670aae4d58afab00118bb8bda76372f5815c9c2e54b452fa522112b"
+      },
+      {
+        "api": "compact",
+        "bytes": 5125536,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1332 samples 2557440",
+        "input": "testvector12.bit",
+        "method": "plain",
+        "sha256": "e9a939d1f670aae4d58afab00118bb8bda76372f5815c9c2e54b452fa522112b"
+      },
+      {
+        "api": "fixed",
+        "bytes": 5993534,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1332 samples 2557440",
+        "input": "testvector12.bit",
+        "method": "extended",
+        "sha256": "994cf0e8f58197c301edcceec2158b23639aef2c2222774d1eee79de7709d362"
+      },
+      {
+        "api": "compact",
+        "bytes": 5836712,
+        "channels": 2,
+        "format": "rfc",
+        "info": "packets 1332 samples 2557440",
+        "input": "testvector12.bit",
+        "method": "extended",
+        "sha256": "1a93df2098398b962db32c9cf866429a8831772d37675bac45089328793e3d1e"
+      }
+    ]
+  },
+  "raw_process_measurements": {
+    "cpu-ami": {
+      "original_file_sha256": "26b2b9d2e533cbdf6b9957e93be1cb1abacdbf0cbc088cf57dfd6d9663adf9ff",
+      "raw_samples_retained_locally": false,
+      "rows": [
+        {
+          "arm": "base",
+          "raw_ns": [
+            665946959
+          ],
+          "round": 1,
+          "value": 66594695.9
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            658950744
+          ],
+          "round": 1,
+          "value": 65895074.4
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            656936834
+          ],
+          "round": 2,
+          "value": 65693683.4
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            660973051
+          ],
+          "round": 2,
+          "value": 66097305.1
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            660914512
+          ],
+          "round": 3,
+          "value": 66091451.2
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            659798239
+          ],
+          "round": 3,
+          "value": 65979823.9
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            660961110
+          ],
+          "round": 4,
+          "value": 66096111.0
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            659960656
+          ],
+          "round": 4,
+          "value": 65996065.6
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            660928860
+          ],
+          "round": 5,
+          "value": 66092886.0
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            664958217
+          ],
+          "round": 5,
+          "value": 66495821.7
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            654968557
+          ],
+          "round": 6,
+          "value": 65496855.7
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            665946218
+          ],
+          "round": 6,
+          "value": 66594621.8
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            672404616
+          ],
+          "round": 7,
+          "value": 67240461.6
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            675937751
+          ],
+          "round": 7,
+          "value": 67593775.1
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            673911384
+          ],
+          "round": 8,
+          "value": 67391138.4
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            677952514
+          ],
+          "round": 8,
+          "value": 67795251.4
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            668888947
+          ],
+          "round": 9,
+          "value": 66888894.7
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            655868010
+          ],
+          "round": 9,
+          "value": 65586801.0
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            656923356
+          ],
+          "round": 10,
+          "value": 65692335.6
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            663644713
+          ],
+          "round": 10,
+          "value": 66364471.3
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            661951604
+          ],
+          "round": 11,
+          "value": 66195160.4
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            659935628
+          ],
+          "round": 11,
+          "value": 65993562.8
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            672859372
+          ],
+          "round": 12,
+          "value": 67285937.2
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            679618582
+          ],
+          "round": 12,
+          "value": 67961858.2
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            661942949
+          ],
+          "round": 13,
+          "value": 66194294.9
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            657518658
+          ],
+          "round": 13,
+          "value": 65751865.8
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            671952527
+          ],
+          "round": 14,
+          "value": 67195252.7
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            670632891
+          ],
+          "round": 14,
+          "value": 67063289.1
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            676946982
+          ],
+          "round": 15,
+          "value": 67694698.2
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            665945615
+          ],
+          "round": 15,
+          "value": 66594561.5
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            662950705
+          ],
+          "round": 16,
+          "value": 66295070.5
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            672639891
+          ],
+          "round": 16,
+          "value": 67263989.1
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            678336836
+          ],
+          "round": 17,
+          "value": 67833683.6
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            677978004
+          ],
+          "round": 17,
+          "value": 67797800.4
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            665509896
+          ],
+          "round": 18,
+          "value": 66550989.6
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            674918903
+          ],
+          "round": 18,
+          "value": 67491890.3
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            664968056
+          ],
+          "round": 19,
+          "value": 66496805.6
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            666766621
+          ],
+          "round": 19,
+          "value": 66676662.1
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            673633191
+          ],
+          "round": 20,
+          "value": 67363319.1
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            655938301
+          ],
+          "round": 20,
+          "value": 65593830.1
+        }
+      ]
+    },
+    "cpu-mandarin": {
+      "original_file_sha256": "710a1f4d0c0331335e79c9dd139172cf914b9603cb32aae0ac6864ba4b9e1b1e",
+      "raw_samples_retained_locally": false,
+      "rows": [
+        {
+          "arm": "base",
+          "raw_ns": [
+            590931485
+          ],
+          "round": 1,
+          "value": 59093148.5
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            571742561
+          ],
+          "round": 1,
+          "value": 57174256.1
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            606993128
+          ],
+          "round": 2,
+          "value": 60699312.8
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            584930794
+          ],
+          "round": 2,
+          "value": 58493079.4
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            595961124
+          ],
+          "round": 3,
+          "value": 59596112.4
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            580916877
+          ],
+          "round": 3,
+          "value": 58091687.7
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            593892399
+          ],
+          "round": 4,
+          "value": 59389239.9
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            637982080
+          ],
+          "round": 4,
+          "value": 63798208.0
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            576871418
+          ],
+          "round": 5,
+          "value": 57687141.8
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            591944673
+          ],
+          "round": 5,
+          "value": 59194467.3
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            575987435
+          ],
+          "round": 6,
+          "value": 57598743.5
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            639942240
+          ],
+          "round": 6,
+          "value": 63994224.0
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            669130893
+          ],
+          "round": 7,
+          "value": 66913089.3
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            594004200
+          ],
+          "round": 7,
+          "value": 59400420.0
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            573985405
+          ],
+          "round": 8,
+          "value": 57398540.5
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            589945438
+          ],
+          "round": 8,
+          "value": 58994543.8
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            590276501
+          ],
+          "round": 9,
+          "value": 59027650.1
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            598972707
+          ],
+          "round": 9,
+          "value": 59897270.7
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            650907297
+          ],
+          "round": 10,
+          "value": 65090729.7
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            606976116
+          ],
+          "round": 10,
+          "value": 60697611.6
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            596969974
+          ],
+          "round": 11,
+          "value": 59696997.4
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            586738357
+          ],
+          "round": 11,
+          "value": 58673835.7
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            597974647
+          ],
+          "round": 12,
+          "value": 59797464.7
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            585947278
+          ],
+          "round": 12,
+          "value": 58594727.8
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            586927284
+          ],
+          "round": 13,
+          "value": 58692728.4
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            581977865
+          ],
+          "round": 13,
+          "value": 58197786.5
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            591940492
+          ],
+          "round": 14,
+          "value": 59194049.2
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            580958254
+          ],
+          "round": 14,
+          "value": 58095825.4
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            590096661
+          ],
+          "round": 15,
+          "value": 59009666.1
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            579950076
+          ],
+          "round": 15,
+          "value": 57995007.6
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            578955372
+          ],
+          "round": 16,
+          "value": 57895537.2
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            619418283
+          ],
+          "round": 16,
+          "value": 61941828.3
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            659154666
+          ],
+          "round": 17,
+          "value": 65915466.6
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            578953530
+          ],
+          "round": 17,
+          "value": 57895353.0
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            623868233
+          ],
+          "round": 18,
+          "value": 62386823.3
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            576900132
+          ],
+          "round": 18,
+          "value": 57690013.2
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            573967551
+          ],
+          "round": 19,
+          "value": 57396755.1
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            562975743
+          ],
+          "round": 19,
+          "value": 56297574.3
+        },
+        {
+          "arm": "candidate",
+          "raw_ns": [
+            567917619
+          ],
+          "round": 20,
+          "value": 56791761.9
+        },
+        {
+          "arm": "base",
+          "raw_ns": [
+            571968086
+          ],
+          "round": 20,
+          "value": 57196808.6
+        }
+      ]
+    },
+    "latency-ami": {
+      "original_file_sha256": "edd7c9fe059a9f886f9f64111def22d28bf9936a185c86e9c98357ad6a622b8b",
+      "raw_samples_retained_locally": true,
+      "rows": [
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 109946,
+          "packet_sample_min_ns": 37761,
+          "packet_samples": 4800,
+          "round": 1,
+          "value": 61745
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 123572,
+          "packet_sample_min_ns": 37381,
+          "packet_samples": 4800,
+          "round": 1,
+          "value": 57949
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 99617,
+          "packet_sample_min_ns": 37380,
+          "packet_samples": 4800,
+          "round": 2,
+          "value": 67466
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 81954,
+          "packet_sample_min_ns": 37801,
+          "packet_samples": 4800,
+          "round": 2,
+          "value": 55304
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 97503,
+          "packet_sample_min_ns": 37841,
+          "packet_samples": 4800,
+          "round": 3,
+          "value": 74389
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 84749,
+          "packet_sample_min_ns": 37580,
+          "packet_samples": 4800,
+          "round": 3,
+          "value": 50504
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 84178,
+          "packet_sample_min_ns": 37450,
+          "packet_samples": 4800,
+          "round": 4,
+          "value": 48381
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 86382,
+          "packet_sample_min_ns": 37641,
+          "packet_samples": 4800,
+          "round": 4,
+          "value": 47479
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 102753,
+          "packet_sample_min_ns": 37500,
+          "packet_samples": 4800,
+          "round": 5,
+          "value": 59121
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 166993,
+          "packet_sample_min_ns": 37791,
+          "packet_samples": 4800,
+          "round": 5,
+          "value": 47739
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 61646,
+          "packet_sample_min_ns": 37750,
+          "packet_samples": 4800,
+          "round": 6,
+          "value": 47549
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 69971,
+          "packet_sample_min_ns": 37510,
+          "packet_samples": 4800,
+          "round": 6,
+          "value": 47358
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 111288,
+          "packet_sample_min_ns": 38923,
+          "packet_samples": 4800,
+          "round": 7,
+          "value": 63038
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 119303,
+          "packet_sample_min_ns": 37490,
+          "packet_samples": 4800,
+          "round": 7,
+          "value": 61194
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 80130,
+          "packet_sample_min_ns": 37440,
+          "packet_samples": 4800,
+          "round": 8,
+          "value": 50785
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 111940,
+          "packet_sample_min_ns": 37931,
+          "packet_samples": 4800,
+          "round": 8,
+          "value": 54812
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 73979,
+          "packet_sample_min_ns": 37259,
+          "packet_samples": 4800,
+          "round": 9,
+          "value": 48370
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 81403,
+          "packet_sample_min_ns": 37871,
+          "packet_samples": 4800,
+          "round": 9,
+          "value": 56656
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 67136,
+          "packet_sample_min_ns": 37711,
+          "packet_samples": 4800,
+          "round": 10,
+          "value": 50454
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 65533,
+          "packet_sample_min_ns": 37460,
+          "packet_samples": 4800,
+          "round": 10,
+          "value": 53891
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 60624,
+          "packet_sample_min_ns": 37741,
+          "packet_samples": 4800,
+          "round": 11,
+          "value": 47870
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 477045,
+          "packet_sample_min_ns": 37510,
+          "packet_samples": 4800,
+          "round": 11,
+          "value": 53210
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 60664,
+          "packet_sample_min_ns": 37270,
+          "packet_samples": 4800,
+          "round": 12,
+          "value": 48381
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 77415,
+          "packet_sample_min_ns": 37831,
+          "packet_samples": 4800,
+          "round": 12,
+          "value": 51657
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 79389,
+          "packet_sample_min_ns": 37350,
+          "packet_samples": 4800,
+          "round": 13,
+          "value": 53991
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 75321,
+          "packet_sample_min_ns": 37631,
+          "packet_samples": 4800,
+          "round": 13,
+          "value": 52668
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 93956,
+          "packet_sample_min_ns": 37751,
+          "packet_samples": 4800,
+          "round": 14,
+          "value": 73217
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 66955,
+          "packet_sample_min_ns": 37420,
+          "packet_samples": 4800,
+          "round": 14,
+          "value": 47639
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 58640,
+          "packet_sample_min_ns": 37861,
+          "packet_samples": 4800,
+          "round": 15,
+          "value": 47489
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 100017,
+          "packet_sample_min_ns": 37461,
+          "packet_samples": 4800,
+          "round": 15,
+          "value": 66264
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 129893,
+          "packet_sample_min_ns": 37481,
+          "packet_samples": 4800,
+          "round": 16,
+          "value": 47559
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 108914,
+          "packet_sample_min_ns": 37731,
+          "packet_samples": 4800,
+          "round": 16,
+          "value": 60684
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 103955,
+          "packet_sample_min_ns": 37861,
+          "packet_samples": 4800,
+          "round": 17,
+          "value": 65963
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 72967,
+          "packet_sample_min_ns": 37440,
+          "packet_samples": 4800,
+          "round": 17,
+          "value": 47298
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 97854,
+          "packet_sample_min_ns": 37450,
+          "packet_samples": 4800,
+          "round": 18,
+          "value": 57157
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 115617,
+          "packet_sample_min_ns": 37740,
+          "packet_samples": 4800,
+          "round": 18,
+          "value": 77194
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 83467,
+          "packet_sample_min_ns": 37811,
+          "packet_samples": 4800,
+          "round": 19,
+          "value": 52278
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 107722,
+          "packet_sample_min_ns": 37300,
+          "packet_samples": 4800,
+          "round": 19,
+          "value": 49944
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 106901,
+          "packet_sample_min_ns": 37520,
+          "packet_samples": 4800,
+          "round": 20,
+          "value": 83637
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 78117,
+          "packet_sample_min_ns": 37800,
+          "packet_samples": 4800,
+          "round": 20,
+          "value": 47789
+        }
+      ]
+    },
+    "latency-mandarin": {
+      "original_file_sha256": "eddf9fce83841a74140d4ff5ea74fcb4567f5b2212d3f65b88404753f7a92210",
+      "raw_samples_retained_locally": true,
+      "rows": [
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 78577,
+          "packet_sample_min_ns": 29936,
+          "packet_samples": 4800,
+          "round": 1,
+          "value": 61897
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 83797,
+          "packet_sample_min_ns": 30347,
+          "packet_samples": 4800,
+          "round": 1,
+          "value": 64090
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 69510,
+          "packet_sample_min_ns": 30457,
+          "packet_samples": 4800,
+          "round": 2,
+          "value": 60414
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 298079,
+          "packet_sample_min_ns": 29856,
+          "packet_samples": 4800,
+          "round": 2,
+          "value": 66555
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 97613,
+          "packet_sample_min_ns": 29856,
+          "packet_samples": 4800,
+          "round": 3,
+          "value": 55685
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 190837,
+          "packet_sample_min_ns": 30417,
+          "packet_samples": 4800,
+          "round": 3,
+          "value": 61405
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 108353,
+          "packet_sample_min_ns": 30397,
+          "packet_samples": 4800,
+          "round": 4,
+          "value": 63148
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 86793,
+          "packet_sample_min_ns": 29765,
+          "packet_samples": 4800,
+          "round": 4,
+          "value": 65453
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 65002,
+          "packet_sample_min_ns": 29966,
+          "packet_samples": 4800,
+          "round": 5,
+          "value": 50605
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 219201,
+          "packet_sample_min_ns": 30538,
+          "packet_samples": 4800,
+          "round": 5,
+          "value": 50675
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 759644,
+          "packet_sample_min_ns": 30397,
+          "packet_samples": 4800,
+          "round": 6,
+          "value": 55254
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 71614,
+          "packet_sample_min_ns": 29896,
+          "packet_samples": 4800,
+          "round": 6,
+          "value": 52438
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 75001,
+          "packet_sample_min_ns": 30056,
+          "packet_samples": 4800,
+          "round": 7,
+          "value": 51867
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 71714,
+          "packet_sample_min_ns": 30417,
+          "packet_samples": 4800,
+          "round": 7,
+          "value": 51186
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 685656,
+          "packet_sample_min_ns": 30407,
+          "packet_samples": 4800,
+          "round": 8,
+          "value": 50915
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 88346,
+          "packet_sample_min_ns": 29816,
+          "packet_samples": 4800,
+          "round": 8,
+          "value": 66895
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 136746,
+          "packet_sample_min_ns": 30547,
+          "packet_samples": 4800,
+          "round": 9,
+          "value": 65764
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 94487,
+          "packet_sample_min_ns": 30417,
+          "packet_samples": 4800,
+          "round": 9,
+          "value": 70271
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 114935,
+          "packet_sample_min_ns": 31499,
+          "packet_samples": 4800,
+          "round": 10,
+          "value": 73869
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 92223,
+          "packet_sample_min_ns": 30287,
+          "packet_samples": 4800,
+          "round": 10,
+          "value": 66785
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 110667,
+          "packet_sample_min_ns": 30427,
+          "packet_samples": 4800,
+          "round": 11,
+          "value": 71645
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 183404,
+          "packet_sample_min_ns": 30366,
+          "packet_samples": 4800,
+          "round": 11,
+          "value": 74069
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 55644,
+          "packet_sample_min_ns": 29846,
+          "packet_samples": 4800,
+          "round": 12,
+          "value": 50234
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 128841,
+          "packet_sample_min_ns": 30467,
+          "packet_samples": 4800,
+          "round": 12,
+          "value": 55825
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 114865,
+          "packet_sample_min_ns": 30477,
+          "packet_samples": 4800,
+          "round": 13,
+          "value": 51797
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 55264,
+          "packet_sample_min_ns": 30067,
+          "packet_samples": 4800,
+          "round": 13,
+          "value": 51567
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 83296,
+          "packet_sample_min_ns": 29956,
+          "packet_samples": 4800,
+          "round": 14,
+          "value": 52007
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 80000,
+          "packet_sample_min_ns": 30367,
+          "packet_samples": 4800,
+          "round": 14,
+          "value": 50685
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 92063,
+          "packet_sample_min_ns": 30467,
+          "packet_samples": 4800,
+          "round": 15,
+          "value": 53089
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 98845,
+          "packet_sample_min_ns": 29916,
+          "packet_samples": 4800,
+          "round": 15,
+          "value": 73177
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 62828,
+          "packet_sample_min_ns": 29906,
+          "packet_samples": 4800,
+          "round": 16,
+          "value": 51336
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 115416,
+          "packet_sample_min_ns": 30427,
+          "packet_samples": 4800,
+          "round": 16,
+          "value": 66574
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 92122,
+          "packet_sample_min_ns": 30657,
+          "packet_samples": 4800,
+          "round": 17,
+          "value": 59411
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 108794,
+          "packet_sample_min_ns": 30287,
+          "packet_samples": 4800,
+          "round": 17,
+          "value": 79489
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 111629,
+          "packet_sample_min_ns": 29856,
+          "packet_samples": 4800,
+          "round": 18,
+          "value": 54171
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 148879,
+          "packet_sample_min_ns": 30477,
+          "packet_samples": 4800,
+          "round": 18,
+          "value": 51045
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 89087,
+          "packet_sample_min_ns": 30447,
+          "packet_samples": 4800,
+          "round": 19,
+          "value": 52007
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 78638,
+          "packet_sample_min_ns": 29816,
+          "packet_samples": 4800,
+          "round": 19,
+          "value": 60083
+        },
+        {
+          "arm": "candidate",
+          "packet_sample_max_ns": 66174,
+          "packet_sample_min_ns": 29866,
+          "packet_samples": 4800,
+          "round": 20,
+          "value": 53170
+        },
+        {
+          "arm": "base",
+          "packet_sample_max_ns": 127479,
+          "packet_sample_min_ns": 30457,
+          "packet_samples": 4800,
+          "round": 20,
+          "value": 53611
+        }
+      ]
+    },
+    "memory": {
+      "original_file_sha256": "b0f2f64caddd497fd617e1c6505c8583faa77fe73d0c49424e85c027c88c6ba0",
+      "raw_samples_retained_locally": false,
+      "rows": [
+        {
+          "arm": "base",
+          "before": [
+            2572,
+            180
+          ],
+          "decoder_bytes": 7648,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 1,
+          "samples": 17694720,
+          "streams": 768,
+          "warm": [
+            28852,
+            26276
+          ]
+        },
+        {
+          "arm": "candidate",
+          "before": [
+            2468,
+            536
+          ],
+          "decoder_bytes": 7672,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 1,
+          "samples": 17694720,
+          "streams": 768,
+          "warm": [
+            18956,
+            17024
+          ]
+        },
+        {
+          "arm": "candidate",
+          "before": [
+            2496,
+            568
+          ],
+          "decoder_bytes": 7672,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 1,
+          "samples": 2949120,
+          "streams": 128,
+          "warm": [
+            5588,
+            3660
+          ]
+        },
+        {
+          "arm": "base",
+          "before": [
+            2448,
+            176
+          ],
+          "decoder_bytes": 7648,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 1,
+          "samples": 2949120,
+          "streams": 128,
+          "warm": [
+            7160,
+            4672
+          ]
+        },
+        {
+          "arm": "base",
+          "before": [
+            2532,
+            176
+          ],
+          "decoder_bytes": 7648,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 1,
+          "samples": 23040,
+          "streams": 1,
+          "warm": [
+            2968,
+            388
+          ]
+        },
+        {
+          "arm": "candidate",
+          "before": [
+            2548,
+            616
+          ],
+          "decoder_bytes": 7672,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 1,
+          "samples": 23040,
+          "streams": 1,
+          "warm": [
+            2932,
+            1000
+          ]
+        },
+        {
+          "arm": "candidate",
+          "before": [
+            2436,
+            504
+          ],
+          "decoder_bytes": 7672,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 2,
+          "samples": 23040,
+          "streams": 1,
+          "warm": [
+            2848,
+            916
+          ]
+        },
+        {
+          "arm": "base",
+          "before": [
+            2460,
+            180
+          ],
+          "decoder_bytes": 7648,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 2,
+          "samples": 23040,
+          "streams": 1,
+          "warm": [
+            2860,
+            388
+          ]
+        },
+        {
+          "arm": "base",
+          "before": [
+            2512,
+            176
+          ],
+          "decoder_bytes": 7648,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 2,
+          "samples": 2949120,
+          "streams": 128,
+          "warm": [
+            7240,
+            4672
+          ]
+        },
+        {
+          "arm": "candidate",
+          "before": [
+            2556,
+            624
+          ],
+          "decoder_bytes": 7672,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 2,
+          "samples": 2949120,
+          "streams": 128,
+          "warm": [
+            5592,
+            3660
+          ]
+        },
+        {
+          "arm": "candidate",
+          "before": [
+            2428,
+            496
+          ],
+          "decoder_bytes": 7672,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 2,
+          "samples": 17694720,
+          "streams": 768,
+          "warm": [
+            18932,
+            17000
+          ]
+        },
+        {
+          "arm": "base",
+          "before": [
+            2468,
+            184
+          ],
+          "decoder_bytes": 7648,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 2,
+          "samples": 17694720,
+          "streams": 768,
+          "warm": [
+            28780,
+            26280
+          ]
+        },
+        {
+          "arm": "base",
+          "before": [
+            2536,
+            176
+          ],
+          "decoder_bytes": 7648,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 3,
+          "samples": 17694720,
+          "streams": 768,
+          "warm": [
+            28860,
+            26276
+          ]
+        },
+        {
+          "arm": "candidate",
+          "before": [
+            2504,
+            572
+          ],
+          "decoder_bytes": 7672,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 3,
+          "samples": 17694720,
+          "streams": 768,
+          "warm": [
+            19008,
+            16476
+          ]
+        },
+        {
+          "arm": "candidate",
+          "before": [
+            2472,
+            176
+          ],
+          "decoder_bytes": 7672,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 3,
+          "samples": 2949120,
+          "streams": 128,
+          "warm": [
+            5548,
+            3036
+          ]
+        },
+        {
+          "arm": "base",
+          "before": [
+            2536,
+            176
+          ],
+          "decoder_bytes": 7648,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 3,
+          "samples": 2949120,
+          "streams": 128,
+          "warm": [
+            7260,
+            4676
+          ]
+        },
+        {
+          "arm": "base",
+          "before": [
+            2472,
+            180
+          ],
+          "decoder_bytes": 7648,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 3,
+          "samples": 23040,
+          "streams": 1,
+          "warm": [
+            2872,
+            388
+          ]
+        },
+        {
+          "arm": "candidate",
+          "before": [
+            2544,
+            180
+          ],
+          "decoder_bytes": 7672,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 3,
+          "samples": 23040,
+          "streams": 1,
+          "warm": [
+            2932,
+            376
+          ]
+        },
+        {
+          "arm": "candidate",
+          "before": [
+            2464,
+            180
+          ],
+          "decoder_bytes": 7672,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 4,
+          "samples": 2949120,
+          "streams": 128,
+          "warm": [
+            5516,
+            3040
+          ]
+        },
+        {
+          "arm": "base",
+          "before": [
+            2512,
+            184
+          ],
+          "decoder_bytes": 7648,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 4,
+          "samples": 2949120,
+          "streams": 128,
+          "warm": [
+            7200,
+            4680
+          ]
+        },
+        {
+          "arm": "base",
+          "before": [
+            2472,
+            184
+          ],
+          "decoder_bytes": 7648,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 4,
+          "samples": 17694720,
+          "streams": 768,
+          "warm": [
+            28768,
+            26280
+          ]
+        },
+        {
+          "arm": "candidate",
+          "before": [
+            2556,
+            176
+          ],
+          "decoder_bytes": 7672,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 4,
+          "samples": 17694720,
+          "streams": 768,
+          "warm": [
+            19028,
+            16472
+          ]
+        },
+        {
+          "arm": "candidate",
+          "before": [
+            2500,
+            176
+          ],
+          "decoder_bytes": 7672,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 4,
+          "samples": 23040,
+          "streams": 1,
+          "warm": [
+            2928,
+            372
+          ]
+        },
+        {
+          "arm": "base",
+          "before": [
+            2444,
+            180
+          ],
+          "decoder_bytes": 7648,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 4,
+          "samples": 23040,
+          "streams": 1,
+          "warm": [
+            2860,
+            388
+          ]
+        },
+        {
+          "arm": "base",
+          "before": [
+            2504,
+            176
+          ],
+          "decoder_bytes": 7648,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 5,
+          "samples": 23040,
+          "streams": 1,
+          "warm": [
+            2888,
+            384
+          ]
+        },
+        {
+          "arm": "candidate",
+          "before": [
+            2500,
+            176
+          ],
+          "decoder_bytes": 7672,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 5,
+          "samples": 23040,
+          "streams": 1,
+          "warm": [
+            2928,
+            372
+          ]
+        },
+        {
+          "arm": "candidate",
+          "before": [
+            2480,
+            180
+          ],
+          "decoder_bytes": 7672,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 5,
+          "samples": 17694720,
+          "streams": 768,
+          "warm": [
+            18968,
+            16476
+          ]
+        },
+        {
+          "arm": "base",
+          "before": [
+            2476,
+            180
+          ],
+          "decoder_bytes": 7648,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 5,
+          "samples": 17694720,
+          "streams": 768,
+          "warm": [
+            28764,
+            26276
+          ]
+        },
+        {
+          "arm": "base",
+          "before": [
+            2516,
+            180
+          ],
+          "decoder_bytes": 7648,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 5,
+          "samples": 2949120,
+          "streams": 128,
+          "warm": [
+            7244,
+            4676
+          ]
+        },
+        {
+          "arm": "candidate",
+          "before": [
+            2440,
+            172
+          ],
+          "decoder_bytes": 7672,
+          "hash": "6addb5f6f19834eb",
+          "range_hash": "3cca83fc1a5d69cd",
+          "round": 5,
+          "samples": 2949120,
+          "streams": 128,
+          "warm": [
+            5504,
+            3036
+          ]
+        }
+      ]
+    }
+  },
+  "reproduction_bundle_sha256": "fa6da6e61bb74a5596d02446d9571330834b53a150f9ea224630f9bacff517ee",
+  "source_sha256": {
+    "build.py": "5900bfbc8269ac63e56b0fe4db8d52475adf399893cc5c1e1f23cd17199cddd4",
+    "memory.rs": "0fe0b9cb83b3959592f06fc26f7b12f86031cb8c3b1002e9d5ea853323a72212",
+    "qa.py": "d9d40dc3d09c3d75436cf702d36ab380da370ce5adf623966e23cc6f7da4ab5d",
+    "qa.rs": "8feb97b39459f00ae99adef5a2b5626337d417efda8f074fc713570df76da012",
+    "run.py": "c9be3138a214324446e8e35628e32d61fe0db4c4f7113f71725ace9fa790a6b6",
+    "timing.rs": "4c933d1e5cfaabc330099492482ad1a70468823fb6729371213066f02e3be482"
+  },
+  "timing": {
+    "cpu-ami": {
+      "ci": [
+        0.9890584534748068,
+        0.9958613756667634
+      ],
+      "median_ns": {
+        "base": 66782778.400000006,
+        "candidate": 66195590.75
+      },
+      "median_ratio": 0.9912074989380795,
+      "passed": true,
+      "ratio": 0.9925007439138639
+    },
+    "cpu-mandarin": {
+      "ci": [
+        0.9969306308652376,
+        1.0381595529907124
+      ],
+      "median_ns": {
+        "base": 59018658.1,
+        "candidate": 58843636.099999994
+      },
+      "median_ratio": 0.9970344632420572,
+      "passed": true,
+      "ratio": 1.017379702128604
+    },
+    "latency-ami": {
+      "ci": [
+        0.8782983861010092,
+        1.0689678335468402
+      ],
+      "median_ns": {
+        "base": 53740.0,
+        "candidate": 51997.5
+      },
+      "median_ratio": 0.9675753628582062,
+      "passed": true,
+      "ratio": 0.9696731452721068
+    },
+    "latency-mandarin": {
+      "ci": [
+        0.983261318459134,
+        1.0814416077387288
+      ],
+      "median_ns": {
+        "base": 55539.5,
+        "candidate": 57884.0
+      },
+      "median_ratio": 1.0422131996146886,
+      "passed": true,
+      "ratio": 1.0285062404184022
+    }
+  },
+  "rfc8251": {
+    "fixed": {
+      "passed": true,
+      "rows": 120,
+      "range_checks": 200750,
+      "matched_results": "docs/validation/results/compact-speech-0.2.12-conformance.json",
+      "fault_sensitivity": {
+        "corrupt_range_rejected": true,
+        "corrupted_packet_index": 0,
+        "zero_pcm_rejected_by_both_references": true
+      },
+      "report_sha256": "6cfafe177696e7cb236593fabae32b90c09cd55a3c1c4bfbbb92807258ac4ecb",
+      "vectors_sha256": "6b26a22f9ba87b2b836906a9bb7afec5f8e54d49553b1200382520ee6fedfa55"
+    },
+    "compact": {
+      "passed": true,
+      "rows": 120,
+      "range_checks": 200750,
+      "matched_results": "docs/validation/results/compact-speech-0.2.12-conformance.json",
+      "fault_sensitivity": {
+        "corrupt_range_rejected": true,
+        "corrupted_packet_index": 0,
+        "zero_pcm_rejected_by_both_references": true
+      },
+      "report_sha256": "ee975ce060c44d562d42cfaf0e0817da67f6523ba6f30194a2e77dcd7e8ec212",
+      "vectors_sha256": "6b26a22f9ba87b2b836906a9bb7afec5f8e54d49553b1200382520ee6fedfa55"
+    }
+  },
+  "repository_checks": {
+    "fmt": {
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "debug-full": {
+      "exit_code": 0,
+      "log_sha256": "4aac6126ce0032740bfae8c0f7de413c5586c8bcdee781a868431a1435ec5a41",
+      "executables": 73,
+      "passed": 454,
+      "failed": 0,
+      "ignored": 0
+    },
+    "release-full": {
+      "exit_code": 0,
+      "log_sha256": "6242645f8e8a0093e79e47f374449fca2bc2f5a530deffdf686e42ce9c2e7009",
+      "executables": 73,
+      "passed": 454,
+      "failed": 0,
+      "ignored": 0
+    },
+    "clippy": {
+      "exit_code": 0,
+      "log_sha256": "fe487ed8e66e99ea530633a0395e6c058e1a39bca0b4fe23aaee5848e6447a1b"
+    },
+    "rustdoc": {
+      "exit_code": 0,
+      "log_sha256": "2e5ca9285097951780955f635bc58d7a1b5f9fa35f5bbdbfd0d44ba8b34bf4b0"
+    },
+    "dependencies": {
+      "exit_code": 0,
+      "log_sha256": "46998bfd6f2d6f8eff20de66602b366b55f1a53e2ba560e0785346d0238b879b"
+    },
+    "python": {
+      "exit_code": 0,
+      "log_sha256": "1b81dbf0fd945e96f7ffee4b467c321ca8a2b33b2cc3377f49e4a8fad99c05ed",
+      "tests": 46
+    }
+  },
+  "installed_cli": {
+    "version": "0.2.14",
+    "golos_wav_hashes_matched": 15
+  }
+}

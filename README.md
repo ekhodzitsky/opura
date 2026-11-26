@@ -11,11 +11,11 @@ release, add the following dependency to your application's `Cargo.toml`:
 
 ```toml
 [dependencies]
-opura = "0.2.13"
+opura = "0.2.14"
 ```
 
 For a Git dependency, use the repository URL and an available release tag,
-for example `opura = { git = "https://github.com/ekhodzitsky/opura.git", tag = "v0.2.13" }`.
+for example `opura = { git = "https://github.com/ekhodzitsky/opura.git", tag = "v0.2.14" }`.
 
 This example encodes one 20 ms stereo frame and decodes it at 48 kHz. Keep the
 encoder and decoder alive across packets so prediction and recovery work across
@@ -58,6 +58,13 @@ less CPU on one stream and 17.9% less on 768 streams than the 0.2.11 compact
 decoder. At 768 streams the worker used 10.2 MiB of warm RSS. Memory use rises
 as streams begin to use CELT. [CPU and memory measurements](https://github.com/ekhodzitsky/opura/blob/v0.2.12/docs/benchmarks/compact-speech-0.2.12.md)
 
+With 0.2.14, 768 active 48 kHz mono Hybrid SIP streams used 18.5 MiB warm
+RSS compared with 28.1 MiB for 0.2.13. Mono streams retain only their active
+CELT synthesis and concealment channel. Calling the optional `celt()`
+diagnostics materializes a full snapshot and the next successful CELT-state
+commit promotes that stream to full storage until reset. Frequent diagnostic
+reads can increase process RSS. [Memory, CPU and latency measurements](https://github.com/ekhodzitsky/opura/blob/v0.2.14/docs/benchmarks/compact-hybrid-0.2.14.md)
+
 On two 32-second Hybrid SIP streams decoded to 48 kHz mono, version 0.2.13
 used 3.77% and 4.49% less decoder CPU than 0.2.12 with RustPBX build settings.
 With Rust 1.87 and default release settings, only the second stream showed a
@@ -87,8 +94,8 @@ multistream decoder used 6.1% less CPU time than v0.2.9. On 16 kHz mono
 speech, `decode_into` used 1.0% more CPU time in the same comparison.
 [Measurements and limits](https://github.com/ekhodzitsky/opura/blob/v0.2.10/docs/benchmarks/multistream-0.2.10.md)
 
-Both v0.2.13 single-stream decoders passed all 120 RFC 8251 vector, rate and
-channel combinations. [RFC 8251 and speech checks](https://github.com/ekhodzitsky/opura/blob/v0.2.13/docs/benchmarks/results/sip-decoder-0.2.13.json)
+Both v0.2.14 single-stream decoders passed all 120 RFC 8251 vector, rate and
+channel combinations. [RFC 8251 and speech checks](https://github.com/ekhodzitsky/opura/blob/v0.2.14/docs/benchmarks/results/compact-hybrid-0.2.14.json)
 
 At 48 kHz mono on 15 speech recordings, `decode_into` in v0.2.9 used
 13.1% less CPU time than the v0.2.8 decoder and took 4.1% more than opus-rs

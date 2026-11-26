@@ -10,7 +10,7 @@ use super::{
     energy::{BandLayout, EnergyError, EnergyState},
     output::{Decimation, PcmFrame},
     partition::{self, AntiCollapseError, PartitionError},
-    synthesis::{CeltSynthesis, SynthesisControls, SynthesisError},
+    synthesis::{CeltSynthesis, MonoSynthesis, SynthesisControls, SynthesisError},
 };
 use crate::{
     Bandwidth, Mode, Packet, PacketError,
@@ -190,7 +190,51 @@ pub struct CeltDecoder {
     loss: ConcealmentState,
     rate: Decimation,
 }
+// Encoded-channel energies still need both channels even for mono PCM.
+#[derive(Clone, Eq, PartialEq)]
+pub(crate) struct MonoCeltDecoder {
+    backend: MonoSynthesis,
+    energy: EnergyState,
+    previous: [[i32; 21]; 2],
+    previous2: [[i32; 21]; 2],
+    background: [[i32; 21]; 2],
+    rng: u32,
+    range: u32,
+    loss: loss::MonoConcealmentState,
+    rate: Decimation,
+}
+
+impl MonoCeltDecoder {
+    pub(crate) fn expand(&self) -> CeltDecoder {
+        CeltDecoder {
+            backend: self.backend.expand(),
+            energy: self.energy.clone(),
+            previous: self.previous,
+            previous2: self.previous2,
+            background: self.background,
+            rng: self.rng,
+            range: self.range,
+            loss: self.loss.expand(),
+            rate: self.rate,
+        }
+    }
+}
+
 impl CeltDecoder {
+    pub(crate) fn into_mono(self) -> MonoCeltDecoder {
+        MonoCeltDecoder {
+            backend: self.backend.into_mono(),
+            energy: self.energy,
+            previous: self.previous,
+            previous2: self.previous2,
+            background: self.background,
+            rng: self.rng,
+            range: self.range,
+            loss: self.loss.into_mono(),
+            rate: self.rate,
+        }
+    }
+
     /// Initialize an independent decoder; output rate/channels stay fixed.
     pub fn new(rate: Decimation, channels: usize) -> Result<Self, DecoderError> {
         Ok(Self {

@@ -99,7 +99,42 @@ pub struct CeltSynthesis {
     postfilter: [PostfilterState; 2],
     deemphasis: DeemphasisState,
 }
+// Only the left synthesis channel is live when output geometry is mono.
+#[derive(Clone, Eq, PartialEq)]
+pub(crate) struct MonoSynthesis {
+    rate: Decimation,
+    mdct: MdctState,
+    postfilter: PostfilterState,
+    deemphasis: DeemphasisState,
+}
+
+impl MonoSynthesis {
+    pub(super) fn expand(&self) -> CeltSynthesis {
+        CeltSynthesis {
+            rate: self.rate,
+            channels: 1,
+            mdct: [self.mdct.clone(), MdctState::default()],
+            postfilter: [self.postfilter.clone(), PostfilterState::default()],
+            deemphasis: self.deemphasis.clone(),
+        }
+    }
+}
+
 impl CeltSynthesis {
+    pub(super) fn into_mono(self) -> MonoSynthesis {
+        debug_assert_eq!(self.channels, 1);
+        let [mdct, right_mdct] = self.mdct;
+        let [postfilter, right_postfilter] = self.postfilter;
+        debug_assert_eq!(right_mdct, MdctState::default());
+        debug_assert_eq!(right_postfilter, PostfilterState::default());
+        MonoSynthesis {
+            rate: self.rate,
+            mdct,
+            postfilter,
+            deemphasis: self.deemphasis,
+        }
+    }
+
     pub(crate) fn set_overlap(&mut self, overlap: &[[i32; 60]; 2]) {
         for (c, values) in overlap.iter().enumerate().take(self.channels) {
             self.mdct[c].set_overlap(values);

@@ -118,6 +118,42 @@ pub struct ConcealmentState {
     start: usize,
     end: usize,
 }
+// Retain only the left PLC history for an immutable mono output geometry.
+#[derive(Clone, Eq, PartialEq)]
+pub(super) struct MonoConcealmentState {
+    history: [i32; 2048],
+    future: [i32; 120],
+    coefficients: [i16; 24],
+    pitch: u16,
+    duration: u16,
+    plc_duration: u16,
+    skip: bool,
+    prefilter: bool,
+    mode: ConcealmentMode,
+    initialized: bool,
+    last_size: FrameSize,
+    start: usize,
+    end: usize,
+}
+impl MonoConcealmentState {
+    pub(super) fn expand(&self) -> ConcealmentState {
+        ConcealmentState {
+            history: [self.history, [0; 2048]],
+            future: [self.future, [0; 120]],
+            coefficients: [self.coefficients, [0; 24]],
+            pitch: self.pitch,
+            duration: self.duration,
+            plc_duration: self.plc_duration,
+            skip: self.skip,
+            prefilter: self.prefilter,
+            mode: self.mode,
+            initialized: self.initialized,
+            last_size: self.last_size,
+            start: self.start,
+            end: self.end,
+        }
+    }
+}
 impl Default for ConcealmentState {
     fn default() -> Self {
         Self {
@@ -138,6 +174,29 @@ impl Default for ConcealmentState {
     }
 }
 impl ConcealmentState {
+    pub(super) fn into_mono(self) -> MonoConcealmentState {
+        let [history, right_history] = self.history;
+        let [future, right_future] = self.future;
+        let [coefficients, right_coefficients] = self.coefficients;
+        debug_assert_eq!(right_history, [0; 2048]);
+        debug_assert_eq!(right_future, [0; 120]);
+        debug_assert_eq!(right_coefficients, [0; 24]);
+        MonoConcealmentState {
+            history,
+            future,
+            coefficients,
+            pitch: self.pitch,
+            duration: self.duration,
+            plc_duration: self.plc_duration,
+            skip: self.skip,
+            prefilter: self.prefilter,
+            mode: self.mode,
+            initialized: self.initialized,
+            last_size: self.last_size,
+            start: self.start,
+            end: self.end,
+        }
+    }
     /// Last normal frame's inclusive start (zero for CELT,17 for Hybrid).
     pub fn start_band(&self) -> usize {
         self.start

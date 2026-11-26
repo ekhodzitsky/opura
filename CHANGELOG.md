@@ -7,6 +7,10 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.2.14] - 2026-11-26
+
+- Retain only the active CELT output synthesis and concealment channel in mono `CompactOpusDecoder` streams. At 768 active mono Hybrid SIP streams, median warm RSS fell from 28.1 to 18.5 MiB and private dirty memory from 25.7 to 16.1 MiB. The paired CPU and packet-latency measurements passed the predefined regression limits on two independent recordings. On first `celt()` diagnostic read, a full snapshot is allocated and the next successful CELT-state commit promotes the stream to full storage until reset. Diagnostic-heavy workloads can have higher RSS. [Measurements and limits](docs/benchmarks/compact-hybrid-0.2.14.md)
+
 ## [0.2.13] - 2026-11-26
 
 - Speed up threefold SILK output resampling. The compact decoder used 3.77% less CPU on Mandarin Hybrid SIP speech and 4.49% less on an independent AMI stream at 48 kHz with RustPBX build settings. With Rust 1.87 and default release settings, only the AMI saving reproduced (4.14%). Both public decoder APIs reproduced the previous release's PCM. [Decoder and adapter measurements](docs/benchmarks/sip-decoder-0.2.13.md)
