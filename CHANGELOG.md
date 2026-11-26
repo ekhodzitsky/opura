@@ -7,6 +7,8 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Compare Opura 0.2.14 against seven other decoder implementations on a common 120-case RFC 8251 matrix, four real recordings and active-stream memory tests. Opura retained the least memory in the tested workloads; ruopus used 31.1% and 27.2% less CPU on the 16 kHz mono and 48 kHz stereo official timing aggregates. [Comparison and reproduction](docs/benchmarks/decoder-competition-0.2.14.md)
+
 ## [0.2.14] - 2026-11-26
 
 - Retain only the active CELT output synthesis and concealment channel in mono `CompactOpusDecoder` streams. At 768 active mono Hybrid SIP streams, median warm RSS fell from 28.1 to 18.5 MiB and private dirty memory from 25.7 to 16.1 MiB. The paired CPU and packet-latency measurements passed the predefined regression limits on two independent recordings. On first `celt()` diagnostic read, a full snapshot is allocated and the next successful CELT-state commit promotes the stream to full storage until reset. Diagnostic-heavy workloads can have higher RSS. [Measurements and limits](docs/benchmarks/compact-hybrid-0.2.14.md)

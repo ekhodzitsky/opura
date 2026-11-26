@@ -65,6 +65,11 @@ diagnostics materializes a full snapshot and the next successful CELT-state
 commit promotes that stream to full storage until reset. Frequent diagnostic
 reads can increase process RSS. [Memory, CPU and latency measurements](https://github.com/ekhodzitsky/opura/blob/v0.2.14/docs/benchmarks/compact-hybrid-0.2.14.md)
 
+A head-to-head comparison of 0.2.14 with seven other decoder implementations
+found the lowest marginal per-stream memory with Opura on the tested SILK,
+Hybrid and stereo CELT workloads. Ruopus had lower CPU usage on the official
+16 kHz mono and 48 kHz stereo workloads. [Full comparison and reproduction](https://github.com/ekhodzitsky/opura/blob/main/docs/benchmarks/decoder-competition-0.2.14.md)
+
 On two 32-second Hybrid SIP streams decoded to 48 kHz mono, version 0.2.13
 used 3.77% and 4.49% less decoder CPU than 0.2.12 with RustPBX build settings.
 With Rust 1.87 and default release settings, only the second stream showed a

@@ -23,6 +23,7 @@ The crate requires the Rust standard library.
 
 | Measurement | Result and scope |
 | --- | --- |
+| Decoder comparison after 0.2.14 | Both Opura APIs, libopus, opurs development, ropus and ruopus passed 120/120 official combinations. Compact Opura had the lowest marginal memory on SILK and Hybrid; fixed Opura had the lowest stereo CELT marginal memory. Ruopus used 31.1% and 27.2% less CPU on common 16 kHz mono and 48 kHz stereo official timing workloads. [Nine-arm comparison](../benchmarks/decoder-competition-0.2.14.md) |
 | Decoder vs. opus-rs and system libopus | At 16 kHz mono and 48 kHz stereo, v0.2.7 passed 24/24 official stream checks and opus-rs 0.1.42 passed 23/24. On the common passing streams Opura took 1.41× and 1.27× the opus-rs decode time respectively on one x86-64 machine. Additional warmed decoder states used about 34 KiB of private dirty memory for Opura and 176 KiB for opus-rs. [Timings and memory](../benchmarks/decoder-competition-0.2.7.md) |
 | Compact speech decoder | At 768 active 16 kHz mono SILK streams the opt-in decoder reduced warm RSS from 29.9 to 10.2 MiB. After all streams used CELT, both processes occupied about 30 MiB. [Memory and first switch in 0.2.11](../benchmarks/compact-speech-0.2.11.md) · [Speech CPU in 0.2.12](../benchmarks/compact-speech-0.2.12.md) |
 | Mapped audio decode | On 3-, 6- and 8-channel clips at 48 kHz, v0.2.10 used 6.08% less CPU time than v0.2.9. A 16 kHz mono speech control with caller output used 1.01% more CPU. [Measurements](../benchmarks/multistream-0.2.10.md) |
