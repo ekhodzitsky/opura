@@ -267,7 +267,10 @@ impl OpusDecoder {
     /// Decode one complete externally delimited Opus packet, including DTX.
     pub fn decode(&mut self, data: &[u8]) -> Result<DecodedPcm, DecoderError> {
         let packet = Packet::parse(data).map_err(DecoderError::Framing)?;
-        self.decode_packet(&packet)
+        let mut output = self.empty_output();
+        output.length = self.decode_packet_into(&packet, &mut output.values)?;
+        output.range = self.range;
+        Ok(output)
     }
     /// Decode one complete packet into a reusable interleaved PCM buffer.
     ///
@@ -289,29 +292,39 @@ impl OpusDecoder {
         self.decode_packet_into(&packet, out)
     }
 
-    pub(crate) fn decode_packet(
-        &mut self,
-        packet: &Packet<'_>,
-    ) -> Result<DecodedPcm, DecoderError> {
-        let mut output = self.empty_output();
-        output.length = self.decode_packet_into(packet, &mut output.values)?;
-        output.range = self.range;
-        Ok(output)
-    }
-
     fn decode_packet_into(
         &mut self,
         packet: &Packet<'_>,
         output: &mut [i16],
     ) -> Result<usize, DecoderError> {
         let mut next = self.clone();
-        next.configure_packet(packet);
+        let length = next.decode_packet_into_staged(packet, output)?;
+        *self = next;
+        Ok(length)
+    }
+
+    // The caller owns the transaction and discards this decoder on failure.
+    pub(crate) fn decode_packet_staged(
+        &mut self,
+        packet: &Packet<'_>,
+    ) -> Result<DecodedPcm, DecoderError> {
+        let mut output = self.empty_output();
+        output.length = self.decode_packet_into_staged(packet, &mut output.values)?;
+        output.range = self.range;
+        Ok(output)
+    }
+
+    fn decode_packet_into_staged(
+        &mut self,
+        packet: &Packet<'_>,
+        output: &mut [i16],
+    ) -> Result<usize, DecoderError> {
+        self.configure_packet(packet);
         let mut pcm = PcmBuffer::new(output);
         for index in 0..packet.frames().len() {
-            pcm.frame(|frame| next.packet_frame(packet, index, false, frame))?;
+            pcm.frame(|frame| self.packet_frame(packet, index, false, frame))?;
         }
-        next.last_duration = packet.duration_samples();
-        *self = next;
+        self.last_duration = packet.duration_samples();
         Ok(pcm.length)
     }
     /// Conceal120..5760 samples on a48kHz clock, in120-sample steps.

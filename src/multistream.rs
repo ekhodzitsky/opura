@@ -378,7 +378,7 @@ impl MultistreamDecoder {
         for (index, stream) in next.streams.iter_mut().enumerate() {
             let pcm = match packet {
                 Some(packet) if fec => stream.decode_fec_packet(&packet.streams()[index], duration),
-                Some(packet) => stream.decode_packet(&packet.streams()[index]),
+                Some(packet) => stream.decode_packet_staged(&packet.streams()[index]),
                 None => stream.conceal_samples(duration),
             }
             .map_err(|error| MultistreamError::Decode {
