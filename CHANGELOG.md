@@ -7,6 +7,7 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Measure compact Opura 0.2.12 on the RustPBX Opus-to-PCMU path. At 500 simultaneous channels it used about 88 MiB less worker RAM and 14–19% less CPU than opus-rs on two speech corpora. [Output parity and missed deadlines](docs/benchmarks/rustpbx-compact-0.2.12.md)
 - Measure compact Opura 0.2.12 in GigaSTT file transcription. Packet decoding accounted for about 0.9% of server CPU on short mono uploads. [Service CPU, latency and peak RSS](docs/benchmarks/gigastt-compact-0.2.12.md)
 
 ## [0.2.12] - 2026-11-26
