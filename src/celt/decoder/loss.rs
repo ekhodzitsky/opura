@@ -196,6 +196,10 @@ impl ConcealmentState {
     }
 }
 impl CeltDecoder {
+    pub(crate) fn has_synthesis_history(&self) -> bool {
+        self.loss.initialized
+    }
+
     /// Inspect fixed concealment history and scheduling state.
     pub fn concealment(&self) -> &ConcealmentState {
         &self.loss

@@ -7,6 +7,10 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.2.11] - 2026-11-26
+
+- Add the opt-in `decoder::CompactOpusDecoder` for applications retaining many speech streams. It allocates CELT history on demand and releases it on reset. At 768 active SILK streams, median worker RSS fell from 29.9 to 10.2 MiB against 0.2.10. The first switch to CELT increased median per-run p99 from 62.4 to 80.7 µs. The single-stream replay used 10% more CPU with the compact API. [Measurements and reproduction](docs/benchmarks/compact-speech-0.2.11.md)
+
 ## [0.2.10] - 2026-11-26
 
 - Reuse the packet-level rollback state for ordinary multistream decoding. On 3-, 6- and 8-channel clips at 48 kHz, the public decoder used 6.08% less CPU time than 0.2.9. A separate mono speech check measured a 1.01% increase at 16 kHz with caller-owned output. [Timings, stack and PCM checks](docs/benchmarks/multistream-0.2.10.md)

@@ -20,6 +20,9 @@ use crate::{
     },
 };
 use std::fmt;
+
+mod compact;
+pub use compact::CompactOpusDecoder;
 /// A packet, loss or FEC failure preserves all stream state.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
@@ -168,8 +171,13 @@ impl<'a> PcmBuffer<'a> {
 /// One fixed-storage standard Opus stream with shared SILK/CELT histories.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OpusDecoder {
-    silk: SilkDecoder,
+    state: StreamState,
     celt: CeltDecoder,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct StreamState {
+    silk: SilkDecoder,
     mode: Option<Mode>,
     previous: Option<Mode>,
     redundancy: bool,
@@ -180,19 +188,11 @@ pub struct OpusDecoder {
     last_duration: u16,
     gain_q8: i16,
 }
-impl OpusDecoder {
-    /// Select any standard output rate and one/two output channels.
-    pub fn new(rate: OutputRate, channels: PcmChannels) -> Result<Self, DecoderError> {
-        let decimation = match rate {
-            OutputRate::Khz8 => Decimation::By6,
-            OutputRate::Khz12 => Decimation::By4,
-            OutputRate::Khz16 => Decimation::By3,
-            OutputRate::Khz24 => Decimation::By2,
-            OutputRate::Khz48 => Decimation::By1,
-        };
-        Ok(Self {
+
+impl StreamState {
+    fn new(rate: OutputRate, channels: PcmChannels) -> Self {
+        Self {
             silk: SilkDecoder::new(rate, channels),
-            celt: CeltDecoder::new(decimation, channels.count())?,
             mode: None,
             previous: None,
             redundancy: false,
@@ -202,25 +202,45 @@ impl OpusDecoder {
             range: 0,
             last_duration: 0,
             gain_q8: 0,
+        }
+    }
+}
+
+fn decimation(rate: OutputRate) -> Decimation {
+    match rate {
+        OutputRate::Khz8 => Decimation::By6,
+        OutputRate::Khz12 => Decimation::By4,
+        OutputRate::Khz16 => Decimation::By3,
+        OutputRate::Khz24 => Decimation::By2,
+        OutputRate::Khz48 => Decimation::By1,
+    }
+}
+
+impl OpusDecoder {
+    /// Select any standard output rate and one/two output channels.
+    pub fn new(rate: OutputRate, channels: PcmChannels) -> Result<Self, DecoderError> {
+        Ok(Self {
+            state: StreamState::new(rate, channels),
+            celt: CeltDecoder::new(decimation(rate), channels.count())?,
         })
     }
     /// Fixed PCM sampling rate.
     pub fn output_rate(&self) -> OutputRate {
-        self.silk.output_rate()
+        self.state.silk.output_rate()
     }
     /// Fixed PCM channel count.
     pub fn output_channels(&self) -> PcmChannels {
-        self.silk.output_channels()
+        self.state.silk.output_channels()
     }
     /// Signed Q8 dB output gain, initially zero. Reset retains this setting.
     pub fn gain_q8(&self) -> i16 {
-        self.gain_q8
+        self.state.gain_q8
     }
     /// Set native signed Q8 dB output gain without changing decoder histories.
     /// The full signed16 range is valid. Gain applies with native fixed-point
     /// rounding/saturation after frame synthesis, including PLC and FEC.
     pub fn set_gain_q8(&mut self, gain: i16) {
-        self.gain_q8 = gain;
+        self.state.gain_q8 = gain;
     }
     /// Read-only CELT synthesis, energy and PLC diagnostics.
     pub fn celt(&self) -> &CeltDecoder {
@@ -228,32 +248,32 @@ impl OpusDecoder {
     }
     /// Last successful operation's public final range.
     pub fn final_range(&self) -> u32 {
-        self.range
+        self.state.range
     }
     /// Last successful operation's duration on a48kHz clock.
     pub fn last_packet_duration(&self) -> u16 {
-        self.last_duration
+        self.state.last_duration
     }
     /// Last frame's primary mode, or actual PLC mode after loss/DTX.
     pub fn previous_mode(&self) -> Option<Mode> {
-        self.previous
+        self.state.previous
     }
     /// Whether the preceding frame ended with a SILK-to-CELT redundant tail.
     pub fn previous_redundancy(&self) -> bool {
-        self.redundancy
+        self.state.redundancy
     }
     /// Native stream reset, retaining output geometry and CELT band limits.
     pub fn reset(&mut self) {
-        self.silk.reset();
+        self.state.silk.reset();
         self.celt.reset();
-        self.mode = None;
-        self.previous = None;
-        self.redundancy = false;
-        self.bandwidth = Bandwidth::Fullband;
-        self.wire_channels = self.output_channels().count();
-        self.clock = 120;
-        self.range = 0;
-        self.last_duration = 0;
+        self.state.mode = None;
+        self.state.previous = None;
+        self.state.redundancy = false;
+        self.state.bandwidth = Bandwidth::Fullband;
+        self.state.wire_channels = self.output_channels().count();
+        self.state.clock = 120;
+        self.state.range = 0;
+        self.state.last_duration = 0;
     }
     fn empty_output(&self) -> DecodedPcm {
         DecodedPcm {
@@ -269,7 +289,7 @@ impl OpusDecoder {
         let packet = Packet::parse(data).map_err(DecoderError::Framing)?;
         let mut output = self.empty_output();
         output.length = self.decode_packet_into(&packet, &mut output.values)?;
-        output.range = self.range;
+        output.range = self.state.range;
         Ok(output)
     }
     /// Decode one complete packet into a reusable interleaved PCM buffer.
@@ -310,7 +330,7 @@ impl OpusDecoder {
     ) -> Result<DecodedPcm, DecoderError> {
         let mut output = self.empty_output();
         output.length = self.decode_packet_into_staged(packet, &mut output.values)?;
-        output.range = self.range;
+        output.range = self.state.range;
         Ok(output)
     }
 
@@ -324,7 +344,7 @@ impl OpusDecoder {
         for index in 0..packet.frames().len() {
             pcm.frame(|frame| self.packet_frame(packet, index, false, frame))?;
         }
-        self.last_duration = packet.duration_samples();
+        self.state.last_duration = packet.duration_samples();
         Ok(pcm.length)
     }
     /// Conceal120..5760 samples on a48kHz clock, in120-sample steps.
@@ -335,8 +355,8 @@ impl OpusDecoder {
         let mut pcm = PcmBuffer::new(&mut output.values);
         next.loss(usize::from(duration), &mut pcm)?;
         output.length = pcm.length;
-        output.range = next.range;
-        next.last_duration = duration;
+        output.range = next.state.range;
+        next.state.last_duration = duration;
         *self = next;
         Ok(output)
     }
@@ -359,7 +379,7 @@ impl OpusDecoder {
         let mut pcm = PcmBuffer::new(&mut output.values);
         if duration < packet.frame_samples()
             || packet.mode() == Mode::Celt
-            || next.mode == Some(Mode::Celt)
+            || next.state.mode == Some(Mode::Celt)
         {
             next.loss(usize::from(duration), &mut pcm)?;
         } else {
@@ -371,16 +391,16 @@ impl OpusDecoder {
             pcm.frame(|frame| next.packet_frame(packet, 0, true, frame))?;
         }
         output.length = pcm.length;
-        next.last_duration = duration;
-        output.range = next.range;
+        next.state.last_duration = duration;
+        output.range = next.state.range;
         *self = next;
         Ok(output)
     }
     fn configure_packet(&mut self, packet: &Packet<'_>) {
-        self.mode = Some(packet.mode());
-        self.bandwidth = packet.bandwidth();
-        self.wire_channels = usize::from(packet.channels());
-        self.clock = packet.frame_samples();
+        self.state.mode = Some(packet.mode());
+        self.state.bandwidth = packet.bandwidth();
+        self.state.wire_channels = usize::from(packet.channels());
+        self.state.clock = packet.frame_samples();
     }
     fn packet_frame(
         &mut self,
@@ -394,7 +414,7 @@ impl OpusDecoder {
             .get(index)
             .ok_or(DecoderError::InvalidOutput)?;
         if payload.len() <= 1 {
-            return self.loss(usize::from(self.clock), output);
+            return self.loss(usize::from(self.state.clock), output);
         }
         let (header, mut entropy) = if packet.mode() == Mode::Celt {
             (None, RangeDecoder::new(payload))
@@ -411,11 +431,11 @@ impl OpusDecoder {
     fn loss(&mut self, duration: usize, output: &mut PcmBuffer<'_>) -> Result<(), DecoderError> {
         let mut remaining = duration;
         while remaining > 0 {
-            let limit = remaining.min(usize::from(self.clock)).min(960);
-            let mode = if self.redundancy {
+            let limit = remaining.min(usize::from(self.state.clock)).min(960);
+            let mode = if self.state.redundancy {
                 Some(Mode::Celt)
             } else {
-                self.previous
+                self.state.previous
             };
             if mode.is_none() {
                 let count = limit * self.output_rate().hz() as usize / 48000
@@ -456,7 +476,7 @@ impl OpusDecoder {
                 } else {
                     FrameDuration::Ms10
                 };
-                let low = self.silk.conceal_layer(duration)?;
+                let low = self.state.silk.conceal_layer(duration)?;
                 frame.append(&low.samples()[..count])?;
             }
             let start = if mode == Some(Mode::Celt) { 0 } else { 17 };
@@ -472,11 +492,11 @@ impl OpusDecoder {
             }
             self.apply_gain(&mut frame.values[..frame.length]);
             output.length += frame.length;
-            self.previous = mode;
-            self.redundancy = false;
+            self.state.previous = mode;
+            self.state.redundancy = false;
             remaining -= n;
         }
-        self.range = 0;
+        self.state.range = 0;
         Ok(())
     }
     fn normal(
@@ -487,23 +507,25 @@ impl OpusDecoder {
         fec: bool,
         output: &mut PcmBuffer<'_>,
     ) -> Result<(), DecoderError> {
-        let mode = self.mode.ok_or(DecoderError::InvalidOutput)?;
-        let mut transition = self.previous.is_some()
-            && ((mode == Mode::Celt && self.previous != Some(Mode::Celt) && !self.redundancy)
-                || (mode != Mode::Celt && self.previous == Some(Mode::Celt)));
+        let mode = self.state.mode.ok_or(DecoderError::InvalidOutput)?;
+        let mut transition = self.state.previous.is_some()
+            && ((mode == Mode::Celt
+                && self.state.previous != Some(Mode::Celt)
+                && !self.state.redundancy)
+                || (mode != Mode::Celt && self.state.previous == Some(Mode::Celt)));
         let mut previous_samples = [0; 480];
         let mut previous_pcm = PcmBuffer::new(&mut previous_samples);
         if transition && mode == Mode::Celt {
-            self.loss(usize::from(self.clock).min(240), &mut previous_pcm)?;
+            self.loss(usize::from(self.state.clock).min(240), &mut previous_pcm)?;
         }
         if mode != Mode::Celt {
-            if self.previous == Some(Mode::Celt) {
-                self.silk.reset();
+            if self.state.previous == Some(Mode::Celt) {
+                self.state.silk.reset();
             }
             let rate = if mode == Mode::Hybrid {
                 SilkRate::Khz16
             } else {
-                match self.bandwidth {
+                match self.state.bandwidth {
                     Bandwidth::Narrowband => SilkRate::Khz8,
                     Bandwidth::Mediumband => SilkRate::Khz12,
                     _ => SilkRate::Khz16,
@@ -513,7 +535,7 @@ impl OpusDecoder {
                 .values
                 .get_mut(output.length..)
                 .ok_or(DecoderError::InvalidOutput)?;
-            output.length += self.silk.decode_layer_into(
+            output.length += self.state.silk.decode_layer_into(
                 header.ok_or(DecoderError::InvalidOutput)?,
                 entropy,
                 rate,
@@ -552,18 +574,18 @@ impl OpusDecoder {
             }
         }
         if transition && mode != Mode::Celt {
-            self.loss(usize::from(self.clock).min(240), &mut previous_pcm)?;
+            self.loss(usize::from(self.state.clock).min(240), &mut previous_pcm)?;
         }
-        let end = match self.bandwidth {
+        let end = match self.state.bandwidth {
             Bandwidth::Narrowband => 13,
             Bandwidth::Mediumband | Bandwidth::Wideband => 17,
             Bandwidth::SuperWideband => 19,
             Bandwidth::Fullband => 21,
         };
-        let band = if self.bandwidth == Bandwidth::Mediumband {
+        let band = if self.state.bandwidth == Bandwidth::Mediumband {
             Bandwidth::Wideband
         } else {
-            self.bandwidth
+            self.state.bandwidth
         };
         let mut redundant_pcm = None;
         let mut redundant_range = 0;
@@ -573,7 +595,7 @@ impl OpusDecoder {
                 &mut RangeDecoder::new(tail),
                 FrameConfig {
                     size: FrameSize::Ms5,
-                    channels: self.wire_channels,
+                    channels: self.state.wire_channels,
                     bandwidth: band,
                 },
                 0,
@@ -584,10 +606,13 @@ impl OpusDecoder {
         let start = if mode == Mode::Celt { 0 } else { 17 };
         self.celt.configure_bands(start, end)?;
         if mode != Mode::Silk {
-            if self.previous.is_some() && Some(mode) != self.previous && !self.redundancy {
+            if self.state.previous.is_some()
+                && Some(mode) != self.state.previous
+                && !self.state.redundancy
+            {
                 self.celt.reset();
             }
-            let size = frame_size(usize::from(self.clock).min(960))?;
+            let size = frame_size(usize::from(self.state.clock).min(960))?;
             let high = if fec || primary <= 1 {
                 self.celt.conceal_configured(size)?
             } else {
@@ -595,7 +620,7 @@ impl OpusDecoder {
                     entropy,
                     FrameConfig {
                         size,
-                        channels: self.wire_channels,
+                        channels: self.state.wire_channels,
                         bandwidth: band,
                     },
                     start,
@@ -606,24 +631,24 @@ impl OpusDecoder {
             } else {
                 accumulate(&mut output.values[..output.length], high.samples())?;
             }
-            self.range = self.celt.rng_state();
+            self.state.range = self.celt.rng_state();
         } else {
-            if self.previous == Some(Mode::Hybrid)
-                && !(redundant.is_some() && celt_to_silk && self.redundancy)
+            if self.state.previous == Some(Mode::Hybrid)
+                && !(redundant.is_some() && celt_to_silk && self.state.redundancy)
             {
                 self.celt.configure_bands(0, end)?;
                 let high = self.celt.decode_layer(
                     &mut RangeDecoder::new(&[0xff, 0xff]),
                     FrameConfig {
                         size: FrameSize::Ms2_5,
-                        channels: self.wire_channels,
+                        channels: self.state.wire_channels,
                         bandwidth: band,
                     },
                     0,
                 )?;
                 accumulate(&mut output.values[..high.samples().len()], high.samples())?;
             }
-            self.range = entropy.range();
+            self.state.range = entropy.range();
         }
         let f2_5 = self.output_rate().hz() as usize / 400 * self.output_channels().count();
         if let Some(tail) = redundant.filter(|_| !celt_to_silk) {
@@ -633,7 +658,7 @@ impl OpusDecoder {
                 &mut RangeDecoder::new(tail),
                 FrameConfig {
                     size: FrameSize::Ms5,
-                    channels: self.wire_channels,
+                    channels: self.state.wire_channels,
                     bandwidth: band,
                 },
                 0,
@@ -652,7 +677,7 @@ impl OpusDecoder {
         }
         if redundant.is_some()
             && celt_to_silk
-            && (self.previous != Some(Mode::Silk) || self.redundancy)
+            && (self.state.previous != Some(Mode::Silk) || self.state.redundancy)
         {
             let pcm = redundant_pcm.as_ref().ok_or(DecoderError::InvalidOutput)?;
             output.values[..f2_5].copy_from_slice(&pcm.samples()[..f2_5]);
@@ -685,25 +710,25 @@ impl OpusDecoder {
                 )?;
             }
         }
-        self.range = if primary <= 1 {
+        self.state.range = if primary <= 1 {
             0
         } else {
-            self.range ^ redundant_range
+            self.state.range ^ redundant_range
         };
-        self.previous = Some(mode);
-        self.redundancy = redundant.is_some() && !celt_to_silk;
+        self.state.previous = Some(mode);
+        self.state.redundancy = redundant.is_some() && !celt_to_silk;
         self.apply_gain(&mut output.values[..output.length]);
         Ok(())
     }
     fn apply_gain(&self, output: &mut [i16]) {
-        if self.gain_q8 == 0 {
+        if self.state.gain_q8 == 0 {
             return;
         }
         // Native QCONST16(6.48814081e-4,25), MULT16_16_P15 and
         // celt_exp2 convert Q8 dB to Q16 amplitude. Apply this per decoded
         // frame, including recursive transition PLC, rather than once to a
         // completed packet; native transition fades can reuse gained PLC.
-        let exponent = ((21771 * i32::from(self.gain_q8) + 16384) >> 15) as i16;
+        let exponent = ((21771 * i32::from(self.state.gain_q8) + 16384) >> 15) as i16;
         let gain = i64::from(crate::celt::math::exp2(exponent));
         for value in output {
             let scaled = (i64::from(*value) * gain + 32768) >> 16;

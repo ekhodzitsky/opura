@@ -1,0 +1,351 @@
+{
+  "platform": "Linux 7.0.0-42-generic x86-64; AMD Ryzen AI 9 HX 370; CPU 10, SMT sibling 22; performance governor",
+  "rustc": "1.87.0 (17067e9ac 2025-05-09), generic cargo release",
+  "baseline": "v0.2.10",
+  "candidate": "CompactOpusDecoder prototype included in v0.2.11",
+  "measured_source_sha256": {
+    "base": "c733b2a18aa2df1b54b6a386729fcdff798ef587c08d31801bf013a2e1d75547",
+    "candidate": "8537e12b55dc857eadbf606de6bb3e4a4221e52d57fab690545c816397ec5de2"
+  },
+  "measured_worker_sha256": "0d0d6c71a22f0891c51c6d5fa6a408c77773560eb4c1ae2c87c73773a7c5701f",
+  "measured_binary_sha256": {
+    "base": "31a43952231e94647fe2b313c6b4d71148d2e38e92084a53f70e81d9e027760b",
+    "candidate": "74fec3db7ffd0b71110821993c34683442eab54bd36c47c793252fd260fdc68f"
+  },
+  "corpus": {
+    "ES2002a": {
+      "source": "https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/ES2002a/audio/ES2002a.Mix-Headset.wav",
+      "source_sha256": "9c76866990fcc8b84006dc32d273ad99df439090b748ebe72103bb78c3216ee7",
+      "pcm_input_sha256": "0e82a835f9f4659c62585d1796ea292644c09475262f9703c9a1c2164600fca2",
+      "packets_sha256": "9d32ede1d75f2fac46d0529b4312576a6c8f9d9120302b01704527466433b4b1"
+    },
+    "IS1000a": {
+      "source": "https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/IS1000a/audio/IS1000a.Mix-Headset.wav",
+      "source_sha256": "25c9a48237c1f23bc419702f89234467a1b9efedbac16d9673f52d6a8c1c6a57",
+      "pcm_input_sha256": "e867a254676f9f42e09ad1074d761c3b3a68c66b784349cfe2a84472e9deea6b",
+      "packets_sha256": "1445c94031dbee34b82df9f70bf6ed1882fee6dfa52f9e89926992ca1921a480"
+    },
+    "TS3003a": {
+      "source": "https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/TS3003a/audio/TS3003a.Mix-Headset.wav",
+      "source_sha256": "b6ce59ff735c234afdd94b13744aa26f6785af746170543fd03b33160e920a6d",
+      "pcm_input_sha256": "db6939b51e3e3498d514f112d2593dcafe53b7a9dff436c1614f8b1d85a78774",
+      "packets_sha256": "bfd0a25985bae02463f172a04fe87d4fb3d0db9e396b2cdd20476d3ba4b8ab4c"
+    }
+  },
+  "switch_packet_sha256": "c2670768d2daf193cc938c1f3e13c7d0b0787665c5f12a93210d2ae508cd6094",
+  "qualification_sha256_by_stream_count": {
+    "1": "5de3d1332680f38afe78b9379be3ba3b2a58968e7b6203c7d8206bcbb3fa599a",
+    "128": "28569aa7eff76a0716dac47fe779efc732e96c643318d2aa3522fb9c9845538d",
+    "768": "e375ed8daf012018ae5aa8d8f6bc43fa5857d9facd393d04452644d26b8453f1"
+  },
+  "summary": {
+    "1": {
+      "median_paired_cpu_ratio": 1.1002366317987538,
+      "cpu_paired_geomean_ratio": 1.074354214549521,
+      "ratio_descriptive_round_bootstrap": [
+        0.9956480399333568,
+        1.130106414016405
+      ],
+      "arm": {
+        "base": {
+          "decoder_bytes": 34520,
+          "cpu_s_per_min": 0.048958346923828125,
+          "median_memory_KiB": {
+            "initial": {
+              "VmRSS": 3976.0,
+              "VmHWM": 3976.0,
+              "Private_Dirty": 1656.0,
+              "smaps_Rss": 3980.0
+            },
+            "warm": {
+              "VmRSS": 4262.0,
+              "VmHWM": 4262.0,
+              "Private_Dirty": 1780.0,
+              "smaps_Rss": 4262.0
+            },
+            "steady": {
+              "VmRSS": 4326.0,
+              "VmHWM": 4326.0,
+              "Private_Dirty": 1780.0,
+              "smaps_Rss": 4326.0
+            },
+            "switched": {
+              "VmRSS": 4418.0,
+              "VmHWM": 4418.0,
+              "Private_Dirty": 1828.0,
+              "smaps_Rss": 4418.0
+            }
+          },
+          "transition_us": {
+            "median_per_process": 110.71700000000001,
+            "median_per_process_p99": 110.71700000000001,
+            "median_per_process_max": 110.71700000000001
+          },
+          "transition_max_us_all": 168.086
+        },
+        "candidate": {
+          "decoder_bytes": 7648,
+          "cpu_s_per_min": 0.054288740478515625,
+          "median_memory_KiB": {
+            "initial": {
+              "VmRSS": 3930.0,
+              "VmHWM": 3930.0,
+              "Private_Dirty": 2006.0,
+              "smaps_Rss": 3934.0
+            },
+            "warm": {
+              "VmRSS": 4276.0,
+              "VmHWM": 4276.0,
+              "Private_Dirty": 2354.0,
+              "smaps_Rss": 4276.0
+            },
+            "steady": {
+              "VmRSS": 4340.0,
+              "VmHWM": 4340.0,
+              "Private_Dirty": 2354.0,
+              "smaps_Rss": 4340.0
+            },
+            "switched": {
+              "VmRSS": 4390.0,
+              "VmHWM": 4390.0,
+              "Private_Dirty": 2406.0,
+              "smaps_Rss": 4390.0
+            }
+          },
+          "transition_us": {
+            "median_per_process": 120.551,
+            "median_per_process_p99": 120.551,
+            "median_per_process_max": 120.551
+          },
+          "transition_max_us_all": 177.462
+        }
+      }
+    },
+    "128": {
+      "median_paired_cpu_ratio": 0.9877105343446198,
+      "cpu_paired_geomean_ratio": 0.9937759733272685,
+      "ratio_descriptive_round_bootstrap": [
+        0.9684065982193134,
+        1.0213874172577657
+      ],
+      "arm": {
+        "base": {
+          "decoder_bytes": 34520,
+          "cpu_s_per_min": 0.05822559063720703,
+          "median_memory_KiB": {
+            "initial": {
+              "VmRSS": 3986.0,
+              "VmHWM": 3986.0,
+              "Private_Dirty": 1660.0,
+              "smaps_Rss": 3990.0
+            },
+            "warm": {
+              "VmRSS": 8644.0,
+              "VmHWM": 8644.0,
+              "Private_Dirty": 6144.0,
+              "smaps_Rss": 8644.0
+            },
+            "steady": {
+              "VmRSS": 8708.0,
+              "VmHWM": 8708.0,
+              "Private_Dirty": 6144.0,
+              "smaps_Rss": 8708.0
+            },
+            "switched": {
+              "VmRSS": 8806.0,
+              "VmHWM": 8806.0,
+              "Private_Dirty": 6196.0,
+              "smaps_Rss": 8806.0
+            }
+          },
+          "transition_us": {
+            "median_per_process": 44.889,
+            "median_per_process_p99": 65.2875,
+            "median_per_process_max": 107.4765
+          },
+          "transition_max_us_all": 173.816
+        },
+        "candidate": {
+          "decoder_bytes": 7648,
+          "cpu_s_per_min": 0.057240783874511716,
+          "median_memory_KiB": {
+            "initial": {
+              "VmRSS": 3928.0,
+              "VmHWM": 3928.0,
+              "Private_Dirty": 2012.0,
+              "smaps_Rss": 3932.0
+            },
+            "warm": {
+              "VmRSS": 5306.0,
+              "VmHWM": 5306.0,
+              "Private_Dirty": 3380.0,
+              "smaps_Rss": 5306.0
+            },
+            "steady": {
+              "VmRSS": 5370.0,
+              "VmHWM": 5370.0,
+              "Private_Dirty": 3380.0,
+              "smaps_Rss": 5370.0
+            },
+            "switched": {
+              "VmRSS": 8772.0,
+              "VmHWM": 8772.0,
+              "Private_Dirty": 6776.0,
+              "smaps_Rss": 8772.0
+            }
+          },
+          "transition_us": {
+            "median_per_process": 48.5655,
+            "median_per_process_p99": 81.798,
+            "median_per_process_max": 116.233
+          },
+          "transition_max_us_all": 157.445
+        }
+      }
+    },
+    "768": {
+      "median_paired_cpu_ratio": 0.9752249646979783,
+      "cpu_paired_geomean_ratio": 0.9694251229255872,
+      "ratio_descriptive_round_bootstrap": [
+        0.9346505684867691,
+        0.9976454872937357
+      ],
+      "arm": {
+        "base": {
+          "decoder_bytes": 34520,
+          "cpu_s_per_min": 0.0583927275390625,
+          "median_memory_KiB": {
+            "initial": {
+              "VmRSS": 3944.0,
+              "VmHWM": 3944.0,
+              "Private_Dirty": 1658.0,
+              "smaps_Rss": 3948.0
+            },
+            "warm": {
+              "VmRSS": 30608.0,
+              "VmHWM": 30608.0,
+              "Private_Dirty": 28126.0,
+              "smaps_Rss": 30608.0
+            },
+            "steady": {
+              "VmRSS": 30672.0,
+              "VmHWM": 30672.0,
+              "Private_Dirty": 28126.0,
+              "smaps_Rss": 30672.0
+            },
+            "switched": {
+              "VmRSS": 30738.0,
+              "VmHWM": 30738.0,
+              "Private_Dirty": 28192.0,
+              "smaps_Rss": 30738.0
+            }
+          },
+          "transition_us": {
+            "median_per_process": 42.044,
+            "median_per_process_p99": 62.417500000000004,
+            "median_per_process_max": 119.57900000000001
+          },
+          "transition_max_us_all": 189.876
+        },
+        "candidate": {
+          "decoder_bytes": 7648,
+          "cpu_s_per_min": 0.058042436523437504,
+          "median_memory_KiB": {
+            "initial": {
+              "VmRSS": 3910.0,
+              "VmHWM": 3910.0,
+              "Private_Dirty": 1984.0,
+              "smaps_Rss": 3914.0
+            },
+            "warm": {
+              "VmRSS": 10482.0,
+              "VmHWM": 10482.0,
+              "Private_Dirty": 8552.0,
+              "smaps_Rss": 10482.0
+            },
+            "steady": {
+              "VmRSS": 10546.0,
+              "VmHWM": 10546.0,
+              "Private_Dirty": 8552.0,
+              "smaps_Rss": 10546.0
+            },
+            "switched": {
+              "VmRSS": 30774.0,
+              "VmHWM": 30774.0,
+              "Private_Dirty": 28780.0,
+              "smaps_Rss": 30774.0
+            }
+          },
+          "transition_us": {
+            "median_per_process": 47.528999999999996,
+            "median_per_process_p99": 80.726,
+            "median_per_process_max": 183.7245
+          },
+          "transition_max_us_all": 208.131
+        }
+      }
+    }
+  },
+  "run_columns": [
+    "round",
+    "streams",
+    "arm",
+    "timed_packets",
+    "thread_cpu_ns",
+    "warm_rss_kib",
+    "warm_hwm_kib",
+    "warm_private_dirty_kib",
+    "switched_rss_kib",
+    "transition_p99_ns"
+  ],
+  "runs": [
+    [0, 1, "base", 4096, 83032390, 4244, 4244, 1776, 4356, 131707],
+    [0, 1, "candidate", 4096, 94172136, 4300, 4300, 2368, 4468, 125936],
+    [0, 128, "candidate", 16384, 386710897, 5284, 5284, 3380, 8732, 107852],
+    [0, 128, "base", 16384, 406739961, 8656, 8656, 6144, 8836, 62427],
+    [0, 768, "base", 49152, 1250250673, 30596, 30596, 28124, 30728, 65483],
+    [0, 768, "candidate", 49152, 1083648959, 10504, 10504, 8572, 30784, 84880],
+    [1, 128, "base", 16384, 324020211, 8616, 8616, 6148, 8732, 76713],
+    [1, 128, "candidate", 16384, 334107203, 5312, 5312, 3380, 8760, 63158],
+    [1, 768, "candidate", 49152, 978610874, 10524, 10524, 8592, 30868, 106079],
+    [1, 768, "base", 49152, 973322114, 30600, 30600, 28128, 30728, 79208],
+    [1, 1, "candidate", 4096, 74605873, 4268, 4268, 2336, 4372, 146244],
+    [1, 1, "base", 4096, 69599657, 4240, 4240, 1776, 4416, 118912],
+    [2, 768, "base", 49152, 995415167, 30640, 30640, 28128, 30832, 73968],
+    [2, 768, "candidate", 49152, 968015693, 10480, 10480, 8548, 30760, 70933],
+    [2, 1, "base", 4096, 67273436, 4248, 4248, 1780, 4360, 101620],
+    [2, 1, "candidate", 4096, 76836975, 4216, 4216, 2320, 4324, 98344],
+    [2, 128, "candidate", 16384, 323108704, 5336, 5336, 3404, 8848, 89408],
+    [2, 128, "base", 16384, 340021992, 8596, 8596, 6140, 8780, 68148],
+    [3, 1, "candidate", 4096, 73638581, 4288, 4288, 2356, 4392, 133760],
+    [3, 1, "base", 4096, 65936398, 4244, 4244, 1780, 4420, 168086],
+    [3, 128, "base", 16384, 331046439, 8636, 8636, 6140, 8752, 89187],
+    [3, 128, "candidate", 16384, 340106090, 5300, 5300, 3368, 8744, 85951],
+    [3, 768, "candidate", 49152, 991570568, 10484, 10484, 8556, 30764, 71243],
+    [3, 768, "base", 49152, 962921551, 30608, 30608, 28128, 30740, 70142],
+    [4, 128, "candidate", 16384, 300946342, 5364, 5364, 3444, 8812, 70061],
+    [4, 128, "base", 16384, 311958507, 8664, 8664, 6144, 8844, 58018],
+    [4, 768, "base", 49152, 946696851, 30608, 30608, 28128, 30736, 59352],
+    [4, 768, "candidate", 49152, 933918867, 10480, 10480, 8548, 30756, 79509],
+    [4, 1, "base", 4096, 64592929, 4332, 4332, 1776, 4444, 101129],
+    [4, 1, "candidate", 4096, 69996835, 4256, 4256, 2380, 4360, 104315],
+    [5, 768, "candidate", 49152, 926530557, 10480, 10480, 8548, 30756, 81943],
+    [5, 768, "base", 49152, 950491345, 30588, 30588, 28124, 30720, 57387],
+    [5, 1, "candidate", 4096, 71001025, 4284, 4284, 2352, 4388, 115166],
+    [5, 1, "base", 4096, 66415490, 4296, 4296, 1784, 4472, 102522],
+    [5, 128, "base", 16384, 301301381, 8664, 8664, 6144, 8844, 56616],
+    [5, 128, "candidate", 16384, 302113298, 5272, 5272, 3340, 8784, 77645],
+    [6, 1, "base", 4096, 80907819, 4276, 4276, 1780, 4392, 96341],
+    [6, 1, "candidate", 4096, 68454730, 4292, 4292, 2360, 4464, 177462],
+    [6, 128, "candidate", 16384, 299181629, 5376, 5376, 3448, 8824, 57067],
+    [6, 128, "base", 16384, 307570185, 8652, 8652, 6140, 8832, 76513],
+    [6, 768, "base", 49152, 911308223, 30620, 30620, 28124, 30748, 50084],
+    [6, 768, "candidate", 49152, 889125863, 10468, 10468, 8536, 30812, 64321],
+    [7, 128, "base", 16384, 279267872, 8620, 8620, 6144, 8736, 44614],
+    [7, 128, "candidate", 16384, 295003269, 5288, 5288, 3356, 8732, 86753],
+    [7, 768, "candidate", 49152, 877255242, 10504, 10504, 8572, 30784, 93916],
+    [7, 768, "base", 49152, 920821376, 30620, 30620, 28124, 30748, 53140],
+    [7, 1, "candidate", 4096, 74917049, 4240, 4240, 2308, 4412, 109105],
+    [7, 1, "base", 4096, 64157879, 4292, 4292, 1780, 4468, 150583]
+  ]
+}

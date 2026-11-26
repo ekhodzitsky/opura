@@ -11,11 +11,11 @@ release, add the following dependency to your application's `Cargo.toml`:
 
 ```toml
 [dependencies]
-opura = "0.2.10"
+opura = "0.2.11"
 ```
 
 For a Git dependency, use the repository URL and an available release tag,
-for example `opura = { git = "https://github.com/ekhodzitsky/opura.git", tag = "v0.2.10" }`.
+for example `opura = { git = "https://github.com/ekhodzitsky/opura.git", tag = "v0.2.11" }`.
 
 This example encodes one 20 ms stereo frame and decodes it at 48 kHz. Keep the
 encoder and decoder alive across packets so prediction and recovery work across
@@ -50,6 +50,14 @@ Hybrid at 8, 12, 16, 24 and 48 kHz, including packet loss concealment and
 in-band forward error correction. The `multistream` module handles mapped
 channels and surround layouts.
 
+For a voice server that keeps many independent speech streams open, use one
+`decoder::CompactOpusDecoder` per stream. It supports the same packet, gain,
+loss and FEC operations. It allocates CELT history on first use and releases it
+on `reset`. In a 768-stream SILK replay, worker RSS fell from 29.9 to 10.2 MiB.
+After every stream had switched to CELT, both workers used about 30 MiB. For a
+single stream, the fixed-storage `OpusDecoder` used less CPU in this replay.
+[Speech workload and measurements](https://github.com/ekhodzitsky/opura/blob/v0.2.11/docs/benchmarks/compact-speech-0.2.11.md)
+
 ## Convert audio files
 
 Install the CLI from the registry with `cargo install opura --locked`, or build
@@ -73,7 +81,9 @@ multistream decoder used 6.1% less CPU time than v0.2.9. On 16 kHz mono
 speech, `decode_into` used 1.0% more CPU time in the same comparison.
 [Measurements and limits](https://github.com/ekhodzitsky/opura/blob/v0.2.10/docs/benchmarks/multistream-0.2.10.md)
 
-The v0.2.10 decoder passed all 120 RFC 8251 vector, rate and channel combinations.
+Both v0.2.11 single-stream decoders passed all 120 RFC 8251 vector, rate and
+channel combinations. [Compact decoder report](https://github.com/ekhodzitsky/opura/blob/v0.2.11/docs/validation/results/compact-speech-0.2.11-conformance.json)
+
 At 48 kHz mono on 15 speech recordings, `decode_into` in v0.2.9 used
 13.1% less CPU time than the v0.2.8 decoder and took 4.1% more than opus-rs
 0.1.42 with the same floating-point output. [Speech benchmark](https://github.com/ekhodzitsky/opura/blob/v0.2.9/docs/benchmarks/decoder-speech-0.2.9.md)
