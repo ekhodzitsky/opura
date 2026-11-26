@@ -113,8 +113,10 @@ impl CompactOpusDecoder {
         Ok(pcm)
     }
 
-    /// Decode into reusable PCM storage with the same error and suffix guarantees
-    /// as [`OpusDecoder::decode_into`].
+    /// Decode into reusable PCM storage and return the number of `i16` samples
+    /// written across all output channels. For stereo output, divide this count
+    /// by two to get the number of frames. The error and suffix guarantees match
+    /// [`OpusDecoder::decode_into`].
     pub fn decode_into(&mut self, data: &[u8], output: &mut [i16]) -> Result<usize, DecoderError> {
         let packet = Packet::parse(data).map_err(DecoderError::Framing)?;
         let required = usize::from(packet.duration_samples()) * self.output_rate().hz() as usize

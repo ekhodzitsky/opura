@@ -7,6 +7,7 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+- Validate compact decoding in full RustPBX SIP calls and clarify that `CompactOpusDecoder::decode_into` returns the sample count across all channels. [Bidirectional media, server CPU and memory](docs/benchmarks/rustpbx-call-0.2.12.md)
 - Measure compact Opura 0.2.12 on the RustPBX Opus-to-PCMU path. At 500 simultaneous channels it used about 88 MiB less worker RAM and 14–19% less CPU than opus-rs on two speech corpora. [Output parity and missed deadlines](docs/benchmarks/rustpbx-compact-0.2.12.md)
 - Measure compact Opura 0.2.12 in GigaSTT file transcription. Packet decoding accounted for about 0.9% of server CPU on short mono uploads. [Service CPU, latency and peak RSS](docs/benchmarks/gigastt-compact-0.2.12.md)
 
