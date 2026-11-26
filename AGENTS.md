@@ -19,6 +19,26 @@ Local research → `doc create`; draft conclusions → `decision create`;
 work → `task create`. Accepted, sanitized decisions belong in tracked
 project docs; local records link to them. Labels: `audit`, `research`.
 
+### Milestone workflow
+
+Start from Git status, the architecture and the outstanding Backlog tasks.
+Record confirmed defects, evidence-backed improvements and untested hypotheses
+separately. Group related tasks in a milestone. Give each task a priority,
+owner, acceptance criteria, expected evidence and any dependencies.
+
+Assign independent tasks to separate agents with explicit file ownership.
+Each agent records its plan, implementation and verification in its task.
+For a confirmed defect, run a failing regression before fixing the cause.
+For a performance change, set the acceptance criteria before timing baseline
+and candidate on the same inputs. Record negative results and drop changes
+that miss those criteria.
+
+The coordinator reviews the combined diff, runs the project checks, builds
+from clean sources and exercises the installed product. Update the relevant
+documentation and release metadata. Close tasks against their evidence and
+record external blockers separately. Verify authorization before publishing a
+release or changing repository visibility.
+
 ## Project setup
 
 Opura is a native, pure Rust implementation of Opus with zero third-party
