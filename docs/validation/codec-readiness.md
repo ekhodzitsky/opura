@@ -1,6 +1,6 @@
 # Codec readiness
 
-The v0.2.9 library encodes and decodes classic Opus packets in safe Rust. The
+The v0.2.10 library encodes and decodes classic Opus packets in safe Rust. The
 tables below identify the version and workload behind each measurement. Commands
 for building and running the tests are in the [development guide](../README.md#development-and-verification).
 
@@ -8,7 +8,7 @@ for building and running the tests are in the [development guide](../README.md#d
 
 | Workflow | Coverage and evidence |
 | --- | --- |
-| Decode SILK, CELT and Hybrid to signed 16-bit PCM | Both v0.2.9 output APIs passed all 12 official RFC 8251 streams at five output rates and two channel layouts. All 120 PCM hashes matched v0.2.8 and all 200,750 nonzero final-range checks passed. [Conformance results](results/decoder-speech-0.2.9-conformance.json) |
+| Decode SILK, CELT and Hybrid to signed 16-bit PCM | The v0.2.10 decoder passed all 12 official RFC 8251 streams at five output rates and two channel layouts. All 120 PCM hashes matched v0.2.9 and all 200,750 nonzero final-range checks passed. [Conformance results](results/multistream-0.2.10-conformance.json) |
 | Recover from loss and switch modes | Reference checks include 1,680 full decoder operations covering gain, long packets, concealment, in-band FEC, transitions and reset. Error tests check rollback and retry. [v0.2.5 correctness report](results/decoder-pvq-0.2.5-correctness.json) |
 | Encode mono or stereo PCM | The shared encoder supports five applications and all five input rates. Checks cover cross-mode transitions, packets from 2.5 to 120 ms, bitrate and capacity controls, DTX and in-band FEC. [Applications](encoder-applications.md) · [Long packets](encoder-long-packets.md) · [Budgets](encoder-budgets.md) |
 | Use multistream and surround | The library supports channel mapping, output gain and self-delimited framing. Native comparisons cover 7,405 generic encoder operations. Canonical surround checks cover 6,760 receiver operations and include coupled streams and LFE. [Multistream](multistream.md) · [Surround](surround-encoder.md) |
@@ -24,6 +24,7 @@ The crate requires the Rust standard library.
 | Measurement | Result and scope |
 | --- | --- |
 | Decoder vs. opus-rs and system libopus | At 16 kHz mono and 48 kHz stereo, v0.2.7 passed 24/24 official stream checks and opus-rs 0.1.42 passed 23/24. On the common passing streams Opura took 1.41× and 1.27× the opus-rs decode time respectively on one x86-64 machine. Additional warmed decoder states used about 34 KiB of private dirty memory for Opura and 176 KiB for opus-rs. [Timings and memory](../benchmarks/decoder-competition-0.2.7.md) |
+| Mapped audio decode | On 3-, 6- and 8-channel clips at 48 kHz, v0.2.10 used 6.08% less CPU time than v0.2.9. A 16 kHz mono speech control with caller output used 1.01% more CPU. [Measurements](../benchmarks/multistream-0.2.10.md) |
 | Speech decode with reusable output | On 15 mono speech recordings at 16/48 kHz, 0.2.9 `decode_into` used 16.7%/13.1% less CPU time than the 0.2.8 owned-output API. The existing API also improved. Resident worker stack was 148 KiB for caller output, 216 KiB for owned output and 296 KiB in 0.2.8. [Measured APIs and limitations](../benchmarks/decoder-speech-0.2.9.md) |
 | Speech recognition in GigaSTT | At four inference threads, opus-rs 0.1.41 and the transposed Opura pilot used 5.11 and 5.12 CPU-seconds per minute of speech, respectively. Two threads with opus-rs used 3.94, with p95 latency rising from 123 to 188 ms. All 450 HTTP transcripts matched across configurations. [Cost per minute](../benchmarks/gigastt-silk-pilot.md) · [Earlier CLI and HTTP comparison](../benchmarks/gigastt-decoder-0.2.7.md) |
 | Voice conferencing | With 64 participants in VoiceMCU, v0.2.8 cut median server RSS from 26.9 to 17.8 MiB against native libopus, using 14% more CPU. With a 16 MiB memory limit it kept all 64 connected through the test in three of three runs. [Server measurements](../benchmarks/voicemcu-0.2.8.md) |

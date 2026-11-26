@@ -7,6 +7,11 @@ and validation, without implying full Opus compatibility before PCM decoding.
 
 ## [Unreleased]
 
+## [0.2.10] - 2026-11-26
+
+- Reuse the packet-level rollback state for ordinary multistream decoding. On 3-, 6- and 8-channel clips at 48 kHz, the public decoder used 6.08% less CPU time than 0.2.9. A separate mono speech check measured a 1.01% increase at 16 kHz with caller-owned output. [Timings, stack and PCM checks](docs/benchmarks/multistream-0.2.10.md)
+- Assign each Ogg output stream a 32-bit serial number. Independently encoded files can be joined for playback by a chaining-capable reader. FFmpeg reproduced the individual outputs sample-for-sample in a two-file test with 16 kHz inputs. [File checks](docs/audio-cli.md#encode)
+
 ## [0.2.9] - 2026-11-26
 
 - Add `OpusDecoder::decode_into` for reusable, caller-sized interleaved PCM buffers. Short buffers report the required sample count and preserve the decoder state for retry. Existing `decode` calls retain their owned result.

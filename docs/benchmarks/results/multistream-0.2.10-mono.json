@@ -1,0 +1,997 @@
+{
+  "summary": {
+    "48000-caller": {
+      "ratio": 0.9950036551850255,
+      "ci95": [
+        0.9783796987333958,
+        1.0107806084928141
+      ],
+      "median_us": {
+        "before": 19.266842792647537,
+        "after": 19.08613408980974
+      }
+    },
+    "16000-owned": {
+      "ratio": 1.0063880177260969,
+      "ci95": [
+        0.9953562928251424,
+        1.0217742632032056
+      ],
+      "median_us": {
+        "before": 16.808629857304098,
+        "after": 16.889037628990646
+      }
+    },
+    "48000-owned": {
+      "ratio": 1.0037578766364126,
+      "ci95": [
+        0.9944953554276207,
+        1.0146831137365688
+      ],
+      "median_us": {
+        "before": 20.556746674459852,
+        "after": 20.595406441470494
+      }
+    },
+    "16000-caller": {
+      "ratio": 1.0101167024669444,
+      "ci95": [
+        1.000169206651945,
+        1.0205824796802199
+      ],
+      "median_us": {
+        "before": 15.659754575137052,
+        "after": 15.760333138503707
+      }
+    }
+  },
+  "qualification": {
+    "before-owned-16000": "b3fccc4f1725440572d6da2c69d911cfc61b73f0d2b88fe5dddd0a9dacb7e9aa",
+    "before-caller-16000": "b3fccc4f1725440572d6da2c69d911cfc61b73f0d2b88fe5dddd0a9dacb7e9aa",
+    "after-owned-16000": "b3fccc4f1725440572d6da2c69d911cfc61b73f0d2b88fe5dddd0a9dacb7e9aa",
+    "after-caller-16000": "b3fccc4f1725440572d6da2c69d911cfc61b73f0d2b88fe5dddd0a9dacb7e9aa",
+    "before-owned-48000": "4212f1ce6a7a9e2d8090e57adaafe3cdb25635b44e673151530f94d429195a71",
+    "before-caller-48000": "4212f1ce6a7a9e2d8090e57adaafe3cdb25635b44e673151530f94d429195a71",
+    "after-owned-48000": "4212f1ce6a7a9e2d8090e57adaafe3cdb25635b44e673151530f94d429195a71",
+    "after-caller-48000": "4212f1ce6a7a9e2d8090e57adaafe3cdb25635b44e673151530f94d429195a71"
+  },
+  "binaries": {
+    "before-caller": "c7f2ee718a226099641e7040f3d3a6a108265161851437d3f5e910b40bc2b764",
+    "before-owned": "714be3852f8445c5148ef4a64f5e7c29d930965f5a99a40961349d52d3815a97",
+    "after-caller": "d109107c87ad433bb2e5a7e17900190c11fd840d233b7d3b5c008b3975f8192e",
+    "after-owned": "4e8431514f30dfb9d78ae6f6f17ec17812eaf2d809cf7a283755f0643e844784"
+  },
+  "versions": {
+    "before": "0.2.9",
+    "after": "0.2.10"
+  },
+  "implementation": "Comparison of OpusDecoder::decode and decode_into on 15 mono Golos clips",
+  "scope": "Linux thread CPU time across 8 timed 3101-packet corpus passes after one warmup corpus; excludes model and file IO",
+  "cpu_model": "AMD Ryzen AI 9 HX 370 w/ Radeon 890M",
+  "pinned_logical_cpu": 10,
+  "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "flags": "Cargo default release, default x86-64 target",
+  "replay_sha256": "99b67a25ff888fccc02aa6176a4b1247eb30674e2cec6cab3d7d56fb7acde2f6",
+  "source_sha256": {
+    "decoder.rs": {
+      "candidate": "1dc57a775d43014fae1914744438571528a4e1d66b669a063d906815b2a17d3b",
+      "baseline": "2bcc00f8bd4e5ad6c5badac9953fc4825c4239ebf863076c2f75243e5e0b29c8"
+    },
+    "multistream.rs": {
+      "candidate": "63afcce07a9016a447f405242607749c33229cbec14a031a7507993d19c7f88b",
+      "baseline": "5eee11396541315e9cd3c5b5e75c1f86862776b9682b0f0c0e91f88e78f4da2a"
+    }
+  },
+  "before_ref": "v0.2.9",
+  "rows": [
+    {
+      "round": 0,
+      "hz": 16000,
+      "api": "caller",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 390003126,
+      "after": 394996548
+    },
+    {
+      "round": 0,
+      "hz": 16000,
+      "api": "owned",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 437003297,
+      "before": 421986802
+    },
+    {
+      "round": 0,
+      "hz": 48000,
+      "api": "owned",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 517995707,
+      "after": 520999091
+    },
+    {
+      "round": 0,
+      "hz": 48000,
+      "api": "caller",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 498997612,
+      "before": 485973228
+    },
+    {
+      "round": 1,
+      "hz": 16000,
+      "api": "caller",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 398994126,
+      "before": 395005414
+    },
+    {
+      "round": 1,
+      "hz": 48000,
+      "api": "owned",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 517978533,
+      "after": 531963156
+    },
+    {
+      "round": 1,
+      "hz": 16000,
+      "api": "owned",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 419973741,
+      "before": 414996018
+    },
+    {
+      "round": 1,
+      "hz": 48000,
+      "api": "caller",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 477975248,
+      "after": 469962259
+    },
+    {
+      "round": 2,
+      "hz": 48000,
+      "api": "caller",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 489982356,
+      "after": 470980887
+    },
+    {
+      "round": 2,
+      "hz": 48000,
+      "api": "owned",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 507973543,
+      "before": 514971481
+    },
+    {
+      "round": 2,
+      "hz": 16000,
+      "api": "owned",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 425998716,
+      "after": 417992750
+    },
+    {
+      "round": 2,
+      "hz": 16000,
+      "api": "caller",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 399934654,
+      "before": 400965198
+    },
+    {
+      "round": 3,
+      "hz": 48000,
+      "api": "owned",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 513888143,
+      "before": 529995462
+    },
+    {
+      "round": 3,
+      "hz": 48000,
+      "api": "caller",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 497920112,
+      "after": 497980878
+    },
+    {
+      "round": 3,
+      "hz": 16000,
+      "api": "caller",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 392994048,
+      "before": 399993988
+    },
+    {
+      "round": 3,
+      "hz": 16000,
+      "api": "owned",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 419947330,
+      "after": 420981107
+    },
+    {
+      "round": 4,
+      "hz": 48000,
+      "api": "caller",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 490995104,
+      "after": 490966790
+    },
+    {
+      "round": 4,
+      "hz": 16000,
+      "api": "owned",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 412950015,
+      "before": 414974647
+    },
+    {
+      "round": 4,
+      "hz": 16000,
+      "api": "caller",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 397001884,
+      "after": 397977930
+    },
+    {
+      "round": 4,
+      "hz": 48000,
+      "api": "owned",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 532936136,
+      "before": 539972638
+    },
+    {
+      "round": 5,
+      "hz": 16000,
+      "api": "caller",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 402002982,
+      "before": 396977628
+    },
+    {
+      "round": 5,
+      "hz": 48000,
+      "api": "caller",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 505949504,
+      "after": 485976083
+    },
+    {
+      "round": 5,
+      "hz": 48000,
+      "api": "owned",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 540989632,
+      "before": 538968106
+    },
+    {
+      "round": 5,
+      "hz": 16000,
+      "api": "owned",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 439947211,
+      "after": 485657234
+    },
+    {
+      "round": 6,
+      "hz": 48000,
+      "api": "caller",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 552987095,
+      "after": 505887656
+    },
+    {
+      "round": 6,
+      "hz": 16000,
+      "api": "caller",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 394971841,
+      "before": 409003503
+    },
+    {
+      "round": 6,
+      "hz": 48000,
+      "api": "owned",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 525970182,
+      "after": 521947558
+    },
+    {
+      "round": 6,
+      "hz": 16000,
+      "api": "owned",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 425967737,
+      "before": 424001825
+    },
+    {
+      "round": 7,
+      "hz": 48000,
+      "api": "caller",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 484932727,
+      "before": 481978034
+    },
+    {
+      "round": 7,
+      "hz": 16000,
+      "api": "owned",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 427942436,
+      "after": 428991260
+    },
+    {
+      "round": 7,
+      "hz": 16000,
+      "api": "caller",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 387936845,
+      "before": 386971257
+    },
+    {
+      "round": 7,
+      "hz": 48000,
+      "api": "owned",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 504972062,
+      "after": 501993814
+    },
+    {
+      "round": 8,
+      "hz": 16000,
+      "api": "owned",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 408900820,
+      "after": 399974101
+    },
+    {
+      "round": 8,
+      "hz": 48000,
+      "api": "caller",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 461956123,
+      "before": 451003689
+    },
+    {
+      "round": 8,
+      "hz": 48000,
+      "api": "owned",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 484938887,
+      "after": 515959551
+    },
+    {
+      "round": 8,
+      "hz": 16000,
+      "api": "caller",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 382988537,
+      "before": 374002496
+    },
+    {
+      "round": 9,
+      "hz": 16000,
+      "api": "owned",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 403981848,
+      "before": 400976177
+    },
+    {
+      "round": 9,
+      "hz": 48000,
+      "api": "caller",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 456977509,
+      "after": 457988994
+    },
+    {
+      "round": 9,
+      "hz": 48000,
+      "api": "owned",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 479937622,
+      "before": 481977613
+    },
+    {
+      "round": 9,
+      "hz": 16000,
+      "api": "caller",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 364969537,
+      "after": 367995446
+    },
+    {
+      "round": 10,
+      "hz": 48000,
+      "api": "caller",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 456990753,
+      "after": 456960026
+    },
+    {
+      "round": 10,
+      "hz": 16000,
+      "api": "owned",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 399973250,
+      "before": 398992392
+    },
+    {
+      "round": 10,
+      "hz": 16000,
+      "api": "caller",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 361981912,
+      "after": 369931901
+    },
+    {
+      "round": 10,
+      "hz": 48000,
+      "api": "owned",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 485965242,
+      "before": 476990253
+    },
+    {
+      "round": 11,
+      "hz": 48000,
+      "api": "caller",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 450996625,
+      "before": 463960858
+    },
+    {
+      "round": 11,
+      "hz": 16000,
+      "api": "caller",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 367002165,
+      "after": 366990643
+    },
+    {
+      "round": 11,
+      "hz": 48000,
+      "api": "owned",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 486994641,
+      "before": 489966066
+    },
+    {
+      "round": 11,
+      "hz": 16000,
+      "api": "owned",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 394984867,
+      "after": 389998297
+    },
+    {
+      "round": 12,
+      "hz": 16000,
+      "api": "caller",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 367003017,
+      "after": 388970641
+    },
+    {
+      "round": 12,
+      "hz": 48000,
+      "api": "owned",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 501966193,
+      "before": 504971863
+    },
+    {
+      "round": 12,
+      "hz": 48000,
+      "api": "caller",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 460944268,
+      "after": 467944629
+    },
+    {
+      "round": 12,
+      "hz": 16000,
+      "api": "owned",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 404971992,
+      "before": 405997122
+    },
+    {
+      "round": 13,
+      "hz": 48000,
+      "api": "owned",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 489971696,
+      "before": 481970350
+    },
+    {
+      "round": 13,
+      "hz": 48000,
+      "api": "caller",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 459974763,
+      "after": 460997829
+    },
+    {
+      "round": 13,
+      "hz": 16000,
+      "api": "caller",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 363991125,
+      "before": 363977117
+    },
+    {
+      "round": 13,
+      "hz": 16000,
+      "api": "owned",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 405982075,
+      "after": 405979018
+    },
+    {
+      "round": 14,
+      "hz": 48000,
+      "api": "owned",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 497917187,
+      "after": 494949640
+    },
+    {
+      "round": 14,
+      "hz": 16000,
+      "api": "caller",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 380983381,
+      "before": 369983969
+    },
+    {
+      "round": 14,
+      "hz": 48000,
+      "api": "caller",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 452988918,
+      "after": 481978375
+    },
+    {
+      "round": 14,
+      "hz": 16000,
+      "api": "owned",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 421951756,
+      "before": 418980961
+    },
+    {
+      "round": 15,
+      "hz": 48000,
+      "api": "caller",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 475996742,
+      "before": 477968424
+    },
+    {
+      "round": 15,
+      "hz": 16000,
+      "api": "owned",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 436972820,
+      "after": 432971324
+    },
+    {
+      "round": 15,
+      "hz": 48000,
+      "api": "owned",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 549987076,
+      "before": 538954802
+    },
+    {
+      "round": 15,
+      "hz": 16000,
+      "api": "caller",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 396966758,
+      "after": 410997277
+    }
+  ],
+  "statistic": "paired geometric mean candidate/baseline per configuration; bootstrap over 16 paired ratios with replacement, ten thousand resamples, Python Random seed 110; 95% percentile interval",
+  "acceptance": "every upper confidence limit <=1.05",
+  "passed": true,
+  "reference": "0.2.9 benchmark libopus 1.6.1 little-endian PCM float and final range, exact match required",
+  "stack_probe": "0.2.9 speech API stack measurement driver, CPU 11, three fresh processes per configuration",
+  "stack_observations": [
+    {
+      "version": "0.2.9",
+      "api": "owned",
+      "hz": 16000,
+      "rep": 1,
+      "before_kib": 8,
+      "after_kib": 216
+    },
+    {
+      "version": "0.2.9",
+      "api": "owned",
+      "hz": 16000,
+      "rep": 2,
+      "before_kib": 8,
+      "after_kib": 216
+    },
+    {
+      "version": "0.2.9",
+      "api": "owned",
+      "hz": 16000,
+      "rep": 3,
+      "before_kib": 8,
+      "after_kib": 216
+    },
+    {
+      "version": "0.2.9",
+      "api": "owned",
+      "hz": 48000,
+      "rep": 1,
+      "before_kib": 8,
+      "after_kib": 216
+    },
+    {
+      "version": "0.2.9",
+      "api": "owned",
+      "hz": 48000,
+      "rep": 2,
+      "before_kib": 8,
+      "after_kib": 216
+    },
+    {
+      "version": "0.2.9",
+      "api": "owned",
+      "hz": 48000,
+      "rep": 3,
+      "before_kib": 8,
+      "after_kib": 216
+    },
+    {
+      "version": "0.2.9",
+      "api": "caller",
+      "hz": 16000,
+      "rep": 1,
+      "before_kib": 8,
+      "after_kib": 148
+    },
+    {
+      "version": "0.2.9",
+      "api": "caller",
+      "hz": 16000,
+      "rep": 2,
+      "before_kib": 8,
+      "after_kib": 148
+    },
+    {
+      "version": "0.2.9",
+      "api": "caller",
+      "hz": 16000,
+      "rep": 3,
+      "before_kib": 8,
+      "after_kib": 148
+    },
+    {
+      "version": "0.2.9",
+      "api": "caller",
+      "hz": 48000,
+      "rep": 1,
+      "before_kib": 8,
+      "after_kib": 148
+    },
+    {
+      "version": "0.2.9",
+      "api": "caller",
+      "hz": 48000,
+      "rep": 2,
+      "before_kib": 8,
+      "after_kib": 148
+    },
+    {
+      "version": "0.2.9",
+      "api": "caller",
+      "hz": 48000,
+      "rep": 3,
+      "before_kib": 8,
+      "after_kib": 148
+    },
+    {
+      "version": "0.2.10",
+      "api": "owned",
+      "hz": 16000,
+      "rep": 1,
+      "before_kib": 8,
+      "after_kib": 216
+    },
+    {
+      "version": "0.2.10",
+      "api": "owned",
+      "hz": 16000,
+      "rep": 2,
+      "before_kib": 8,
+      "after_kib": 216
+    },
+    {
+      "version": "0.2.10",
+      "api": "owned",
+      "hz": 16000,
+      "rep": 3,
+      "before_kib": 8,
+      "after_kib": 216
+    },
+    {
+      "version": "0.2.10",
+      "api": "owned",
+      "hz": 48000,
+      "rep": 1,
+      "before_kib": 8,
+      "after_kib": 216
+    },
+    {
+      "version": "0.2.10",
+      "api": "owned",
+      "hz": 48000,
+      "rep": 2,
+      "before_kib": 8,
+      "after_kib": 216
+    },
+    {
+      "version": "0.2.10",
+      "api": "owned",
+      "hz": 48000,
+      "rep": 3,
+      "before_kib": 8,
+      "after_kib": 216
+    },
+    {
+      "version": "0.2.10",
+      "api": "caller",
+      "hz": 16000,
+      "rep": 1,
+      "before_kib": 8,
+      "after_kib": 148
+    },
+    {
+      "version": "0.2.10",
+      "api": "caller",
+      "hz": 16000,
+      "rep": 2,
+      "before_kib": 8,
+      "after_kib": 148
+    },
+    {
+      "version": "0.2.10",
+      "api": "caller",
+      "hz": 16000,
+      "rep": 3,
+      "before_kib": 8,
+      "after_kib": 148
+    },
+    {
+      "version": "0.2.10",
+      "api": "caller",
+      "hz": 48000,
+      "rep": 1,
+      "before_kib": 8,
+      "after_kib": 148
+    },
+    {
+      "version": "0.2.10",
+      "api": "caller",
+      "hz": 48000,
+      "rep": 2,
+      "before_kib": 8,
+      "after_kib": 148
+    },
+    {
+      "version": "0.2.10",
+      "api": "caller",
+      "hz": 48000,
+      "rep": 3,
+      "before_kib": 8,
+      "after_kib": 148
+    }
+  ],
+  "stack_binaries_sha256": {
+    "before-owned": "9fd6cc32159af1a65c2b1f92a9869df6266ac35cd9ccadf6ea3dd7f05881563b",
+    "before-caller": "f817e2e8aae95f27121d075fc637496efe74336e9dfdc98cda353ab28b073df8",
+    "after-owned": "ef0b3b868140f1124fbcc3c687b64aff130d9d96bdcd5edf41bfcdfe41aae139",
+    "after-caller": "7b17793df195a2e876fec7b91f7ad72320b3746934c4fd7d9229cb06e7c05811"
+  }
+}

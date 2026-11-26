@@ -11,11 +11,11 @@ release, add the following dependency to your application's `Cargo.toml`:
 
 ```toml
 [dependencies]
-opura = "0.2.9"
+opura = "0.2.10"
 ```
 
 For a Git dependency, use the repository URL and an available release tag,
-for example `opura = { git = "https://github.com/ekhodzitsky/opura.git", tag = "v0.2.9" }`.
+for example `opura = { git = "https://github.com/ekhodzitsky/opura.git", tag = "v0.2.10" }`.
 
 This example encodes one 20 ms stereo frame and decodes it at 48 kHz. Keep the
 encoder and decoder alive across packets so prediction and recovery work across
@@ -68,7 +68,12 @@ Choose new output paths for both commands. [File formats and options](docs/audio
 
 ## Validation and releases
 
-The v0.2.9 decoder passed all 120 RFC 8251 vector, rate and channel combinations.
+At 48 kHz on three mapped audio files (3, 6 and 8 channels), the v0.2.10
+multistream decoder used 6.1% less CPU time than v0.2.9. On 16 kHz mono
+speech, `decode_into` used 1.0% more CPU time in the same comparison.
+[Measurements and limits](https://github.com/ekhodzitsky/opura/blob/v0.2.10/docs/benchmarks/multistream-0.2.10.md)
+
+The v0.2.10 decoder passed all 120 RFC 8251 vector, rate and channel combinations.
 At 48 kHz mono on 15 speech recordings, `decode_into` in v0.2.9 used
 13.1% less CPU time than the v0.2.8 decoder and took 4.1% more than opus-rs
 0.1.42 with the same floating-point output. [Speech benchmark](https://github.com/ekhodzitsky/opura/blob/v0.2.9/docs/benchmarks/decoder-speech-0.2.9.md)

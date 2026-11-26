@@ -1,0 +1,678 @@
+{
+  "protocol": "Freeze before timed samples: tag v0.2.9 against candidate; compiler Rust 1.87.0 default --release, no RUSTFLAGS; identical library build directory and runner across arms. Unmodified tests/audio/mapped/family{1-3ch,1-6ch,255-8ch}-gain0.opus (2,4,8 elementary streams): rewind by constructing a new MultistreamDecoder per complete six-packet clip, public decode at 48 kHz, mapped PCM and ranges black_box. 128 file passes per timed run after 8 warmup passes, timing reads Linux /proc/thread-self/schedstat; no input I/O in timed region. 20 paired rounds per fixture alternating arm order by (round+case) parity; rotate case order by round; pin all timed processes to CPU6. For each round and case compute after/before; equal-weight geometric average over cells/rounds; bootstrap paired rounds 20,000 times seed 111 for 95% percentile intervals. Accept only if upper aggregate ratio <1, all three cell upper limits <=1.05 and all PCM samples and per-packet final ranges compare equal. Qualification separately writes all i16le output and per-packet range+length for bytewise comparison.",
+  "cpu": 6,
+  "cpu_model": "AMD Ryzen AI 9 HX 370 w/ Radeon 890M",
+  "rustc": "rustc 1.87.0 (17067e9ac 2025-05-09)\nbinary: rustc\ncommit-hash: 17067e9ac6d7ecb70e50f92c1944e545188d2359\ncommit-date: 2025-05-09\nhost: x86_64-unknown-linux-gnu\nrelease: 1.87.0\nLLVM version: 20.1.1\n",
+  "executables_sha256": {
+    "before": "6fb3c074de586707d557a72b1c6e86ae5c441990b5905e464acc48f33dfd5720",
+    "after": "a96b119ab38cf020e3e3f7fbead94261dffa1d55d1f92f0220ca18d502314f76"
+  },
+  "replay_source_sha256": "8c4e9b01b3ca79fb47ec7baa5d3ea678d1080868e4d5599ae46ec6bbe4c4aa02",
+  "fixtures": {
+    "family1-3ch": {
+      "fixture_sha256": "c677c9e77e73fccc5ed04e3296f065f910cf9fa3833054ff150a0c9d5a0eb66b",
+      "pcm_range_sha256": "49e3a778da8de0e99d790dfb0cad595cee871972ab94dc84efce5ed898bb65b0"
+    },
+    "family1-6ch": {
+      "fixture_sha256": "eb602c030390e4ef2a40d15821160c10a7b46e866f610a39a14d92536b513d90",
+      "pcm_range_sha256": "6b2fcf9b888316dd43979f1fd0873da8ba8ddfe7d0c4631051389b44db7bc951"
+    },
+    "family255-8ch": {
+      "fixture_sha256": "225ccc2b9e96cbdd780a90993284c2bb97ebafd3e175b5681bd05f4b8cb0e921",
+      "pcm_range_sha256": "eb262878bc60bc59475898ea8f00274d3e1ec480ded76db5bc3d201fca685cd6"
+    }
+  },
+  "runs": [
+    {
+      "round": 1,
+      "clip": "family1-3ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 77993652,
+      "after": 78980340
+    },
+    {
+      "round": 1,
+      "clip": "family1-6ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 171999675,
+      "before": 174979948
+    },
+    {
+      "round": 1,
+      "clip": "family255-8ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 300002284,
+      "after": 274959579
+    },
+    {
+      "round": 2,
+      "clip": "family1-6ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 174010912,
+      "after": 163990825
+    },
+    {
+      "round": 2,
+      "clip": "family255-8ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 256946380,
+      "before": 282975554
+    },
+    {
+      "round": 2,
+      "clip": "family1-3ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 77901118,
+      "before": 79888809
+    },
+    {
+      "round": 3,
+      "clip": "family255-8ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 282984299,
+      "after": 260947985
+    },
+    {
+      "round": 3,
+      "clip": "family1-3ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 81988594,
+      "after": 73978711
+    },
+    {
+      "round": 3,
+      "clip": "family1-6ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 164954840,
+      "before": 176991535
+    },
+    {
+      "round": 4,
+      "clip": "family1-3ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 73999050,
+      "before": 80001173
+    },
+    {
+      "round": 4,
+      "clip": "family1-6ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 167980557,
+      "after": 158991822
+    },
+    {
+      "round": 4,
+      "clip": "family255-8ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 245985731,
+      "before": 271002628
+    },
+    {
+      "round": 5,
+      "clip": "family1-6ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 170981669,
+      "before": 173978562
+    },
+    {
+      "round": 5,
+      "clip": "family255-8ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 267984114,
+      "after": 264002276
+    },
+    {
+      "round": 5,
+      "clip": "family1-3ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 79989661,
+      "after": 74989456
+    },
+    {
+      "round": 6,
+      "clip": "family255-8ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 260989863,
+      "before": 278003501
+    },
+    {
+      "round": 6,
+      "clip": "family1-3ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 75989167,
+      "before": 77998993
+    },
+    {
+      "round": 6,
+      "clip": "family1-6ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 167934190,
+      "after": 161992011
+    },
+    {
+      "round": 7,
+      "clip": "family1-3ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 77978644,
+      "after": 72990240
+    },
+    {
+      "round": 7,
+      "clip": "family1-6ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 160985375,
+      "before": 168991081
+    },
+    {
+      "round": 7,
+      "clip": "family255-8ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 267992200,
+      "after": 252012229
+    },
+    {
+      "round": 8,
+      "clip": "family1-6ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 181963938,
+      "after": 161983215
+    },
+    {
+      "round": 8,
+      "clip": "family255-8ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 244963937,
+      "before": 258963618
+    },
+    {
+      "round": 8,
+      "clip": "family1-3ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 71990007,
+      "before": 77990395
+    },
+    {
+      "round": 9,
+      "clip": "family255-8ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 398842470,
+      "after": 238001687
+    },
+    {
+      "round": 9,
+      "clip": "family1-3ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 72990060,
+      "after": 68989988
+    },
+    {
+      "round": 9,
+      "clip": "family1-6ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 151989917,
+      "before": 163984914
+    },
+    {
+      "round": 10,
+      "clip": "family1-3ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 77989265,
+      "before": 84976691
+    },
+    {
+      "round": 10,
+      "clip": "family1-6ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 168000555,
+      "after": 161997421
+    },
+    {
+      "round": 10,
+      "clip": "family255-8ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 251911359,
+      "before": 266993859
+    },
+    {
+      "round": 11,
+      "clip": "family1-6ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 163000961,
+      "before": 172000497
+    },
+    {
+      "round": 11,
+      "clip": "family255-8ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 271010743,
+      "after": 276996243
+    },
+    {
+      "round": 11,
+      "clip": "family1-3ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 86831444,
+      "after": 81669123
+    },
+    {
+      "round": 12,
+      "clip": "family255-8ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 268929363,
+      "before": 264001775
+    },
+    {
+      "round": 12,
+      "clip": "family1-3ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 74989846,
+      "before": 78989938
+    },
+    {
+      "round": 12,
+      "clip": "family1-6ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 174001214,
+      "after": 168988987
+    },
+    {
+      "round": 13,
+      "clip": "family1-3ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 79991594,
+      "after": 74998672
+    },
+    {
+      "round": 13,
+      "clip": "family1-6ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 164991048,
+      "before": 180000110
+    },
+    {
+      "round": 13,
+      "clip": "family255-8ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 263993881,
+      "after": 250965499
+    },
+    {
+      "round": 14,
+      "clip": "family1-6ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 169971346,
+      "after": 165000856
+    },
+    {
+      "round": 14,
+      "clip": "family255-8ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 252986464,
+      "before": 269002161
+    },
+    {
+      "round": 14,
+      "clip": "family1-3ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 74990086,
+      "before": 80898554
+    },
+    {
+      "round": 15,
+      "clip": "family255-8ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 276010307,
+      "after": 249994059
+    },
+    {
+      "round": 15,
+      "clip": "family1-3ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 77991659,
+      "after": 72990250
+    },
+    {
+      "round": 15,
+      "clip": "family1-6ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 159983830,
+      "before": 166990724
+    },
+    {
+      "round": 16,
+      "clip": "family1-3ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 74989997,
+      "before": 77991488
+    },
+    {
+      "round": 16,
+      "clip": "family1-6ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 169982427,
+      "after": 159994990
+    },
+    {
+      "round": 16,
+      "clip": "family255-8ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 247002245,
+      "before": 262992104
+    },
+    {
+      "round": 17,
+      "clip": "family1-6ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 161991770,
+      "before": 174987473
+    },
+    {
+      "round": 17,
+      "clip": "family255-8ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 269001890,
+      "after": 251996790
+    },
+    {
+      "round": 17,
+      "clip": "family1-3ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 81988184,
+      "after": 76989981
+    },
+    {
+      "round": 18,
+      "clip": "family255-8ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 268991772,
+      "before": 277925986
+    },
+    {
+      "round": 18,
+      "clip": "family1-3ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 73989823,
+      "before": 79991113
+    },
+    {
+      "round": 18,
+      "clip": "family1-6ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 168987524,
+      "after": 163988309
+    },
+    {
+      "round": 19,
+      "clip": "family1-3ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 78981513,
+      "after": 74990257
+    },
+    {
+      "round": 19,
+      "clip": "family1-6ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 163000920,
+      "before": 172974100
+    },
+    {
+      "round": 19,
+      "clip": "family255-8ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 264002006,
+      "after": 254005483
+    },
+    {
+      "round": 20,
+      "clip": "family1-6ch",
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": 167991648,
+      "after": 161968707
+    },
+    {
+      "round": 20,
+      "clip": "family255-8ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 245991632,
+      "before": 264971662
+    },
+    {
+      "round": 20,
+      "clip": "family1-3ch",
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": 74981810,
+      "before": 76987698
+    }
+  ],
+  "results": {
+    "family1-3ch": {
+      "time_ratio": 0.9440925127991674,
+      "ci95": [
+        0.9341252110014858,
+        0.9554571367605206
+      ],
+      "before_median_us_per_packet": 103.43668424479166,
+      "after_median_us_per_packet": 97.643126953125
+    },
+    "family1-6ch": {
+      "time_ratio": 0.9493887962253975,
+      "ci95": [
+        0.9389314250525591,
+        0.9591653906110797
+      ],
+      "before_median_us_per_packet": 222.6451328125,
+      "after_median_us_per_packet": 211.58746158854166
+    },
+    "family255-8ch": {
+      "time_ratio": 0.9242485078706753,
+      "ci95": [
+        0.8759793324780405,
+        0.9565544056323679
+      ],
+      "before_median_us_per_packet": 350.26305403645836,
+      "after_median_us_per_packet": 328.7751907552083
+    },
+    "aggregate": {
+      "time_ratio": 0.9391806537780917,
+      "ci95": [
+        0.9207492599871293,
+        0.9524084099585841
+      ]
+    }
+  },
+  "passed": true,
+  "library_identities": {
+    "hash_method": "SHA-256 over sorted relative POSIX path, NUL, raw contents, NUL for every src/**/*.rs except src/bin, and Cargo.toml, Cargo.lock, rust-toolchain.toml.",
+    "before": {
+      "version": "0.2.9",
+      "commit": "99a3365009eb0a392097140af37cb3dda58748c5",
+      "library_sources_sha256": "cc6fa5231231280e72db05f007200f6566e8045b82d73ae6b025f7ede4ea577d"
+    },
+    "after": {
+      "version": "0.2.10",
+      "library_sources_sha256": "94bd3ffd452ba9bb92d47b0ca1b170c1f9b9b47fb069cbcdf8a984214926137e"
+    }
+  },
+  "output_description": "Little-endian u32 range and u32 interleaved sample count followed by little-endian i16 PCM per packet. Six packets per fixture, 97920 i16 samples across three fixtures.",
+  "measurements": "Twenty paired rounds per case; each process replays 128 independent six-packet clips. Decoder construction and output drop included, file I/O excluded."
+}
